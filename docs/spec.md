@@ -1,6 +1,6 @@
 # Multi-target SFC compiler, Spec v0.1
 
-Working name: **multifront**. This spec uses `uc` ("universal component") and the `.uc` extension as placeholders.
+Project name: **multifront**. Component files use the `.ucf` extension ("universal component file").
 
 ## 1. Goal
 
@@ -55,10 +55,10 @@ Rules:
 ## 3. Architecture
 
 ```
-.uc file
+.ucf file
  └─ splitBlocks()               own code, raw-text root splitter + offsets
       ├─ styles ─ compileStyleAsync() (@vue/compiler-sfc)  → CSS + class map + scope id
-      ├─ <vue>    → Card.uc as SFC code   → @vitejs/plugin-vue
+      ├─ <vue>    → Card.ucf as SFC code   → @vitejs/plugin-vue
       ├─ <react>  → scope transform (oxc/babel) → virtual Card.tsx → @vitejs/plugin-react
       └─ <svelte> → scope transform → virtual Card.svelte → @sveltejs/vite-plugin-svelte
 ```
@@ -80,29 +80,29 @@ Rules:
 
 - Each `<style>` is compiled once per file with `compileStyleAsync({ id, scoped, modules, preprocessLang, filename, source })`.
 - **Scope id:** a hash of the file path relative to the package root plus content (same scheme as plugin-vue), emitted as `data-v-<hash>`. It must be deterministic across builds and machines for SSR hydration.
-- The resulting CSS is served as a virtual module (`Card.uc?uc&type=style&index=0&lang.css`) so Vite handles CSS, HMR and extraction.
+- The resulting CSS is served as a virtual module (`Card.ucf?ucf&type=style&index=0&lang.css`) so Vite handles CSS, HMR and extraction.
 - The CSS-module class map is served as a virtual JS module and imported as `$style` by non-Vue targets.
 
 ### 3.4 Vue target
 
-- The Vue target keeps the real `Card.uc` path as its module id. The plugin adds `.uc` to plugin-vue's `include` and, in a pre `transform`, turns the `.uc` source into SFC code: the `<vue>` block content plus each root `<style>` block re-attached with its original attributes.
+- The Vue target keeps the real `Card.ucf` path as its module id. The plugin adds `.ucf` to plugin-vue's `include` and, in a pre `transform`, turns the `.ucf` source into SFC code: the `<vue>` block content plus each root `<style>` block re-attached with its original attributes.
 - No virtual `.vue` path: on a cache miss (dev server restart, SSR) plugin-vue re-reads the file from disk, which fails for a file that does not exist.
 - plugin-vue then compiles it. Scoped CSS, `$style` and `v-bind()` work natively. The Vue target does **not** use 3.3; plugin-vue compiles the styles itself, so the CSS is identical by construction.
 - plugin-vue's `features.componentIdGenerator` is set to the scope id of 3.3, so `data-v-*` matches the other targets.
-- Source maps: offset-shift from the SFC code back to the `.uc` file.
+- Source maps: offset-shift from the SFC code back to the `.ucf` file.
 
 ### 3.5 React target
 
-- Emit a virtual `Card.uc.tsx` module from the `<react>` block, with:
+- Emit a virtual `Card.ucf.tsx` module from the `<react>` block, with:
   - `import $style from '<style module virtual id>'` injected when a module style exists;
   - `import '<style virtual id>'` for each style block;
   - the scope transform below, applied when any style is scoped.
 - **Scope transform** (oxc or Babel AST, MagicString edits):
   1. Every host JSX element (lowercase tag) gets `data-v-<id>=""`.
   2. Every component JSX element (capitalized / member expression) in this file also gets `data-v-<id>=""`, so the parent scope reaches the child root, matching Vue.
-  3. In the default-exported component, every **returned root** JSX element gets `{...__ucScopeAttrs(props)}`, forwarding incoming `data-v-*` props. Handle multiple returns, conditional (`?:`, `&&`) roots, and unwrap `memo(...)` / `forwardRef(...)`. Fragment roots get no forwarding, plus a dev warning (Vue's multi-root rule).
+  3. In the default-exported component, every **returned root** JSX element gets `{...__ucfScopeAttrs(props)}`, forwarding incoming `data-v-*` props. Handle multiple returns, conditional (`?:`, `&&`) roots, and unwrap `memo(...)` / `forwardRef(...)`. Fragment roots get no forwarding, plus a dev warning (Vue's multi-root rule).
   4. If the component destructures props in its parameter, rewrite to `(__props)` + `const {...} = __props` so the forward has access to all props.
-- `__ucScopeAttrs` is a tiny helper inlined or imported from a runtime file under 20 lines with zero dependencies.
+- `__ucfScopeAttrs` is a tiny helper inlined or imported from a runtime file under 20 lines with zero dependencies.
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
 - Third-party components don't forward scope attributes; document `className` + CSS modules as the way to style them.
 
@@ -115,25 +115,25 @@ Rules:
 
 ### 3.7 `$style` typing
 
-- Generate a declaration per `.uc` file with the exact class names, for example `.uc/types/Card.uc.d.ts`, so `$style.card` autocompletes and typos fail in all three targets.
+- Generate a declaration per `.ucf` file with the exact class names, for example `.ucf/types/Card.ucf.d.ts`, so `$style.card` autocompletes and typos fail in all three targets.
 - `$style` is typed per block by the per-target virtual scripts of section 5.
 
 ## 4. Imports
 
-How an import of a `.uc` file picks the framework. This covers the library's own source, demo apps and tests. A published package has no `.uc` files: consumers pick the framework by package name (`@lib/react`).
+How an import of a `.ucf` file picks the framework. This covers the library's own source, demo apps and tests. A published package has no `.ucf` files: consumers pick the framework by package name (`@lib/react`).
 
-### 4.1 Inside a `.uc` file: always automatic
+### 4.1 Inside a `.ucf` file: always automatic
 
 An import inside a target block always gets that block's framework. Nothing to write:
 
 ```html
 <react>
-  import Icon from './Icon.uc'   // the React Icon
+  import Icon from './Icon.ucf'   // the React Icon
 </react>
 
 <vue>
   <script setup lang="ts">
-  import Icon from './Icon.uc'   // the Vue Icon
+  import Icon from './Icon.ucf'   // the Vue Icon
   </script>
 </vue>
 ```
@@ -143,16 +143,16 @@ An import inside a target block always gets that block's framework. Nothing to w
 - This holds in every build, whatever the global default is, so a library's components can import each other freely.
 - Types follow the same rule inside the language plugin, with no TypeScript plugin involved: each block's virtual script imports the other file's virtual script for the same framework.
 
-### 4.2 Outside a `.uc` file: picking the target
+### 4.2 Outside a `.ucf` file: picking the target
 
 For a plain `.ts`, `.tsx`, `.vue` or `.svelte` file, the most specific rule wins:
 
 1. **Import attribute** on that import:
 
    ```ts
-   import Card from './Card.uc' with { framework: 'react' };
-   export { default as VueCard } from './Card.uc' with { framework: 'vue' };
-   const SvelteCard = await import('./Card.uc', { with: { framework: 'svelte' } });
+   import Card from './Card.ucf' with { framework: 'react' };
+   export { default as VueCard } from './Card.ucf' with { framework: 'vue' };
+   const SvelteCard = await import('./Card.ucf', { with: { framework: 'svelte' } });
    ```
 
    The key is `framework`, never `type` (hosts reserve `type` for `json` / `css`). The value must be a string literal; anything else is a build error.
@@ -161,7 +161,7 @@ For a plain `.ts`, `.tsx`, `.vue` or `.svelte` file, the most specific rule wins
 3. **The global default**, the plugin's `target` option. A library build runs once per target with it set, so every bare import in that build follows.
 4. **None of these** → a build error naming the three ways.
 
-So in a one-framework app, a plain `import Card from './Card.uc'` just works. The attribute is only for mixing frameworks in one app (a docs site showing all three, tests).
+So in a one-framework app, a plain `import Card from './Card.ucf'` just works. The attribute is only for mixing frameworks in one app (a docs site showing all three, tests).
 
 ### 4.3 One module per file and target
 
@@ -172,10 +172,10 @@ So in a one-framework app, a plain `import Card from './Card.uc'` just works. Th
 
 | Target | Module id | Why |
 | --- | --- | --- |
-| vue | `/abs/Card.uc` | plugin-vue needs a real file on disk (3.4) |
-| react | `/abs/Card.uc?target=react&lang.tsx` | plugin-react only picks up `.tsx` ids |
-| svelte | `/abs/Card.uc?target=svelte&lang.svelte` | plugin-svelte only picks up `.svelte` ids |
-| styles | `/abs/Card.uc?uc&type=style&index=N&lang.css` | shared by every target |
+| vue | `/abs/Card.ucf` | plugin-vue needs a real file on disk (3.4) |
+| react | `/abs/Card.ucf?target=react&lang.tsx` | plugin-react only picks up `.tsx` ids |
+| svelte | `/abs/Card.ucf?target=svelte&lang.svelte` | plugin-svelte only picks up `.svelte` ids |
+| styles | `/abs/Card.ucf?ucf&type=style&index=N&lang.css` | shared by every target |
 
 - Never a `vue` query: plugin-vue treats any id with one as its own sub-request (`Card.vue?vue&type=style`).
 
@@ -185,12 +185,12 @@ Browsers and Node reject import attributes they do not know. A post `transform` 
 
 ## 5. Types
 
-TypeScript gives one type per resolved file and never looks at import attributes. So `.uc` types need our own tooling, the same way `vue-tsc` exists for Vue.
+TypeScript gives one type per resolved file and never looks at import attributes. So `.ucf` types need our own tooling, the same way `vue-tsc` exists for Vue.
 
-- **Per-target virtual scripts.** For `Card.uc` the language plugin (section 6) exposes one TypeScript file per target: `Card.uc.react.tsx` (the `<react>` block itself), `Card.uc.vue.ts` (from `@vue/language-core`) and `Card.uc.svelte.ts` (from `svelte2tsx`). Each exports that framework's component type: a React function component, a Vue `DefineComponent`, a Svelte `Component`.
-- **Attribute-aware resolution.** A TypeScript plugin overrides module resolution (`resolveModuleNameLiterals`). It reads the import's `framework` attribute, or the importer's framework, or the default target, and resolves `./Card.uc` to the matching virtual script. Same rules as 4.2, in one shared function in `@multifront/core`, so the editor and the build cannot disagree.
-- **Where it runs:** in VS Code through the TypeScript plugin, on the command line through `mf-tsc` (a `tsc` wrapper like `vue-tsc`). Plain `tsc` sees no `.uc` types.
-- **`mf-tsc` checks every target** of every `.uc` file, so a block that breaks only for one framework still fails.
+- **Per-target virtual scripts.** For `Card.ucf` the language plugin (section 6) exposes one TypeScript file per target: `Card.ucf.react.tsx` (the `<react>` block itself), `Card.ucf.vue.ts` (from `@vue/language-core`) and `Card.ucf.svelte.ts` (from `svelte2tsx`). Each exports that framework's component type: a React function component, a Vue `DefineComponent`, a Svelte `Component`.
+- **Attribute-aware resolution.** A TypeScript plugin overrides module resolution (`resolveModuleNameLiterals`). It reads the import's `framework` attribute, or the importer's framework, or the default target, and resolves `./Card.ucf` to the matching virtual script. Same rules as 4.2, in one shared function in `@multifront/core`, so the editor and the build cannot disagree.
+- **Where it runs:** in VS Code through the TypeScript plugin, on the command line through `mf-tsc` (a `tsc` wrapper like `vue-tsc`). Plain `tsc` sees no `.ucf` types.
+- **`mf-tsc` checks every target** of every `.ucf` file, so a block that breaks only for one framework still fails.
 - **Library output:** each target package gets real `.d.ts` files from its own virtual scripts. Consumers need none of this tooling.
 
 ## 6. Editor support (VS Code)
@@ -200,10 +200,10 @@ From the first milestones, not the last. Built on Volar, the framework behind Vu
 | Package | Job |
 | --- | --- |
 | `@multifront/language-core` | Volar language plugin: embedded code per block, the per-target virtual scripts and the resolution rules of 5. |
-| `@multifront/typescript-plugin` | tsserver plugin: `.ts`, `.tsx`, `.vue` and `.svelte` files importing `.uc` get the right types. |
-| `@multifront/language-server` | Volar language server for `.uc` files: completions, errors, hover, go to definition, per block. |
+| `@multifront/typescript-plugin` | tsserver plugin: `.ts`, `.tsx`, `.vue` and `.svelte` files importing `.ucf` get the right types. |
+| `@multifront/language-server` | Volar language server for `.ucf` files: completions, errors, hover, go to definition, per block. |
 | `@multifront/tsc` | The `mf-tsc` command line type check. |
-| `multifront-vscode` | The VS Code extension: `.uc` language id, a TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars, starts the server, registers the TypeScript plugin. Published to the VS Code Marketplace and Open VSX, not npm. |
+| `multifront-vscode` | The VS Code extension: `.ucf` language id, a TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars, starts the server, registers the TypeScript plugin. Published to the VS Code Marketplace and Open VSX, not npm. |
 
 Order:
 
@@ -212,7 +212,7 @@ Order:
 3. `<style>` blocks: CSS / SCSS features.
 4. `<vue>` block through `@vue/language-core`.
 5. `<svelte>` block: types through `svelte2tsx`, markup completions later.
-6. Prettier and ESLint for `.uc`.
+6. Prettier and ESLint for `.ucf`.
 
 ## 7. Vite plugin
 
@@ -226,7 +226,7 @@ Order:
 - **HMR:**
   - a style-only change hot-updates the style virtual module only;
   - a target-block change invalidates only that target's virtual module (Fast Refresh / Vue HMR / Svelte HMR do the rest).
-- Uses its own `.uc` extension so plugin-vue, Volar and ESLint don't claim the file.
+- Uses its own `.ucf` extension so plugin-vue, Volar and ESLint don't claim the file.
 
 ## 8. Library build output
 
@@ -249,12 +249,12 @@ Requirements:
 ## 9. Milestones
 
 1. **Splitter + styles**: `splitBlocks` with errors and offsets; style compile through `compileStyleAsync`; unit tests.
-2. **Editor basics**: the VS Code extension with highlighting, `language-core` with the `<react>` virtual script, and the TypeScript plugin resolving `.uc` imports (steps 1 to 3 of section 6).
+2. **Editor basics**: the VS Code extension with highlighting, `language-core` with the `<react>` virtual script, and the TypeScript plugin resolving `.ucf` imports (steps 1 to 3 of section 6).
 3. **React target and imports**: virtual `.tsx`, `$style`, scope transform with root forwarding, the target rules and attribute rewrite of section 4, Fast Refresh in a demo Vite app. _This is the go/no-go milestone._
 4. **Vue target**: the real-path composition of 3.4 with plugin-vue, and the `<vue>` block in the editor; same demo renders both.
 5. **Library build**: per-target builds, CSS files, `"use client"`, types. Verified in a fresh Next.js App Router app and a fresh Vite React app.
 6. **Svelte target**, and the `<svelte>` block in the editor.
-7. **Full editor support**: `mf-tsc`, Svelte markup completions, Prettier and ESLint for `.uc`.
+7. **Full editor support**: `mf-tsc`, Svelte markup completions, Prettier and ESLint for `.ucf`.
 
 ## 10. Tests
 
@@ -269,16 +269,15 @@ Requirements:
 ## 11. Known risks
 
 - **A `<vue>` block inside another file.** Volar has no built-in way to run Vue's language plugin on a block of another file. We generate the Vue virtual code ourselves with `@vue/language-core` and map the offsets. Prototype first: it decides how good the `<vue>` block feels.
-- **Svelte tooling is not Volar.** Svelte's language tools run their own server. `svelte2tsx` gives types; markup completions in `.uc` may lag the other targets.
+- **Svelte tooling is not Volar.** Svelte's language tools run their own server. `svelte2tsx` gives types; markup completions in `.ucf` may lag the other targets.
 - **Our TypeScript plugin inside other editors' setups.** Vue's VS Code extension runs on tsserver plugins (hybrid mode), so ours should load beside it. Svelte's extension needs checking.
 - **Attributes surviving each compiler.** The rewrite of 4.4 runs after plugin-vue, the Svelte compiler and Oxc have compiled the importer. Each must keep `with { ... }` on its imports. Test each one.
-- **plugin-vue cache misses.** On a miss plugin-vue reads `Card.uc` from disk and gets the raw file, not our SFC code. Test a dev server restart and SSR.
+- **plugin-vue cache misses.** On a miss plugin-vue reads `Card.ucf` from disk and gets the raw file, not our SFC code. Test a dev server restart and SSR.
 - **Different exports per target.** Each target's module exports what its block exports. A named export in one block only is allowed, but imports of it fail for the other targets. `mf-tsc` checks every target to catch it early.
 - **Tools without our plugin.** Node, plain `tsc` and tools that do not run our plugin reject or ignore `with { framework }`. Only code processed by the plugin may use the attribute.
 
 ## 12. Open questions
 
-- Final project name and file extension.
 - Should a target block be allowed to `<style>` locally for target-only overrides?
 - `v-bind()` in CSS for React/Svelte: drop, or implement via CSS variables on the forwarded root?
 - Shared types between targets (props interfaces): a root `<types lang="ts">` block imported by every target?

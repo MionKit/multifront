@@ -3,7 +3,7 @@ import type {Target} from '@multifront/core';
 export interface MultifrontOptions {
   /** The targets this build may compile. Defaults to every target. */
   targets?: Target[];
-  /** The target a bare `import Card from './Card.uc'` resolves to. */
+  /** The target a bare `import Card from './Card.ucf'` resolves to. */
   target?: Target;
 }
 
