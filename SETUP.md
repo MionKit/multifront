@@ -23,9 +23,10 @@ Everything runs through `devx` ([scripts/devx.mjs](scripts/devx.mjs)), the same 
 
 ```bash
 pnpm devx --help        # list commands
-pnpm devx check         # everything CI runs: format --check, lint, test, build
+pnpm devx check         # everything CI runs: format --check, lint, agent-docs, test, build
 pnpm devx lint          # oxlint, then typecheck
 pnpm devx typecheck     # tsc per package, plus the build graph / test project check
+pnpm devx agent-docs    # agent docs stay ≤ 100 lines, ≤ 120 chars per line
 pnpm devx test          # all vitest projects; extra args go to vitest
 pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/

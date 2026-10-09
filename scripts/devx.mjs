@@ -4,6 +4,7 @@
 import {spawnSync} from 'node:child_process';
 import {existsSync, readdirSync, readFileSync, rmSync} from 'node:fs';
 import {join, relative} from 'node:path';
+import {agentDocs} from './lib/agent-docs.mjs';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
 import {CLI, COMMANDS, renderHelp} from './lib/registry.mjs';
 import {listPackages} from './lib/workspace.mjs';
@@ -48,6 +49,10 @@ const handlers = {
     const check = args.includes('--check');
     run(bin('oxfmt'), [check ? '--check' : '--write', 'packages/**/*.{ts,md}', '*.ts']);
   },
+  'agent-docs'() {
+    const offenders = agentDocs();
+    if (offenders.length) throw new CliError(`${CLI}: agent docs over the limit (see the compact-agent-docs skill):\n  ${offenders.join('\n  ')}`);
+  },
   test(args) {
     run(bin('vitest'), ['run', ...args]);
   },
@@ -57,6 +62,7 @@ const handlers = {
   check() {
     handlers.format(['--check']);
     handlers.lint();
+    handlers['agent-docs']();
     handlers.test([]);
     handlers.build([]);
   },
