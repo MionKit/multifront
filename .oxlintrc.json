@@ -19,6 +19,10 @@
         "typescript/no-explicit-any": "off",
         "typescript/no-unused-vars": ["warn", {"args": "none"}]
       }
+    },
+    {
+      "files": [".agents/**/*.mjs"],
+      "rules": {"no-console": "off"}
     }
   ]
 }
