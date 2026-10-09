@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // devx: the repo's dev CLI. A zero-dependency dispatcher over the same tools CI calls (tsc, oxlint, oxfmt,
-// prettier, vitest), so local runs and CI cannot drift. Run it as `pnpm devx <command>`.
+// vitest), so local runs and CI cannot drift. Run it as `pnpm devx <command>`.
 import {spawnSync} from 'node:child_process';
 import {existsSync, readdirSync, readFileSync, rmSync} from 'node:fs';
 import {join, relative} from 'node:path';
@@ -45,8 +45,7 @@ const handlers = {
   },
   format(args) {
     const check = args.includes('--check');
-    run(bin('oxfmt'), [check ? '--check' : '--write', 'packages/**/*.ts', '*.ts']);
-    run(bin('prettier'), [check ? '--check' : '--write', 'packages/**/*.md', '--no-error-on-unmatched-pattern']);
+    run(bin('oxfmt'), [check ? '--check' : '--write', 'packages/**/*.{ts,md}', '*.ts']);
   },
   test(args) {
     run(bin('vitest'), ['run', ...args]);

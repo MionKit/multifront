@@ -212,7 +212,7 @@ Order:
 3. `<style>` blocks: CSS / SCSS features.
 4. `<vue>` block through `@vue/language-core`.
 5. `<svelte>` block: types through `svelte2tsx`, markup completions later.
-6. Prettier and ESLint for `.ucf`.
+6. Formatting and linting for `.ucf` through oxfmt and oxlint.
 
 ## 7. Vite plugin
 
@@ -226,7 +226,7 @@ Order:
 - **HMR:**
   - a style-only change hot-updates the style virtual module only;
   - a target-block change invalidates only that target's virtual module (Fast Refresh / Vue HMR / Svelte HMR do the rest).
-- Uses its own `.ucf` extension so plugin-vue, Volar and ESLint don't claim the file.
+- Uses its own `.ucf` extension so plugin-vue, Volar and linters don't claim the file.
 
 ## 8. Library build output
 
@@ -254,7 +254,7 @@ Requirements:
 4. **Vue target**: the real-path composition of 3.4 with plugin-vue, and the `<vue>` block in the editor; same demo renders both.
 5. **Library build**: per-target builds, CSS files, `"use client"`, types. Verified in a fresh Next.js App Router app and a fresh Vite React app.
 6. **Svelte target**, and the `<svelte>` block in the editor.
-7. **Full editor support**: `mf-tsc`, Svelte markup completions, Prettier and ESLint for `.ucf`.
+7. **Full editor support**: `mf-tsc`, Svelte markup completions, oxfmt and oxlint for `.ucf`.
 
 ## 10. Tests
 

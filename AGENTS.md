@@ -62,7 +62,7 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 ## Development workflow
 
 - Before committing: `pnpm devx check` (or at least `pnpm devx lint` and `pnpm devx format`).
-- `pnpm devx format` is the only formatter run: oxfmt over `packages/**/*.ts`, Prettier over `packages/**/*.md`. Never hand-format, never widen its scope.
+- `pnpm devx format` is the only formatter run: oxfmt over `packages/**/*.ts` and `packages/**/*.md`. Never hand-format, never widen its scope.
 - Adding a command means adding a row to [scripts/lib/registry.mjs](scripts/lib/registry.mjs) and a handler in [scripts/devx.mjs](scripts/devx.mjs).
 - The pre-commit hook runs `lint-staged`; the commit-msg hook runs commitlint.
 

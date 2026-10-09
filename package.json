@@ -38,7 +38,7 @@
       "oxlint --no-error-on-unmatched-pattern"
     ],
     "packages/**/*.md": [
-      "prettier --check"
+      "oxfmt --check --no-error-on-unmatched-pattern"
     ]
   },
   "devDependencies": {
@@ -50,8 +50,8 @@
     "lint-staged": "17.5.0",
     "oxfmt": "0.67.0",
     "oxlint": "1.82.0",
-    "prettier": "3.9.6",
     "typescript": "6.0.3",
+    "vite": "8.2.2",
     "vitest": "5.0.0"
   }
 }

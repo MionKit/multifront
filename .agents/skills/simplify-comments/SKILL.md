@@ -64,7 +64,7 @@ In this order, for each comment you own:
 
 ```bash
 pnpm devx lint                                                  # typecheck plus oxlint
-pnpm devx format                                                # oxfmt and Prettier
+pnpm devx format                                                # oxfmt
 git diff -U0 | grep '^[-+]' | grep -v '^[-+][-+]' | grep -v '^[-+]\s*\(//\|/\*\|\*\|$\)'   # must print nothing
 ```
 

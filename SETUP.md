@@ -27,7 +27,7 @@ pnpm devx check         # everything CI runs: format --check, lint, test, build
 pnpm devx lint          # oxlint, then typecheck
 pnpm devx typecheck     # tsc per package, plus the build graph / test project check
 pnpm devx test          # all vitest projects; extra args go to vitest
-pnpm devx format        # oxfmt + Prettier (add --check to only report)
+pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
 ```

@@ -82,7 +82,7 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ### 7. Full editor support
 
-`mf-tsc` over every target, Svelte markup completions, Prettier and ESLint for `.ucf`.
+`mf-tsc` over every target, Svelte markup completions, oxfmt and oxlint for `.ucf`.
 
 ## Alongside every milestone
 
