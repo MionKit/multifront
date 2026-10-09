@@ -1,0 +1,12 @@
+{
+  "name": "@multifront/e2e",
+  "version": "0.0.0",
+  "description": "Cross-package end-to-end tests for multifront, one folder per area, and the shared fixtures.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@multifront/core": "workspace:*",
+    "@multifront/vite": "workspace:*"
+  }
+}

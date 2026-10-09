@@ -11,7 +11,7 @@
     "typescript/consistent-type-imports": "error",
     "import/no-cycle": "error"
   },
-  "ignorePatterns": ["node_modules/**", "**/dist/**", "**/coverage/**", "scripts/**", ".claude/**", "docs/**"],
+  "ignorePatterns": ["node_modules/**", "**/dist/**", "**/coverage/**", "**/.tmp/**", "scripts/**", ".claude/**", "docs/**"],
   "overrides": [
     {
       "files": ["**/*.spec.ts", "**/*.test.ts"],

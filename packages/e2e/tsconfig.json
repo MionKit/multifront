@@ -1,0 +1,8 @@
+{
+  // Check only: the package is never built. Fixture apps are checked by their own builds, not here.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["build", "browser", "editor", "consumer", "fixtures/index.ts", "*.config.ts"]
+}
