@@ -29,7 +29,6 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 - devDependencies live at the root. ONE exception: a package carries the devDependencies that satisfy its own peers (`@multifront/vite` carries vite, plugin-vue, vue).
 - [core](packages/core/): bundler agnostic, NEVER imports Vite or a framework plugin.
 - [vite](packages/vite/): the Vite plugin. Composes `@vitejs/plugin-vue` (peer), never forks or deep-imports it. Read "Building on plugin-vue" in [docs/plan.md](docs/plan.md) first.
-- [runtime](packages/runtime/): what compiled components import at runtime. Zero dependencies, tiny.
 - **Published READMEs stay thin**: a short description, the link to the repo, the status and license lines.
 
 ## Testing

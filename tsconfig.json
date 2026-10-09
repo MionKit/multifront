@@ -4,7 +4,6 @@
   "files": [],
   "references": [
     {"path": "./packages/core/tsconfig.build.json"},
-    {"path": "./packages/runtime/tsconfig.build.json"},
     {"path": "./packages/vite/tsconfig.build.json"}
   ]
 }

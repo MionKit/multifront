@@ -1,9 +1,0 @@
-{
-  // Check-only config, shared with the editor: no emit, so a cross-package import resolves through the
-  // `source` export condition instead of a sibling's dist, which a fresh checkout has not got.
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "include": ["src", "test", "*.config.ts"]
-}

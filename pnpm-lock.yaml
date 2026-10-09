@@ -44,8 +44,6 @@ importers:
 
   packages/core: {}
 
-  packages/runtime: {}
-
   packages/vite:
     dependencies:
       '@multifront/core':

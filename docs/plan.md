@@ -8,13 +8,17 @@ How we build [the spec](spec.md).
 | --- | --- | --- |
 | `@multifront/core` | Bundler agnostic: block splitter, style compile, scope ids, the target rules of spec 4.1 and 4.2, per-target transforms. Never imports Vite. | exists |
 | `@multifront/vite` | The Vite plugin. Hands each target to plugin-vue, plugin-react or plugin-svelte, and rewrites import attributes. | exists |
-| `@multifront/runtime` | Tiny zero-dependency helpers the compiled components import (`scopeAttrs`). | exists |
-| `@multifront/language-core` | Volar language plugin: embedded code per block, per-target virtual scripts. | milestone 2 |
-| `@multifront/typescript-plugin` | tsserver plugin: resolves `.ucf` imports to the right target's types. | milestone 2 |
-| `@multifront/language-server` | Volar language server for `.ucf` files. | milestone 2 |
-| `packages/vscode` | The VS Code extension (Marketplace and Open VSX, not npm). Bundled, the one package not built by plain `tsc`. | milestone 2 |
-| `@multifront/build` | The library build, one package per target. | milestone 5 |
-| `@multifront/tsc` | `mf-tsc`, the command line type check over every target. | milestone 7 |
+| `@multifront/language-tools` | Everything that checks `.ucf` files without building them: the Volar language plugin (per-target virtual scripts), the TypeScript plugin (`./typescript-plugin`), the language server (`./server`), and the `mf-tsc`, `mf-lint` and `mf-fmt` commands. | milestone 2 |
+| `packages/vscode` | The VS Code extension (Marketplace and Open VSX, not npm). Bundles `language-tools`; the one package not built by plain `tsc`. | milestone 2 |
+
+`@multifront/vite` also gets the library build (milestone 5): it is one Vite build per target, so it needs the plugin anyway.
+
+**Why this split.** Packages follow who installs them and why. A package is added only when its milestone starts and needs it:
+
+- `core` is only ever a dependency of the others; nobody installs it directly.
+- `vite` is what an author adds to build: the plugin and the library build.
+- `language-tools` is what an author adds to check: types, lint, format, the editor. The TypeScript plugin and the server are subpaths, not packages, so other editors (WebStorm, Neovim) can load them from the same install.
+- `vscode` stays apart because it ships through a different store, not npm.
 
 ## Prototype first
 
@@ -46,17 +50,17 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 ### 2. Editor basics
 
 - `packages/vscode`: `.ucf` language id, file icon, TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars. Highlighting in every block from day one.
-- `language-core`: the Volar language plugin. Embedded code for `<react>` (TSX) and `<style>` (CSS / SCSS), plus the `Card.ucf.react.tsx` virtual script with `$style` typed from the class names. A `.ucf` import inside the block resolves to the other file's React virtual script automatically.
-- `typescript-plugin`: `.ts` / `.tsx` files importing `.ucf` get the React types, using `resolveTarget()` from core (spike 1).
-- `language-server`: completions, errors, hover and go to definition inside `<react>` and `<style>`.
-- Tests: language-core snapshots of the virtual code and its offset mapping; a tsserver test that a `.tsx` importer sees the right props.
+- `language-tools`, the Volar language plugin: Embedded code for `<react>` (TSX) and `<style>` (CSS / SCSS), plus the `Card.ucf.react.tsx` virtual script with `$style` typed from the class names. A `.ucf` import inside the block resolves to the other file's React virtual script automatically.
+- `language-tools/typescript-plugin`: `.ts` / `.tsx` files importing `.ucf` get the React types, using `resolveTarget()` from core (spike 1).
+- `language-tools/server`: completions, errors, hover and go to definition inside `<react>` and `<style>`.
+- Tests: snapshots of the virtual code and its offset mapping; a tsserver test that a `.tsx` importer sees the right props.
 
 ### 3. React target and imports (go / no-go)
 
 - `resolveTarget(importer, attribute, options)` in core: the spec 4.1 and 4.2 rules (automatic inside a block, attribute or importer outside), shared by the Vite plugin and the TypeScript plugin.
 - Vite: resolve `.ucf` imports to the per-target ids of spec 4.3; a post plugin moves `with { framework }` into the id and removes it (static, re-export and dynamic imports; a non-literal value is an error).
 - Virtual modules: style CSS, class map, and `Card.ucf?target=react&lang.tsx`.
-- Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots.
+- Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots. The forwarding helper is a virtual module served by the Vite plugin, not a package.
 - Tests: snapshot per JSX shape; a block importing another `.ucf` gets its own framework, and an attribute inside a block is an error; every outside rule and its order; no attribute left in dev, build or SSR output.
 - Exit check: demo app renders the React Card; Fast Refresh keeps state; a style edit only reloads CSS; a parent scoped style reaches a child root.
 - If the scope transform is not reliable, fall back to CSS modules only for React and revisit.
@@ -69,7 +73,7 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ### 5. Library build
 
-- `@multifront/build`: one Vite library build per target with `target` set, one JS file per component, real CSS files plus a combined `styles.css`.
+- In `@multifront/vite`: one Vite library build per target with `target` set, one JS file per component, real CSS files plus a combined `styles.css`.
 - `"use client"` re-added per output file when the component uses hooks or event handlers.
 - Types: `.d.ts` per target from the per-target virtual scripts. Writes each target's `package.json` with exports, types and peer deps only.
 - Exit check: the packed React build works in a fresh Next.js App Router app and a fresh Vite React app.

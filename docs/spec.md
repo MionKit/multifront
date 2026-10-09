@@ -102,7 +102,7 @@ Rules:
   2. Every component JSX element (capitalized / member expression) in this file also gets `data-v-<id>=""`, so the parent scope reaches the child root, matching Vue.
   3. In the default-exported component, every **returned root** JSX element gets `{...__ucfScopeAttrs(props)}`, forwarding incoming `data-v-*` props. Handle multiple returns, conditional (`?:`, `&&`) roots, and unwrap `memo(...)` / `forwardRef(...)`. Fragment roots get no forwarding, plus a dev warning (Vue's multi-root rule).
   4. If the component destructures props in its parameter, rewrite to `(__props)` + `const {...} = __props` so the forward has access to all props.
-- `__ucfScopeAttrs` is a tiny helper inlined or imported from a runtime file under 20 lines with zero dependencies.
+- `__ucfScopeAttrs` is a helper of a few lines, served by the Vite plugin as a virtual module, so it is bundled once and shipped components get no runtime dependency.
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
 - Third-party components don't forward scope attributes; document `className` + CSS modules as the way to style them.
 
@@ -199,10 +199,7 @@ From the first milestones, not the last. Built on Volar, the framework behind Vu
 
 | Package | Job |
 | --- | --- |
-| `@multifront/language-core` | Volar language plugin: embedded code per block, the per-target virtual scripts and the resolution rules of 5. |
-| `@multifront/typescript-plugin` | tsserver plugin: `.ts`, `.tsx`, `.vue` and `.svelte` files importing `.ucf` get the right types. |
-| `@multifront/language-server` | Volar language server for `.ucf` files: completions, errors, hover, go to definition, per block. |
-| `@multifront/tsc` | The `mf-tsc` command line type check. |
+| `@multifront/language-tools` | The Volar language plugin (embedded code per block, the per-target virtual scripts and the resolution rules of 5); the TypeScript plugin (`./typescript-plugin`) so `.ts`, `.tsx`, `.vue` and `.svelte` files importing `.ucf` get the right types; the language server (`./server`) for completions, errors, hover and go to definition per block; and the `mf-tsc`, `mf-lint` and `mf-fmt` commands. |
 | `multifront-vscode` | The VS Code extension: `.ucf` language id, a TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars, starts the server, registers the TypeScript plugin. Published to the VS Code Marketplace and Open VSX, not npm. |
 
 Order:
@@ -259,7 +256,7 @@ Requirements:
 ## 9. Milestones
 
 1. **Splitter + styles**: `splitBlocks` with errors and offsets; style compile through `compileStyleAsync`; unit tests.
-2. **Editor basics**: the VS Code extension with highlighting, `language-core` with the `<react>` virtual script, and the TypeScript plugin resolving `.ucf` imports (steps 1 to 3 of section 6).
+2. **Editor basics**: the VS Code extension with highlighting, and `language-tools` with the `<react>` virtual script and the TypeScript plugin resolving `.ucf` imports (steps 1 to 3 of section 6).
 3. **React target and imports**: virtual `.tsx`, `$style`, scope transform with root forwarding, the target rules and attribute rewrite of section 4, Fast Refresh in a demo Vite app. _This is the go/no-go milestone._
 4. **Vue target**: the real-path composition of 3.4 with plugin-vue, and the `<vue>` block in the editor; same demo renders both.
 5. **Library build**: per-target builds, CSS files, `"use client"`, types. Verified in a fresh Next.js App Router app and a fresh Vite React app.
