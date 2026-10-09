@@ -6,7 +6,7 @@ How we build [the spec](spec.md).
 
 | Package | Job | When |
 | --- | --- | --- |
-| `@multifront/core` | Bundler agnostic: block splitter, style compile, scope ids, the target rules of spec 4.1, per-target transforms. Never imports Vite. | exists |
+| `@multifront/core` | Bundler agnostic: block splitter, style compile, scope ids, the target rules of spec 4.1 and 4.2, per-target transforms. Never imports Vite. | exists |
 | `@multifront/vite` | The Vite plugin. Hands each target to plugin-vue, plugin-react or plugin-svelte, and rewrites import attributes. | exists |
 | `@multifront/runtime` | Tiny zero-dependency helpers the compiled components import (`scopeAttrs`). | exists |
 | `@multifront/language-core` | Volar language plugin: embedded code per block, per-target virtual scripts. | milestone 2 |
@@ -29,7 +29,7 @@ Three unknowns can change the design. Each gets a throwaway spike before its mil
 We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `@multifront/vite`, and our plugin runs before it (`enforce: 'pre'`) so it only ever sees plain SFC code. What we learned reading plugin-vue 6.0.8:
 
 1. **Borrow its compiler.** plugin-vue exposes `api.options.compiler`, filled in its `buildStart`. `getVueCompiler()` reads it, and falls back to resolving `vue/compiler-sfc` from the project root the same way plugin-vue does. Done and tested.
-2. **The `vue` query is taken.** plugin-vue treats any id with a `vue` query as one of its own sub-requests (`Card.vue?vue&type=style`). Our internal ids use `?target=react` / `?target=svelte` instead (spec 4.2). Users never write a query; they use import attributes.
+2. **The `vue` query is taken.** plugin-vue treats any id with a `vue` query as one of its own sub-requests (`Card.vue?vue&type=style`). Our internal ids use `?target=react` / `?target=svelte` instead (spec 4.3). Users never write a query; they use import attributes.
 3. **No virtual `.vue` path.** On a cache miss (a dev server restart, SSR) plugin-vue reads the SFC from disk with `fs.readFileSync`, which fails for a file that does not exist. So the Vue target keeps the real `Card.uc` path as the module id: we add `/\.uc$/` to plugin-vue's `include` (its `api.include` setter, from our `configResolved`) and turn the `.uc` source into SFC code in our pre `transform`. This is the pattern unplugin-vue-markdown uses with `.md` files. A test must cover the restart and SSR cache misses.
 4. **One scope id for all targets.** plugin-vue hashes `sha256(relativePath + (production ? source : ''))`, first 8 hex chars. It also takes `features.componentIdGenerator`, so we set our own generator there and use the same one for React and Svelte. Same `data-v-*` everywhere, by construction.
 
@@ -46,18 +46,18 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 ### 2. Editor basics
 
 - `packages/vscode`: `.uc` language id, file icon, TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars. Highlighting in every block from day one.
-- `language-core`: the Volar language plugin. Embedded code for `<react>` (TSX) and `<style>` (CSS / SCSS), plus the `Card.uc.react.tsx` virtual script with `$style` typed from the class names.
+- `language-core`: the Volar language plugin. Embedded code for `<react>` (TSX) and `<style>` (CSS / SCSS), plus the `Card.uc.react.tsx` virtual script with `$style` typed from the class names. A `.uc` import inside the block resolves to the other file's React virtual script automatically.
 - `typescript-plugin`: `.ts` / `.tsx` files importing `.uc` get the React types, using `resolveTarget()` from core (spike 1).
 - `language-server`: completions, errors, hover and go to definition inside `<react>` and `<style>`.
 - Tests: language-core snapshots of the virtual code and its offset mapping; a tsserver test that a `.tsx` importer sees the right props.
 
 ### 3. React target and imports (go / no-go)
 
-- `resolveTarget(importer, attribute, options)` in core: the spec 4.1 rules, shared by the Vite plugin and the TypeScript plugin.
-- Vite: resolve `.uc` imports to the per-target ids of spec 4.2; a post plugin moves `with { framework }` into the id and removes it (static, re-export and dynamic imports; a non-literal value is an error).
+- `resolveTarget(importer, attribute, options)` in core: the spec 4.1 and 4.2 rules (automatic inside a block, attribute or importer outside), shared by the Vite plugin and the TypeScript plugin.
+- Vite: resolve `.uc` imports to the per-target ids of spec 4.3; a post plugin moves `with { framework }` into the id and removes it (static, re-export and dynamic imports; a non-literal value is an error).
 - Virtual modules: style CSS, class map, and `Card.uc?target=react&lang.tsx`.
 - Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots.
-- Tests: snapshot per JSX shape; every import rule and its order; no attribute left in dev, build or SSR output.
+- Tests: snapshot per JSX shape; a block importing another `.uc` gets its own framework, and an attribute inside a block is an error; every outside rule and its order; no attribute left in dev, build or SSR output.
 - Exit check: demo app renders the React Card; Fast Refresh keeps state; a style edit only reloads CSS; a parent scoped style reaches a child root.
 - If the scope transform is not reliable, fall back to CSS modules only for React and revisit.
 

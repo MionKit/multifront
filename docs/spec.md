@@ -120,11 +120,32 @@ Rules:
 
 ## 4. Imports
 
-How a file that imports a `.uc` file picks the framework. This covers the library's own source, demo apps and tests. A published package has no `.uc` files: consumers pick the framework by package name (`@lib/react`).
+How an import of a `.uc` file picks the framework. This covers the library's own source, demo apps and tests. A published package has no `.uc` files: consumers pick the framework by package name (`@lib/react`).
 
-### 4.1 Picking the target
+### 4.1 Inside a `.uc` file: always automatic
 
-The most specific rule wins:
+An import inside a target block always gets that block's framework. Nothing to write:
+
+```html
+<react>
+  import Icon from './Icon.uc'   // the React Icon
+</react>
+
+<vue>
+  <script setup lang="ts">
+  import Icon from './Icon.uc'   // the Vue Icon
+  </script>
+</vue>
+```
+
+- A `framework` attribute inside a block is a build error: a React component cannot render a Vue one.
+- The imported file must have a block for that framework, or it is a build error naming both files.
+- This holds in every build, whatever the global default is, so a library's components can import each other freely.
+- Types follow the same rule inside the language plugin, with no TypeScript plugin involved: each block's virtual script imports the other file's virtual script for the same framework.
+
+### 4.2 Outside a `.uc` file: picking the target
+
+For a plain `.ts`, `.tsx`, `.vue` or `.svelte` file, the most specific rule wins:
 
 1. **Import attribute** on that import:
 
@@ -136,13 +157,13 @@ The most specific rule wins:
 
    The key is `framework`, never `type` (hosts reserve `type` for `json` / `css`). The value must be a string literal; anything else is a build error.
 
-2. **The importer's own framework.** A `<react>` block importing `./Icon.uc` gets the React `Icon`; same for `<vue>` and `<svelte>`. A `.vue` file gets vue, a `.svelte` file gets svelte, a `.jsx` / `.tsx` file gets react (configurable with the `importers` option).
+2. **The importer's framework.** A `.vue` file gets vue, a `.svelte` file gets svelte, a `.jsx` / `.tsx` file gets react (configurable with the `importers` option).
 3. **The global default**, the plugin's `target` option. A library build runs once per target with it set, so every bare import in that build follows.
 4. **None of these** → a build error naming the three ways.
 
 So in a one-framework app, a plain `import Card from './Card.uc'` just works. The attribute is only for mixing frameworks in one app (a docs site showing all three, tests).
 
-### 4.2 One module per file and target
+### 4.3 One module per file and target
 
 - Each (file, target) pair is its own module. Its code is only that target's block, compiled. The other blocks never reach the framework plugin or the bundle.
 - The file is split once and cached; every target reuses the split.
@@ -158,7 +179,7 @@ So in a one-framework app, a plain `import Card from './Card.uc'` just works. Th
 
 - Never a `vue` query: plugin-vue treats any id with one as its own sub-request (`Card.vue?vue&type=style`).
 
-### 4.3 Attributes never reach a runtime
+### 4.4 Attributes never reach a runtime
 
 Browsers and Node reject import attributes they do not know. A post `transform` on every importer moves the attribute into the module id and removes it. It runs before Vite's import analysis (dev) and before the bundler reads the imports (build), so we do not depend on whether Rolldown forwards attributes to `resolveId`.
 
@@ -167,7 +188,7 @@ Browsers and Node reject import attributes they do not know. A post `transform` 
 TypeScript gives one type per resolved file and never looks at import attributes. So `.uc` types need our own tooling, the same way `vue-tsc` exists for Vue.
 
 - **Per-target virtual scripts.** For `Card.uc` the language plugin (section 6) exposes one TypeScript file per target: `Card.uc.react.tsx` (the `<react>` block itself), `Card.uc.vue.ts` (from `@vue/language-core`) and `Card.uc.svelte.ts` (from `svelte2tsx`). Each exports that framework's component type: a React function component, a Vue `DefineComponent`, a Svelte `Component`.
-- **Attribute-aware resolution.** A TypeScript plugin overrides module resolution (`resolveModuleNameLiterals`). It reads the import's `framework` attribute, or the importer's framework, or the default target, and resolves `./Card.uc` to the matching virtual script. Same rules as 4.1, in one shared function in `@multifront/core`, so the editor and the build cannot disagree.
+- **Attribute-aware resolution.** A TypeScript plugin overrides module resolution (`resolveModuleNameLiterals`). It reads the import's `framework` attribute, or the importer's framework, or the default target, and resolves `./Card.uc` to the matching virtual script. Same rules as 4.2, in one shared function in `@multifront/core`, so the editor and the build cannot disagree.
 - **Where it runs:** in VS Code through the TypeScript plugin, on the command line through `mf-tsc` (a `tsc` wrapper like `vue-tsc`). Plain `tsc` sees no `.uc` types.
 - **`mf-tsc` checks every target** of every `.uc` file, so a block that breaks only for one framework still fails.
 - **Library output:** each target package gets real `.d.ts` files from its own virtual scripts. Consumers need none of this tooling.
@@ -197,11 +218,11 @@ Order:
 
 - `multifront({ targets?, target?, importers? })`
   - `targets`: what this build may compile. Defaults to all three. An import that picks a target outside the list is a build error.
-  - `target`: the global default of 4.1.
+  - `target`: the global default of 4.2.
   - `importers`: importer extension to target. Defaults to `{ '.vue': 'vue', '.svelte': 'svelte', '.jsx': 'react', '.tsx': 'react' }`.
   - **Library build mode:** one Vite build per target, with `target` set.
-  - **App/dev mode:** imports follow 4.1.
-- Must run with `enforce: 'pre'` so plugin-vue / plugin-react / plugin-svelte see normal component code. The attribute rewrite of 4.3 is a second, post plugin returned in the same array.
+  - **App/dev mode:** imports follow 4.1 and 4.2.
+- Must run with `enforce: 'pre'` so plugin-vue / plugin-react / plugin-svelte see normal component code. The attribute rewrite of 4.4 is a second, post plugin returned in the same array.
 - **HMR:**
   - a style-only change hot-updates the style virtual module only;
   - a target-block change invalidates only that target's virtual module (Fast Refresh / Vue HMR / Svelte HMR do the rest).
@@ -242,7 +263,7 @@ Requirements:
 - Visual parity: render the same component in all targets with Playwright and compare computed styles of key elements.
 - SSR: render the React target with `react-dom/server` and hydrate without mismatch warnings.
 - Library consumers: build the dist packages and install them into fixture Next.js and Vite apps in CI.
-- Imports: every rule of 4.1 and their order, static / re-export / dynamic forms, a non-literal attribute error, and that no attribute is left in dev, build or SSR output.
+- Imports: automatic per-block imports and the attribute error inside a block (4.1), every rule of 4.2 and their order, static / re-export / dynamic forms, a non-literal attribute error, and that no attribute is left in dev, build or SSR output.
 - Types: the same import resolves to the same target in the build and in the TypeScript plugin (one shared fixture set).
 
 ## 11. Known risks
@@ -250,7 +271,7 @@ Requirements:
 - **A `<vue>` block inside another file.** Volar has no built-in way to run Vue's language plugin on a block of another file. We generate the Vue virtual code ourselves with `@vue/language-core` and map the offsets. Prototype first: it decides how good the `<vue>` block feels.
 - **Svelte tooling is not Volar.** Svelte's language tools run their own server. `svelte2tsx` gives types; markup completions in `.uc` may lag the other targets.
 - **Our TypeScript plugin inside other editors' setups.** Vue's VS Code extension runs on tsserver plugins (hybrid mode), so ours should load beside it. Svelte's extension needs checking.
-- **Attributes surviving each compiler.** The rewrite of 4.3 runs after plugin-vue, the Svelte compiler and Oxc have compiled the importer. Each must keep `with { ... }` on its imports. Test each one.
+- **Attributes surviving each compiler.** The rewrite of 4.4 runs after plugin-vue, the Svelte compiler and Oxc have compiled the importer. Each must keep `with { ... }` on its imports. Test each one.
 - **plugin-vue cache misses.** On a miss plugin-vue reads `Card.uc` from disk and gets the raw file, not our SFC code. Test a dev server restart and SSR.
 - **Different exports per target.** Each target's module exports what its block exports. A named export in one block only is allowed, but imports of it fail for the other targets. `mf-tsc` checks every target to catch it early.
 - **Tools without our plugin.** Node, plain `tsc` and tools that do not run our plugin reject or ignore `with { framework }`. Only code processed by the plugin may use the attribute.
