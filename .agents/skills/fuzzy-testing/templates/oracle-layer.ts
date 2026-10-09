@@ -6,7 +6,7 @@
  * rule shape survived the checklist in the rules worksheet.
  */
 
-/** The error the code is *expected* to throw — a controlled outcome, not a bug (① never crashes). */
+/** The error the code is *expected* to throw: a controlled outcome, not a bug (① never crashes). */
 export class ControlledError extends Error {}
 
 /** The handshake between the input maker and the rules: the functions of the code under test. */
@@ -30,9 +30,14 @@ export interface Violation {
   message: string;
 }
 
-const fail = (rule: string, ctx: CheckCtx, title: string, message: string): Violation => ({rule, title, seed: ctx.seed, message});
+const fail = (rule: string, ctx: CheckCtx, title: string, message: string): Violation => ({
+  rule,
+  title,
+  seed: ctx.seed,
+  message,
+});
 
-/** ① never crashes — only CONTROLLED outcomes; never an uncontrolled throw or hang. */
+/** ① never crashes: only CONTROLLED outcomes; never an uncontrolled throw or hang. */
 export function checkTotality<V, O, W>(target: Target<V, O, W>, value: V, ctx: CheckCtx): Violation | null {
   try {
     target.run(value);
@@ -43,14 +48,14 @@ export function checkTotality<V, O, W>(target: Target<V, O, W>, value: V, ctx: C
   }
 }
 
-/** ② do it then undo it — decoding the encoding gives back the value (strongest when an undo exists). */
+/** ② do it then undo it: decoding the encoding gives back the value (strongest when an undo exists). */
 export function checkRoundTrip<V, O, W>(target: Target<V, O, W>, value: V, ctx: CheckCtx): Violation | null {
   if (!target.encode || !target.decode) return null;
   const back = target.decode(target.encode(value));
   return equals(back, value) ? null : fail('round-trip', ctx, target.title, 'decode(encode(x)) !== x');
 }
 
-/** ⑤ compare to a trusted source — run() agrees with a second, trusted way to get the answer. */
+/** ⑤ compare to a trusted source: run() agrees with a second, trusted way to get the answer. */
 export function checkDifferential<V, O, W>(target: Target<V, O, W>, value: V, ctx: CheckCtx): Violation | null {
   if (!target.reference) return null;
   return equals(target.run(value), target.reference(value))
@@ -59,9 +64,9 @@ export function checkDifferential<V, O, W>(target: Target<V, O, W>, value: V, ct
 }
 
 /**
- * ⑧ reject bad input — a value that is provably wrong must be reported, never quietly
+ * ⑧ reject bad input: a value that is provably wrong must be reported, never quietly
  * accepted. `wasReported` is what you can see (from Step 1): a thrown ControlledError,
- * a `false` return, a non-empty diagnostics list — whatever surface exposes the
+ * a `false` return, a non-empty diagnostics list, whatever surface exposes the
  * rejection. Once you have watched it happen, pin the SPECIFIC signal (a diagnostic code).
  */
 export function checkNegativeSpace<V, O, W>(
@@ -75,7 +80,7 @@ export function checkNegativeSpace<V, O, W>(
     : fail('negative-space', ctx, target.title, 'a provably-invalid value was silently accepted');
 }
 
-/** Deep value comparison — REPLACE with your real comparison (see test/util/equalsHelpers.ts:
+/** Deep value comparison: REPLACE with your real comparison (see test/util/equalsHelpers.ts:
  *  symbols by description, Date/Map/Set/RegExp, Temporal, padded arrays, …). */
 function equals(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b); // placeholder only
