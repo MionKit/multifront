@@ -22,7 +22,7 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ## Milestones
 
-### 1. Splitter + styles (1 to 2 days)
+### 1. Splitter + styles
 
 - `splitBlocks(source, filename)` in core: a hand-written scanner for top-level `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Content is raw text up to the first matching closing tag.
 - Errors carry `{code, message, line, column}`: `duplicate-target`, `unknown-root-tag`, `unclosed-block`, `missing-target`, `react-no-default-export`, `style-inside-target`.
@@ -30,7 +30,7 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 - `scopeId(relativePath, source, production)`: the plugin-vue scheme above.
 - Tests: splitter fixtures (`<>`, `<T,>`, `a < b`, `</react>` inside a string, duplicates, unclosed) and style snapshots (scoped, module, named module, scss).
 
-### 2. React target (4 to 7 days, go / no-go)
+### 2. React target (go / no-go)
 
 - Virtual modules: `Card.uc?uc&type=style&index=N&lang.css` (CSS), `Card.uc?uc&type=module&index=N` (class map), `Card.uc?target=react` resolving to `Card.uc.tsx`.
 - Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots.
@@ -38,24 +38,24 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 - Exit check: demo app renders the React Card; Fast Refresh keeps state; a style edit only reloads CSS; a parent scoped style reaches a child root.
 - If the scope transform is not reliable, fall back to CSS modules only for React and revisit.
 
-### 3. Vue target (1 to 2 days)
+### 3. Vue target
 
 - The composition described above: real `.uc` id, plugin-vue `include`, shared `componentIdGenerator`.
 - Tests: dev, build, SSR, and a cache miss after restart.
 
-### 4. Library build (3 to 5 days)
+### 4. Library build
 
 - `@multifront/build`: one Vite library build per target, one JS file per component, real CSS files plus a combined `styles.css`.
 - `"use client"` re-added per output file when the component uses hooks or event handlers.
 - Types: `tsc` for React, `vue-tsc` for Vue. Writes each target's `package.json` with exports, types and peer deps only.
 - Exit check: the packed React build works in a fresh Next.js App Router app and a fresh Vite React app.
 
-### 5. Svelte target (3 to 5 days)
+### 5. Svelte target
 
 - Virtual `.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
 - Library output: uncompiled `.svelte` files + processed CSS + `.d.ts`.
 
-### 6. Editor support (1.5 to 3 weeks)
+### 6. Editor support
 
 Volar language plugin, per-block `$style` types, Prettier and ESLint support for `.uc`.
 
