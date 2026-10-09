@@ -200,7 +200,7 @@ M7 is the last planned milestone. These are what it leaves for every release aft
 2. The test edits only the `<svelte>` block to pass a number to a `string` prop and adds `debugger;` to the `<vue>` script. Real `mf-tsc` now fails with one error inside the `<svelte>` block; real `mf-lint` reports `no-debugger` at the `<vue>` line.
 3. A real VS Code with the packed `.vsix` installed opens the same file and shows the same two findings at the same ranges.
 4. Format Document in that VS Code gives byte for byte what `mf-fmt` writes on a second copy.
-5. In that VS Code, completion after `<input bi` in the `<svelte>` markup lists `bind:value`, and after `<Child ` lists the child's props.
+5. In that VS Code, completion after `<input bi` in the `<svelte>` markup lists `bind:value`, and after `<Icon ` (the test adds the `Icon.ucf` of 7.5 next to the copy and imports it) lists `name` and `size`.
 
 All of it with real tools: no mock server, no fake oxlint output, no stubbed VS Code.
 

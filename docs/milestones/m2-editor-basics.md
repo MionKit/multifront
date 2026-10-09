@@ -160,7 +160,7 @@ Decision: **yes, milestone 2 ships a first `resolveTarget()` in core.** The Type
 - Deliverable: `.ts` and `.tsx` files that import `.ucf` get the React types in any editor that loads tsserver plugins.
 - Test: area **Editor**, `packages/e2e/editor/tsserver.spec.ts`, helper `packages/e2e/editor/lib/tsserver.ts` (`startTsserver({cwd})`, `request(command, args)`). Starts the real `tsserver.js` of TypeScript 6.0.3 with `--globalPlugins @multifront/language-tools/typescript-plugin` and `--conditions=source`, on `fixtures/apps/imports/`:
   - every row of `expected.ts` with a `.ts` or `.tsx` importer: `react` rows resolve to `Greeting.ucf.react.tsx`; `vue` and `svelte` rows report their target; error rows report their code;
-  - in `App.tsx`: `quickinfo` on `<Greeting` shows its props, a wrong prop type is an error, `definition` lands on `Greeting.ucf` inside `<react>`, completion on `$style` is not offered outside the block;
+  - in `App.tsx`: `quickinfo` on `<Greeting` shows its props, a wrong prop type is an error, `definition` lands on `Greeting.ucf` inside `<react>`;
   - `mixed.ts` behaves as spike answer 2 decided.
 
 ### 2.10 The extension starts the server and loads the plugin
