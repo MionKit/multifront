@@ -136,7 +136,7 @@ New dependencies, all exact-pinned:
 - Deliverable: the same `data-v-*` for a file's Vue and React targets, in dev and production.
 - Test: `packages/e2e/build/vue-scope-id.spec.ts`.
   - Build `Counter.ucf` as Vue (`apps/vue`) and as React (`apps/demo`), in production and in development mode. Read the `data-v-*` from each output. They are equal.
-  - A plain `Plain.vue` in `apps/vue` gets the same id with and without `multifront()` in the plugin list.
+  - `Plain.vue` in `apps/vue` gets the same id with and without `multifront()` in the plugin list.
 
 ### 4.6 Source maps and error locations
 
