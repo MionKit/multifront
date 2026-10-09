@@ -15,6 +15,7 @@ Use the tools the current host exposes. These mappings keep the skill's requirem
 | `comments-simplifier` | `.claude/agents/comments-simplifier.md` | `simplify-comments` |
 | `milestone-step` | `.claude/agents/milestone-step.md` | `run-milestone` (step.md) |
 | `milestone-qa` | `.claude/agents/milestone-qa.md` | `run-milestone` (qa.md) |
+| `public-docs-writer` | `.claude/agents/public-docs-writer.md` | `run-milestone` (docs.md) |
 
 - Claude Code: `Agent` with `subagent_type` set to the role. If the role is missing, spawn `general-purpose` with the body of its definition.
 - Use a fresh context: never pass the author's reasoning or the parent conversation.

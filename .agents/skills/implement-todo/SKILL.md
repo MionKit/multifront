@@ -71,7 +71,9 @@ The header's `type` orients this: a `fix` or `feature` always needs tests, a `do
 - A new block kind or operation → a test per row of the grid it touches (see `docs/architecture.md`).
 - A pure docs or chore todo may legitimately have no code test — say so explicitly rather than skipping silently.
 
-**Docs — decide when the answer is clear, ask when it is not.** The docs are `docs/spec.md` (what), `docs/architecture.md` (how the pieces fit, with its graphics) and `docs/plan.md` (in which order). A change to behaviour, structure or order updates the matching one. If you cannot tell, **ask** (the available question tool). Name the file AND the section in the plan. A changed graphic means editing its HTML under `docs/assets/src/` and running `pnpm devx docs-images`.
+**Test infra — check it, never assume it.** For every planned test, name where it runs (this host, CI) and what it needs. Read `.github/workflows/ci.yml` and SETUP.md to confirm the piece is there. A missing piece (a browser install, a VS Code download, a pack-and-install job) is built in this todo, following "Test infrastructure" in `docs/milestones/README.md`. It is part of the plan, not a follow-up.
+
+**Docs — decide when the answer is clear, ask when it is not.** The docs are `docs/spec.md` (what), `docs/architecture.md` (how the pieces fit, with its graphics) and `docs/plan.md` (in which order). A change to behaviour, structure or order updates the matching one. If you cannot tell, **ask** (the available question tool). Name the file AND the section in the plan. A changed graphic means editing its HTML under `docs/assets/src/` and running `pnpm devx docs-images`. Public docs (`publicdocs/`) change only when a page already describes behaviour this todo changes; new public pages are the milestone docs writer's job.
 
 **Fuzzing — for features, judge candidacy, then propose.** Much of multifront rewrites text and keeps offsets (the block splitter, the scope step, the position maps), and that kind of code usually has a cheap correctness oracle that makes fuzzing pay off. Quickly gut-check the feature for one:
 - **round-trip** (an encode/decode or serialize/parse pair should return the value),
@@ -90,7 +92,7 @@ If investigation (step 3) or the docs/fuzzing decisions (step 4) left genuine fo
 Present the plan with the approval workflow in [the tool mapping](../TOOLS.md), even when the todo was already a complete spec — the user gets to amend before any code is written. The plan should state, concisely:
 
 - the change you will make (and the key files, from the spec's own pointers),
-- the **test** plan (which package, and what the tests will pin),
+- the **test** plan (which package, what the tests will pin, where they run, and any infra this todo adds for them),
 - the **docs** plan (which page, and existing section or new section; or an explicit "no docs needed because …"),
 - the **fuzzing** decision (proposed + confirmed, or "not a fuzz candidate because …"),
 - the **finish**: run the gate, then `git mv` the spec into `docs/done/`.
@@ -115,6 +117,7 @@ Mirror the todo's own **Done when** so approval is measured against the author's
 Run the gate before calling it done:
 
 - **Everything green** — `pnpm devx check` (format check, lint, typecheck, tests, build). Run `pnpm devx format` first; never hand-format.
+- **The new tests ran.** In the gate output, and later in the CI log, every test this todo added executed: none skipped, none filtered out for want of a browser or a binary.
 - **Docs updated** per the plan.
 - **Reconcile the spec with what shipped.** If the implementation diverged from the original todo — a different approach, a narrower or wider outcome, a decision the spec did not anticipate — edit the todo file so it describes what was **actually built** before it moves. A stale spec landing in `docs/done/` misleads the next reader.
 - **Move the spec.** `git mv` it from `docs/todos/` into `docs/done/` and update it to match what shipped. This is a hard PR-readiness requirement, not an afterthought. If you deliberately shipped only PART of it, SPLIT rather than park: the moved doc records what landed and why the rest was cut, and the remainder becomes a NEW `docs/todos/` spec that reads on its own. There is no half-done lane.

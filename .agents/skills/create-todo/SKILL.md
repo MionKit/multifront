@@ -89,10 +89,11 @@ Then the body, sized to the `spec`:
 - **Guidelines** — keep it lean:
   - `## Intent` — what and why.
   - `## Direction` — the rough approach plus the pointers/constraints you verified; state plainly that the implementer plans the details.
-  - `## Docs` — which of `docs/spec.md`, `docs/plan.md`, `docs/architecture.md` (and its graphics) change, and the section; or "none, because …".
+  - `## Docs` — which of `docs/spec.md`, `docs/plan.md`, `docs/architecture.md` (and its graphics) change, and the section; or "none, because …". A `publicdocs/` page only when it already describes behaviour this changes: new public pages come from the milestone's docs writer.
   - `## Done when` — the acceptance bar, roughly, ending with the comment simplification pass.
 - **Full plan** — the shape every full-plan spec in `docs/todos/` follows (open any one with `spec: full-plan` in its header to see it):
   - `## Problem`, `## Plan` (or `## Fix direction`) with `file:line` pointers, `## Tests`, `## Docs`, `## Fuzzing` (if a feature), `## Out of scope`, `## Done when`.
+  - `## Tests` also says **where each test runs and what it needs**: the host and CI. Check the infra is really there (`.github/workflows/ci.yml`, SETUP.md); never assume it. When a test needs a piece that is missing (a browser, VS Code, packed tarballs), the plan builds it in this todo, after the pattern in "Test infrastructure" of `docs/milestones/README.md`.
 
 Every `## Done when` ends with the comment pass: "the simplify-comments pass ran on every touched source file, committed on its own". It has no opt-out short of a branch that touched no source file.
 

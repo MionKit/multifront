@@ -12,6 +12,8 @@ AGENTS.md, `docs/milestones/README.md` (testing rules, shared names), the whole 
 
 Run `pnpm devx check`. A red gate on `main` is a finding.
 
+Then check every test **ran**, here and in CI: read the gate output and the latest CI log on `main`, and confirm the milestone's tests executed. A test skipped or filtered out because a browser, VS Code or a binary is missing is a finding, even when the check is green.
+
 ## 3. Audit every point of the milestone
 
 Build a checklist from the milestone doc and answer every item `pass` or `fail`, with evidence (a `file:line`, or a command and its output):
