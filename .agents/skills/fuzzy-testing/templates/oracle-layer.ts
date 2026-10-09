@@ -80,8 +80,8 @@ export function checkNegativeSpace<V, O, W>(
     : fail('negative-space', ctx, target.title, 'a provably-invalid value was silently accepted');
 }
 
-/** Deep value comparison: REPLACE with your real comparison (see test/util/equalsHelpers.ts:
- *  symbols by description, Date/Map/Set/RegExp, Temporal, padded arrays, …). */
+/** Deep value comparison: REPLACE with your real comparison
+ *  (symbols by description, Date/Map/Set/RegExp, Temporal, padded arrays, …). */
 function equals(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b); // placeholder only
 }

@@ -23,7 +23,7 @@ Two of three are free. Only the check needs real thought (below).
 - Never invent an input space. Widen the one the test uses: find what the author froze
   (a value, a length, a field set, an order) and let it vary.
 - Test has a `valid[]` and an `invalid[]` list → point it out: that split names your **two input makers**,
-  `createMockDataFn<T>()` (valid side) and `mutateToInvalid(schema, mock)` (invalid side).
+  one for the valid side, one that breaks one spot of a valid input (invalid side).
 - **Table-driven** test: each row is a hand-found example; the row dimension is your input maker.
 
 ## Turn the check into a rule, with the user (the only hard part)
@@ -31,7 +31,7 @@ Two of three are free. Only the check needs real thought (below).
 Grow what the test asserts into a rule that holds for ALL inputs. Pick the move by the check's shape:
 
 - A **relation** already (do-it-then-undo-it / do-it-twice) → same relation over an input maker, _trivial_
-  (swap the literal for `createMockDataFn<T>()`).
+  (swap the literal for the valid-side input maker).
 - **true/false** on a hand-picked good/bad value → two input makers + the rule tying the code's outputs together.
 - A **constant you can recompute** (`toBe(5)`) → compare against a trusted source,
   or the predicted-change relation it's an instance of.

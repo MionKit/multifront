@@ -48,7 +48,7 @@ bash .agents/skills/review-pr/scope.sh [base-ref]
 
 ```
 AGENTS.md                        14 rules apply
-packages/vite/AGENTS.md           4 rules apply   (if that package has one)
+packages/AGENTS.md                4 rules apply
 ```
 
 - Then top up from [global-checks.md](global-checks.md): add groups whose trigger the diff meets.

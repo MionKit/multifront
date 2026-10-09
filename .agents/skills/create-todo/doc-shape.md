@@ -3,7 +3,7 @@
 What `docs/todos/<slug>.md` holds. Write it only after step 5 approval.
 
 - `<slug>`: short kebab-case from the title, no collision with existing files.
-- Slug reads like the title (`stamp-the-resolver-binary.md`, not `todo-3.md`):
+- Slug reads like the title, never a bare number like `todo-3`:
   user recognizes it by filename in the `implement-todo` picker.
 - `created`: today's absolute date, matching the existing todos' convention.
 

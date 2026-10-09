@@ -89,7 +89,7 @@ Detail → [worksheet-A.md](worksheet-A.md) + the templates below.
 - A runner you can replay from a seed.
 - At least one saved failing input, or a clean run over thousands of inputs.
 
-## Good first candidates in this repo
+## Good first candidates (planned in docs/milestones/, fuzz them as they land)
 
 - Block splitter: the blocks join back into the exact file.
 - Scope step: removing the ranges it added gives the original text.
