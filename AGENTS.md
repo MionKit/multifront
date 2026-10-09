@@ -22,6 +22,7 @@ Claude Code and Codex share this file and `.agents/skills/`. Read the matching `
 | [delegate-finding](.agents/skills/delegate-finding/) | hand an unrelated bug to a parallel session |
 | [fuzzy-testing](.agents/skills/fuzzy-testing/) | add a seeded random-input test |
 | [simplify-comments](.agents/skills/simplify-comments/) | cut comments to one line that says what the code cannot |
+| [compact-agent-docs](.agents/skills/compact-agent-docs/) | shrink AGENTS.md and skill files under the `pnpm devx agent-docs` limit, no rule lost |
 
 ## ⚠️ Any issue found during a task is FIXED, not filed for later
 

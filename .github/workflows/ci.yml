@@ -29,6 +29,8 @@ jobs:
         run: pnpm devx format --check
       - name: Lint and typecheck
         run: pnpm devx lint
+      - name: Agent docs
+        run: pnpm devx agent-docs
       - name: Test
         run: pnpm devx test
       - name: Build
