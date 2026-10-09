@@ -35,17 +35,13 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/e2e/tsconfig.json` (check only, no `tsconfig.build.json`: the package is never built). It includes the four area folders, `fixtures/index.ts` and `*.config.ts`. Fixture apps are checked by their own builds, not by this config.
   - Add `'packages/e2e/vitest.config.ts'` to the root `vitest.config.ts` projects. No root `tsconfig.json` reference: `checkTree()` skips private packages.
   - Root devDependencies, exact-pinned to the same versions `@multifront/vite` carries: `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42. Also `sass` 1.104.0 (exact-pinned): Vite needs it to build the `<style scoped lang="scss">` block of `Reference.vue`. The e2e tests drive these tools for real.
-  - `packages/e2e/fixtures/index.ts`, the fixture helpers every e2e test uses:
+  - `packages/e2e/fixtures/index.ts`, the fixture helpers every e2e test uses. This step adds the one its test calls (the `.ucf` helpers come in 1.2 with their first fixtures and callers):
 
     ```ts
-    export const FIXTURES_DIR: string;                       // absolute path of packages/e2e/fixtures
-    export function componentPath(name: string): string;     // 'Card.ucf' or 'invalid/DuplicateReact.ucf' → absolute path
-    export function readComponent(name: string): {filename: string; source: string};
-    export function listComponents(folder?: string): string[]; // *.ucf names in components/ (or a subfolder), sorted
     export function copyApp(name: string): Promise<string>;  // fresh copy of fixtures/apps/<name> under packages/e2e/.tmp/, returns its root
     ```
 
-    `copyApp` copies into `packages/e2e/.tmp/<name>-<random>/`, inside the repo, so `vue` and other packages still resolve from the root `node_modules`. Add `.tmp/` to `.gitignore`.
+    `copyApp` copies into `packages/e2e/.tmp/<name>-<random>/`, inside the repo, so `vue` and other packages still resolve from the root `node_modules`. A failed copy removes its folder. Add `.tmp/` to `.gitignore`.
   - First app fixture `packages/e2e/fixtures/apps/vue-reference/`, a plain Vue app with no multifront in it:
 
     ```
@@ -58,8 +54,8 @@ None: this is the first milestone. It builds on what the repo already has:
     ```
 
     It is the yardstick: what plugin-vue does on its own, which our style pipeline must match.
-- Deliverable: `pnpm devx test` runs the `e2e` project; `pnpm devx typecheck` passes with the new package; the fixture helpers exist.
-- Test: area **Build**, `packages/e2e/build/vue-reference.spec.ts`. Runs a real `vite.build()` of `fixtures/apps/vue-reference` (with its own `vite.config.ts`, `build.write: false`, `minify: false`) with the real plugin-vue. Checks the output has one JS chunk containing `__scopeId` with a `data-v-` value, and one CSS asset whose scoped rules carry that same `[data-v-…]` attribute. Fails without the package, its project entry or the app.
+- Deliverable: `pnpm devx test` runs the `e2e` project; `pnpm devx typecheck` passes with the new package; `copyApp()` exists.
+- Test: area **Build**, `packages/e2e/build/vue-reference.spec.ts`. Runs a real `vite.build()` of `fixtures/apps/vue-reference` (with its own `vite.config.ts`, `build.write: false`, `minify: false`, `NODE_ENV=production` so the scope id is a real build's, not Vitest's `test` env) with the real plugin-vue. Checks the output has one JS chunk containing `__scopeId` with a `data-v-` value, and one CSS asset whose scoped rules carry that same `[data-v-…]` attribute. Fails without the package, its project entry or the app.
 - Status: done
 
 ### 1.2 Block types, the registry and `splitBlocks` for valid files
@@ -95,6 +91,15 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/core/src/blocks/index.ts`: the registry, `BLOCK_KINDS: readonly BlockKind[]` in the order `style, vue, react, svelte` (shared first, then `TARGETS` order), and `getBlockKind(tag: BlockTag): BlockKind`. One file per kind: `blocks/style.ts` (`role: 'shared'`), `blocks/vue.ts`, `blocks/react.ts`, `blocks/svelte.ts` (`role: 'target'`). In this step a kind has only `tag` and `role`.
   - `packages/core/src/split.ts`: `splitBlocks(source: string, filename: string): SplitResult`. A hand-written scanner. Root tags come from `BLOCK_KINDS`, so a new kind adds a root tag with no splitter change. It reads an opening tag and its attributes (double quotes, single quotes, unquoted, bare), then takes the content as raw text up to the first `</tag` followed by `>` or whitespace (browser `<script>` rules). Between blocks only whitespace and HTML comments (`<!-- … -->`) are allowed.
   - Exports from `packages/core/src/index.ts`: `splitBlocks`, `BLOCK_KINDS`, `getBlockKind`, and the types above.
+  - The `.ucf` fixture helpers, added to `packages/e2e/fixtures/index.ts` next to 1.1's `copyApp`:
+
+    ```ts
+    export const FIXTURES_DIR: string;                         // absolute path of packages/e2e/fixtures
+    export function componentPath(name: string): string;       // 'Card.ucf' or 'invalid/DuplicateReact.ucf' → absolute path
+    export function readComponent(name: string): {filename: string; source: string};
+    export function listComponents(folder?: string): string[]; // *.ucf names in components/ (or a subfolder), sorted, with the folder prefix
+    ```
+
   - Valid component fixtures in `packages/e2e/fixtures/components/`:
 
     | Fixture | Blocks | Covers |
@@ -333,7 +338,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |
 | `oxc-parser` | exact-pinned dependency of `@multifront/core` | M3 (scope transform) |
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
-| Fixture helpers | `packages/e2e/fixtures/index.ts`: `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()`, `copyApp()` (temp copies in `packages/e2e/.tmp/`) | M2 to M7 |
+| Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2) | M2 to M7 |
 | Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |
 | Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
