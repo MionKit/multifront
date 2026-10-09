@@ -56,7 +56,7 @@
 - Never report a test as passing from a run where it did not execute.
 - **Vitest**. Test files: `.spec.ts` in each package's `test/` dir, mirroring `src/`, never beside the code.
 - `pnpm devx test` runs every project. Root [vitest.config.ts](vitest.config.ts) = the one list of projects.
-- New package → add to `vitest.config.ts` AND root `tsconfig.json` references. Forget → `pnpm devx typecheck` fails.
+- New package → in `vitest.config.ts` AND, if published, root `tsconfig.json` references. Forget → typecheck fails.
 
 ## Code style
 
