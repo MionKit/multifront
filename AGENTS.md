@@ -44,6 +44,13 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 
 ## Testing
 
+**We test the real thing, end to end.** No unit tests of internals, no mocks, no stubs, no fake data.
+
+- Every test feeds real files (real `.ucf` components, real apps) through real tools (Vite, the framework plugins, TypeScript, the language server, a browser) and checks the real output.
+- When two tools meet (our plugin and plugin-vue, a parser and a compiler), the test runs both for real.
+- The smallest allowed test: a real fixture file, through a public function or command, with its real output checked.
+- Fuzz tests only as generated real files: real fixtures mutated or recombined, run through the real tools.
+- Cross-package e2e tests live in the private `packages/e2e` package, one folder per area (build, browser, editor, consumer), with shared fixtures. See [docs/milestones/README.md](docs/milestones/README.md).
 - **Vitest**. Test files are `.spec.ts` in each package's `test/` dir, mirroring `src/`, never beside the code.
 - `pnpm devx test` runs every project. The root [vitest.config.ts](vitest.config.ts) is the one list of projects.
 - Adding a package means adding it to `vitest.config.ts` AND to the root `tsconfig.json` references. `pnpm devx typecheck` fails if you forget.
