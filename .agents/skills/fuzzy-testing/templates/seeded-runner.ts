@@ -1,7 +1,7 @@
 /**
  * The replayable loop, a run-it-a-lot mode, and a shrinker (from the tools worksheet).
  * Needs no extra libraries. If fast-check is available, `fc.assert(fc.property(gen, oracle))`
- * replaces this whole file (and shrinks for free) — your rule-checks stay the same.
+ * replaces this whole file (and shrinks for free), your rule-checks stay the same.
  */
 import type {Violation, CheckCtx} from './oracle-layer.ts';
 
