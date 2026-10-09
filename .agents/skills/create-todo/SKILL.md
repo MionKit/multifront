@@ -1,117 +1,92 @@
 ---
 name: create-todo
-description: Write a request up as a docs/todos/ spec with the metadata header, never implementing it. Use when the user wants to note, file or add a todo.
+description: File a request as a docs/todos/ spec, never implement it. Use when asked to note, file or add a todo.
 ---
 
 # create-todo
 
 Use [the tool mapping](../TOOLS.md) for assistant-specific calls and fallbacks.
 
-Capture a request as a clean, self-contained spec under `docs/todos/` — the same directory `implement-todo` picks work from. Your output is **one markdown doc**, never a code change. The doc always opens with the shared metadata header (below), and its body is either a **full, ready-to-build plan** or **light guidelines** that leave the real planning to whoever implements it later. Which of those you write is the user's call, and guidelines is the usual answer.
+Capture a request as a clean, self-contained spec under `docs/todos/`, where `implement-todo` picks work from.
 
-**Run by a milestone step agent** (the run-milestone skill): the orchestrator is the user. The spec is always `full-plan`, and the approval is its reply to your `PLAN` message.
+- Output: ONE markdown doc, never a code change. Always opens with the metadata header below.
+- Body: a **full, ready-to-build plan**, or **light guidelines** leaving real planning to the implementer.
+- Which one = user's call. Guidelines is the usual answer.
+- **Run by a milestone step agent** (run-milestone skill): orchestrator = user, spec always `full-plan`,
+  approval = its reply to your `PLAN` message.
 
-**The gate: nothing is written to disk until the user approves the drafted todo.** Everything up to that point — capturing, classifying, investigating — is analysis. Present the todo you intend to file, get a yes, then write the file. If you are not already in plan mode, enter it (Claude: EnterPlanMode; Codex: plan mode if available) once the request is captured, so the investigation stays read-only and the approval is explicit.
+## ⚠️ The gate
 
-## The shared metadata header (contract with implement-todo)
+- Nothing written to disk until the user approves the drafted todo. Capturing, classifying, investigating = analysis.
+- Not in plan mode → enter it once the request is captured (Claude: EnterPlanMode; Codex: plan mode if available).
+  Investigation stays read-only, approval explicit.
 
-Every todo this skill writes starts with YAML frontmatter. Two fields are load-bearing — `implement-todo` reads them to decide how to treat the todo — and two are conventional:
+## Metadata header (contract with implement-todo)
 
-```yaml
----
-type: feature       # fix | feature | docs | chore   — the kind of work
-spec: guidelines    # full-plan | guidelines          — how complete this doc is
-status: ready       # ready | blocked | ...           — conventional
-created: 2026-07-22 # absolute date (today)           — conventional
----
-```
+Every todo starts with YAML frontmatter (template: [doc-shape.md](doc-shape.md)).
+`implement-todo` reads `type` + `spec` to decide how to treat the todo.
 
-- **`type`** — `fix` (corrects wrong behavior), `feature` (new capability), `docs` (documentation only), or `chore` (refactor / tooling / infra with no user-facing behavior change).
-- **`spec`** — `full-plan` means the body is a complete plan an implementer can build from directly; `guidelines` means the body is direction and intent, and the implementer must investigate and plan before building. Get this right: it is exactly the switch `implement-todo` flips on.
+- `type` (load-bearing): `fix` (corrects wrong behavior), `feature` (new capability), `docs` (documentation only),
+  `chore` (refactor / tooling / infra, no user-facing behavior change).
+- `spec` (load-bearing): `full-plan` = complete plan, implementer builds directly.
+  `guidelines` = direction + intent, implementer investigates + plans first.
+  Get it right: `implement-todo` switches on it.
+- `status` (conventional): `ready` | `blocked` | ...
+- `created` (conventional): today, absolute (`2026-07-22`, not "today"): relative dates rot.
 
 ## The arc
 
-1. **Capture** the request — the idea and the *why*.
-2. **Classify** the `type` — decide it yourself; ask only if genuinely unsure.
+1. **Capture** the request: the idea + the *why*.
+2. **Classify** the `type`: decide yourself; ask only if genuinely unsure.
 3. **Ask** the user: full plan, or guidelines? (Usually guidelines.)
-4. **Investigate** to the matching depth — superficial for guidelines, planner-grade for a full plan.
-5. **Present** the drafted todo for approval (the approval workflow).
-6. **Write** the doc to `docs/todos/<slug>.md` with the header + body.
+4. **Investigate** to matching depth: superficial for guidelines, planner-grade for a full plan.
+   Detail: [investigate.md](investigate.md). Read before investigating.
+5. **Present** the drafted todo for approval (approval workflow).
+6. **Write** the doc to `docs/todos/<slug>.md` on approval: header + body.
+   Slug, header template, body per `spec`: [doc-shape.md](doc-shape.md). Read before writing.
+   Close: tell the user where you filed it; they can pick it up any time with `implement-todo`.
 
-## Step 1 — Capture the request
+## Step 1: Capture
 
-Get the intent and the reason behind it, not just a restatement. A good todo tells a future reader *why this is worth doing*, so if the user gave you only a terse line ("dedup the union guard"), draw out the missing "why" and any constraints they already have in mind. Keep it short; you are recording a request, not solving it yet.
+- Get the intent + reason, not a restatement. A good todo tells a future reader *why it is worth doing*.
+- Terse line ("dedup the union guard") → draw out the missing why + constraints the user has in mind.
+- Keep it short: recording a request, not solving it.
+- Check it exists: quick look across `docs/todos/` + `docs/done/` for the topic.
+  Match → surface it, never file a duplicate. User may reopen or extend the existing one.
 
-Before going further, glance at whether this already exists: a quick look across `docs/todos/` and `docs/done/` for the same topic. If there's a match, surface it rather than filing a duplicate — the user may want to reopen or extend the existing one instead.
+## Step 2: Classify the type
 
-## Step 2 — Classify the type
+- Decide `type` yourself: the default. Usually obvious from the request.
+- Genuinely ambiguous (e.g. "improve X": bug fix or new capability?) → ask with the question tool.
+- State the classification when you summarize.
 
-Decide `type` from the request yourself — that is the default. `fix` vs `feature` vs `docs` vs `chore` is usually obvious from what the user described. Only when it is genuinely ambiguous (e.g. "improve X" that could be a bug fix or a new capability) ask with the available question tool. State the classification you landed on when you summarize.
+## Step 3: Full plan or guidelines?
 
-## Step 3 — Ask: full plan or guidelines?
+Always the user's choice: ask with the question tool. Lead with guidelines: the common case, and the point of the
+two-skill split (capture direction now, implementer plans deeply at build time with fresh context).
 
-This one is always the user's choice, so ask it with the available question tool — and lead with guidelines, because that is the common case and the whole point of the two-skill split: capture direction now, let the implementer do the deep planning at build time with fresh context.
+- **Guidelines** (usual): record intent + direction; `implement-todo` investigates + plans later.
+- **Full plan**: deep planning now, spec ready to build from. Only when the user wants the thinking done up front.
+- Asked the `type` question in step 2 → fold both into one question-tool call.
 
-- **Guidelines** (usual) — you record intent + direction; `implement-todo` investigates and plans later.
-- **Full plan** — you do the deep planning now and write a spec ready to build from.
+## Step 5: Present for approval
 
-If you already had to ask the `type` question in step 2, fold both into a single question-tool call rather than asking twice.
+- Show the exact todo (frontmatter + body) via the approval workflow in [the tool mapping](../TOOLS.md).
+  Full plan = planner-grade content; guidelines = short version.
+- User may amend type, spec choice, direction, wording. Fold in edits, re-present on change. No file before approval.
 
-## Step 4 — Investigate to the matching depth
+## Never
 
-The depth is the difference between the two paths. Match it to what the user chose:
-
-**Guidelines — superficial, just enough to be correct.** Your goal is an *accurate, actionable pointer*, not a solution. Verify the premise holds so you don't file a todo built on a false assumption: confirm the problem is real (or the feature makes sense), that the files / functions / symbols you name actually exist and are roughly where you say (a couple of quick greps), and that nothing obvious makes the idea a dead end. If the change touches the design, also name which of `docs/spec.md`, `docs/plan.md` and `docs/architecture.md` (and which section) it changes; that is a grep, not design work. Then stop. Do **not** design the solution, enumerate edge cases, or write a test plan — that is deliberately left for the implementer, who will have to re-derive the current state anyway. Over-investigating here wastes the work twice.
-
-**Full plan — planner-grade, with an independent planning agent.** Do the deep work now: read the relevant code, pin the exact call sites (`file:line`), design the approach, enumerate the concrete changes, the test plan (which package, what it pins), the docs impact, and — for a feature — whether it is a fuzzing candidate (a cheap oracle like round-trip, determinism, or compare-to-a-trusted-source). Draw the **Out of scope** line explicitly and a concrete **Done when**. Spawn an independent research or planning agent using the tool mapping when the surface is large. The aim is that `implement-todo` can later build from your doc with minimal re-investigation.
-
-## Step 5 — Present the todo for approval
-
-Show the user the exact todo you intend to file — frontmatter and body — with the approval workflow in [the tool mapping](../TOOLS.md). For a full plan this is the planner-grade content; for guidelines it is the short version. The user can amend the type, the spec choice, the direction, or the wording before anything hits disk. Fold in their edits and re-present if they change it. Do not write the file until they approve.
-
-## Step 6 — Write the doc
-
-On approval, write `docs/todos/<slug>.md`, where `<slug>` is a short kebab-case name from the title (check it doesn't collide with an existing file). Use today's date (absolute) for `created`, matching the existing todos' convention. Follow this shape:
-
-```markdown
----
-type: <fix | feature | docs | chore>
-spec: <full-plan | guidelines>
-status: ready
-created: <YYYY-MM-DD>
----
-
-# <Concise title>
-```
-
-Then the body, sized to the `spec`:
-
-- **Guidelines** — keep it lean:
-  - `## Intent` — what and why.
-  - `## Direction` — the rough approach plus the pointers/constraints you verified; state plainly that the implementer plans the details.
-  - `## Docs` — which of `docs/spec.md`, `docs/plan.md`, `docs/architecture.md` (and its graphics) change, and the section; or "none, because …". A `publicdocs/` page only when it already describes behaviour this changes: new public pages come from the milestone's docs writer.
-  - `## Done when` — the acceptance bar, roughly, ending with the comment simplification pass.
-- **Full plan** — the shape every full-plan spec in `docs/todos/` follows (open any one with `spec: full-plan` in its header to see it):
-  - `## Problem`, `## Plan` (or `## Fix direction`) with `file:line` pointers, `## Tests`, `## Docs`, `## Fuzzing` (if a feature), `## Out of scope`, `## Done when`.
-  - `## Tests` also says **where each test runs and what it needs**: the host and CI. Check the infra is really there (`.github/workflows/ci.yml`, SETUP.md); never assume it. When a test needs a piece that is missing (a browser, VS Code, packed tarballs), the plan builds it in this todo, after the pattern in "Test infrastructure" of `docs/milestones/README.md`.
-
-Every `## Done when` ends with the comment pass: "the simplify-comments pass ran on every touched source file, committed on its own". It has no opt-out short of a branch that touched no source file.
-
-Close by telling the user where you filed it and, if they want, that they can pick it up any time with `implement-todo`.
-
-## What NOT to do
-
-- **Do not implement anything.** This skill writes exactly one file — the todo doc. If the user actually wants the work done now, that is `implement-todo`, not this.
-- **Do not write the file before approval.** Steps 1-5 are analysis; the doc lands only after a yes.
-- **Do not over-investigate a guidelines todo.** Superficial-but-correct is the target; deep planning is the implementer's job and doing it here duplicates the work.
-- **Do not omit or guess the header fields.** `type` and `spec` are the contract `implement-todo` runs on — a missing or wrong `spec` sends the implementer down the wrong path.
-- **Do not file a duplicate.** If the topic already lives in `docs/todos/` (or `docs/done/`), surface it instead.
-- **Do not link to a specific todo from anywhere else.** No other document, skill, workflow or code comment may name a `docs/todos/` or `docs/done/` file: those docs get deleted eventually and every such link rots. Put the reasoning in the referencing file itself. The same goes for the todo you write: describe the shape, never cite a sibling spec.
-- **Do not answer the skill's own question for the user** — the spec choice is theirs.
+- Implement anything. This skill writes exactly one file: the todo. Work wanted now → `implement-todo`.
+- Write the file before approval. Steps 1 to 5 = analysis.
+- Over-investigate a guidelines todo: deep planning is the implementer's job.
+- Omit or guess `type` / `spec`: a missing or wrong `spec` sends the implementer down the wrong path.
+- Link a specific `docs/todos/` or `docs/done/` file from any other doc, skill, workflow or code comment
+  (root AGENTS.md rule): put the reasoning in the referencing file.
+  In the todo you write too: describe the shape, never cite a sibling spec.
+- Answer the spec question for the user.
 
 ## Gotchas
 
-- **`spec: guidelines` is the common case, not a lesser one.** The design intent is to capture direction cheaply and let the implementer plan with fresh context. Reach for `full-plan` only when the user wants the thinking done up front.
-- **This is where `implement-todo`'s found-a-bug follow-ups land.** When an implementer surfaces an out-of-scope issue, filing it as a todo means this exact shape — usually a `fix`-type, `guidelines`-spec doc.
-- **The date must be today's, written absolutely** (`2026-07-22`, not "today") — relative dates rot.
-- **Slugs should read like the title.** `stamp-the-resolver-binary.md`, not `todo-3.md` — the filename is how the user recognizes it in the `implement-todo` picker.
+- `spec: guidelines` = common case, not a lesser one: capture direction cheaply, implementer plans with fresh context.
+- `implement-todo`'s found-a-bug follow-ups land here in this shape: usually `type: fix`, `spec: guidelines`.

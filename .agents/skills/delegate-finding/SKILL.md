@@ -1,43 +1,73 @@
 ---
 name: delegate-finding
-description: Hand an unrelated finding to a parallel background session with its own todo, branch and PR. Use when work turns up a bug or gap off the current task's path.
+description: Hand an unrelated finding to a parallel session + own PR. Use when work turns up an off-path bug or gap.
 ---
 
 # delegate-finding
 
-> **Codex and other non-Claude hosts:** first check that you can start a session the user can see and steer (see the background-session section of [the tool mapping](../TOOLS.md)). An internal subagent does not count. If you cannot, skip steps 3 to 6: file the finding as a guidelines todo (step 2), commit it in the current PR, name it in the PR description and final message, and keep working.
+> **Codex and other non-Claude hosts:** first check you can start a session the user can see and steer
+> (background-session section of [the tool mapping](../TOOLS.md)). An internal subagent does not count.
+> Cannot → skip steps 3 to 6: file the finding as a guidelines todo (step 2), commit it in the current PR,
+> name it in the PR description + final message, keep working.
 
-Hand an unrelated finding to a parallel agent, keeping the main task's session focused. The output of this skill is: a filed guidelines todo, a pushed stable commit, a running background session the user can steer, and a recorded merge-order dependency (finding's PR before the main task's PR).
+Hand an unrelated finding to a parallel agent; main session stays focused. Output:
 
-Related findings are NOT delegated — they are fixed in the current task and PR (see the findings rule in [AGENTS.md](../../../AGENTS.md)). Delegate only what is genuinely off the current task's code path.
+- a filed guidelines todo,
+- a pushed stable commit,
+- a running background session the user can steer,
+- a recorded merge-order dependency: finding's PR before the main task's PR.
 
-**Delegation is one level deep.** Only a session the user started directly may run this skill. A delegated session (its prompt names a parent session) never spawns another one:
+Related findings are NOT delegated: fixed in the current task + PR (findings rule in [AGENTS.md](../../../AGENTS.md)).
+Delegate only what is genuinely off the current task's code path.
 
-- It fixes every finding it meets in its own PR. A fix often has more than one cause, so a second issue on the same feature counts as related.
-- A finding that is clearly unrelated becomes a guidelines todo (the [create-todo skill](../create-todo/)), committed in its own PR, and is named in its PR description and final message. It never opens a session for it.
+## ⚠️ One level deep
+
+Only a session the user started directly may run this skill. A delegated session (prompt names a parent) never spawns:
+
+- It fixes every finding it meets in its own PR. A fix often has several causes: a second issue on the same feature
+  counts as related.
+- A clearly unrelated finding → guidelines todo ([create-todo skill](../create-todo/)), committed in its own PR,
+  named in its PR description + final message. Never a session for it.
 
 ## The flow
 
-1. **Surface it first.** Tell the user in your reply: what the finding is, where it came from, whether it predates your change (bisect if cheap). Delegation never replaces surfacing.
+1. **Surface it first.** Tell the user: what the finding is, where it came from, whether it predates your change
+   (bisect if cheap). Delegation never replaces surfacing.
+2. **File it as a GUIDELINES todo** with the [create-todo skill](../create-todo/), not a full plan: evidence, repro,
+   intent. Real planning left to the implementer (implement-todo plans before coding anyway). Lands in `docs/todos/`.
+3. **Pin a stable commit.** Commit current work + the new todo doc on YOUR branch, push. The handoff point:
+   the session starts from this commit, sees the todo + the exact tree that exposed the finding.
+   Never hand off from a dirty or unpushed tree.
+4. **Spawn the background session.** MUST be one the user can peek at, reply to, steer:
+   a cloud session in their sessions list (claude.ai/code / the Claude Code app),
+   or a local [agent view](https://code.claude.com/docs/en/agent-view) session. Cloud sessions:
+   - Environment: this session's (`create_session` inherits it when no `environment_id` is given).
+   - Source: `https://github.com/MionKit/multifront`, revision = your branch at the stable commit.
+   - ⚠️ A session with no source dies at init: the environment's setup script needs a checkout.
+5. **Instruct the child.** Prompt standalone (child starts with zero context). Always opens with a link to this
+   session, `https://claude.ai/code/<your session id>` (`get_session` with no id prints it), so every child traces
+   back to its parent. Template:
 
-2. **File it as a GUIDELINES todo** with the [create-todo skill](../create-todo/) — guidelines mode, not a full plan: capture the evidence, the repro, and the intent, and leave the real planning to the implementing agent (implement-todo plans before coding anyway). The doc lands in `docs/todos/`.
+   > You are fixing a finding delegated from the parent session https://claude.ai/code/<parent-session-id>.
+   > The spec is `docs/todos/<file>.md` on this checkout. Create a NEW branch cut from `origin/main`
+   > (e.g. `fix/<finding>`), carry the spec onto it with `git checkout <stable-sha> -- docs/todos/<file>.md`,
+   > then run the **implement-todo skill** on that spec end to end: plan, implement, PR-readiness gate,
+   > move the spec to `docs/done/`, push, and open a PR. Your PR must contain ONLY the finding's fix:
+   > none of the parent branch's in-flight work. Link the parent session in the PR description.
+   > You are a delegated session: fix every other issue you find in this same PR, and never start another session.
+   > An issue clearly unrelated to this fix becomes a guidelines todo in `docs/todos/` (create-todo skill),
+   > committed in this PR and named in its description.
 
-3. **Pin a stable commit.** Commit your current work state plus the new todo doc on YOUR branch and push. This is the handoff point: the background session starts from this commit, so it sees the todo and the exact tree that exposed the finding. Don't hand off from a dirty or unpushed tree.
-
-4. **Spawn the background session.** It MUST be a session the user can peek at, reply to, and steer — a cloud session in their sessions list (claude.ai/code / the Claude Code app) or a local [agent view](https://code.claude.com/docs/en/agent-view) session. For cloud sessions:
-   - Environment: the one this session runs in (`create_session` inherits it when no `environment_id` is given).
-   - Source: `https://github.com/MionKit/multifront`, revision = your branch at the stable commit. **A session with no source dies at init** — the environment's setup script needs a checkout.
-
-5. **Instruct the child** (its prompt must be standalone — it starts with zero context). It always opens with a link to this session, `https://claude.ai/code/<your session id>` (`get_session` with no id prints it), so the user can trace every child back to its parent. Template:
-
-   > You are fixing a finding delegated from the parent session https://claude.ai/code/<parent-session-id>. The spec is `docs/todos/<file>.md` on this checkout. Create a NEW branch cut from `origin/main` (e.g. `fix/<finding>`), carry the spec onto it with `git checkout <stable-sha> -- docs/todos/<file>.md`, then run the **implement-todo skill** on that spec end to end: plan, implement, PR-readiness gate, move the spec to `docs/done/`, push, and open a PR. Your PR must contain ONLY the finding's fix — none of the parent branch's in-flight work. Link the parent session in the PR description. You are a delegated session: fix every other issue you find in this same PR, and never start another session. An issue clearly unrelated to this fix becomes a guidelines todo in `docs/todos/` (create-todo skill), committed in this PR and named in its description.
-
-   The new branch is cut from `origin/main` (not from the stable commit) so the finding's PR carries only the fix; the stable-commit checkout exists to give the child the todo and the context, not to be its PR base.
-
-6. **Record the ordering and keep working.** The finding's PR merges BEFORE the main task's PR — state that dependency in the main PR's description and don't merge the main PR past it; the main PR waiting is the forcing function that keeps the parallel fix from stalling. After the finding's PR merges, rebase your branch on `main` and drop your `docs/todos/` copy of the spec (it now lives in `docs/done/`).
+   Branch cut from `origin/main`, not the stable commit, so the finding's PR carries only the fix.
+   The stable-commit checkout gives the child the todo + context; it is not the PR base.
+6. **Record the ordering, keep working.** Finding's PR merges BEFORE the main task's PR: state it in the main PR's
+   description, never merge the main PR past it. Main PR waiting = forcing function keeping the fix from stalling.
+   After the finding's PR merges: rebase your branch on `main`, drop your `docs/todos/` copy of the spec
+   (now in `docs/done/`).
 
 ## Gotchas
 
-- Cloud child sessions cannot message the parent session back — track progress through the child's PR and the sessions list, not by waiting for a ping.
-- If the child's init fails with "Setup script failed", the session was created without a source checkout — archive it and respawn with the repo + revision attached.
-- One finding, one session, one PR. Several findings at once means several delegations, not one omnibus fix branch.
+- Cloud child sessions cannot message the parent back: track progress via the child's PR + the sessions list.
+- Child init fails with "Setup script failed" → created without a source checkout.
+  Archive it, respawn with repo + revision attached.
+- One finding, one session, one PR. Several findings = several delegations, never one omnibus fix branch.
