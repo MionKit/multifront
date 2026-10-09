@@ -1,102 +1,98 @@
 # multifront Guidelines
 
-> ⚠️ When replying to the user, talk in plain everyday language and extremely condensed phrases! Avoid jargon. If a term could be unclear, define it in one short sentence, and add a tiny code example when it helps.
+> ⚠️ Reply to the user in plain everyday language, extremely condensed phrases. Avoid jargon.
+> Term could be unclear → define it in one short sentence, plus a tiny code example when it helps.
 > Never use em dashes "—"
 > Do not load linked files into context unless the current task needs them!
 
-What we are building: [docs/spec.md](docs/spec.md). How the pieces fit: [docs/architecture.md](docs/architecture.md). How and in which order: [docs/plan.md](docs/plan.md).
-Setup and every command: [SETUP.md](SETUP.md).
+- What we build: [docs/spec.md](docs/spec.md). How pieces fit: [docs/architecture.md](docs/architecture.md).
+- How + in which order: [docs/plan.md](docs/plan.md). Setup + every command: [SETUP.md](SETUP.md).
+- Package rules: [packages/AGENTS.md](packages/AGENTS.md). Read before any code, test or dep change in `packages/`.
 
 ## Assistant support
 
-Claude Code and Codex share this file and `.agents/skills/`. Read the matching `SKILL.md` before using a skill. Claude finds the same skills through the `.claude/skills` symlink. Tool mapping: [.agents/skills/TOOLS.md](.agents/skills/TOOLS.md).
+- Claude Code + Codex share this file and `.agents/skills/`. Claude finds them via the `.claude/skills` symlink.
+- Read the matching `SKILL.md` before using a skill. Tool mapping: [.agents/skills/TOOLS.md](.agents/skills/TOOLS.md).
 
 ## Skills
 
-| Skill | Use it to |
-| --- | --- |
-| [create-todo](.agents/skills/create-todo/) | write a request up as a `docs/todos/` spec |
-| [implement-todo](.agents/skills/implement-todo/) | build a todo end to end: plan, code, review, comment pass, PR, green CI |
-| [run-milestone](.agents/skills/run-milestone/) | run a whole milestone alone: one agent per step, one PR per step, then one QA pass, one fixer and the public docs |
-| [review-pr](.agents/skills/review-pr/) | review a branch or PR in a fresh `pr-reviewer` agent |
-| [delegate-finding](.agents/skills/delegate-finding/) | hand an unrelated bug to a parallel session |
-| [fuzzy-testing](.agents/skills/fuzzy-testing/) | add a seeded random-input test |
-| [simplify-comments](.agents/skills/simplify-comments/) | cut comments to one line that says what the code cannot |
-| [compact-agent-docs](.agents/skills/compact-agent-docs/) | shrink AGENTS.md and skill files under the `pnpm devx agent-docs` limit, no rule lost |
+- [create-todo](.agents/skills/create-todo/): write a request up as a `docs/todos/` spec.
+- [implement-todo](.agents/skills/implement-todo/): build a todo end to end: plan, code, review, comments, PR, green CI.
+- [run-milestone](.agents/skills/run-milestone/): run a whole milestone alone: one agent + one PR per step,
+  then one QA pass, one fixer and the public docs.
+- [review-pr](.agents/skills/review-pr/): review a branch or PR in a fresh `pr-reviewer` agent.
+- [delegate-finding](.agents/skills/delegate-finding/): hand an unrelated bug to a parallel session.
+- [fuzzy-testing](.agents/skills/fuzzy-testing/): add a seeded random-input test.
+- [simplify-comments](.agents/skills/simplify-comments/): cut comments to one line that says what the code cannot.
+- [compact-agent-docs](.agents/skills/compact-agent-docs/): shrink AGENTS.md and skill files under the
+  `pnpm devx agent-docs` limit, no rule lost.
 
 ## ⚠️ Any issue found during a task is FIXED, not filed for later
 
-- **Related to the current task** → fix it in the same PR, with its own commit and its own test.
-- **Unrelated** → hand it to a parallel session with the [delegate-finding skill](.agents/skills/delegate-finding/). If that is not possible, file it as a [docs/todos/](docs/todos/) spec in the same PR. Never let it slide.
+- **Related to the current task** → fix it in the same PR, own commit, own test.
+- **Unrelated** → hand it to a parallel session with the [delegate-finding skill](.agents/skills/delegate-finding/).
+- Unrelated + no parallel session possible → file it as a [docs/todos/](docs/todos/) spec in the same PR.
+- Never let it slide.
 
 ## ⚠️ A removed thing leaves NO trace
 
-A removed or renamed option, export, flag, env var or subpath leaves no alias, no "was renamed" warning, no test for it and no doc line naming the old name. History lives in git and `docs/done/` only.
-
-## JS monorepo (`packages/`)
-
-One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) for every package.
-
-- All `dependencies` / `devDependencies` are exact-pinned. `peerDependencies` are ranges.
-- Cross-package deps use `workspace:*`.
-- devDependencies live at the root. ONE exception: a package carries the devDependencies that satisfy its own peers (`@multifront/vite` carries vite, plugin-vue, vue).
-- [core](packages/core/): bundler agnostic, NEVER imports Vite or a framework plugin.
-- [vite](packages/vite/): the Vite plugin. Composes `@vitejs/plugin-vue` (peer), never forks or deep-imports it. Read "Building on plugin-vue" in [docs/plan.md](docs/plan.md) first.
-- **Published READMEs stay thin**: a short description, the link to the repo, the status and license lines.
+- Removed/renamed option, export, flag, env var or subpath → no alias, no "was renamed" warning.
+- No test for it, no doc line naming the old name. History lives in git and `docs/done/` only.
 
 ## Testing
 
-**We test the real thing, end to end.** No unit tests of internals, no mocks, no stubs, no fake data.
+**Test the real thing, end to end.** No unit tests of internals, no mocks, no stubs, no fake data.
 
-- Every test feeds real files (real `.ucf` components, real apps) through real tools (Vite, the framework plugins, TypeScript, the language server, a browser) and checks the real output.
-- When two tools meet (our plugin and plugin-vue, a parser and a compiler), the test runs both for real.
-- The smallest allowed test: a real fixture file, through a public function or command, with its real output checked.
+- Every test feeds real files (real `.ucf` components, real apps) through real tools, checks the real output.
+- Real tools = Vite, the framework plugins, TypeScript, the language server, a browser.
+- Two tools meet (our plugin + plugin-vue, a parser + a compiler) → the test runs both for real.
+- Smallest allowed test: a real fixture file, through a public function or command, real output checked.
 - Fuzz tests only as generated real files: real fixtures mutated or recombined, run through the real tools.
-- Cross-package e2e tests live in the private `packages/e2e` package, one folder per area (build, browser, editor, consumer), with shared fixtures. See [docs/milestones/README.md](docs/milestones/README.md).
-- **Missing test infra is built, never skipped around.** A test that needs something CI or the host lacks (a browser, VS Code, a packed tarball) comes with that piece in the same PR. See "Test infrastructure" in [docs/milestones/README.md](docs/milestones/README.md). Never report a test as passing from a run where it did not execute.
-- **Vitest**. Test files are `.spec.ts` in each package's `test/` dir, mirroring `src/`, never beside the code.
-- `pnpm devx test` runs every project. The root [vitest.config.ts](vitest.config.ts) is the one list of projects.
-- Adding a package means adding it to `vitest.config.ts` AND to the root `tsconfig.json` references. `pnpm devx typecheck` fails if you forget.
-
-## TypeScript
-
-- Each package has two configs: `tsconfig.json` (check + editor, no emit) and `tsconfig.build.json` (the emit half, the only place `dist/` appears).
-- A cross-package import resolves through the `source` export condition, so nothing needs building before a check or a test.
-- Imports use the `.ts` extension; the build rewrites it to `.js`.
-- ESM only.
+- Cross-package e2e: private `packages/e2e`, one folder per area (build, browser, editor, consumer), shared fixtures.
+- **Missing test infra is built, never skipped around.** Test needs what CI/host lacks (browser, VS Code,
+  packed tarball) → that piece comes in the same PR.
+- e2e layout + "Test infrastructure": [docs/milestones/README.md](docs/milestones/README.md).
+- Never report a test as passing from a run where it did not execute.
+- **Vitest**. Test files: `.spec.ts` in each package's `test/` dir, mirroring `src/`, never beside the code.
+- `pnpm devx test` runs every project. Root [vitest.config.ts](vitest.config.ts) = the one list of projects.
+- New package → add to `vitest.config.ts` AND root `tsconfig.json` references. Forget → `pnpm devx typecheck` fails.
 
 ## Code style
 
-- No `I` prefix on interfaces; no `T` prefix on type parameters.
+- No `I` prefix on interfaces; no `T` prefix on type parameters. `import type` for type-only imports.
 - Shared types live in the package's `types.ts`; a type private to one file stays in that file.
-- Use `import type` for type-only imports.
 - No `@param` / `@returns` in JSDoc; prefer one-line comments and one-line `if`s.
-- **A comment earns its line or it goes.** Keep it only if it says something the code cannot: a reason, a constraint, an ordering requirement, an invariant.
-- **Every comment is one line.** The only multi-line comment is a file header, one paragraph at most.
+- **A comment earns its line or it goes.** Keep only what code can't say: reason, constraint, required order, invariant.
+- **Every comment is one line.** Only multi-line comment: a file header, one paragraph max.
 - Meaningful names; no one-letter names except loop indices and `err`.
-
-## Environment variables
-
-[scripts/lib/env.mjs](scripts/lib/env.mjs) `REGISTRY` lists every env var the repo reads; `pnpm devx env` prints it. Prefix project-owned vars with `MULTIFRONT_`. `.env` is local only; `.env.sample` lists the user-settable ones.
 
 ## Development workflow
 
-- Before committing: `pnpm devx check` (or at least `pnpm devx lint` and `pnpm devx format`).
-- `pnpm devx format` is the only formatter run: oxfmt over `packages/**/*.ts` and `packages/**/*.md`. Never hand-format, never widen its scope.
-- Adding a command means adding a row to [scripts/lib/registry.mjs](scripts/lib/registry.mjs) and a handler in [scripts/devx.mjs](scripts/devx.mjs).
-- The pre-commit hook runs `lint-staged`; the commit-msg hook runs commitlint.
+- Before committing: `pnpm devx check` (or at least `pnpm devx lint` + `pnpm devx format`).
+- `pnpm devx format` = the only formatter run: oxfmt over `packages/**/*.ts` + `packages/**/*.md`.
+  Never hand-format, never widen its scope.
+- New command → row in `scripts/lib/registry.mjs` + handler in `scripts/devx.mjs`.
+- Pre-commit hook runs `lint-staged`; commit-msg hook runs commitlint.
+- Every env var the repo reads: `REGISTRY` in [scripts/lib/env.mjs](scripts/lib/env.mjs). `pnpm devx env` prints it.
+- Prefix project-owned vars with `MULTIFRONT_`. `.env` is local only; `.env.sample` lists the user-settable ones.
 
 ## PR readiness
 
-- New or changed behaviour has Vitest coverage, and `pnpm devx check` passes.
-- Docs updated: [docs/plan.md](docs/plan.md) when a plan decision changes, [docs/architecture.md](docs/architecture.md) and its graphics when the structure changes. Graphics are HTML under `docs/assets/src/`, rendered with `pnpm devx docs-images`; commit the HTML and the PNG together.
-- Public docs ([publicdocs/](publicdocs/), how to use multifront, written by the rules in [publicdocs/AGENTS.md](publicdocs/AGENTS.md)) are written once per milestone by the `public-docs-writer` agent. A PR that changes behaviour a public page already describes fixes that page too.
-- If the PR implements a [docs/todos/](docs/todos/) spec, `git mv` it into [docs/done/](docs/done/) and update it to match what shipped.
-- **No other file ever names a `docs/todos/` or `docs/done/` document**, not a doc, a skill or a code comment: those specs get deleted, so every such link rots.
-- Every touched source file gets a comment pass by the `comments-simplifier` subagent ([simplify-comments skill](.agents/skills/simplify-comments/SKILL.md)), never by the session that wrote the code, committed on its own as `chore(comments): …`.
+- New/changed behaviour has Vitest coverage, and `pnpm devx check` passes.
+- Plan decision changes → update [docs/plan.md](docs/plan.md).
+- Structure changes → update [docs/architecture.md](docs/architecture.md) + its graphics.
+- Graphics: HTML under `docs/assets/src/`, rendered by `pnpm devx docs-images`. Commit HTML + PNG together.
+- Public docs ([publicdocs/](publicdocs/)) = how to use multifront. Rules: [publicdocs/AGENTS.md](publicdocs/AGENTS.md).
+- `public-docs-writer` agent writes them once per milestone. PR changes behaviour a public page describes → fix it too.
+- PR implements a `docs/todos/` spec → `git mv` it into `docs/done/`, update it to match what shipped.
+- **No other file ever names a `docs/todos/` or `docs/done/` document**: not a doc, a skill or a code comment.
+  Those specs get deleted, so every such link rots.
+- Comment pass on every touched source file: `comments-simplifier` subagent, never the session that wrote the code.
+  [simplify-comments skill](.agents/skills/simplify-comments/SKILL.md). Committed on its own as `chore(comments): …`.
 
 ## Git workflow
 
 - Branches: `feature/<name>`, `fix/`, `docs/`, `chore/`; a tool-given branch name is fine as is.
-- Commit messages: one Conventional Commits subject line; one short paragraph only when the why isn't in the diff.
-- PRs land with rebase-and-merge, so keep branches LINEAR. Integrate `main` by rebasing, never merging, then `git push --force-with-lease`.
+- Commit message: one Conventional Commits subject line; one short paragraph only when the why isn't in the diff.
+- PRs land with rebase-and-merge → keep branches LINEAR. Integrate `main` by rebasing, never merging.
+- After a rebase: `git push --force-with-lease`.
