@@ -1,8 +1,9 @@
+import {readdirSync, readFileSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
+export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 // Inside the repo, so a copied app still resolves vue, vite and the plugins from the root node_modules.
 const TMP_DIR = join(FIXTURES_DIR, '..', '.tmp');
 
@@ -16,4 +17,23 @@ export async function copyApp(name: string): Promise<string> {
     throw err;
   }
   return root;
+}
+
+/** `'Card.ucf'` or `'invalid/DuplicateReact.ucf'` → its absolute path. */
+export function componentPath(name: string): string {
+  return join(FIXTURES_DIR, 'components', name);
+}
+
+export function readComponent(name: string): {filename: string; source: string} {
+  const filename = componentPath(name);
+  return {filename, source: readFileSync(filename, 'utf8')};
+}
+
+/** The `.ucf` names directly in `components/` (or one subfolder of it), sorted, with the folder prefix. */
+export function listComponents(folder?: string): string[] {
+  const prefix = folder ? `${folder}/` : '';
+  return readdirSync(componentPath(prefix), {withFileTypes: true})
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ucf'))
+    .map((entry) => prefix + entry.name)
+    .sort();
 }

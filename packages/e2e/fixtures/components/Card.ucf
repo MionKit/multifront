@@ -1,0 +1,25 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ title: string }>()
+  </script>
+  <template>
+    <div :class="$style.card"><h2>{{ title }}</h2></div>
+  </template>
+</vue>
+
+<react>
+  export default function Card({ title }: { title: string }) {
+    return <div className={$style.card}><h2>{title}</h2></div>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { title }: { title: string } = $props()
+  </script>
+  <div class={$style.card}><h2>{title}</h2></div>
+</svelte>
+
+<style module lang="scss">
+.card { padding: 1rem; }
+</style>
