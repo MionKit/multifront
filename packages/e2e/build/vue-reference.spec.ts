@@ -10,7 +10,7 @@ beforeAll(async () => {
   return () => rm(root, {recursive: true, force: true});
 });
 
-// The rules of one selector, with whatever attribute selectors plugin-vue appended to it.
+// Each rule's selector, plus the one attribute selector plugin-vue may append.
 function rulesFor(css: string, selector: string): string[] {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return [...css.matchAll(new RegExp(`(?:^|[},])\\s*(${escaped}(?:\\[[^\\]]+\\])?)\\s*\\{`, 'gm'))].map((match) => match[1]!);
