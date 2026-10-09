@@ -44,7 +44,7 @@ pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
 pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
 ```
 
-Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`.
+Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
 
 ## Docs graphics
 

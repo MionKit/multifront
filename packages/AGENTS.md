@@ -11,6 +11,7 @@ Rules for the JS monorepo under `packages/`. Root [AGENTS.md](../AGENTS.md) stil
 - [core](core/): bundler agnostic, NEVER imports Vite or a framework plugin.
 - [vite](vite/): the Vite plugin. Composes `@vitejs/plugin-vue` (peer), never forks or deep-imports it.
   Read "Building on plugin-vue" in [docs/plan.md](../docs/plan.md) first.
+- [e2e](e2e/): private, never built. Cross-package e2e tests + shared fixtures. `tsconfig.json` only, no build half.
 - **Published READMEs stay thin**: short description, repo link, status + license lines.
 
 ## TypeScript

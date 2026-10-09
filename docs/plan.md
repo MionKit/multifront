@@ -10,6 +10,7 @@ How we build [the spec](spec.md). How the pieces fit: [architecture.md](architec
 | `@multifront/vite` | The Vite plugin. Hands each target to plugin-vue, plugin-react or plugin-svelte, and rewrites import attributes. | exists |
 | `@multifront/language-tools` | Everything that checks `.ucf` files without building them: the Volar language plugin (per-target virtual scripts), the TypeScript plugin (`./typescript-plugin`), the language server (`./server`), and the `mf-tsc`, `mf-lint` and `mf-fmt` commands. | milestone 2 |
 | `packages/vscode` | The VS Code extension (Marketplace and Open VSX, not npm). Bundles `language-tools`; the one package not built by plain `tsc`. | milestone 2 |
+| `packages/e2e` | Private, never published or built: the cross-package e2e tests, one folder per area, and the shared fixtures. | milestone 1 |
 
 `@multifront/vite` also gets the library build (milestone 5): it is one Vite build per target, so it needs the plugin anyway.
 
