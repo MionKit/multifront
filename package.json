@@ -1,0 +1,57 @@
+{
+  "name": "multifront-monorepo",
+  "version": "0.0.0",
+  "description": "One component file, three frameworks: Vue, React and Svelte implementations with shared styles, compiled to one package per framework.",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.8.0",
+  "homepage": "https://github.com/MionKit/multifront#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MionKit/multifront.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MionKit/multifront/issues"
+  },
+  "license": "MIT",
+  "author": "ma-jerez",
+  "engines": {
+    "node": ">= 26.0.0",
+    "pnpm": ">= 11.0.0"
+  },
+  "scripts": {
+    "preinstall": "node -e \"if (!(process.env.npm_config_user_agent||'').startsWith('pnpm')) { console.error('\\n\\u274c  Use pnpm, not npm/yarn -- see AGENTS.md #Setup.\\n'); process.exit(1); }\"",
+    "devx": "node scripts/devx.mjs",
+    "build": "node scripts/devx.mjs build",
+    "test": "node scripts/devx.mjs test",
+    "lint": "node scripts/devx.mjs lint",
+    "typecheck": "node scripts/devx.mjs typecheck",
+    "format": "node scripts/devx.mjs format",
+    "check-format": "node scripts/devx.mjs format --check",
+    "check": "node scripts/devx.mjs check",
+    "clean": "node scripts/devx.mjs clean",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/**/*.ts": [
+      "oxfmt --check --no-error-on-unmatched-pattern",
+      "oxlint --no-error-on-unmatched-pattern"
+    ],
+    "packages/**/*.md": [
+      "prettier --check"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "21.2.2",
+    "@commitlint/config-conventional": "21.2.2",
+    "@types/node": "26.6.4",
+    "@vitest/coverage-v8": "5.0.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.5.0",
+    "oxfmt": "0.67.0",
+    "oxlint": "1.82.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  }
+}

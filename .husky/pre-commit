@@ -1,0 +1,2 @@
+# Resolved from node_modules/.bin, which husky prepends to PATH.
+lint-staged

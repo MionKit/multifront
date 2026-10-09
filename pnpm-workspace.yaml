@@ -1,0 +1,38 @@
+packages:
+  - 'packages/*'
+
+# ── Build-script allowlist ───────────────────────────────
+# pnpm 11 blocks every dependency install/postinstall script by default.
+# Only the packages listed here may run them.
+allowBuilds: {}
+
+# ── Lockfile / install integrity ─────────────────────────
+# `pnpm install` never rewrites the lockfile; use `pnpm add` / `pnpm update` to change it.
+frozenLockfile: true
+verifyStoreIntegrity: true
+
+# ── Version pinning (no auto-bumps) ──────────────────────
+# Empty savePrefix means exact pinning.
+savePrefix: ''
+saveWorkspaceProtocol: rolling
+resolutionMode: highest
+
+# ── Supply-chain protection: minimum release age ─────────
+# Refuse package versions younger than 30 days (43200 minutes).
+minimumReleaseAge: 43200
+# Pure type declarations: no runtime code, so the age window buys nothing.
+minimumReleaseAgeExclude:
+  - '@types/node'
+
+# ── Block lifecycle scripts ──────────────────────────────
+ignoreScripts: true
+sideEffectsCache: false
+
+# ── Block non-registry sources ───────────────────────────
+allowNonRegistryProtocols: false
+
+loglevel: warn
+
+# ── Strict peers ─────────────────────────────────────────
+strictPeerDependencies: true
+autoInstallPeers: false

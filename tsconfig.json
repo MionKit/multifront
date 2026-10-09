@@ -1,0 +1,10 @@
+{
+  // Build graph only: `devx build` runs `tsc --build` here. Each package's own tsconfig.json serves the
+  // check and the editor; its tsconfig.build.json is the emit half and the only place dist appears.
+  "files": [],
+  "references": [
+    {"path": "./packages/core/tsconfig.build.json"},
+    {"path": "./packages/runtime/tsconfig.build.json"},
+    {"path": "./packages/vite/tsconfig.build.json"}
+  ]
+}
