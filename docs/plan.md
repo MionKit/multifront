@@ -39,6 +39,8 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ## Milestones
 
+Each milestone has a detailed document with ordered steps, deliverables and tests in [milestones/](milestones/README.md). Where it and the summary below differ, the milestone document wins.
+
 ### 1. Splitter, block kinds + styles
 
 - The `BlockKind` contract and the registry in core ([architecture.md](architecture.md)), with `<style>` as the first full kind. Every later milestone fills in one row.

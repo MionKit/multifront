@@ -29,7 +29,7 @@ From milestone 1 (splitter, block kinds, styles):
 - `splitBlocks(source, filename)` in core, returning the blocks and the errors. One block is `Block = {type, attrs, content, start, end, contentStart, contentEnd}` (spec 3.2). Offsets are into the `.ucf` source.
 - `Diagnostic = {code, message, line, column}`, with the code `react-no-default-export` already in its code list. M3 owns the check itself, in `react.check()`.
 - The `BlockKind` contract and the registry in `packages/core/src/blocks/index.ts` (shared kinds first), with the `style` row complete and a `react` row to fill.
-- `ctx`, filled by the shared kinds before a target runs (architecture.md), with at least `ctx.scopeId: string` (8 hex chars), `ctx.$style` (class map per module name) and `ctx.cssIds` (one style module id per `<style>`). This document calls its type `BlockContext`; if M1 named it differently, M3 uses M1's name. M3 adds `ctx.scoped: boolean` (any `<style scoped>`) and `ctx.dev: boolean` if M1 did not.
+- `createBuildContext(split, {root, compiler, production})` and its `BuildContext`: `split`, `source`, `production`, `scopeId` (8 hex chars), `hasScoped`, `styles` (each with its module `id`), `modules` (class map per injection name, with its `classMapId`). Dev is `!ctx.production`.
 - `compileStyles(blocks, {id, filename})`: CSS, map and CSS-module class map per `<style>`.
 - `scopeId(relativePath, source, production)`.
 - The style module id `/abs/Card.ucf?ucf&type=style&index=N&lang.css`, and the class map module (id and code). If M1 did not fix a class map id, M3 uses `/abs/Card.ucf?ucf&type=style&index=N&module&lang.js`.
@@ -95,42 +95,36 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - A value that is not a string literal is the error `framework-attribute-not-literal`, with its line and column.
   - MagicString edits, so the map is exact.
   - Adds `oxc-parser` and `magic-string` to core `dependencies`, exact-pinned (newest past the 30 day age).
-  - Fixtures: `packages/e2e/fixtures/components/react/imports/Card.ucf` (`<react>`, `<vue>` and `<svelte>` blocks, a `<style module>`). `packages/e2e/fixtures/apps/import-rules/`, three small projects with their own `vite.config.ts` and `tsconfig.json`:
+  - Fixtures: M1's `fixtures/components/Card.ucf` (all three target blocks, a `<style module>`) is the imported file. M2's shared imports set `packages/e2e/fixtures/apps/imports/` gains three sub-projects, each with its own `vite.config.ts` and `tsconfig.json`:
     - `no-default/` (no `target`): `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `none.ts`, `non-literal.ts`, `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` inside a string and a comment).
     - `default-react/` (`target: 'react'`): `default.ts`, `importer-over-default.tsx`, `attribute-over-default.ts` (`framework: 'svelte'`).
     - `react-only/` (`targets: ['react']`): `not-enabled.ts` (`framework: 'svelte'`).
-    - The first line of every importer states the outcome: `// expect: react`, `// expect: vue`, `// expect-error: no-target`.
+    - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect}`), the one table the build and the editor both satisfy.
 - Deliverable: the one function every host uses to read and remove the attribute, and the importer fixture table.
 - Test: `packages/core/test/imports/rewrite.spec.ts`. Every importer file goes through `rewriteImportAttributes`. Checks: no `framework` key left, each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute, the output parses with oxc-parser, a second run changes nothing, `non-literal.ts` gives `framework-attribute-not-literal` at the right line and column, and `strings-and-comments.ts` comes back unchanged.
 
-### 3.3 `resolveTarget()` in core
+### 3.3 `resolveTarget()` in core: the full rules
 
-- Build: `packages/core/src/imports/resolveTarget.ts`; types in `packages/core/src/types.ts`.
+- Build: M2 shipped `resolveTarget(importer, attribute, options)` in `packages/core/src/imports/resolveTarget.ts`, with `Importer {fileName, block?}`, `TargetChoice`, `TargetRule`, `DEFAULT_IMPORTERS` and the codes `framework-in-block`, `unknown-framework`, `no-target`. This step extends it, keeping that signature, those codes and the rule order:
 
   ```ts
-  resolveTarget(importer: string, attribute: string | undefined, options: ResolveTargetOptions): TargetResult
-  interface ResolveTargetOptions {targets: readonly Target[]; target?: Target; importers: Readonly<Record<string, Target>>}
-  type TargetResult = {target: Target} | {error: {code: TargetErrorCode; message: string}}
-  type TargetErrorCode = 'framework-attribute-in-block' | 'unknown-framework' | 'target-not-enabled' | 'no-target'
-  const DEFAULT_IMPORTERS = {'.vue': 'vue', '.svelte': 'svelte', '.jsx': 'react', '.tsx': 'react'}
+  resolveTarget(importer: Importer | undefined, attribute: string | undefined, options?: ResolveTargetOptions): TargetChoice
+  interface ResolveTargetOptions {targets?: readonly Target[]; target?: Target; importers?: Record<string, Target>} // targets: new, default all
+  importerFromId(id: string): Importer // new: module ids and virtual script names to an Importer
   ```
 
-  - `importer` is a module id or a file name. First match wins:
-    1. **Inside a block (4.1):** `X.ucf?target=react&lang.tsx` gives react, `X.ucf?target=svelte&lang.svelte` gives svelte, a bare `X.ucf` gives vue (the Vue block keeps the real path, spec 4.3), and the language plugin's virtual scripts `X.ucf.react.tsx`, `X.ucf.vue.ts`, `X.ucf.svelte.ts` give their target. An attribute here is `framework-attribute-in-block`.
-    2. **The attribute.** Not a known target: `unknown-framework`.
-    3. **The importer's extension**, through `options.importers`.
-    4. **`options.target`.**
-    5. **Nothing:** `no-target`, whose message names the three ways.
-  - A result outside `options.targets` is `target-not-enabled`, naming the enabled targets.
-  - If milestone 2 shipped a first `resolveTarget`, this replaces it, and the TypeScript plugin's call is updated in the same PR.
+  - `importerFromId` derives `block` (spec 4.1): `X.ucf?target=react&lang.tsx` is inside `<react>`, `X.ucf?target=svelte&lang.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.react.tsx`, `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
+  - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.target`, else `no-target`.
+  - A result outside `options.targets` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode`: `target-not-enabled`, `framework-attribute-not-literal` (3.2), `missing-target-block` and `target-not-built` (3.6).
+  - The TypeScript plugin keeps calling the same function (3.8).
 - Deliverable: the one place the target rules live (spec 5: "the editor and the build cannot disagree").
-- Test: `packages/core/test/imports/resolveTarget.spec.ts`. For every importer in `fixtures/apps/import-rules/`: the attribute from `rewriteImportAttributes(...).imports`, the options of its folder (the same values as that folder's `vite.config.ts`), the real file path as importer. The result must match the file's `// expect` line. Plus the in-block importers: the ids of `fixtures/components/react/imports/Card.ucf` for each target, and its virtual script names.
+- Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the same values as its `vite.config.ts`), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
 
 ### 3.4 `react.check()`: block rules
 
 - Build: the check half of the react row, `packages/core/src/blocks/react.ts`. It parses the block content with oxc-parser (`lang: 'tsx'`) and maps offsets through `contentStart` to `.ucf` line and column.
-  - `react-no-default-export`. Accepted forms: `export default function`, `export default class`, `export default <expression>` (arrow, `memo(...)`, an identifier), `export {X as default}`, `export {default} from '...'`.
-  - `framework-attribute-in-block`: any `with { framework }` inside the block (spec 4.1), pointing at the attribute.
+  - `react-no-default-export` is M1's check (1.4). This step adds the accepted form `export {default} from '...'` and the `default-forms` fixtures that pin every form: `export default function`, `export default class`, `export default <expression>` (arrow, `memo(...)`, an identifier), `export {X as default}`.
+  - `framework-in-block`: any `with { framework }` inside the block (spec 4.1), pointing at the attribute.
   - `react-syntax-error`: the parser's own errors, mapped into the `.ucf` file.
   - Fixtures: `packages/e2e/fixtures/components/react/errors/` `NoDefault.ucf`, `NamedOnly.ucf`, `AttrInBlock.ucf`, `SyntaxError.ucf`; `packages/e2e/fixtures/components/react/default-forms/` one file per accepted form.
 - Deliverable: every host that calls `check` (the Vite plugin now, the language server later) reports these at the exact spot in the `.ucf` file.
@@ -142,33 +136,35 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - A MagicString over the **whole** `.ucf` source, with everything outside the block removed. Edits use `.ucf` offsets, so the map points straight into the `.ucf` file.
   - After the directive prologue (a leading `"use client"` stays first, milestone 5 needs it), insert one `import '<cssId>';` per `<style>`, and `import $style from '<class map id>';` per module (a named module uses its name, `import classes from ...`). Two modules with the same name: the last wins, with Vue's warning.
   - Returns `VirtualFile = {ext: '.tsx', code, map}`.
-  - Fixtures: `packages/e2e/fixtures/components/react/Hello.ucf` (all three target blocks, `<style module>`, `<style module="classes">`, a global `<style>`), `UseClient.ucf`, `Unicode.ucf` (emoji and accents before JSX).
+  - Fixtures: `packages/e2e/fixtures/components/react/AllBlocks.ucf` (all three target blocks, `<style module>`, `<style module="classes">`, a global `<style>`), `UseClient.ucf`, `Unicode.ucf` (emoji and accents before JSX).
 - Deliverable: the file plugin-react will compile, still without the scope transform.
-- Test: `packages/core/test/blocks/react.spec.ts`. Snapshot of `build` output per fixture. The output parses with oxc-parser. No text of the `<vue>` or `<svelte>` block is in it. Three marked tokens map back to their exact line and column in the `.ucf` file (checked with `@jridgewell/trace-mapping`, added as an exact-pinned root devDependency).
+- Test: `packages/core/test/blocks/react.spec.ts`. Snapshot of `build` output per fixture. The output parses with oxc-parser. No text of the `<vue>` or `<svelte>` block is in it. Three marked tokens map back to their exact line and column in the `.ucf` file (checked with M1's `@jridgewell/trace-mapping`).
 
 ### 3.6 Vite plugin: resolve and load the React target
 
 - Build: in `packages/vite/src/`:
   - `multifront(options)` now returns `Plugin[]` (the pre plugin `multifront`; 3.7 adds the post plugin). `MultifrontOptions` gains `importers?: Record<string, Target>`. `targets` keeps the spec default: all three.
-  - `cache.ts`: `loadUcf(file): Promise<UcfEntry>`, `UcfEntry = {source, blocks, ctx}`. Splits once per file content and runs the shared kinds. Scope id from the path relative to `config.root` and `config.isProduction`; `ctx.dev = !config.isProduction`.
+  - `cache.ts`: `loadUcf(file): Promise<UcfEntry>`, `UcfEntry = {split, ctx}`. Splits once per file content and runs the shared kinds (`createBuildContext`).
+  - Core: `buildTarget(split, ctx, target): VirtualFile`, the host function that runs that target row's `check` and `build`. The Vite `load` hook and M5's library build both call it.
+  - `@vitejs/plugin-react` becomes an optional peer of `@multifront/vite`, with the pinned devDependency that satisfies it (like plugin-vue). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
   - `resolveId` for a specifier whose path ends in `.ucf`: read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids (style, class map, target ids) pass through. During the dependency scan, follow the spike's verdict.
   - `load`: the react id runs `react.check` (errors through `this.error` with `loc: {file, line, column}`) then `react.build`. A style id returns its CSS and map. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
   - `vueCompiler.spec.ts` is updated for the array.
-  - Fixtures: `packages/e2e/fixtures/apps/react-basic/` (`index.html`, `src/main.tsx` with bare imports, `vite.config.ts` with `react()` and `multifront()`, error entries under `src/errors/`). `fixtures/components/react/imports/Icon.ucf`, `UsesIcon.ucf` (its `<react>` block imports `./Icon.ucf` with no attribute), `VueOnly.ucf`.
-- Deliverable: `import Hello from './Hello.ucf'` in a `.tsx` file builds with real plugin-react.
+  - Fixtures: `packages/e2e/fixtures/apps/react-basic/` (`index.html`, `src/main.tsx` with bare imports, `vite.config.ts` with `react()` and `multifront()`, error entries under `src/errors/`). the shared `fixtures/components/imports/` folder: `Icon.ucf` and `UsesIcon.ucf` (its `<react>` block imports `./Icon.ucf` with no attribute); M4 and M6 add their blocks to both. M2's `imports/VueOnly.ucf` is the missing-block case.
+- Deliverable: `import AllBlocks from './AllBlocks.ucf'` in a `.tsx` file builds with real plugin-react.
 - Test: `packages/e2e/build/react-target.spec.ts` (area: build). A real `vite build` of `react-basic`:
-  - the bundle has Hello and Icon; `UsesIcon` got the React Icon without any attribute (4.1);
+  - the bundle has AllBlocks and Icon; `UsesIcon` got the React Icon without any attribute (4.1);
   - no text from the `<vue>` or `<svelte>` blocks is in the bundle;
   - one CSS asset holds each style block exactly once;
-  - the source map sends a marker in the output back to its line in `Hello.ucf`;
+  - the source map sends a marker in the output back to its line in `AllBlocks.ucf`;
   - the error entries fail with `missing-target-block` (naming both files), `react-no-default-export` at `NoDefault.ucf:line:column`, and `target-not-built` for a vue pick.
 
 ### 3.7 Post plugin: the attribute moves into the id
 
 - Build: `packages/vite/src/attributes.ts`, the plugin `multifront:attributes`, `enforce: 'post'`, returned second by `multifront()`. Its `transform` has a code filter `/\.ucf/` and runs on JS-like ids (`.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.svelte`, with or without a query). It calls `rewriteImportAttributes` and reports errors with `this.error`. It runs before Vite's import analysis in dev and before Rolldown reads the imports in a build, so we never depend on Rolldown forwarding attributes.
-  - Fixtures: `fixtures/apps/import-rules/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it.
+  - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it.
 - Deliverable: spec 4.4 for `.ts`, `.tsx`, `.js`, `.jsx` importers, in dev, build and SSR.
-- Test: `packages/e2e/build/import-rules.spec.ts` (area: build). For every importer file:
+- Test: `packages/e2e/build/imports.spec.ts` (area: build). For every importer file:
   - **Dev:** a real dev server with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer: each `.ucf` import is now the expected id (`?target=react&lang.tsx`, the bare `/Card.ucf` for vue, `?target=svelte&lang.svelte`), and no `with` or `framework` is left.
   - **Build:** a build of every react row: no attribute in the output.
   - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML has the card; the SSR-transformed code has no attribute.
@@ -179,22 +175,22 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: `@multifront/language-tools/typescript-plugin` calls `resolveTarget` from core with the same `target` and `importers` options, read from its tsconfig plugin entry. No copy of the rules stays in language-tools.
 - Deliverable: one import, one answer, in the build and in the editor.
-- Test: `packages/e2e/editor/import-rules.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/import-rules/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf.react.tsx`. Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared only if spike 1 kept per-import attributes in the types.
+- Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/imports/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf.react.tsx`. Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared only if spike 1 kept per-import attributes in the types.
 
 ### 3.9 Browser harness and first render
 
 - Build: `packages/e2e/browser/lib/` (reuse whatever milestone 1 shipped):
-  - `copyFixtures(): Promise<string>`: copies `fixtures/` to `packages/e2e/.tmp/<run>/` (inside the workspace, so node resolution finds the deps; `.tmp/` is git-ignored). Tests that edit files work on the copy.
+  - Copies come from M1's `copyApp(name)` (under `packages/e2e/.tmp/`); tests that edit files work on the copy.
   - `startDev(appDir): Promise<{url, server, close}>`, `buildAndPreview(appDir): Promise<{url, outDir, close}>`.
   - `launchChromium()`: uses `MULTIFRONT_CHROMIUM_PATH` when set. Its description in `scripts/lib/env.mjs` and `.env.sample` now covers the tests.
   - `collectConsole(page)`: every console message and page error.
   - CI: `pnpm exec playwright install --with-deps chromium` before `pnpm devx check` in `.github/workflows/ci.yml`.
 - Deliverable: Playwright against real served and built apps, for this and every later milestone.
-- Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: Hello renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors.
+- Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: AllBlocks renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors.
 
 ### 3.10 Scope transform: stamping
 
-- Build: `packages/core/src/react/scope.ts`, called by `react.build` when `ctx.scoped`. Inserts only.
+- Build: `packages/core/src/react/scope.ts`, called by `react.build` when `ctx.hasScoped`. Inserts only.
   - Every JSX opening element in the block gets ` data-v-<scopeId>=""` right after its name: host elements (lowercase, dashed custom elements, namespaced `svg:x`) and component elements (capitalized or member expression, like `<Foo.Bar>`).
   - Never on fragments: `<>`, `<Fragment>` and `<X.Fragment>` where `Fragment` or `X` comes from `'react'` (aliases followed through the imports). React warns on extra Fragment props.
   - Fixtures: `packages/e2e/fixtures/components/react/scope/Stamped.ucf` (hosts, svg, `my-el`, `<Foo.Bar>`, both fragment forms, a `.map()` list, a generic `<T,>` and `a < b` in TSX, a scoped style). `packages/e2e/fixtures/apps/react-scope/` renders it.
@@ -221,7 +217,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - A fragment root gets no forwarding. In dev it becomes `(__ucfWarnFragment(<props>, "Name"), <>...</>)`, Vue's multi-root warning. Nothing in production.
   - `null`, strings, calls and `children` get nothing (documented limitation, like third-party components).
   - `<props>` is the first parameter's name. With no parameter, `__props` is added; inside `forwardRef` it becomes `(__props, __ref)` so React's two-parameter check stays quiet.
-  - Forwarding runs on every React component from a `.ucf` file, scoped style or not, so a parent's scope reaches a child that has no style of its own (see open question 1). Stamping still needs `ctx.scoped`.
+  - Forwarding runs on every React component from a `.ucf` file, scoped style or not, so a parent's scope reaches a child that has no style of its own (see open question 1). Stamping still needs `ctx.hasScoped`.
   - Fixtures: `packages/e2e/fixtures/components/react/shapes/` `MultiReturn.ucf`, `Ternary.ucf`, `NestedTernary.ucf`, `AndRoot.ucf`, `Memo.ucf`, `ForwardRef.ucf`, `MemoForwardRef.ucf`, `ExportIdentifier.ucf`, `ArrowExpression.ucf`, `NoParams.ucf`, `ConstRoot.ucf`, `ComponentRoot.ucf`, `FragmentRoot.ucf`, `NullRoot.ucf`. `fixtures/apps/react-scope/Parent.ucf` has a scoped style on the class each shape puts on its root, and renders each shape once per branch.
 - Deliverable: a parent's scoped style reaches the root of a child `.ucf` component.
 - Test: one snapshot per shape in `packages/core/test/react/scope.spec.ts`. `packages/e2e/browser/react-scope.spec.ts`, dev and preview, for every shape and branch: the child's root DOM element carries the parent's `data-v-<parent id>`, the parent's scoped rule applies to it (computed color), and a non-root element does not carry it. `FragmentRoot` logs exactly one warning in dev and none in preview. The `ForwardRef` ref still points at the DOM node.
@@ -231,23 +227,23 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 - Build: in `scope.ts`, when the component's first parameter is a pattern:
 
   ```tsx
-  export default function Badge({label, className = ''}: Props) { ... }
+  export default function ScopedBadge({label, className = ''}: Props) { ... }
   // becomes
-  export default function Badge(__props: Props) {const {label, className = ''} = __props; ... }
+  export default function ScopedBadge(__props: Props) {const {label, className = ''} = __props; ... }
   ```
 
   - The pattern text is moved with MagicString, never re-printed, so defaults, rest and comments stay as written. The type annotation stays on `__props`.
   - An expression-bodied arrow gets `{ const ... = __props; return ... }`.
   - A parameter default stays on `__props`. A name clash picks `__props1`, `__props2`, ...
   - Forwarding then uses `__props`.
-  - Fixtures: `shapes/Destructured.ucf`, `DestructuredArrow.ucf`, `DestructuredDefaults.ucf` (defaults, rest, annotation), `ForwardRefDestructured.ucf`. `packages/e2e/fixtures/components/react/Panel.ucf` (scoped style on `.badge`) and `Badge.ucf` (destructures `{label, className}`, root `<span className={className}>`).
+  - Fixtures: `shapes/Destructured.ucf`, `DestructuredArrow.ucf`, `DestructuredDefaults.ucf` (defaults, rest, annotation), `ForwardRefDestructured.ucf`. `packages/e2e/fixtures/components/react/ScopedPanel.ucf` (scoped style on `.badge`) and `ScopedBadge.ucf` (destructures `{label, className}`, root `<span className={className}>`).
 - Deliverable: forwarding sees every prop, also for destructuring components.
-- Test: snapshots in `packages/core/test/react/scope.spec.ts`. In `react-scope.spec.ts`: Panel's scoped `.badge` rule colors Badge's root span; defaults and rest props render as written.
+- Test: snapshots in `packages/core/test/react/scope.spec.ts`. In `react-scope.spec.ts`: ScopedPanel's scoped `.badge` rule colors ScopedBadge's root span; defaults and rest props render as written.
 
 ### 3.13 Fuzz the scope transform
 
 - Build: `packages/e2e/build/scope-fuzz.spec.ts` and the generator `packages/e2e/build/lib/scopeFuzz.ts`, written with the fuzzy-testing skill.
-  - Seeded. `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS` are added to `REGISTRY` in `scripts/lib/env.mjs`.
+  - Seeded with M1's `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS`.
   - Writes real `.ucf` files to `packages/e2e/.tmp/fuzz/`, made by mutating and recombining the `shapes/` and `scope/` fixtures: wrap the default export in `memo`, `forwardRef` or both; switch function and arrow, block and expression body; destructured, plain or no props; wrap a root in `?:`, `&&` or parentheses; add early returns; swap host and component tags; splice in children from another fixture; add comments, `a < b`, `<T,>`, non-ASCII text and a `"use client"` line; toggle `scoped`.
   - The generator records what it built (which roots are JSX elements), so the checks never redo the transform.
 - Deliverable: confidence that the transform holds on shapes nobody wrote by hand. Each failure is shrunk and saved as a fixture in `fixtures/components/react/fuzz-found/`, with a snapshot added to 3.11's test.
@@ -261,8 +257,8 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.14 Demo app
 
 - Build: `packages/e2e/fixtures/apps/demo/`, a real Vite React app (`index.html`, `src/main.tsx`, `src/App.tsx`, `vite.config.ts` with `react()` and `multifront()`). It renders:
-  - `fixtures/components/react/Counter.ucf`: `useState` counter, `<style scoped>` and `<style module>` with `$style`, and a `<vue>` block (for the HMR test);
-  - `Panel.ucf` with `Badge.ucf` (3.12);
+  - `fixtures/components/Counter.ucf` (shared: M4 adds its `<vue>` content, M6 its `<svelte>` block): `useState` counter, `<style scoped>` and `<style module>` with `$style`, and a `<vue>` block (for the HMR test);
+  - `ScopedPanel.ucf` with `ScopedBadge.ucf` (3.12);
   - `Card.ucf` imported with `with { framework: 'react' }` from a `.ts` helper, and bare from `App.tsx`.
 - Deliverable: the app the exit test and milestone 4 build on ("same demo renders both").
 - Test: `packages/e2e/browser/demo.spec.ts` (area: browser). Dev and preview render all three; computed styles match between dev and preview; no console errors. A dev cold start with an empty `node_modules/.vite` shows no "new dependencies optimized, reloading" after the first load.
@@ -274,11 +270,12 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - the `scoped` flag or the number of `<style>` blocks changed: also the react module (stamping and imports change);
   - `<react>` changed: only the react module (plugin-react's Fast Refresh does the rest);
   - another target block changed: its module only if loaded (none in this milestone);
+  - the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules are always handed on untouched, so plugin-vue decides the Vue update (M4 relies on it);
   - nothing relevant: `[]`.
 
   The cache is updated. The dev scope id does not depend on the source, so it stays stable across edits.
 - Deliverable: spec 7's HMR rules for React.
-- Test: `packages/e2e/browser/hmr-react.spec.ts` (area: browser), on a copy of `demo` (`copyFixtures`). Click Counter to 3.
+- Test: `packages/e2e/browser/hmr-react.spec.ts` (area: browser), on a copy of `demo` (`copyApp`). Click Counter to 3.
   - Edit a declaration in its `<style scoped>`: the computed color changes, the count is still 3, the only requests are for that style module, and no `?target=react` module is requested again.
   - Edit text in `<react>`: the text changes, the count is still 3, no page load event, no style module requested again.
   - Edit the `<vue>` block: no request at all.
@@ -298,22 +295,21 @@ Core (`@multifront/core`):
 - The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
 - `SCOPE_HELPER_ID` (`'virtual:multifront/scope-attrs'`) and `scopeHelperCode(dev)`. Milestone 5 bundles it once per library build.
 - The stamping rule: ` data-v-<scopeId>=""` on every host and component element, never on fragments; forwarding on every component, scoped style or not. Milestone 6 mirrors it in Svelte markup.
-- `ctx.scoped` and `ctx.dev`, if this milestone added them. Milestones 4 and 6.
-- Diagnostic codes: `react-no-default-export`, `react-syntax-error`, `framework-attribute-in-block`, `framework-attribute-not-literal`, `unknown-framework`, `target-not-enabled`, `no-target`, `missing-target-block`, `target-not-built`. Milestone 7 shows them in the editor. Milestone 4 removes vue from `target-not-built`; milestone 6 deletes that code.
+- Diagnostic codes: `react-no-default-export`, `react-syntax-error`, `framework-in-block`, `framework-attribute-not-literal`, `unknown-framework`, `target-not-enabled`, `no-target`, `missing-target-block`, `target-not-built`. Milestone 7 shows them in the editor. Milestone 4 removes vue from `target-not-built`; milestone 6 deletes that code.
 
 Vite (`@multifront/vite`):
 
 - `multifront(options): Plugin[]`, the plugins `multifront` (pre) and `multifront:attributes` (post), `MultifrontOptions.importers`. Every later milestone.
 - `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `?target=svelte&lang.svelte`. Milestones 4 and 6 add `load` / `transform`.
-- `packages/vite/src/cache.ts` `loadUcf(file): Promise<UcfEntry>`. Milestones 4, 5, 6.
+- `packages/vite/src/cache.ts` `loadUcf(file): Promise<UcfEntry>`, and core's `buildTarget(split, ctx, target)`. Milestones 4, 5, 6.
 - `packages/vite/src/hmr.ts`, with a target-only branch to fill per target. Milestones 4 and 6.
 
 Tests and fixtures (`packages/e2e`):
 
-- `packages/e2e/browser/lib/`: `copyFixtures`, `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, and Chromium in CI. Milestones 4, 5, 6.
+- `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, and Chromium in CI. Milestones 4, 5, 6.
 - `fixtures/apps/demo/`: milestone 4 renders the Vue Card beside the React one, and adds visual parity.
-- `fixtures/apps/import-rules/` with its `// expect` lines: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows.
-- `fixtures/components/react/**` (shapes, scope, errors, imports, `Panel` / `Badge` / `Counter` / `Hello`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
+- `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows.
+- `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 6 a Svelte row.
 - The fuzz runner pattern, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 6 (Svelte stamping).
 - The spike 3 verdict in `docs/plan.md`: milestones 4 and 6.
@@ -322,12 +318,12 @@ Tests and fixtures (`packages/e2e`):
 
 `packages/e2e/browser/demo-exit.spec.ts` (area: browser), on a copy of `fixtures/apps/demo/`, with a real Vite dev server, real `@vitejs/plugin-react` and Chromium:
 
-1. The demo renders Counter, Panel with Badge, and Card. `$style` classes apply (computed styles).
+1. The demo renders Counter, ScopedPanel with ScopedBadge, and Card. `$style` classes apply (computed styles).
 2. Click Counter to 3. Edit its `<react>` block three times: each edit shows, the count stays 3, no page reload.
 3. Edit a declaration in Counter's `<style scoped>`: the new computed value shows, the count stays 3, and no `?target=react` module is requested again.
-4. Panel's scoped style reaches Badge's root span (computed color), and not an inner element.
+4. ScopedPanel's scoped style reaches ScopedBadge's root span (computed color), and not an inner element.
 5. `vite build` and preview of the same app: the same computed styles; no `with` or `framework` in any output file; each style block's CSS appears once.
-6. The same Card rendered with `react-dom/server` through the SSR module runner: Badge's root span carries Panel's `data-v-*`.
+6. The same Card rendered with `react-dom/server` through the SSR module runner: ScopedBadge's root span carries ScopedPanel's `data-v-*`.
 
 **Go when all of these hold on CI (Linux, Chromium):**
 
@@ -335,7 +331,7 @@ Tests and fixtures (`packages/e2e`):
 2. Every `shapes/` fixture renders in dev and preview with its own `data-v-<id>` on every host element and the parent's `data-v-<id>` on its root DOM element (except `FragmentRoot` and `NullRoot`), with no React warning except the expected fragment one.
 3. The fuzz long run (10,000 files, 10 seeds) finds no failure, with no change to the transform after it.
 4. A style-only edit requests no `?target=react` module, and the state stays.
-5. No `with { framework }` is left in any dev, build or SSR output of `import-rules`, and the build and tsserver agree on every react row.
+5. No `with { framework }` is left in any dev, build or SSR output of `imports`, and the build and tsserver agree on every react row.
 
 **No-go when** criterion 2, 3 or the exit test's item 4 cannot be met without one of: data-flow analysis beyond the one `const` hop, a runtime wrapper component around user components, or patching or forking plugin-react. Also no-go when our injected code breaks Fast Refresh (criterion 1 or 4) and cannot be fixed in the module we emit.
 
@@ -346,7 +342,7 @@ A failure of criterion 5 alone is not a React no-go. It changes the import desig
 - Core drops the scope transform, `SCOPE_HELPER_ID` and the helper module (no trace, per AGENTS.md). `react.build` keeps only the style imports and `$style`.
 - `react.check` gains `react-scoped-style`: a file with a `<react>` block and a `<style scoped>` is an error on the style block: "scoped styles do not work with the React target; use `<style module>` and `$style`". `<style module>` and global `<style>` keep working.
 - Scoped styles stay allowed in files without a `<react>` block, so CSS stays identical across the targets a file has.
-- A parent styles a child root only through a prop: `className={$style.badge}`, which the child merges on its root (spec 8 already asks roots to accept `className`). Exit test item 4 becomes "Panel's `$style.badge` passed as `className` styles Badge's root"; item 6 checks that class.
+- A parent styles a child root only through a prop: `className={$style.badge}`, which the child merges on its root (spec 8 already asks roots to accept `className`). Exit test item 4 becomes "ScopedPanel's `$style.badge` passed as `className` styles ScopedBadge's root"; item 6 checks that class.
 - Spec 2, 3.5 and 4.3 and `docs/plan.md` are updated; the example in spec 2 already uses `module`.
 - Everything else of this milestone stays: `resolveTarget`, the attribute rewrite, the ids, HMR, the demo.
 - Revisit later: the removed transform lives in git history and in the done spec of its step.

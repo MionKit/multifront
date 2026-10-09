@@ -45,7 +45,7 @@ interface VirtualFile {
 ```
 
 - **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. The chosen target reads `ctx`.
-- **Lint and format need no operation of their own.** oxlint and oxfmt run on the `build` file, which already has the right ending.
+- **Lint and format need no operation of their own.** oxlint and oxfmt run on each block's own text, named with the ending of its `build` file (`.tsx`, `.vue`, `.svelte`) or its style `lang`. They never see generated code, so nothing generated is ever written back into a `.ucf` file.
 - **One rule for the Vue row:** it takes the raw `<style>` blocks into its SFC code, so plugin-vue compiles them itself. React and Svelte use the compiled CSS from `ctx`.
 
 ## The grid
@@ -71,7 +71,7 @@ A host is a program that runs the operations. Each one does the same three steps
 | Vite plugin | `@multifront/vite` | `check`, `build` |
 | Language server | `@multifront/language-tools` | `check`, `editor` |
 | TypeScript plugin, `mf-tsc` | `@multifront/language-tools` | `types` |
-| `mf-lint`, `mf-fmt` | `@multifront/language-tools` | `build` |
+| `mf-lint`, `mf-fmt` | `@multifront/language-tools` | the block text, named by `build`'s ending |
 | VS Code extension | `packages/vscode` | `grammar`, at packaging time |
 
 ## Build

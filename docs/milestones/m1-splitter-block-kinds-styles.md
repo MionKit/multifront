@@ -270,6 +270,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
     export interface BuildContext {
       filename: string;                     // absolute .ucf path
+      split: SplitResult;                   // every block; the vue build (M4) needs all of them
       relativePath: string;                 // from options.root, '/' separators: the scopeId input
       source: string;
       production: boolean;
@@ -325,7 +326,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `VirtualFile`, `SourceMap` | types in 1.8 and 1.9 | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M6 |
 | `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.ucf` source | M3, M6 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.ucf` path and `.ucf` source, ignoring the SFC code plugin-vue passes) |
 | `compileStyles(blocks, options): Promise<CompiledStyle[]>` | `@multifront/core`, 1.8 | through `createBuildContext` in M3, M5, M6; M2 may call it for `$style` class names |
-| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `scopeId`, `hasScoped`, `styles`, `modules`) | M3 (React build), M5 (CSS files), M6 (Svelte build) |
+| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `split`, `source`, `production`, `scopeId`, `hasScoped`, `styles`, `modules`) | M3 (React build), M5 (CSS files), M6 (Svelte build) |
 | `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M6 |
 | `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |

@@ -41,7 +41,7 @@ From **M1** (splitter, block kinds, styles):
 
 - `splitBlocks(source, filename)` and its block shape `{type, attrs, content, start, end, contentStart, contentEnd}`.
 - `BlockKind`, `VirtualFile` and the two registries, `packages/core/src/blocks/index.ts` and its test that every tag has both halves.
-- `ctx` as filled by the `<style>` kind, with `ctx.scopeId`. The `<vue>` kind also needs the file source and every split block from `ctx`. This document calls them `ctx.source` and `ctx.blocks`; use M1's names if they differ.
+- `ctx` as filled by the `<style>` kind, with `ctx.scopeId`. The `<vue>` kind also needs the file source and every split block from `ctx`. M1's `BuildContext` has both: `ctx.source` and `ctx.split` (its `blocks`).
 - The diagnostic shape `{code, message, line, column}` and the `style-inside-target` error (a `<style>` inside `<vue>`).
 - `scopeId(relativePath, source, production)`. It hashes the **raw `.ucf` source**, not the SFC code.
 - `getVueCompiler()` in `@multifront/vite` (exists).
@@ -92,10 +92,11 @@ New dependencies, all exact-pinned:
 
 - Build: `packages/core/src/blocks/vue.ts` exports `vueSfcCode(source, blocks): {code, map}`. It returns the same-length SFC code described in "Goal", with MagicString edits and a hires map back to the `.ucf` file. Exported from `@multifront/core`.
 - Deliverable: one function that turns a split `.ucf` into SFC code that plugin-vue and language-core can both read.
-- Test: `packages/core/test/blocks/vue.spec.ts`. New fixtures go in `packages/e2e/fixtures/components/vue/`:
-  - `Counter.ucf`: `<vue>` and `<react>` blocks, one `<style scoped>` with `v-bind()`, one `<style module>`, and a CRLF copy, `CounterCrlf.ucf`;
-  - `Icon.ucf`: `<vue>` and `<react>`;
-  - `ReactOnly.ucf`: no `<vue>` block.
+- Test: `packages/core/test/blocks/vue.spec.ts`. Fixtures (fixture names stay unique across `fixtures/components/`):
+  - the shared `fixtures/components/Counter.ucf` (M3 made it with `<react>` and a `<vue>` block; this step fills its `<vue>` block for real), plus a CRLF copy, `vue/CounterCrlf.ucf`;
+  - `vue/VBind.ucf`: a `<vue>` block and a `<style scoped>` with `v-bind()` (Vue only: spec 2 keeps `v-bind()` to the Vue target in v1);
+  - the shared `fixtures/components/imports/Icon.ucf` gains its `<vue>` block;
+  - `imports/ReactOnly.ucf`: no `<vue>` block.
 
   Each SFC code goes through the real `parse()` of `@vue/compiler-sfc`. The test checks that the descriptor has the template, the script setup and both styles with their original attributes, and no custom blocks. It also checks `code.length === source.length`, and that `descriptor.template.loc.start.line` equals the template's line in the `.ucf` file.
 
@@ -105,7 +106,7 @@ New dependencies, all exact-pinned:
   - `packages/core/src/blocks/vue.ts` gains `vueBlock: BlockKind`, with `tag: 'vue'` and `role: 'target'`.
   - `grammar: {scopeName: 'source.vue'}`, the scope name M2's grammar already embeds, so the generated grammar does not change.
   - `check()` adds `vue-empty-block` (no top-level `<template>` or `<script>`). It uses the same raw scan as `splitBlocks`, so core still imports no compiler. Every other Vue error comes from compiler-sfc, already at the right line thanks to the same-length code.
-  - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.blocks)}`.
+  - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks)}`.
   - `packages/language-tools/src/blocks/vue.ts` gains the editor half, from the spike's chosen path. `editor()` returns the `VueVirtualCode` of the same SFC code as embedded code. `types()` returns its generated script as `Card.ucf.vue.ts`.
   - Both halves are registered in the two registries.
 - Deliverable: `<vue>` is a full row of the grid. The registry "both halves" test passes with it.
@@ -123,7 +124,7 @@ New dependencies, all exact-pinned:
   - When a `.ucf` resolves to `vue` and plugin-vue is not in the plugin list, the build fails with "the vue target needs @vitejs/plugin-vue in your Vite plugins", naming the importer.
 - Deliverable: `import Counter from './Counter.ucf'` in a Vue app builds and runs.
 - Test: new app `packages/e2e/fixtures/apps/vue/`, with Vite, plugin-vue, `multifront()`, an `App.vue` and a `main.ts`. In `packages/e2e/build/vue-compose.spec.ts`, a real `vite build`, run with plugin-vue listed both before and after `multifront()`. It checks:
-  - the output has the compiled render of Counter and the `useCssVars` call from `v-bind()`;
+  - the output has the compiled render of Counter, and the `useCssVars` call from `VBind.ucf`'s `v-bind()`;
   - a marker string from the `<react>` block is absent;
   - the build without plugin-vue fails with the error above;
   - a user's own plugin-vue `include` is kept: with `vue({include: [/\.vue$/]})`, the app's `Plain.vue` (a plain SFC, added here) and `Counter.ucf` both compile.
@@ -133,10 +134,12 @@ New dependencies, all exact-pinned:
 - Build: in `vueTarget.ts`, set `api.options.features.componentIdGenerator` to our generator.
   - For a `.ucf` file, it returns `ctx.scopeId` from the split cache. It ignores the SFC code plugin-vue passes, because the id must hash the raw `.ucf` source.
   - For any other file, it calls the user's generator if one was set (a function, `'filepath'` or `'filepath-source'`). Otherwise it uses plugin-vue's default (`getHash(path + (production ? source : ''))`), so plain `.vue` files keep their ids.
-- Deliverable: the same `data-v-*` for a file's Vue and React targets, in dev and production.
+- Also the CSS module class names: plugin-vue hands `<style module>` to Vite's CSS modules, which name classes their own way. For `.ucf` style sub-requests, set `css.modules.generateScopedName` (keeping the user's for other files) to M1's scheme `<local>_<scopeId>_<index>`, read from the sub-request's `index` and the cached `ctx`. So `$style.card` is the same class name in every target (M1 risk 1).
+- Deliverable: the same `data-v-*` and the same CSS module class names for a file's Vue and React targets, in dev and production.
 - Test: `packages/e2e/build/vue-scope-id.spec.ts`.
   - Build `Counter.ucf` as Vue (`apps/vue`) and as React (`apps/demo`), in production and in development mode. Read the `data-v-*` from each output. They are equal.
   - `Plain.vue` in `apps/vue` gets the same id with and without `multifront()` in the plugin list.
+  - `$style.counter` renders the same class name as Vue and as React.
 
 ### 4.6 Source maps and error locations
 
@@ -186,7 +189,7 @@ New dependencies, all exact-pinned:
 
 - Build: no new resolve code is expected. M3's `resolveTarget()` and post rewrite do the work. This step proves them with plugin-vue in the middle (spike 3 for plugin-vue's script compile), and fixes what it finds.
 - Deliverable: the spec 4.1 and 4.2 rules hold for `.vue` importers and inside `<vue>` blocks.
-- Test: `packages/e2e/build/vue-imports.spec.ts`, with new fixtures `fixtures/components/vue/UsesIcon.ucf` (its `<vue>` block imports `./Icon.ucf`) and `fixtures/components/vue/AttrInside.ucf` (a `framework` attribute inside `<vue>`). Real builds and dev SSR loads check that:
+- Test: `packages/e2e/build/vue-imports.spec.ts`, with the shared `fixtures/components/imports/UsesIcon.ucf` (this step adds its `<vue>` block, which imports `./Icon.ucf`) and `fixtures/components/vue/AttrInside.ucf` (a `framework` attribute inside `<vue>`). Real builds and dev SSR loads check that:
   - a bare import in `App.vue` gets the Vue target (importer rule);
   - `with { framework: 'vue' }` in `App.vue` survives plugin-vue's script compile and is gone from dev, build and SSR output;
   - `UsesIcon.ucf` renders the Vue `Icon` with no attribute;
@@ -197,7 +200,7 @@ New dependencies, all exact-pinned:
 
 - Build:
   - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue and a Vue island. It mounts `Counter.ucf` as Vue (`import Counter from './Counter.ucf' with { framework: 'vue' }` in `mountVue.ts`) beside the existing React mount of the same file.
-  - New helper `packages/e2e/browser/helpers/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
+  - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
   - Update spec 4.3 on CSS: see "Risks", CSS twice.
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
 - Test:
@@ -252,8 +255,8 @@ New dependencies, all exact-pinned:
 - `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?(?:target=|ucf\b)/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({target: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`?target=svelte` ids already pass the exclude, so the Svelte target needs no change here).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
 - If spike 2 moved them: Vue tag and directive completions in the `<vue>` block. Used by **M7**.
-- Fixtures: `packages/e2e/fixtures/components/vue/` (`Counter.ucf`, `CounterCrlf.ucf`, `Icon.ucf`, `UsesIcon.ucf`, `ReactOnly.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`), the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
-- `expectSameComputedStyles()` in `packages/e2e/browser/helpers/parity.ts` and `packages/e2e/browser/parity.spec.ts`. Used by **M6** (adds the Svelte counter to the same parity test).
+- Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
+- `expectSameComputedStyles()` in `packages/e2e/browser/lib/parity.ts` and `packages/e2e/browser/parity.spec.ts`. Used by **M6** (adds the Svelte counter to the same parity test).
 
 ## Exit test
 

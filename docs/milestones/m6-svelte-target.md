@@ -28,7 +28,7 @@ From milestone 1:
 From milestone 2:
 
 - `@multifront/language-tools` with the Volar language plugin, `packages/language-tools/src/blocks/index.ts`, `./typescript-plugin` and `./server`.
-- The `$style` type source the `<style>` kind's `types()` gives the `<react>` virtual script (spec 3.7, `.ucf/types/Card.ucf.d.ts` or its virtual twin), so the Svelte script can import the same one.
+- How M2 types `$style` in `Card.ucf.react.tsx`: unmapped `declare const` lines built from `ctx.modules`. The Svelte types script does the same with `__ucfStyle`.
 - The Svelte grammar already embedded by `packages/vscode` (highlighting in `<svelte>` needs nothing new).
 - The editor test harness in `packages/e2e/editor/`: a real tsserver with our plugin, and an LSP client for our language server.
 
@@ -51,7 +51,6 @@ From milestone 5 (exact names as milestone 5 ships them):
 - The per-target library build in `@multifront/vite` and its svelte slot.
 - The target `package.json` writer, the per-component CSS files and the combined `styles.css`.
 - The `.d.ts` step (TypeScript declaration emit over a target's `types()` scripts).
-- A library-mode flag in `ctx` that tells a kind to point imports at real relative files instead of virtual ids.
 - The fixture library and the consumer harness in `packages/e2e/consumer/` (pack to a tarball, install into a fresh app, build, serve), and the computed styles the Vite React consumer records.
 
 ## Steps
@@ -61,10 +60,10 @@ From milestone 5 (exact names as milestone 5 ships them):
 - Build:
   - `packages/core/src/blocks/svelte.ts`: the `svelte` row (`role: 'target'`, grammar scope `source.svelte`) with `check(block)`. Add it to the registry after the shared kinds.
   - `loadSvelteCompiler(root)` in core: resolves `svelte/compiler` from the project root (the same copy plugin-svelte uses). `svelte` becomes an optional peer of core; the root pins `svelte` 5.57.0 as a devDependency.
-  - `check` parses the block with `parse(content, { modern: true })` and reports, with `.ucf` line and column:
-    - `style-inside-target`: a top-level `<style>` in the block (`ast.css`). A `<style>` inside `<svelte:head>` is plain markup and allowed.
+  - `check` stays compiler free, like every core check (M1, M4): it keeps M1's `style-inside-target` scan, taught that a `<style>` inside `<svelte:head>` is plain markup and allowed.
+  - The compiler-based rules run in `build()` (6.2), which has the project root through `ctx`. They parse with `parse(content, { modern: true })` and report, with `.ucf` line and column:
     - `svelte-parse-error`: Svelte's own parse error, position shifted by `contentStart`.
-    - `missing-style-module`: `$style` (or `$name`) used with no matching `<style module>` (reuse milestone 3's code if it has one).
+    - `missing-style-module`: `$style` (or `$name`) used with no matching `<style module>`.
 - Deliverable: `splitBlocks` plus the registry reports every `<svelte>` rule with exact positions.
 - Test: core's own test, `packages/core/test/blocks/svelte.spec.ts`, over real files in `packages/e2e/fixtures/components/svelte/errors/` (style at top level, style in `<svelte:head>`, broken `{`, `$style` without a module, `$classes` with `module="classes"`). Checks each code, line and column; the valid files give no diagnostic.
 
@@ -97,7 +96,7 @@ From milestone 5 (exact names as milestone 5 ships them):
   - Peers: `svelte` ^5 and `@sveltejs/vite-plugin-svelte` ^7, both optional. The package carries the pinned devDependencies that satisfy them, as it does for plugin-vue.
   - Update spec 4.3's "Why" cell for svelte and spec 3.6 to say why `include` is needed.
 - Deliverable: a Vite app with `multifront()` and `svelte({ include: [svelteInclude] })` builds a `.ucf` file as a Svelte component.
-- Test: build area, `packages/e2e/build/svelte-target.spec.ts`, fixture app `packages/e2e/fixtures/apps/svelte-vite` (real Vite, real plugin-svelte, `Panel.ucf` and `PanelItem.ucf` from `fixtures/components/` with `<vue>`, `<react>` and `<svelte>` blocks, a scoped and a module style in SCSS). Checks: the output JS is compiled Svelte (no raw markup); the CSS file holds the shared scoped CSS and no Svelte-made CSS; no marker string from the `<vue>` or `<react>` block is in the bundle; the source map points back into `Panel.ucf`. The same app without `include`, and without plugin-svelte, fails with our message.
+- Test: build area, `packages/e2e/build/svelte-target.spec.ts`, fixture app `packages/e2e/fixtures/apps/svelte-vite` (real Vite, real plugin-svelte, the shared `fixtures/components/Panel.ucf` from M1, which gains its `<svelte>` block and a `<style module lang="scss">`, and a new `PanelItem.ucf` with all three target blocks. The other shared fixtures gain their `<svelte>` block in this step too: `Counter.ucf`, `imports/Icon.ucf`, `imports/UsesIcon.ucf`). Checks: the output JS is compiled Svelte (no raw markup); the CSS file holds the shared scoped CSS and no Svelte-made CSS; no marker string from the `<vue>` or `<react>` block is in the bundle; the source map points back into `Panel.ucf`. The same app without `include`, and without plugin-svelte, fails with our message.
 
 ### 6.4 Imports from and into Svelte
 
@@ -148,7 +147,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
 ### 6.9 Types: `Card.ucf.svelte.ts`
 
-- Build: `packages/language-tools/src/blocks/svelte.ts`, the `types(block, ctx)` half: the same `$style` rewrite and imports as 6.2 (type imports point at milestone 2's `$style` type source, no stamping), then `svelte2tsx(code, { filename, isTsFile, mode: 'ts', parse, version })` with the project's own `svelte/compiler` (`loadSvelteCompiler`). The script references `svelte2tsx/svelte-shims-v4.d.ts` and `svelte-jsx-v4.d.ts`. Its default export is a Svelte `Component`. `svelte2tsx` 0.7.61 is a pinned dependency of language-tools, `svelte` an optional peer. The TypeScript plugin resolves to this script for the Svelte target.
+- Build: `packages/language-tools/src/blocks/svelte.ts`, the `types(block, ctx)` half: the same `$style` rewrite and imports as 6.2 (`$style` typed with `declare const` lines from `ctx.modules`, as M2 does for React; no stamping), then `svelte2tsx(code, { filename, isTsFile, mode: 'ts', parse, version })` with the project's own `svelte/compiler` (`loadSvelteCompiler`). The script references `svelte2tsx/svelte-shims-v4.d.ts` and `svelte-jsx-v4.d.ts`. Its default export is a Svelte `Component`. `svelte2tsx` 0.7.61 is a pinned dependency of language-tools, `svelte` an optional peer. The TypeScript plugin resolves to this script for the Svelte target.
 - Deliverable: `.ts` importers and other `.ucf` blocks see real Svelte component types.
 - Test: editor area, `packages/e2e/editor/svelte-types.spec.ts`, real tsserver with our plugin:
   - a `.ts` file with `import Panel from './Panel.ucf' with { framework: 'svelte' }` sees `Component<{ title: string }>`, and `mount(Panel, { target, props: { title: 1 } })` is a type error;
@@ -179,7 +178,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
 ### 6.12 Library output for Svelte
 
-- Build: the svelte slot of milestone 5's library build. Per component, in `dist/svelte/`:
+- Build: the svelte slot of milestone 5's library build. This step adds `library: boolean` to M1's `BuildContextOptions` and `BuildContext`, so `build()` points imports at real relative files instead of virtual ids. Per component, in `dist/svelte/`:
   - `Panel.svelte` from `build()` in library mode: the class map inlined as `const __ucfStyle = {…}`, `import './Panel.css'`, `.ucf` imports rewritten to `./PanelItem.svelte`, the forward helper shipped once as `_ucf/scopeAttrs.js`;
   - `Panel.css` (processed: scoped selectors, module class names) and the combined `styles.css`;
   - `Panel.svelte.d.ts` from `svelte2tsx`'s `emitDts` (the tool `svelte-package` uses) over the emitted files;
@@ -224,7 +223,7 @@ All for milestone 7 (full editor support):
 - **Svelte 5 HMR resets local state** on a block edit. The tests check "no reload", not "state kept".
 - **The fallback declarations need `rootDirs`.** That setting also changes plain `tsc` for `.ts` importers in that project; our plugin and `mf-tsc` override it. Open: write them from the Vite dev server too, so CI without the editor has them?
 - **Forwarding is runes-mode only.** Legacy components would need `$$restProps`.
-- Milestone names to align: the library-mode flag in `ctx`, the class-map virtual id, the fragment-root warning code, the fuzz harness and its env var.
+- Names now aligned: the class map id is M1's `classMapId()`, the library flag is `ctx.library` (6.12), the multi-root warning reuses M3's dev-only `__ucfWarnFragment` helper, the fuzz harness is M3's with M1's env vars.
 
 ## Out of scope
 

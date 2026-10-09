@@ -49,12 +49,12 @@ From M1:
 From M2:
 
 - The `@multifront/language-tools` package.
-- A public function that returns the React types script of one file, as a `VirtualFile` (the `Card.ucf.react.tsx` script): `getTypesScript(filename, source, target)`. Needed properties: `$style` is typed inside the script (or every file it imports comes with it), and `.ucf` import specifiers are left as written so we can rewrite them. If M2 names it differently, M5 uses that name.
+- `getTypesScript(filename, source, target, options?)` from `@multifront/language-tools`: the `Card.ucf.react.tsx` script of one file, with `$style` typed inside it and `.ucf` import specifiers left as written so we can rewrite them.
 - The editor area harness in `packages/e2e/editor/` that runs real tsserver with `@multifront/language-tools/typescript-plugin` over a fixture file and returns its diagnostics.
 
 From M3:
 
-- `resolveTarget(importer, attribute, options)` in core, where a build entry (no importer) resolves to the `target` option.
+- `resolveTarget(importer, attribute, options)` in core, where a build entry (no importer) resolves to the `target` option (M3 3.3).
 - `multifront({targets, target, importers})` returning the pre plugin and the post attribute plugin.
 - The module ids of spec 4.3: `/abs/Card.ucf?target=react&lang.tsx` and `/abs/Card.ucf?ucf&type=style&index=N&lang.css`, and the `$style` class map module.
 - The scope transform in core (oxc-parser + MagicString) with root forwarding, and the virtual helper module holding `__ucfScopeAttrs`, served by the Vite plugin.
@@ -64,12 +64,12 @@ From M4:
 
 - The Vue target with the real `Card.ucf` id, `.ucf` in plugin-vue's `include`, and `features.componentIdGenerator` set to `scopeId`.
 - The vue row's `build(block, ctx)` returning the SFC code (`<vue>` content plus the root `<style>` blocks) as a `VirtualFile` with ext `.vue`, callable from outside the Vite plugin.
-- A core host function that splits a file, runs the shared rows into `ctx` and calls one target row's `build()`. M5 calls it `buildBlock(filename, source, target)`; if M3 or M4 named the helper the Vite plugin uses differently, M5 uses that name.
+- `buildTarget(split, ctx, target): VirtualFile` from `@multifront/core` (M3), with `createBuildContext` (M1): the vue row's `build()` gives the SFC code.
 
 New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-workspace.yaml`):
 
 - `@multifront/vite` devDependencies for its new optional peers: `typescript`, `vue-tsc`, `@multifront/language-tools` (`workspace:*`).
-- `packages/e2e` devDependencies: `publint`, `@arethetypeswrong/cli`, `next`, `react`, `react-dom`, `@types/react`, `@types/react-dom`, `vue`.
+- Root devDependencies (AGENTS.md keeps test tools at the root): `publint`, `@arethetypeswrong/cli`. `next` is pinned only in the consumer app template; `react`, `react-dom`, their types and `vue` are already root devDependencies (M2, M3, M1).
 
 ## Steps
 
@@ -159,7 +159,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - Build: `packages/vite/src/library/types.ts`, called by `buildLibrary` after each JS build when `dts` is on. Each row's `emitTypes(job)`:
   - Stage a copy of `src/` in a fresh folder under the library's own `node_modules/.cache/multifront/` (so `@types/react` and `vue` resolve from the library), deleted after.
   - React: each `.ucf` becomes `Card.tsx` with the code of `getTypesScript(filename, source, 'react')`. Every `.ucf` specifier (in the staged `.tsx` and in plain `.ts` files like `index.ts`) becomes `./Card.js`. Then real `tsc` with a generated tsconfig: extends the library's `tsconfig.json` when present, `declaration`, `emitDeclarationOnly`, `jsx: react-jsx`, no declaration maps, `files` set to the entries, `outDir` set to `dist/react`.
-  - Vue: each `.ucf` becomes `Card.vue` with the code of `buildBlock(filename, source, 'vue')`. `.ucf` specifiers become `./Card.vue`. Real `vue-tsc` with the same settings. Then rename `Card.vue.d.ts` to `Card.d.ts` and rewrite `./Card.vue` to `./Card.js` in every `.d.ts`.
+  - Vue: each `.ucf` becomes `Card.vue` with the code of `buildTarget(split, ctx, 'vue')`. `.ucf` specifiers become `./Card.vue`. Real `vue-tsc` with the same settings. Then rename `Card.vue.d.ts` to `Card.d.ts` and rewrite `./Card.vue` to `./Card.js` in every `.d.ts`.
   - Specifier rewrites use oxc-parser and MagicString, never a regex. A type error in a block fails the build with the `.ucf` file name.
   - `typescript`, `vue-tsc` and `@multifront/language-tools` are optional peers of `@multifront/vite`, loaded only here. A missing one is an error that names the package to install.
 - Deliverable: every JS file in `dist/react` and `dist/vue` has a `.d.ts` beside it, with no `.ucf`, `.tsx` or `.vue` specifier left.

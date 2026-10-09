@@ -121,6 +121,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 
     A named module uses its name (`declare const classes: ...`). The host names this file `Card.ucf.react.tsx`. Each class key gets a navigation-only mapping to its `offset`, so go to definition on `$style.card` lands on `.card`.
   - The `react` embedded code of 2.4 becomes this types script, so `$style` is typed inside the block too.
+  - A public helper for tools that need a types script without a language server: `getTypesScript(filename, source, target, options?): EditorFile | undefined`, exported from `@multifront/language-tools` (`src/typesScript.ts`) (splits, fills `ctx`, calls that target's `types()`). M5 emits `.d.ts` files with it.
 - Deliverable: `Card.ucf.react.tsx` with an exact `$style` type, built synchronously.
 - Test: area **Editor**, `packages/e2e/editor/styleClasses.spec.ts`. For every name in `listComponents()`, the class names the editor finds per module equal the keys of `ctx.modules[name].classes` from the real, async `createBuildContext()` (the build's path, real `@vue/compiler-sfc` and `sass`). Plus readable file snapshots of `Card.ucf.react.tsx` (`$style`) and `Button.ucf.react.tsx` (`classes`).
 
@@ -142,7 +143,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 
 **Decision: yes, milestone 2 ships a first `resolveTarget()` in core.** The TypeScript plugin needs it, and the rules of spec 4.1 and 4.2 are pure and small. Milestone 3 extends it and calls it from Vite. It keeps the M2 signature, codes and rule order, which the editor tests pin.
 
-- Build: `packages/core/src/resolveTarget.ts`, exported from core, types in `types.ts`:
+- Build: `packages/core/src/imports/resolveTarget.ts`, exported from core, types in `types.ts`:
 
   ```ts
   interface Importer { fileName: string; block?: Target } // block: the import sits inside that .ucf target block
@@ -173,7 +174,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 - Deliverable: inside `<react>`, `import Card from '../Card.ucf'` gets Card's React types (spec 4.1), with no TypeScript plugin involved.
 - Test: area **Editor**, `packages/e2e/editor/blockImports.spec.ts`, over real LSP, on new fixtures in `packages/e2e/fixtures/components/editor/` (a subfolder, so M1's loops over `listComponents()` do not change):
   - `editor/Profile.ucf` imports `../Card.ucf` and `../Badge.ucf` in `<react>`: hover on `<Card` shows `{title: string}`; definition on `Card` lands in `Card.ucf`'s `<react>` block;
-  - `editor/ImportErrors.ucf`: a missing `title` prop is an error on its line; importing `./VueOnly.ucf` (new, `<vue>` only) reports the missing block naming both files; a `with { framework: 'vue' }` inside `<react>` reports `framework-in-block`.
+  - `editor/ImportErrors.ucf`: a missing `title` prop is an error on its line; importing `../imports/VueOnly.ucf` (new, `<vue>` only, in the shared `fixtures/components/imports/` folder) reports the missing block naming both files; a `with { framework: 'vue' }` inside `<react>` reports `framework-in-block`.
 
 ### 2.9 TypeScript plugin
 
@@ -202,18 +203,18 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 
 ## Hands to later milestones
 
-- **`resolveTarget(importer, attribute, options)`** in `packages/core/src/resolveTarget.ts`, with `Importer`, `ResolveTargetOptions`, `TargetRule`, `TargetChoice`, `DEFAULT_IMPORTERS`, and the codes `framework-in-block`, `unknown-framework`, `no-target` in `DiagnosticCode`. **M3** extends it (the `targets` list, a non-literal value, an imported file without the block) and calls it from Vite, keeping the M2 signature, codes and order. **M4** sets `block: 'vue'` for imports inside `<vue>`, **M6** `block: 'svelte'`.
+- **`resolveTarget(importer, attribute, options)`** in `packages/core/src/imports/resolveTarget.ts`, with `Importer`, `ResolveTargetOptions`, `TargetRule`, `TargetChoice`, `DEFAULT_IMPORTERS`, and the codes `framework-in-block`, `unknown-framework`, `no-target` in `DiagnosticCode`. **M3** extends it (the `targets` list, a non-literal value, an imported file without the block) and calls it from Vite, keeping the M2 signature, codes and order. **M4** sets `block: 'vue'` for imports inside `<vue>`, **M6** `block: 'svelte'`.
 - **Imports fixture set** `packages/e2e/fixtures/apps/imports/` and `expected.ts`. **M3** runs the same rows through real Vite builds, so build and editor are proven to agree (spec section 10). **M4** adds the `.vue` importer rows to the tsserver run, **M6** the `.svelte` ones.
 - **Options in the plugin entry**: `{"name": "@multifront/language-tools/typescript-plugin", "target"?, "importers"?}` in `compilerOptions.plugins`, read by `readMultifrontOptions(ts, configFileName)`. **M7** `mf-tsc` reads the same entry. **M3** decides if the Vite plugin reads it as its default.
 - **`EDITOR_BLOCK_KINDS`** in `packages/language-tools/src/blocks/index.ts`, and the types `EditorBlockKind`, `EditorFile`, `EditorContext`, `EditorStyleModule`, `StyleClass` (`src/types.ts`). **M4** fills vue's `types()` (`Card.ucf.vue.ts`) and `editor()`, **M6** svelte's (`Card.ucf.svelte.ts`). **M7** `mf-tsc` calls every row's `types()`.
-- **react `types()`**, the `Card.ucf.react.tsx` script with typed `$style` and named modules. **M5** emits the React `.d.ts` from it.
+- **react `types()`**, the `Card.ucf.react.tsx` script with typed `$style` and named modules, and **`getTypesScript(filename, source, target, options?)`**. **M5** emits the React `.d.ts` with it; **M6** types `$style` in the Svelte script the same way (`declare const` lines from `ctx.modules`).
 - **`createUcfLanguagePlugin(options)`** (`src/languagePlugin.ts`) and **`resolveUcfImport(ts, literal, containingFile, options)`** (`src/resolve.ts`). **M4** and **M6** reuse them for `.vue` and `.svelte` importers; **M7** builds `mf-tsc` on both (M7's draft calls the resolver `resolveUcfModuleNames`: same thing).
 - **`startServer()`** at `@multifront/language-tools/server` and the bin `multifront-language-server`. **M4** adds the Vue services, **M6** the Svelte ones, **M7** formatting and linting.
 - **`@multifront/language-tools/typescript-plugin`**. **M4** runs it beside Vue's own TypeScript plugin.
 - **`loadVueCompiler(root)`** in core, and `compileStyle` in `VueCompiler`. **M4** and **M7** use them where there is no Vite.
 - **`generateGrammar(kinds)`** (`multifront-vscode/grammar`), the vendored grammars in `packages/vscode/syntaxes/vendor/`, and **`pnpm devx vsix`** (grammar, bundle, `.vsix`). Every later row gets highlighting from its `grammar` field. **M7** adds the Marketplace fields and publishing to the same command.
 - **Editor test helpers** in `packages/e2e/editor/lib/`: `tokenizeUcf(path, grammars)`, `startLanguageServer(workspace)`, `startTsserver({cwd, plugins})`, and the VS Code harness in `packages/e2e/editor/vscode/`. **M4**, **M5**, **M6** and **M7** add their cases with them.
-- **Fixtures**: `packages/e2e/fixtures/components/editor/` with `Profile.ucf`, `ImportErrors.ucf`, `VueOnly.ucf`, `TypeError.ucf`.
+- **Fixtures**: `packages/e2e/fixtures/components/editor/` with `Profile.ucf`, `ImportErrors.ucf`, `TypeError.ucf`; `packages/e2e/fixtures/components/imports/VueOnly.ucf` (the shared imports folder M3, M4 and M6 add to).
 - **Root devDependencies** (exact pins): `vscode-textmate`, `vscode-oniguruma`, `@volar/test-utils`, `@vscode/vsce`, `@vscode/test-electron`, `react`, `@types/react`.
 
 ## Exit test

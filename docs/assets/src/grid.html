@@ -92,7 +92,7 @@
 
   <div class="foot">
     <div class="note"><b>Shared before target.</b> Shared blocks run first and fill <code>ctx</code>: scope id, <code>$style</code>, CSS ids. The chosen target reads it.</div>
-    <div class="note"><b>Lint and format are free.</b> oxlint and oxfmt run on the <code>build</code> file, which already has the right ending.</div>
+    <div class="note"><b>Lint and format are free.</b> oxlint and oxfmt run on each block's own text, named with its <code>build</code> file's ending.</div>
     <div class="note"><b>One rule for the Vue row.</b> It takes the raw <code>&lt;style&gt;</code> blocks into its SFC code, so plugin-vue compiles them itself.</div>
   </div>
 </div>
