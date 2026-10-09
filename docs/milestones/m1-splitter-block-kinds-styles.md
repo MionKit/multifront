@@ -34,7 +34,7 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/e2e/vitest.config.ts`: project name `e2e`, `include: ['{build,browser,editor,consumer}/**/*.spec.ts']`, `resolve.conditions: ['source']` like the other packages, `testTimeout: 60_000`.
   - `packages/e2e/tsconfig.json` (check only, no `tsconfig.build.json`: the package is never built). It includes the four area folders, `fixtures/index.ts` and `*.config.ts`. Fixture apps are checked by their own builds, not by this config.
   - Add `'packages/e2e/vitest.config.ts'` to the root `vitest.config.ts` projects. No root `tsconfig.json` reference: `checkTree()` skips private packages.
-  - Root devDependencies, exact-pinned to the same versions `@multifront/vite` carries: `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42. The e2e tests drive these tools for real.
+  - Root devDependencies, exact-pinned to the same versions `@multifront/vite` carries: `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42. Also `sass` 1.104.0 (exact-pinned): Vite needs it to build the `<style scoped lang="scss">` block of `Reference.vue`. The e2e tests drive these tools for real.
   - `packages/e2e/fixtures/index.ts`, the fixture helpers every e2e test uses:
 
     ```ts
@@ -60,6 +60,7 @@ None: this is the first milestone. It builds on what the repo already has:
     It is the yardstick: what plugin-vue does on its own, which our style pipeline must match.
 - Deliverable: `pnpm devx test` runs the `e2e` project; `pnpm devx typecheck` passes with the new package; the fixture helpers exist.
 - Test: area **Build**, `packages/e2e/build/vue-reference.spec.ts`. Runs a real `vite.build()` of `fixtures/apps/vue-reference` (with its own `vite.config.ts`, `build.write: false`, `minify: false`) with the real plugin-vue. Checks the output has one JS chunk containing `__scopeId` with a `data-v-` value, and one CSS asset whose scoped rules carry that same `[data-v-…]` attribute. Fails without the package, its project entry or the app.
+- Status: done
 
 ### 1.2 Block types, the registry and `splitBlocks` for valid files
 
@@ -205,7 +206,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
 - Build:
   - `VueCompiler` moves to `packages/core/src/types.ts`, typed from the real package: `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' | 'parse' | 'MagicString'>` (type-only import). `@multifront/vite` drops its own copy and re-exports core's (`export type {VueCompiler} from '@multifront/core'`), so `getVueCompiler()` returns a value core accepts.
-  - `@multifront/core` gets `peerDependencies: {"@vue/compiler-sfc": "^3.5.0"}` (optional, like vite's) and the devDependency `"@vue/compiler-sfc": "3.5.42"` that satisfies it (the allowed exception). Root devDependencies: `sass` (exact-pinned) and `@jridgewell/trace-mapping` (exact-pinned, to read maps in tests).
+  - `@multifront/core` gets `peerDependencies: {"@vue/compiler-sfc": "^3.5.0"}` (optional, like vite's) and the devDependency `"@vue/compiler-sfc": "3.5.42"` that satisfies it (the allowed exception). Root devDependency: `@jridgewell/trace-mapping` (exact-pinned, to read maps in tests); `sass` is already one (1.1).
   - `packages/core/src/styles.ts`:
 
     ```ts
@@ -337,7 +338,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
-| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass`, `shiki`, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |
+| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki`, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |
 | Commands | `pnpm devx test` runs the `e2e` project; one area: `pnpm devx test packages/e2e/build` | everyone |
 
 ## Exit test
