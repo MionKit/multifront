@@ -1,0 +1,165 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css">
+<style>
+  .canvas { width: 1500px; }
+  .r-orch { --k: var(--core); color: #dbeafe; }
+  .r-step { --k: var(--vue); color: var(--vue-hi); }
+  .r-help { --k: var(--style); color: var(--style-hi); }
+  .r-qa { --k: var(--svelte); color: var(--svelte-hi); }
+  .r-fix { --k: var(--react); color: var(--react-hi); }
+  .r-gh { --k: #8b9bb0; color: #cbd5e1; }
+
+  .section { margin-top: 34px; font: 600 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); display: flex; align-items: center; gap: 12px; }
+  .section::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  .grid { margin-top: 18px; display: grid; grid-template-columns: 136px repeat(6, 1fr); column-gap: 14px; row-gap: 0; }
+  .colhead { font: 700 12px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); text-align: center; padding-bottom: 12px; }
+  .colhead b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; margin-right: 6px; background: #1c2836; color: #dbeafe; font-size: 12px; letter-spacing: 0; }
+  .lane { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding-right: 6px; }
+  .lane .who { font: 800 15px/1.15 var(--sans); color: var(--k); }
+  .lane .what { font: 12px/1.35 var(--sans); color: var(--muted); }
+  .lane .dot { margin-bottom: 2px; }
+
+  .box { border-radius: 13px; padding: 12px 13px; border: 1.5px solid color-mix(in srgb, var(--k) 60%, transparent); background: color-mix(in srgb, var(--k) 9%, var(--panel)); display: flex; flex-direction: column; gap: 6px; min-height: 104px; }
+  .box .t { font: 800 14.5px/1.2 var(--sans); color: var(--k); }
+  .r-orch .box .t, .box.r-orch .t { color: #dbeafe; }
+  .box .d { font: 12.5px/1.4 var(--sans); color: var(--muted); }
+  .box code { font: 600 11.5px/1 var(--mono); color: #dbeafe; background: #0b131c; border: 1px solid #1f2b39; border-radius: 5px; padding: 2px 5px; }
+  .box.ghost { border-style: dashed; background: transparent; border-color: #243242; min-height: 0; }
+  .box.ext { border-style: dashed; }
+  .empty { }
+
+  .msgs { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 9px 0; }
+  .msg { font: 700 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 999px; white-space: nowrap; }
+  .msg.up { color: var(--vue-hi); background: rgba(138,168,94,.13); border: 1px solid rgba(138,168,94,.45); }
+  .msg.down { color: #bfdbfe; background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.45); }
+  .msg.side { color: var(--style-hi); background: rgba(168,85,247,.12); border: 1px solid rgba(168,85,247,.45); }
+  .msg.gh { color: #cbd5e1; background: rgba(139,155,176,.10); border: 1px solid rgba(139,155,176,.4); }
+
+  .loop { grid-column: 2 / 8; margin-top: 16px; position: relative; height: 34px; border: 2px dashed #3b4b60; border-top: none; border-radius: 0 0 16px 16px; }
+  .loop span { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--bg); padding: 0 12px; font: 700 13px/1.4 var(--sans); color: #dbeafe; white-space: nowrap; }
+  .loop::before { content: ''; position: absolute; left: -8px; top: -10px; border: 7px solid transparent; border-bottom: 10px solid #3b4b60; border-top: 0; }
+
+  .end { margin-top: 16px; display: grid; grid-template-columns: 136px 1fr 30px 1fr; column-gap: 14px; align-items: stretch; }
+  .rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; position: relative; }
+  .rail .box { min-height: 112px; }
+  .rail2 { grid-template-columns: repeat(3, 1fr); }
+  .arrow { display: grid; place-items: center; font: 800 22px/1 var(--sans); color: #4b5f78; }
+  .end .lane { justify-content: flex-start; padding-top: 6px; }
+  .endlbl { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .endlbl div { font: 800 15px/1 var(--sans); color: var(--k); display: flex; align-items: center; gap: 8px; }
+  .endlbl small { font: 12px/1 var(--sans); color: var(--muted); }
+
+  .rules { margin-top: 30px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+  .panel { border-radius: 16px; background: var(--panel); border: 1px solid var(--line); padding: 18px 20px; }
+  .panel h3 { font: 800 16px/1 var(--sans); margin-bottom: 12px; color: #dbeafe; }
+  .panel h3 span { font: 600 11px/1 var(--sans); color: var(--faint); letter-spacing: .12em; text-transform: uppercase; margin-left: 8px; }
+  .ladder { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rung { padding: 10px 12px; border-radius: 10px; background: #0f1720; border: 1px solid #1f2b39; }
+  .rung .i { font: 800 12px/1 var(--sans); color: var(--core); margin-bottom: 6px; }
+  .rung .w { font: 700 13.5px/1.25 var(--sans); }
+  .rung .s { font: 12px/1.35 var(--sans); color: var(--muted); margin-top: 4px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 8px; }
+  .keys .msg { font-size: 12px; }
+  .note { margin-top: 12px; font: 12.5px/1.45 var(--sans); color: var(--muted); }
+</style></head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">multifront · agentic workflow</div>
+  <h1>One milestone, end to end, on its own</h1>
+  <p class="sub">One orchestrator runs every step of a milestone in order. A fresh agent turns each step into a todo, builds it and gets its PR green. The next step starts only once that PR is merged. One QA pass and one fixer close the milestone.</p>
+
+  <div class="section">For each step of the milestone</div>
+
+  <div class="grid">
+    <div></div>
+    <div class="colhead"><b>1</b>Plan</div>
+    <div class="colhead"><b>2</b>Approve</div>
+    <div class="colhead"><b>3</b>Build</div>
+    <div class="colhead"><b>4</b>Review</div>
+    <div class="colhead"><b>5</b>PR + CI</div>
+    <div class="colhead"><b>6</b>Merge</div>
+
+    <!-- helpers and GitHub -->
+    <div class="lane r-help"><span class="dot"></span><div class="who">Fresh helpers</div><div class="what">never the author</div></div>
+    <div></div><div></div><div></div>
+    <div class="box r-help"><div class="t">pr-reviewer</div><div class="d">One checklist, one checker per group, one merged report.</div><div class="t" style="margin-top:4px">comments-simplifier</div><div class="d">One-line comments, no fact lost.</div></div>
+    <div class="box ext r-gh"><div class="t">GitHub</div><div class="d">CI checks, review comments, merge conflicts, as PR events.</div></div>
+    <div class="box ext r-gh"><div class="t">main</div><div class="d">Rebase-and-merge. The step's status line lands with it.</div></div>
+
+    <div></div><div></div><div></div><div></div>
+    <div class="msgs"><span class="msg side">▲ spawn</span><span class="msg side">▼ report, whole</span></div>
+    <div class="msgs"><span class="msg gh">▼ PR events</span></div>
+    <div class="msgs"><span class="msg gh">▲ merge</span></div>
+
+    <!-- orchestrator -->
+    <div class="lane r-orch"><span class="dot"></span><div class="who">Orchestrator</div><div class="what">this session; never writes code</div></div>
+    <div class="box r-orch"><div class="t">Start the step</div><div class="d">Fresh step agent, fresh branch from <code>main</code>. No reasoning passed on.</div></div>
+    <div class="box r-orch"><div class="t">Answer, approve</div><div class="d">Checks the plan against the step's Build, Deliverable and Test lines.</div></div>
+    <div class="box r-orch"><div class="t">Unblock</div><div class="d">Every question gets a decision by the rules below. The user is never asked.</div></div>
+    <div class="box r-orch"><div class="t">Run the passes</div><div class="d">Starts the reviewer and the comment pass, relays their reports.</div></div>
+    <div class="box r-orch"><div class="t">Watch the PR</div><div class="d">Forwards red CI and review comments to the step agent.</div></div>
+    <div class="box r-orch"><div class="t">Merge</div><div class="d">Green CI, no conflict, no open thread. Or waits for a human merge.</div></div>
+
+    <div></div>
+    <div class="msgs"><span class="msg down">▼ step 1.2</span></div>
+    <div class="msgs"><span class="msg up">▲ PLAN · QUESTION</span><span class="msg down">▼ APPROVED · AMEND</span></div>
+    <div class="msgs"><span class="msg up">▲ BLOCKED</span><span class="msg down">▼ decision</span></div>
+    <div class="msgs"><span class="msg up">▲ REVIEW · COMMENTS</span><span class="msg down">▼ reports</span></div>
+    <div class="msgs"><span class="msg up">▲ PR · PUSHED</span><span class="msg down">▼ events</span></div>
+    <div class="msgs"><span class="msg up">▲ green</span></div>
+
+    <!-- step agent -->
+    <div class="lane r-step"><span class="dot"></span><div class="who">Step agent</div><div class="what">one per step, fresh context</div></div>
+    <div class="box r-step"><div class="t">create-todo</div><div class="d">Full plan from the milestone step. Planner-grade, exact names.</div></div>
+    <div class="box r-step"><div class="t">Write the todo</div><div class="d">Only after <code>APPROVED</code>. Decisions are recorded in it.</div></div>
+    <div class="box r-step"><div class="t">implement-todo</div><div class="d">Automatic mode. Real tests, <code>pnpm devx check</code>, todo to <code>docs/done/</code>, step marked done.</div></div>
+    <div class="box r-step"><div class="t">Fix the findings</div><div class="d">Triage the report, fix with tests, commit the comment pass.</div></div>
+    <div class="box r-step"><div class="t">Open the PR</div><div class="d">Fix every red check and comment until green.</div></div>
+    <div class="box r-step"><div class="t">Done</div><div class="d">Its context ends here. The repo holds the state.</div></div>
+
+    <div class="loop"><span>↺ next step, only once this PR is merged</span></div>
+  </div>
+
+  <div class="section">After the last step: one QA pass, one fixer</div>
+
+  <div class="end">
+    <div class="lane r-qa"><span class="dot"></span><div class="who">Once per milestone</div><div class="what">two fresh agents, after every step is merged. The QA agent trusts the doc, not the code. The fixer closes every issue in one PR.</div></div>
+    <div>
+      <div class="endlbl r-qa"><div>QA agent</div><small>finds and reports, never fixes code</small></div>
+      <div class="rail">
+        <div class="box r-qa"><div class="t">Audit</div><div class="d">Every Goal, step, hand-off row, exit test and Out-of-scope line, with evidence.</div></div>
+        <div class="box r-qa"><div class="t">Seam tests</div><div class="d">Permanent e2e tests where one step feeds the next and nothing tests it.</div></div>
+        <div class="box r-qa"><div class="t">Manual QA plan</div><div class="d">Short checks in the milestone doc. Runs what it can itself.</div></div>
+        <div class="box r-qa"><div class="t">Report</div><div class="d">QA PR, and one GitHub issue per finding.</div></div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div>
+      <div class="endlbl r-fix"><div>Fixer</div><small>same loop as a step agent</small></div>
+      <div class="rail rail2">
+        <div class="box r-fix"><div class="t">Fix all issues</div><div class="d">On the QA PR. One commit and one test each.</div></div>
+        <div class="box r-fix"><div class="t">Review, comments</div><div class="d">Through the orchestrator, as in a step.</div></div>
+        <div class="box r-orch"><div class="t">Merge, report</div><div class="d">PR links, every decision, what needs a person.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rules">
+    <div class="panel">
+      <h3>When the step agent asks <span>the orchestrator decides, in this order</span></h3>
+      <div class="ladder">
+        <div class="rung"><div class="i">1</div><div class="w">The docs</div><div class="s">Milestone, spec, architecture, plan. Quote the line.</div></div>
+        <div class="rung"><div class="i">2</div><div class="w">Do what Vue does</div><div class="s">Every framework behaves the Vue way.</div></div>
+        <div class="rung"><div class="i">3</div><div class="w">Easier for devs</div><div class="s">Clearer errors, less config. Never scope creep.</div></div>
+        <div class="rung"><div class="i">4</div><div class="w">Smaller change</div><div class="s">Easier to undo wins a tie.</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Agents talk in one word <span>first line of every return</span></h3>
+      <div class="keys"><span class="msg up">PLAN</span><span class="msg up">QUESTION</span><span class="msg up">BLOCKED</span><span class="msg up">REVIEW</span><span class="msg up">COMMENTS</span><span class="msg up">PR</span><span class="msg up">PUSHED</span><span class="msg up" style="color:var(--svelte-hi);border-color:rgba(223,130,36,.5);background:rgba(223,130,36,.12)">QA</span></div>
+      <div class="note">The orchestrator resumes the same agent with its answer, so no context is lost. The run's state lives in the repo, so a restart picks up where it stopped.</div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -9,6 +9,8 @@ Use [the tool mapping](../TOOLS.md) for assistant-specific calls and fallbacks.
 
 Capture a request as a clean, self-contained spec under `docs/todos/` — the same directory `implement-todo` picks work from. Your output is **one markdown doc**, never a code change. The doc always opens with the shared metadata header (below), and its body is either a **full, ready-to-build plan** or **light guidelines** that leave the real planning to whoever implements it later. Which of those you write is the user's call, and guidelines is the usual answer.
 
+**Run by a milestone step agent** (the run-milestone skill): the orchestrator is the user. The spec is always `full-plan`, and the approval is its reply to your `PLAN` message.
+
 **The gate: nothing is written to disk until the user approves the drafted todo.** Everything up to that point — capturing, classifying, investigating — is analysis. Present the todo you intend to file, get a yes, then write the file. If you are not already in plan mode, enter it (Claude: EnterPlanMode; Codex: plan mode if available) once the request is captured, so the investigation stays read-only and the approval is explicit.
 
 ## The shared metadata header (contract with implement-todo)

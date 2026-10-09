@@ -1,6 +1,6 @@
 # Milestones
 
-One document per milestone, each split into ordered steps. A todo is filed from one step at a time (`create-todo`), and built with `implement-todo`.
+One document per milestone, each split into ordered steps. A todo is filed from one step at a time (`create-todo`), and built with `implement-todo`. The `run-milestone` skill does that for every step on its own, then checks the whole milestone.
 
 What we build: [../spec.md](../spec.md). How the pieces fit: [../architecture.md](../architecture.md). Order and packages: [../plan.md](../plan.md).
 
