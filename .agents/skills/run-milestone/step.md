@@ -33,6 +33,7 @@ AGENTS.md, `docs/milestones/README.md`, the whole milestone doc (not only your s
 - `type` from the step (usually `feature`), `spec: full-plan`. Do not ask which spec: it is always a full plan here.
 - Two more header fields: `milestone: <N>` and `step: <N.k>`.
 - Investigate planner-grade, as the skill says. The step's Build, Deliverable and Test lines are the floor: every one of them appears in the plan, with exact names and shapes.
+- Test infra: for every test, say where it runs (this host, CI) and check what it needs is really there (`.github/workflows/ci.yml`, SETUP.md). A missing piece is built in this step, following "Test infrastructure" in `docs/milestones/README.md`. Never plan around it by skipping the test.
 - Fuzzing: if the milestone puts a fuzz test in your step, plan it with the fuzzy-testing skill. Otherwise, if the feature has a cheap oracle, propose one in the `PLAN` message and let the orchestrator decide.
 - Do not write the file yet. End with `PLAN`, the full todo text, and any questions under it.
 
@@ -47,6 +48,7 @@ On `APPROVED` (or after folding in an `AMEND` and sending `PLAN` again):
   - **Comment pass (step 10)**: same. If you cannot start the `comments-simplifier`, send `COMMENTS` with the file list. You check its report against the code and commit it, as implement-todo says.
   - **Findings (step 7)**: never start a session and never delegate. A related finding is fixed in this PR. An unrelated one becomes a guidelines todo (create-todo, no approval round), committed in this PR and named in the PR description and your `PR` message.
   - **PR (step 11)**: the description opens with `Milestone <N>, step <N.k>` and lists the decisions the orchestrator gave you. Send `PR <url>`.
+  - **Proof the tests ran**: when your step added test infra, quote the CI log lines that show its tests executing in your `PR` message, or in a `PUSHED` message once CI has run.
   - **CI (step 12)**: you get no PR events. The orchestrator sends you each one; fix it, run the fast checks, push, send `PUSHED <sha>`.
 
 ## Fix mode

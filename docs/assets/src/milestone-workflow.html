@@ -40,10 +40,10 @@
   .loop span { position: absolute; left: 50%; bottom: -11px; transform: translateX(-50%); background: var(--bg); padding: 0 12px; font: 700 13px/1.4 var(--sans); color: #dbeafe; white-space: nowrap; }
   .loop::before { content: ''; position: absolute; left: -8px; top: -10px; border: 7px solid transparent; border-bottom: 10px solid #3b4b60; border-top: 0; }
 
-  .end { margin-top: 16px; display: grid; grid-template-columns: 136px 1fr 30px 1fr; column-gap: 14px; align-items: stretch; }
+  .end { margin-top: 16px; display: grid; grid-template-columns: 136px 4fr 24px 2fr 24px 1fr; column-gap: 10px; align-items: stretch; }
   .rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; position: relative; }
   .rail .box { min-height: 112px; }
-  .rail2 { grid-template-columns: repeat(3, 1fr); }
+  .rail2 { grid-template-columns: repeat(2, 1fr); } .rail1 { grid-template-columns: 1fr; } .r-doc { --k: var(--vue-hi); color: #d9e7c4; }
   .arrow { display: grid; place-items: center; font: 800 22px/1 var(--sans); color: #4b5f78; }
   .end .lane { justify-content: flex-start; padding-top: 6px; }
   .endlbl { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -67,7 +67,7 @@
 <div class="canvas">
   <div class="eyebrow">multifront · agentic workflow</div>
   <h1>One milestone, end to end, on its own</h1>
-  <p class="sub">One orchestrator runs every step of a milestone in order. A fresh agent turns each step into a todo, builds it and gets its PR green. The next step starts only once that PR is merged. One QA pass and one fixer close the milestone.</p>
+  <p class="sub">One orchestrator runs every step of a milestone in order. A fresh agent turns each step into a todo, builds it and gets its PR green. The next step starts only once that PR is merged. One QA pass, one fixer and one docs writer close the milestone.</p>
 
   <div class="section">For each step of the milestone</div>
 
@@ -113,7 +113,7 @@
     <div class="lane r-step"><span class="dot"></span><div class="who">Step agent</div><div class="what">one per step, fresh context</div></div>
     <div class="box r-step"><div class="t">create-todo</div><div class="d">Full plan from the milestone step. Planner-grade, exact names.</div></div>
     <div class="box r-step"><div class="t">Write the todo</div><div class="d">Only after <code>APPROVED</code>. Decisions are recorded in it.</div></div>
-    <div class="box r-step"><div class="t">implement-todo</div><div class="d">Automatic mode. Real tests, <code>pnpm devx check</code>, todo to <code>docs/done/</code>, step marked done.</div></div>
+    <div class="box r-step"><div class="t">implement-todo</div><div class="d">Automatic mode. Real tests, and the CI setup they lack. <code>pnpm devx check</code>, step marked done.</div></div>
     <div class="box r-step"><div class="t">Fix the findings</div><div class="d">Triage the report, fix with tests, commit the comment pass.</div></div>
     <div class="box r-step"><div class="t">Open the PR</div><div class="d">Fix every red check and comment until green.</div></div>
     <div class="box r-step"><div class="t">Done</div><div class="d">Its context ends here. The repo holds the state.</div></div>
@@ -121,10 +121,10 @@
     <div class="loop"><span>↺ next step, only once this PR is merged</span></div>
   </div>
 
-  <div class="section">After the last step: one QA pass, one fixer</div>
+  <div class="section">After the last step: one QA pass, one fixer, the public docs</div>
 
   <div class="end">
-    <div class="lane r-qa"><span class="dot"></span><div class="who">Once per milestone</div><div class="what">two fresh agents, after every step is merged. The QA agent trusts the doc, not the code. The fixer closes every issue in one PR.</div></div>
+    <div class="lane r-qa"><span class="dot"></span><div class="who">Once per milestone</div><div class="what">three fresh agents, one after the other, each with its own PR.</div></div>
     <div>
       <div class="endlbl r-qa"><div>QA agent</div><small>finds and reports, never fixes code</small></div>
       <div class="rail">
@@ -139,8 +139,14 @@
       <div class="endlbl r-fix"><div>Fixer</div><small>same loop as a step agent</small></div>
       <div class="rail rail2">
         <div class="box r-fix"><div class="t">Fix all issues</div><div class="d">On the QA PR. One commit and one test each.</div></div>
-        <div class="box r-fix"><div class="t">Review, comments</div><div class="d">Through the orchestrator, as in a step.</div></div>
-        <div class="box r-orch"><div class="t">Merge, report</div><div class="d">PR links, every decision, what needs a person.</div></div>
+        <div class="box r-fix"><div class="t">Review, comments</div><div class="d">Through the orchestrator, then merged.</div></div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div>
+      <div class="endlbl r-doc"><div>Docs writer</div><small>&nbsp;</small></div>
+      <div class="rail rail1">
+        <div class="box r-doc"><div class="t">Public docs</div><div class="d">Plain how-to pages and cards in <code>publicdocs/</code>. Simple from the first draft.</div></div>
       </div>
     </div>
   </div>

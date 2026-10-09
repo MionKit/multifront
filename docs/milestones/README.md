@@ -1,6 +1,6 @@
 # Milestones
 
-One document per milestone, each split into ordered steps. A todo is filed from one step at a time (`create-todo`), and built with `implement-todo`. The `run-milestone` skill does that for every step on its own, then checks the whole milestone.
+One document per milestone, each split into ordered steps. A todo is filed from one step at a time (`create-todo`), and built with `implement-todo`. The `run-milestone` skill does that for every step on its own, then checks the whole milestone and writes its public docs.
 
 What we build: [../spec.md](../spec.md). How the pieces fit: [../architecture.md](../architecture.md). Order and packages: [../plan.md](../plan.md).
 
@@ -35,6 +35,23 @@ The e2e tests live in one private workspace package, `packages/e2e` (never publi
 | Browser | `packages/e2e/browser/` | Playwright against the built or served apps: rendering, styles, HMR, hydration, visual parity across targets. |
 | Editor | `packages/e2e/editor/` | The real language server over LSP, the real tsserver with our TypeScript plugin, `mf-tsc`, `mf-lint`, `mf-fmt` on the fixtures. |
 | Consumer | `packages/e2e/consumer/` | The library build packed into tarballs, installed into fresh real apps (Next.js App Router, Vite React, Vite Vue, SvelteKit), built and rendered. |
+
+## Test infrastructure
+
+Today CI is one `check` job (`pnpm devx check`) plus commitlint. Most areas need more before their tests can run there. **The step whose test first needs a piece builds it**, in the same PR, and its plan says so. A test is never skipped because the infra is missing.
+
+| Area | First needed | What the step adds |
+| --- | --- | --- |
+| Build | M1 | nothing: real `vite.build()` runs inside `pnpm devx test` |
+| Fuzz | M1 (1.5) | the `MULTIFRONT_FUZZ_SEED` / `MULTIFRONT_FUZZ_RUNS` knobs, a fixed seed in CI, the seed printed on failure; later a hand-run soak workflow that takes a seed |
+| Editor: tsserver, LSP, vsix | M2 | nothing: child processes and `pnpm devx vsix` inside the test |
+| Editor: real VS Code | M2 (2.11) | `xvfb-run` on Linux, a cached `.vscode-test/` download |
+| Browser | M3 (3.9) | `pnpm exec playwright install --with-deps chromium` in CI, the browser folder cached by Playwright version |
+| Consumer | M5 | a job that builds and packs once and hands the tarballs to the consumer jobs, a shared pnpm store; later a local registry for packed packages that depend on each other |
+
+The reference for all of it is [MionKit/mion](https://github.com/MionKit/mion)'s `.github/workflows/`: the same tooling, already solving most of this (packed tarballs through a local verdaccio registry, fuzz soak runs with a printed seed, jobs that pass artifacts). Copy its pattern before inventing one. Neither repo runs a browser or VS Code in CI yet: those two are new.
+
+**A green check only counts if the test ran.** After adding infra, read the CI log and see the new tests execute, not skip.
 
 ## Shared names and fixtures
 

@@ -17,7 +17,7 @@ Claude Code and Codex share this file and `.agents/skills/`. Read the matching `
 | --- | --- |
 | [create-todo](.agents/skills/create-todo/) | write a request up as a `docs/todos/` spec |
 | [implement-todo](.agents/skills/implement-todo/) | build a todo end to end: plan, code, review, comment pass, PR, green CI |
-| [run-milestone](.agents/skills/run-milestone/) | run a whole milestone alone: one agent per step, one PR per step, then one QA pass and one fixer |
+| [run-milestone](.agents/skills/run-milestone/) | run a whole milestone alone: one agent per step, one PR per step, then one QA pass, one fixer and the public docs |
 | [review-pr](.agents/skills/review-pr/) | review a branch or PR in a fresh `pr-reviewer` agent |
 | [delegate-finding](.agents/skills/delegate-finding/) | hand an unrelated bug to a parallel session |
 | [fuzzy-testing](.agents/skills/fuzzy-testing/) | add a seeded random-input test |
@@ -52,6 +52,7 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 - The smallest allowed test: a real fixture file, through a public function or command, with its real output checked.
 - Fuzz tests only as generated real files: real fixtures mutated or recombined, run through the real tools.
 - Cross-package e2e tests live in the private `packages/e2e` package, one folder per area (build, browser, editor, consumer), with shared fixtures. See [docs/milestones/README.md](docs/milestones/README.md).
+- **Missing test infra is built, never skipped around.** A test that needs something CI or the host lacks (a browser, VS Code, a packed tarball) comes with that piece in the same PR. See "Test infrastructure" in [docs/milestones/README.md](docs/milestones/README.md). Never report a test as passing from a run where it did not execute.
 - **Vitest**. Test files are `.spec.ts` in each package's `test/` dir, mirroring `src/`, never beside the code.
 - `pnpm devx test` runs every project. The root [vitest.config.ts](vitest.config.ts) is the one list of projects.
 - Adding a package means adding it to `vitest.config.ts` AND to the root `tsconfig.json` references. `pnpm devx typecheck` fails if you forget.
@@ -88,6 +89,7 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 
 - New or changed behaviour has Vitest coverage, and `pnpm devx check` passes.
 - Docs updated: [docs/plan.md](docs/plan.md) when a plan decision changes, [docs/architecture.md](docs/architecture.md) and its graphics when the structure changes. Graphics are HTML under `docs/assets/src/`, rendered with `pnpm devx docs-images`; commit the HTML and the PNG together.
+- Public docs ([publicdocs/](publicdocs/), how to use multifront, written by the rules in [publicdocs/AGENTS.md](publicdocs/AGENTS.md)) are written once per milestone by the `public-docs-writer` agent. A PR that changes behaviour a public page already describes fixes that page too.
 - If the PR implements a [docs/todos/](docs/todos/) spec, `git mv` it into [docs/done/](docs/done/) and update it to match what shipped.
 - **No other file ever names a `docs/todos/` or `docs/done/` document**, not a doc, a skill or a code comment: those specs get deleted, so every such link rots.
 - Every touched source file gets a comment pass by the `comments-simplifier` subagent ([simplify-comments skill](.agents/skills/simplify-comments/SKILL.md)), never by the session that wrote the code, committed on its own as `chore(comments): …`.

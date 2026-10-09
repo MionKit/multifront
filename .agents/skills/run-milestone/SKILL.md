@@ -1,13 +1,13 @@
 ---
 name: run-milestone
-description: Run a whole docs/milestones/ milestone on its own, step after step, from todo to merged PR, then one QA pass and one fix pass. Use when asked to run, execute or implement a milestone.
+description: Run a whole docs/milestones/ milestone on its own, step after step, from todo to merged PR, then one QA pass, one fix pass and the public docs. Use when asked to run, execute or implement a milestone.
 ---
 
 # run-milestone
 
 Use [the tool mapping](../TOOLS.md) for assistant-specific calls and fallbacks.
 
-You are the **orchestrator**. You never write product code. You read the milestone, start one agent per step, answer its questions, run the independent passes it cannot run itself, watch its PR and merge it. When every step is merged, one QA agent checks the whole milestone and one fixer closes what it found.
+You are the **orchestrator**. You never write product code. You read the milestone, start one agent per step, answer its questions, run the independent passes it cannot run itself, watch its PR and merge it. When every step is merged, one QA agent checks the whole milestone, one fixer closes what it found, and one docs writer writes the public docs.
 
 ![The workflow](../../../docs/assets/milestone-workflow.png)
 
@@ -17,6 +17,7 @@ You are the **orchestrator**. You never write product code. You read the milesto
 | Step agent | `milestone-step`, one per step, fresh | [step.md](step.md), "Step mode" |
 | QA agent | `milestone-qa`, one per milestone, fresh | [qa.md](qa.md) |
 | Fixer | `milestone-step`, one per milestone, fresh | [step.md](step.md), "Fix mode" |
+| Docs writer | `public-docs-writer`, one per milestone, fresh | [docs.md](docs.md) |
 | Reviewer, comment pass | `pr-reviewer`, `comments-simplifier` | the review-pr and simplify-comments skills |
 
 Effort is never set here: every agent inherits the effort of the session the user started.
@@ -38,7 +39,9 @@ Ask once, in one question round, only what the request did not say:
 
 Then read: `AGENTS.md`, `docs/milestones/README.md` (its "Shared names and fixtures" wins over a milestone doc), the milestone doc in full, and `docs/spec.md`, `docs/architecture.md`, `docs/plan.md`. These are what you answer questions from.
 
-Check the host can run the gate (`pnpm devx check`, see SETUP.md). If it cannot and you cannot fix that, stop and tell the user: no step can pass without it.
+Check the host can run the gate (`pnpm devx check`, see SETUP.md). A missing tool is installed the way SETUP.md says. If you still cannot run it, stop and tell the user: no step can pass without it.
+
+Read "Test infrastructure" in `docs/milestones/README.md` and note which steps of this milestone first need a missing piece (a CI job, a browser, VS Code, packed tarballs). Those steps' plans must build it.
 
 ## Step 1: Find where the run is
 
@@ -73,7 +76,7 @@ Start from the first step that is not done. Tell the user in one line where the 
    | `PR <url>` | the PR is open | watch it (step 3) |
    | `PUSHED <sha>` | it pushed a fix you asked for | keep watching |
 
-   **Checking a `PLAN`.** Compare it with the step's Build, Deliverable and Test lines, line by line. Every name and shape is exact, every test follows the testing rules (real files, real tools, no mocks), the step's Out of scope and the milestone's are respected, and the plan names the docs it changes. Anything missing is an `AMEND`. A plan that adds work the step does not ask for is an `AMEND` too.
+   **Checking a `PLAN`.** Compare it with the step's Build, Deliverable and Test lines, line by line. Every name and shape is exact, every test follows the testing rules (real files, real tools, no mocks), the step's Out of scope and the milestone's are respected, the plan names the docs it changes, and every test says where it runs. A test that needs infra CI or the host lacks comes with the plan to build it (the README's "Test infrastructure"). Anything missing is an `AMEND`. A plan that adds work the step does not ask for is an `AMEND` too.
 
    **Running the review.** The step agent cannot always start agents, so you run the calling half of the review-pr skill for it, steps 2 to 4: spawn the `pr-reviewer` on the step's branch, fan the groups out, get the merged report. Do not triage it: send it whole to the step agent, which triages and fixes in automatic mode. If the step agent can start agents itself, it runs the review alone and never sends `REVIEW`.
 
@@ -84,7 +87,7 @@ Start from the first step that is not done. Tell the user in one line where the 
 Subscribe to the PR's activity (the tool mapping, "Pull requests and CI"). Subagents get no PR events, so you are their eyes:
 
 - **Red CI, a review comment, a merge conflict**: send the event to the step agent as it came, with "fix and push". It replies `PUSHED <sha>`.
-- **Done** means: CI green on the latest commit, no merge conflict, no open review thread, and the Claude Approvals check passing where the repo runs it.
+- **Done** means: CI green on the latest commit, no merge conflict, no open review thread, and the Claude Approvals check passing where the repo runs it. When the step added test infra, also ask the step agent to quote the CI log lines that show its new tests ran: a skipped test turns CI green too.
 - **Auto merge**: merge it with the rebase method (AGENTS.md: PRs land with rebase-and-merge). **Human merge**: say once that the PR is ready and wait for its merged event.
 - After the merge: fetch `origin/main` and check the step's `- Status: done` line is there. Then go to step 2 with the next step.
 
@@ -112,9 +115,21 @@ Follow .agents/skills/run-milestone/step.md, "Fix mode".
 
 Answer it exactly as in step 2, then watch and merge its PR as in step 3.
 
-## Step 6: Close the milestone
+## Step 6: Public docs, once for the whole milestone
 
-Fetch `origin/main` and check: every step has `- Status: done`, the `## Manual QA` section is there, every QA issue is closed. Then tell the user, short:
+When the fixer's PR is merged, the milestone is checked: now write about it. Spawn one `public-docs-writer`:
+
+```
+Milestone: docs/milestones/<file>.md, merged and checked on origin/main.
+Branch: docs/m<N>-public-docs, cut from origin/main.
+Follow .agents/skills/run-milestone/docs.md.
+```
+
+It returns `PR <url>`, or `QUESTION` when it cannot tell from the code and the tests what a user sees: answer by the decision rules. Watch and merge its PR as in step 3; red CI goes back to it. It changes no source file, so there is no review or comment pass.
+
+## Step 7: Close the milestone
+
+Fetch `origin/main` and check: every step has `- Status: done`, the `## Manual QA` section is there, every QA issue is closed, and the public docs PR is merged. Then tell the user, short:
 
 - the merged PRs, one link each;
 - every decision you made in answer to a `QUESTION`, one line each (each also lives in its step's todo, now in `docs/done/`);
@@ -133,7 +148,7 @@ Your answer always carries: the decision, the rule and line that settled it, and
 
 ## Findings off the step's path
 
-A step agent never starts sessions. An unrelated finding becomes a guidelines todo in its PR, named in its `PR` message. Once that PR is merged, run the [delegate-finding skill](../delegate-finding/) for it if you can start background sessions. Otherwise it stays in `docs/todos/` and goes in the step 6 report.
+A step agent never starts sessions. An unrelated finding becomes a guidelines todo in its PR, named in its `PR` message. Once that PR is merged, run the [delegate-finding skill](../delegate-finding/) for it if you can start background sessions. Otherwise it stays in `docs/todos/` and goes in the step 7 report.
 
 ## What NOT to do
 
