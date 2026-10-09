@@ -1,4 +1,4 @@
-// Renders every <dir>/assets/src/<name>.html to <dir>/assets/<name>.png, for docs/ and publicdocs/. The canvas element sets the size.
+// Renders docs/ and publicdocs/ assets/src/<name>.html to assets/<name>.png; the .canvas element sets the size.
 import {existsSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
