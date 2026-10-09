@@ -1,6 +1,8 @@
 import type {Target} from './types.ts';
 
-export type {Target} from './types.ts';
+export type {Block, BlockKind, BlockRole, BlockTag, Diagnostic, DiagnosticCode, SplitResult, Target} from './types.ts';
+export {BLOCK_KINDS, getBlockKind} from './blocks/index.ts';
+export {splitBlocks} from './split.ts';
 
 /** Every target, in the order a library build emits them. */
 export const TARGETS: readonly Target[] = ['vue', 'react', 'svelte'];
