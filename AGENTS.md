@@ -11,10 +11,21 @@ Setup and every command: [SETUP.md](SETUP.md).
 
 Claude Code and Codex share this file and `.agents/skills/`. Read the matching `SKILL.md` before using a skill. Claude finds the same skills through the `.claude/skills` symlink. Tool mapping: [.agents/skills/TOOLS.md](.agents/skills/TOOLS.md).
 
+## Skills
+
+| Skill | Use it to |
+| --- | --- |
+| [create-todo](.agents/skills/create-todo/) | write a request up as a `docs/todos/` spec |
+| [implement-todo](.agents/skills/implement-todo/) | build a todo end to end: plan, code, review, comment pass, PR, green CI |
+| [review-pr](.agents/skills/review-pr/) | review a branch or PR in a fresh `pr-reviewer` agent |
+| [delegate-finding](.agents/skills/delegate-finding/) | hand an unrelated bug to a parallel session |
+| [fuzzy-testing](.agents/skills/fuzzy-testing/) | add a seeded random-input test |
+| [simplify-comments](.agents/skills/simplify-comments/) | cut comments to one line that says what the code cannot |
+
 ## ⚠️ Any issue found during a task is FIXED, not filed for later
 
 - **Related to the current task** → fix it in the same PR, with its own commit and its own test.
-- **Unrelated** → write it up as a [docs/todos/](docs/todos/) spec in the same PR, or hand it to a parallel session. Never let it slide.
+- **Unrelated** → hand it to a parallel session with the [delegate-finding skill](.agents/skills/delegate-finding/). If that is not possible, file it as a [docs/todos/](docs/todos/) spec in the same PR. Never let it slide.
 
 ## ⚠️ A removed thing leaves NO trace
 
@@ -70,6 +81,7 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 - New or changed behaviour has Vitest coverage, and `pnpm devx check` passes.
 - Docs updated: [docs/plan.md](docs/plan.md) when a plan decision changes, [docs/architecture.md](docs/architecture.md) and its graphics when the structure changes. Graphics are HTML under `docs/assets/src/`, rendered with `pnpm devx docs-images`; commit the HTML and the PNG together.
 - If the PR implements a [docs/todos/](docs/todos/) spec, `git mv` it into [docs/done/](docs/done/) and update it to match what shipped.
+- **No other file ever names a `docs/todos/` or `docs/done/` document**, not a doc, a skill or a code comment: those specs get deleted, so every such link rots.
 - Every touched source file gets a comment pass by the `comments-simplifier` subagent ([simplify-comments skill](.agents/skills/simplify-comments/SKILL.md)), never by the session that wrote the code, committed on its own as `chore(comments): …`.
 
 ## Git workflow
