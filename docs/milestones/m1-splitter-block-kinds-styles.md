@@ -90,7 +90,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
   - `packages/core/src/blocks/index.ts`: the registry, `BLOCK_KINDS: readonly BlockKind[]` in the order `style, vue, react, svelte` (shared first, then `TARGETS` order), and `getBlockKind(tag: BlockTag): BlockKind`. One file per kind: `blocks/style.ts` (`role: 'shared'`), `blocks/vue.ts`, `blocks/react.ts`, `blocks/svelte.ts` (`role: 'target'`). In this step a kind has only `tag` and `role`.
   - `packages/core/src/split.ts`: `splitBlocks(source: string, filename: string): SplitResult`. A hand-written scanner. Root tags come from `BLOCK_KINDS`, so a new kind adds a root tag with no splitter change. It reads an opening tag and its attributes (double quotes, single quotes, unquoted, bare), then takes the content as raw text up to the first `</tag` followed by `>` or whitespace (browser `<script>` rules). Between blocks only whitespace and HTML comments (`<!-- … -->`) are allowed.
-  - Exports from `packages/core/src/index.ts`: `splitBlocks`, `BLOCK_KINDS`, `getBlockKind`, and the types above.
+  - Exports from `packages/core/src/index.ts`: `splitBlocks`, `BLOCK_KINDS`, `getBlockKind`, and the types above, plus `BlockKind`, `Diagnostic` and `DiagnosticCode` (which they name).
   - The `.ucf` fixture helpers, added to `packages/e2e/fixtures/index.ts` next to 1.1's `copyApp`:
 
     ```ts
@@ -106,8 +106,8 @@ None: this is the first milestone. It builds on what the repo already has:
     | --- | --- | --- |
     | `Card.ucf` | vue, react, svelte, `<style module lang="scss">` | the spec section 2 example, verbatim |
     | `Badge.ucf` | react, `<style scoped>` | one target, plain scoped CSS |
-    | `Button.ucf` | vue, react, svelte, `<style scoped>`, `<style module="classes">` | scoped plus a named module |
-    | `Panel.ucf` | vue, react, `<style scoped lang="scss">` (nesting, a variable), `<style>` | scoped SCSS plus a global block |
+    | `Button.ucf` | vue, react, svelte, `<style scoped>`, `<style module='classes'>` | scoped plus a named module; single-quoted attribute |
+    | `Panel.ucf` | vue, react, `<style scoped lang=scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute |
     | `Hello.ucf` | react only, no style | a file with no `<style>` |
     | `TsxEdges.ucf` | react, `<style scoped>` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'` |
 
@@ -116,11 +116,12 @@ None: this is the first milestone. It builds on what the repo already has:
   - `errors` is empty, and `source.slice(contentStart, contentEnd) === content` for every block.
   - The block table (`type`, `attrs`, `index`, offsets) matches a file snapshot, `test/__snapshots__/split/<Name>.ucf.json`.
   - Every `<react>` block content parses with the real TypeScript parser (`ts.createSourceFile(…, ScriptKind.TSX)`) with zero syntax errors. This proves the splitter never cut a TSX block early, `TsxEdges.ucf` included.
+- Status: done
 
 ### 1.3 Splitter errors with exact locations
 
 - Build:
-  - The `Diagnostic` type in `packages/core/src/types.ts`:
+  - The `Diagnostic` type in `packages/core/src/types.ts` (added in 1.2, because `SplitResult.errors` names it; until 1.3 `errors` is always empty):
 
     ```ts
     export type DiagnosticCode =
