@@ -1,30 +1,14 @@
 import {rm} from 'node:fs/promises';
-import {join} from 'node:path';
 import {build, type Rolldown} from 'vite';
-import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp} from '../fixtures/index.ts';
 
 let root: string;
 
 beforeAll(async () => {
   root = await copyApp('vue-reference');
+  return () => rm(root, {recursive: true, force: true});
 });
-
-afterAll(async () => {
-  await rm(root, {recursive: true, force: true});
-});
-
-async function buildApp(): Promise<Rolldown.RolldownOutput['output']> {
-  const result = await build({
-    root,
-    configFile: join(root, 'vite.config.ts'),
-    logLevel: 'silent',
-    build: {write: false, minify: false},
-  });
-  const output = Array.isArray(result) ? result[0]! : result;
-  if (!('output' in output)) throw new Error('vite.build() returned a watcher');
-  return output.output;
-}
 
 // The rules of one selector, with whatever attribute selectors plugin-vue appended to it.
 function rulesFor(css: string, selector: string): string[] {
@@ -34,9 +18,19 @@ function rulesFor(css: string, selector: string): string[] {
 
 describe('vue-reference app, built by plugin-vue alone', () => {
   it('stamps one scope id on the component and on its scoped CSS', async () => {
-    const output = await buildApp();
-    const chunks = output.filter((file): file is Rolldown.OutputChunk => file.type === 'chunk');
-    const cssAssets = output.filter(
+    // Vitest sets NODE_ENV=test and Vite keeps it, which would give plugin-vue's dev scope id, not a real build's.
+    const nodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    let result: Awaited<ReturnType<typeof build>>;
+    try {
+      result = await build({root, logLevel: 'silent', build: {write: false, minify: false}});
+    } finally {
+      process.env.NODE_ENV = nodeEnv;
+    }
+    const bundle = Array.isArray(result) ? result[0]! : result;
+    if (!('output' in bundle)) throw new Error('vite.build() returned a watcher');
+    const chunks = bundle.output.filter((file): file is Rolldown.OutputChunk => file.type === 'chunk');
+    const cssAssets = bundle.output.filter(
       (file): file is Rolldown.OutputAsset => file.type === 'asset' && file.fileName.endsWith('.css')
     );
     expect(chunks).toHaveLength(1);
