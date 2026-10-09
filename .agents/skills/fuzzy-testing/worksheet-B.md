@@ -34,7 +34,7 @@ Per shape: the question to ask, then an example.
 - ⑦ **leave the rest alone**: does an unrelated change leave everything else untouched?
   - e.g. an authored value survives an unrelated edit.
 - ⑧ **reject bad input**: is a _bad_ input always reported, never quietly accepted?
-  - e.g. unknown field ⇒ a specific diagnostic (enrich-mock-unknown-field/enrich-text-unknown-field).
+  - e.g. unknown field ⇒ a specific diagnostic, never silently dropped.
 
 After a pass, ask: "anything I'm missing that should always hold here?" Stop when the shapes that fit are covered.
 
@@ -50,15 +50,15 @@ After a pass, ask: "anything I'm missing that should always hold here?" Stop whe
   Missing a bug only costs coverage. Crying wolf (red when nothing is wrong) destroys trust in the whole suite.
 - Prove each rule you'll fail the build on: break the expected output on purpose, watch it go red with the right signal.
 - A rule never watched failing isn't trustworthy yet.
-- e.g. enrich fuzzer: asserted a bogus code `enrich-mock-bogus`, watched it fail + shrink to one event.
-  Proof the check was live, not passing for the wrong reason.
+- e.g. assert a bogus diagnostic code, watch the run fail + shrink to one input.
+  Proof the check is live, not passing for the wrong reason.
 
 ## Prefer strong rules, and check your inputs reach the case
 
 - Steer toward strong rules (do-it-then-undo-it, compare-to-a-trusted-source, predicted-change) over weak
   "doesn't crash". Always keep "doesn't crash" (①) as the floor.
 - Before trusting a rule, confirm the input maker reaches the situation the rule talks about.
-  - Reject-bad-input (⑧) needs _invalid_ inputs (`mutateToInvalid`).
+  - Reject-bad-input (⑧) needs _invalid_ inputs (a maker that breaks one spot of a valid input).
   - A rule about cycles needs a maker that builds cycles.
 - Rule over inputs your maker never produces → passes for the wrong reason, tells you nothing.
 
@@ -66,8 +66,6 @@ After a pass, ask: "anything I'm missing that should always hold here?" Stop whe
 
 - One `check*(target, value, ctx) -> Violation | null` per rule.
   See [`templates/oracle-layer.ts`](templates/oracle-layer.ts).
-- Collect them behind one typed `FuzzTarget` (handshake between input maker and rules).
+- Collect them behind one typed `Target` (handshake between input maker and rules).
 - Share one set of rule-checks between example and fuzz tests, so the two can't drift apart.
   Same helper, called once with hand-written data (example), once with generated data (fuzz).
-- In this repo `test/util/*Asserts.ts` files are that shared layer. Fuzz checks currently _mirror_ them;
-  sharing is the cleaner end state.

@@ -43,11 +43,10 @@ Ask: **how is a _valid_ input described?** The answer picks the approach. Propos
 - A SEQUENCE of operations (code with memory) → random LIST of actions + a small model of the state.
 - Two coupled things that EVOLVE via edits → random list of EDIT events + a small model (build it).
 
-Look first: does the input maker already exist? Report what's there before building anything. This repo has:
+Look first: grep for an input maker already in the repo. Report what's there before building anything.
 
-- `createMockDataFn<T>()`: a valid value.
-- `mutateToInvalid(schema, valid)`: one spot that is provably wrong.
-- `randomJunk(depth)`: type-blind junk.
+- None yet in this repo. Inputs are real files (root AGENTS.md: no fake data) → MUTATE or recombine real fixtures.
+- Need a valid side + an invalid side → build both: one keeps inputs valid, one breaks one spot provably.
 
 ## Step 4 · A replay button (the seed)
 
@@ -60,7 +59,7 @@ Look first: does the input maker already exist? Report what's there before build
 ## Step 4 · Shrinking a failure
 
 - Decide how to cut a failing input to its smallest form. fast-check does it automatically. By hand:
-  - **smallest-prefix**: fewest first-K actions that still fail (what the enrich fuzzer uses).
+  - **smallest-prefix**: fewest first-K actions that still fail.
   - **drop-subsets**: remove chunks, see if it still fails.
   - **simplify-the-value**: shrink the input itself.
 - Always keep the **seed** alongside the shrunk reproducer.
