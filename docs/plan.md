@@ -82,7 +82,8 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ### 7. Full editor support
 
-`mf-tsc` over every target, Svelte markup completions, oxfmt and oxlint for `.ucf`.
+- `mf-tsc` over every target, Svelte markup completions.
+- oxfmt and oxlint for `.ucf` (spec 6.1): `mf-fmt` through oxfmt's `format()` API, block by block; `mf-lint` through temporary per-block files and oxlint's JSON output, while proposing `.ucf` support to oxc upstream. Both wired into the language server.
 
 ## Alongside every milestone
 

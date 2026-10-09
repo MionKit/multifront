@@ -214,6 +214,16 @@ Order:
 5. `<svelte>` block: types through `svelte2tsx`, markup completions later.
 6. Formatting and linting for `.ucf` through oxfmt and oxlint.
 
+### 6.1 Linting and formatting `.ucf` (last milestone)
+
+The same tools as the rest of the repo: oxlint and oxfmt, reading the project's own `.oxlintrc.json` and `.oxfmtrc.json`. No new config.
+
+- **Formatting:** oxfmt has a JS API, `format(fileName, source, options)`. We split the file, format each block as its own language and put the blocks back. Today oxfmt formats TSX, Vue SFC code and CSS / SCSS, but not Svelte, so `<svelte>` blocks stay as written until oxfmt supports them.
+- **Linting:** oxlint already lints the script blocks of `.vue` and `.svelte` files, but it skips unknown extensions like `.ucf`. Two ways:
+  1. Upstream: add `.ucf` to oxc's block extraction, next to the `.vue` / `.svelte` one. Best result, needs oxc maintainers to accept it.
+  2. Ours: `mf-lint` writes each block as a temporary `.tsx` / `.vue` / `.svelte` file, runs oxlint with JSON output and maps the positions back to the `.ucf` file.
+- **Editor:** the language server runs the same formatter and linter, so VS Code shows the same results as the command line.
+
 ## 7. Vite plugin
 
 - `multifront({ targets?, target?, importers? })`
