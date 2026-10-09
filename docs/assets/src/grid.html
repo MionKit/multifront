@@ -46,7 +46,7 @@
     <div class="op"><div class="name">check</div><div class="what">Rules for the block itself.</div><div class="hosts"><span class="host">Vite plugin</span><span class="host">language server</span></div></div>
     <div class="op"><div class="name">build</div><div class="what">The file the bundler compiles.</div><div class="hosts"><span class="host">Vite plugin</span><span class="host">mf-lint · mf-fmt</span></div></div>
     <div class="op"><div class="name">types</div><div class="what">What an importer sees: the exported component type.</div><div class="hosts"><span class="host">TypeScript plugin</span><span class="host">mf-tsc</span></div></div>
-    <div class="op"><div class="name">editor</div><div class="what">Embedded code for completions, errors, hover.</div><div class="hosts"><span class="host">language server</span></div></div>
+    <div class="op"><div class="name">editor</div><div class="what">Embedded code for completions, errors, hover.</div><div class="hosts"><span class="host">tsserver + plugin</span><span class="host">language server</span></div></div>
 
     <div class="sub2 k-style">
       <div class="row"><span class="name">&lt;style&gt;</span><span class="tag">shared</span></div>
@@ -63,7 +63,7 @@
       <div class="cell"><div class="main">export default</div><div class="d">the component must be the default export</div></div>
       <div class="cell"><div class="main">plugin-react</div><div class="d">after our scope stamp and <code>$style</code> import</div><span class="x">lang.tsx</span></div>
       <div class="cell"><div class="main">the .tsx itself</div><div class="d">TSX is plain TypeScript</div><span class="x">Card.ucf.react.tsx</span></div>
-      <div class="cell"><div class="main">TypeScript service</div><div class="d">full types from day one</div><span class="x">tsx</span></div>
+      <div class="cell"><div class="main">tsserver + our plugin</div><div class="d">full types from day one, hybrid mode</div><span class="x">tsx</span></div>
     </div>
 
     <div class="sub2 k-vue">
@@ -92,7 +92,7 @@
 
   <div class="foot">
     <div class="note"><b>Shared before target.</b> Shared blocks run first and fill <code>ctx</code>: scope id, <code>$style</code>, CSS ids. The chosen target reads it.</div>
-    <div class="note"><b>Lint and format are free.</b> oxlint and oxfmt run on the <code>build</code> file, which already has the right ending.</div>
+    <div class="note"><b>Lint and format are free.</b> oxlint and oxfmt run on each block's own text, named with its <code>build</code> file's ending.</div>
     <div class="note"><b>One rule for the Vue row.</b> It takes the raw <code>&lt;style&gt;</code> blocks into its SFC code, so plugin-vue compiles them itself.</div>
   </div>
 </div>

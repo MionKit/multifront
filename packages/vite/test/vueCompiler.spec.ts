@@ -40,7 +40,7 @@ describe('getVueCompiler', () => {
 });
 
 describe('multifront options', () => {
-  it('rejects a default target that is not enabled', () => {
-    expect(() => multifront({targets: ['react'], target: 'vue'})).toThrow(/not one of the enabled targets/);
+  it('rejects a default framework that is not enabled', () => {
+    expect(() => multifront({frameworks: ['react'], framework: 'vue'})).toThrow(/not one of the enabled frameworks/);
   });
 });

@@ -51,6 +51,9 @@ const handlers = {
   test(args) {
     run(bin('vitest'), ['run', ...args]);
   },
+  commitlint(args) {
+    run(bin('commitlint'), args);
+  },
   check() {
     handlers.format(['--check']);
     handlers.lint();

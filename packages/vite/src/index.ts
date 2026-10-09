@@ -7,15 +7,17 @@ export type {MultifrontOptions, VueCompiler} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 export function multifront(options: MultifrontOptions = {}): Plugin {
-  const targets = options.targets ?? [...TARGETS];
-  if (options.target && !targets.includes(options.target)) {
-    throw new Error(`multifront: target '${options.target}' is not one of the enabled targets (${targets.join(', ')}).`);
+  const frameworks = options.frameworks ?? [...TARGETS];
+  if (options.framework && !frameworks.includes(options.framework)) {
+    throw new Error(
+      `multifront: framework '${options.framework}' is not one of the enabled frameworks (${frameworks.join(', ')}).`
+    );
   }
   let config: ResolvedConfig | undefined;
   let vueCompiler: VueCompiler | undefined;
   return {
     name: 'multifront',
-    // Runs before plugin-vue, plugin-react and plugin-svelte so they only ever see plain component files.
+    // Before plugin-vue, plugin-react and plugin-svelte, so they only ever see plain component files.
     enforce: 'pre',
     configResolved(resolved) {
       config = resolved;
