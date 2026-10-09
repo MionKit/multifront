@@ -14,6 +14,8 @@ Take one spec from `docs/todos/` and carry it through its whole life cycle: plan
 - **Automatic**: steps 7 to 13 run on their own, with no more questions, until the PR is open and CI is green. Where a step would ask, you decide, pick the safer option, and list each such decision in the final message. The review runs in its automatic mode.
 - **Manual**: the user stays in the loop. Forks are asked, and the review runs in its reviewed-by-you mode, so the user picks what to fix. The specs in that directory range from full plans (Problem / Plan / Tests / Done-when with real `file:line` pointers) to loose pointers and open questions. Your job is to figure out which kind you have, fill any gaps, and get an **approved plan** before touching code — then build it to the spec's own "Done when" bar.
 
+**Run by a milestone step agent** (the run-milestone skill): the orchestrator is the user, the mode is automatic, and its `APPROVED` on the todo is the plan approval. Its step.md lists the changes to steps 8 to 12.
+
 **The one hard gate: no file edits until the user has approved a plan through the approval workflow.** Everything in steps 1-6 is reading, investigating, and asking — analysis only. Implementation (step 7) starts only after approval. If you are not already in plan mode, enter it (Claude: EnterPlanMode; Codex: plan mode if available) after the todo is chosen so the invariant holds by construction and your clarifying questions read as planning.
 
 ## The arc

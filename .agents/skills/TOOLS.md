@@ -13,10 +13,13 @@ Use the tools the current host exposes. These mappings keep the skill's requirem
 | --- | --- | --- |
 | `pr-reviewer` | `.claude/agents/pr-reviewer.md` | `review-pr` |
 | `comments-simplifier` | `.claude/agents/comments-simplifier.md` | `simplify-comments` |
+| `milestone-step` | `.claude/agents/milestone-step.md` | `run-milestone` (step.md) |
+| `milestone-qa` | `.claude/agents/milestone-qa.md` | `run-milestone` (qa.md) |
 
 - Claude Code: `Agent` with `subagent_type` set to the role. If the role is missing, spawn `general-purpose` with the body of its definition.
 - Use a fresh context: never pass the author's reasoning or the parent conversation.
 - If independent agents are unavailable, say so. Never replace the independent pass with one by the author.
+- A subagent that cannot start agents itself asks its parent to start the independent pass and send back the report (the run-milestone skill does this).
 - For research and planning, use Claude's `Explore` or `Plan` agent types where available.
 
 ## User-visible background sessions

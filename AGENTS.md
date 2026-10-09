@@ -17,6 +17,7 @@ Claude Code and Codex share this file and `.agents/skills/`. Read the matching `
 | --- | --- |
 | [create-todo](.agents/skills/create-todo/) | write a request up as a `docs/todos/` spec |
 | [implement-todo](.agents/skills/implement-todo/) | build a todo end to end: plan, code, review, comment pass, PR, green CI |
+| [run-milestone](.agents/skills/run-milestone/) | run a whole milestone alone: one agent per step, one PR per step, then one QA pass and one fixer |
 | [review-pr](.agents/skills/review-pr/) | review a branch or PR in a fresh `pr-reviewer` agent |
 | [delegate-finding](.agents/skills/delegate-finding/) | hand an unrelated bug to a parallel session |
 | [fuzzy-testing](.agents/skills/fuzzy-testing/) | add a seeded random-input test |
