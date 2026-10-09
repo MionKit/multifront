@@ -30,6 +30,11 @@ pnpm devx test          # all vitest projects; extra args go to vitest
 pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
+pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
 ```
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`.
+
+## Docs graphics
+
+`pnpm devx docs-images` renders `docs/assets/src/*.html` with Playwright's Chromium. If that browser is not installed, point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).

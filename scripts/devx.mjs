@@ -7,6 +7,7 @@ import {join, relative} from 'node:path';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
 import {CLI, COMMANDS, renderHelp} from './lib/registry.mjs';
 import {listPackages} from './lib/workspace.mjs';
+import {renderDocsImages} from './docs-images.mjs';
 
 class CliError extends Error {}
 
@@ -75,21 +76,24 @@ const handlers = {
       if (!dryRun) rmSync(path, {recursive: true, force: true});
     }
   },
+  'docs-images'(args) {
+    return renderDocsImages(args);
+  },
   env() {
     for (const row of REGISTRY) console.log(`${row.name.padEnd(28)} ${row.scope.padEnd(9)} ${row.desc}`);
   },
 };
 
-function main(argv) {
+async function main(argv) {
   const [command, ...args] = argv;
   if (!command || ['help', '-h', '--help'].includes(command)) return console.log(renderHelp());
   if (!COMMANDS.some((row) => row.name === command)) throw new CliError(`${CLI}: unknown command '${command}'\n\n${renderHelp()}`);
-  handlers[command](args);
+  await handlers[command](args);
 }
 
 loadEnv();
 try {
-  main(process.argv.slice(2));
+  await main(process.argv.slice(2));
 } catch (error) {
   if (!(error instanceof CliError)) throw error;
   if (error.message) console.error(error.message);

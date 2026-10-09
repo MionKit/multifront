@@ -1,0 +1,99 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css">
+<style>
+  .canvas { width: 1500px; }
+  .grid { margin-top: 30px; display: grid; grid-template-columns: 196px repeat(5, 1fr); gap: 10px; }
+  .band { grid-row: 1; border-radius: 12px; padding: 10px 14px; font: 600 12px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
+  .band code { text-transform: none; letter-spacing: 0; font-size: 13px; }
+  .band.core { grid-column: 2 / span 3; color: #93c5fd; background: rgba(96,165,250,.10); border: 1px solid rgba(96,165,250,.35); }
+  .band.lt { grid-column: 5 / span 2; color: #d8b4fe; background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35); }
+  .op { padding: 14px 16px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+  .op .name { font: 800 22px/1 var(--mono); color: #f1f5f9; }
+  .op .what { margin-top: 8px; font-size: 13.5px; color: var(--muted); line-height: 1.35; min-height: 36px; }
+  .op .hosts { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .host { font: 600 11.5px/1 var(--sans); padding: 6px 8px; border-radius: 7px; color: #cbd5e1; background: #1d2835; border: 1px solid #2c3b4d; }
+  .row { border-radius: 14px; border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 14%, var(--panel)); padding: 16px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  .row .name { font: 800 22px/1 var(--mono); }
+  .row .tag { align-self: flex-start; background: color-mix(in srgb, var(--k) 25%, transparent); }
+  .cell { border-radius: 14px; padding: 14px 16px; min-height: 112px; background: color-mix(in srgb, var(--k) 5%, var(--panel)); border: 1px solid color-mix(in srgb, var(--k) 22%, var(--line)); display: flex; flex-direction: column; gap: 7px; color: var(--text); }
+  .cell .main { font: 700 14.5px/1.3 var(--mono); color: var(--k-hi, #e6edf3); }
+  .cell .main em { font-style: normal; color: var(--k); }
+  .cell .d { font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .cell .x { margin-top: auto; align-self: flex-start; font: 600 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 6px; color: var(--k); background: color-mix(in srgb, var(--k) 14%, transparent); }
+  .k-style .cell, .k-react .cell, .k-vue .cell, .k-svelte .cell { color: inherit; }
+  .next { opacity: .9; }
+  .next .row, .next .cell { border-style: dashed; border-color: #3a4a5e; background: transparent; }
+  .next .row .name { color: #94a3b8; }
+  .next .cell { min-height: 70px; color: var(--faint); font-size: 13.5px; justify-content: center; }
+  .sub2 { display: contents; }
+  .foot { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .note { border-radius: 14px; border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+  .note b { color: var(--text); }
+</style></head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">multifront · architecture</div>
+  <h1>Every root block, the same five operations</h1>
+  <p class="sub">A block kind is one row. Each operation is one column. Every cell names the existing tool that does the work. Adding a framework means adding one row.</p>
+
+  <div class="grid">
+    <div style="grid-row:1"></div>
+    <div class="band core">in <code>@multifront/core</code> · light, no editor deps</div>
+    <div class="band lt">in <code>@multifront/language-tools</code></div>
+
+    <div></div>
+    <div class="op"><div class="name">grammar</div><div class="what">How VS Code colours the block.</div><div class="hosts"><span class="host">VS Code extension</span></div></div>
+    <div class="op"><div class="name">check</div><div class="what">Rules for the block itself.</div><div class="hosts"><span class="host">Vite plugin</span><span class="host">language server</span></div></div>
+    <div class="op"><div class="name">build</div><div class="what">The file the bundler compiles.</div><div class="hosts"><span class="host">Vite plugin</span><span class="host">mf-lint · mf-fmt</span></div></div>
+    <div class="op"><div class="name">types</div><div class="what">What an importer sees: the exported component type.</div><div class="hosts"><span class="host">TypeScript plugin</span><span class="host">mf-tsc</span></div></div>
+    <div class="op"><div class="name">editor</div><div class="what">Embedded code for completions, errors, hover.</div><div class="hosts"><span class="host">language server</span></div></div>
+
+    <div class="sub2 k-style">
+      <div class="row"><span class="name">&lt;style&gt;</span><span class="tag">shared</span></div>
+      <div class="cell"><div class="main">source.css<br><em>.scss · .less</em></div><div class="d">picked by <code>lang</code></div></div>
+      <div class="cell"><div class="main">known lang</div><div class="d">module names are unique</div></div>
+      <div class="cell"><div class="main">compileStyleAsync</div><div class="d">then Vite's CSS step. Gives every target the scope id and <code>$style</code>.</div><span class="x">lang.css</span></div>
+      <div class="cell"><div class="main">$style class map</div><div class="d">exact class names, so typos fail</div><span class="x">.d.ts</span></div>
+      <div class="cell"><div class="main">CSS service</div><div class="d">CSS / SCSS completions and errors</div><span class="x">css · scss</span></div>
+    </div>
+
+    <div class="sub2 k-react">
+      <div class="row"><span class="name">&lt;react&gt;</span><span class="tag">target</span></div>
+      <div class="cell"><div class="main">source.tsx</div><div class="d">VS Code's own grammar</div></div>
+      <div class="cell"><div class="main">export default</div><div class="d">the component must be the default export</div></div>
+      <div class="cell"><div class="main">plugin-react</div><div class="d">after our scope stamp and <code>$style</code> import</div><span class="x">lang.tsx</span></div>
+      <div class="cell"><div class="main">the .tsx itself</div><div class="d">TSX is plain TypeScript</div><span class="x">Card.ucf.react.tsx</span></div>
+      <div class="cell"><div class="main">TypeScript service</div><div class="d">full types from day one</div><span class="x">tsx</span></div>
+    </div>
+
+    <div class="sub2 k-vue">
+      <div class="row"><span class="name">&lt;vue&gt;</span><span class="tag">target</span></div>
+      <div class="cell"><div class="main">source.vue</div><div class="d">pinned copy, works without the Vue extension</div></div>
+      <div class="cell"><div class="main">no &lt;style&gt; inside</div><div class="d">styles live at the root</div></div>
+      <div class="cell"><div class="main">plugin-vue</div><div class="d">SFC code on the real path; Vue's own block pipeline runs underneath</div><span class="x">Card.ucf</span></div>
+      <div class="cell"><div class="main">@vue/language-core</div><div class="d">a <code>DefineComponent</code></div><span class="x">Card.ucf.vue.ts</span></div>
+      <div class="cell"><div class="main">@vue/language-core</div><div class="d">template, script and style codes</div><span class="x">ts · html · css</span></div>
+    </div>
+
+    <div class="sub2 k-svelte">
+      <div class="row"><span class="name">&lt;svelte&gt;</span><span class="tag">target</span></div>
+      <div class="cell"><div class="main">source.svelte</div><div class="d">pinned copy, works without the Svelte extension</div></div>
+      <div class="cell"><div class="main">no &lt;style&gt; inside</div><div class="d">styles live at the root</div></div>
+      <div class="cell"><div class="main">plugin-svelte</div><div class="d">after our scope stamp and <code>$style</code> import</div><span class="x">lang.svelte</span></div>
+      <div class="cell"><div class="main">svelte2tsx</div><div class="d">a Svelte <code>Component</code></div><span class="x">Card.ucf.svelte.ts</span></div>
+      <div class="cell"><div class="main">svelte2tsx + HTML</div><div class="d">types first, markup completions later</div><span class="x">ts · html</span></div>
+    </div>
+
+    <div class="sub2 next">
+      <div class="row"><span class="name">&lt;next&gt;</span><span class="tag" style="color:#94a3b8">your row</span></div>
+      <div class="cell">its grammar</div><div class="cell">its rules</div><div class="cell">its Vite plugin</div><div class="cell">its type output</div><div class="cell">its language service</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="note"><b>Shared before target.</b> Shared blocks run first and fill <code>ctx</code>: scope id, <code>$style</code>, CSS ids. The chosen target reads it.</div>
+    <div class="note"><b>Lint and format are free.</b> oxlint and oxfmt run on the <code>build</code> file, which already has the right ending.</div>
+    <div class="note"><b>One rule for the Vue row.</b> It takes the raw <code>&lt;style&gt;</code> blocks into its SFC code, so plugin-vue compiles them itself.</div>
+  </div>
+</div>
+</body></html>

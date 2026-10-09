@@ -1,0 +1,115 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css">
+<style>
+  .canvas { width: 1500px; }
+  .body { position: relative; height: 640px; margin-top: 64px; }
+  .file { position: absolute; left: 0; top: -12px; width: 300px; height: 664px; }
+  .file .blk { position: absolute; left: 14px; right: 14px; height: 136px; }
+  .file-head { position: absolute; left: 0; top: -34px; width: 300px; display: flex; align-items: center; gap: 10px; font: 700 18px/1 var(--mono); }
+  .file-head .ext { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: auto; }
+  .blk { border-radius: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 9%, var(--panel)); }
+  .blk .t { font: 700 14px/1 var(--mono); margin-bottom: 9px; }
+  .blk pre { font: 12.5px/1.55 var(--mono); color: #b8c4d2; white-space: pre; }
+  .split { position: absolute; left: 330px; top: 268px; width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center; text-align: center;
+    border: 2px solid var(--core); background: radial-gradient(circle, rgba(96,165,250,.22), rgba(96,165,250,.06)); box-shadow: 0 0 40px rgba(96,165,250,.25); }
+  .split b { display: block; font: 800 16px/1.1 var(--sans); color: #dbeafe; }
+  .split span { font: 500 11px/1.3 var(--sans); color: var(--muted); }
+  .lane { position: absolute; left: 488px; width: 916px; height: 136px; display: grid; grid-template-columns: 150px 1fr 330px; gap: 52px; align-items: stretch; }
+  .lane > div:not(.arrow) { position: relative; }
+  .kind { border-radius: 14px; border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 14%, var(--panel)); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
+  .kind .name { font: 800 20px/1 var(--mono); }
+  .kind .tag { background: color-mix(in srgb, var(--k) 25%, transparent); }
+  .vfile { border-radius: 14px; border: 1.5px dashed color-mix(in srgb, var(--core) 70%, transparent); background: rgba(96,165,250,.06); padding: 16px 18px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+  .vfile .id { font: 600 15px/1.4 var(--mono); color: #dbeafe; }
+  .vfile .id em { font-style: normal; color: var(--k); }
+  .vfile .note { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+  .pill { align-self: flex-start; font: 600 12px/1 var(--mono); padding: 5px 9px; border-radius: 999px; color: var(--style-hi); border: 1px solid rgba(168,85,247,.55); background: rgba(168,85,247,.12); }
+  .tool { border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); padding: 16px 18px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+  .tool .n { font: 700 17px/1.2 var(--mono); }
+  .tool .d { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+  .nested { margin-top: 6px; border: 1px solid color-mix(in srgb, var(--vue) 45%, transparent); border-radius: 10px; padding: 7px 9px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .nested .lbl { font-size: 11.5px; color: var(--vue-hi); width: 100%; }
+  .nested span.m { font: 600 11.5px/1 var(--mono); color: #cfe0b5; background: rgba(138,168,94,.16); border-radius: 6px; padding: 5px 7px; }
+  .lane > .arrow { position: absolute; top: 50%; height: 2px; background: #3b4b60; }
+  .arrow::after { content: ''; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left: 9px solid #3b4b60; border-right: 0; }
+  .a1 { left: 150px; width: 48px; } .a2 { right: 334px; width: 48px; }
+  .cols { position: absolute; left: 488px; top: -26px; width: 916px; display: grid; grid-template-columns: 150px 1fr 330px; gap: 52px; }
+  .cols div { font: 600 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); text-align: center; }
+  .foot { margin-top: 30px; display: flex; gap: 28px; align-items: center; color: var(--muted); font-size: 14px; }
+  .sw { display: inline-block; width: 26px; height: 16px; border-radius: 5px; vertical-align: -3px; margin-right: 8px; }
+</style></head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">multifront · architecture</div>
+  <h1>A file of files</h1>
+  <p class="sub">Every root block becomes a normal file that an existing tool already understands. We make those files and pick the tool. The framework compilers do the rest.</p>
+
+  <div class="body">
+    <div class="file-head">Card.ucf <span class="ext">one source file</span></div>
+    <div class="file card">
+      <div class="blk k-style" style="top:12px"><div class="t">&lt;style module&gt;</div><pre>.card { padding: 1rem }</pre></div>
+      <div class="blk k-react" style="top:180px"><div class="t">&lt;react&gt;</div><pre>export default function Card()
+  return &lt;div className=…&gt;</pre></div>
+      <div class="blk k-vue" style="top:348px"><div class="t">&lt;vue&gt;</div><pre>&lt;script setup lang="ts"&gt;
+&lt;template&gt;&lt;div :class=…&gt;</pre></div>
+      <div class="blk k-svelte" style="top:516px"><div class="t">&lt;svelte&gt;</div><pre>let { title } = $props()
+&lt;div class={…}&gt;</pre></div>
+    </div>
+
+    <div class="split"><div><b>split</b><span>once, cached</span></div></div>
+
+    <svg class="wires" width="1404" height="640">
+      <defs><marker id="h" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#4b5f78"/></marker></defs>
+      <g fill="none" stroke-width="2.2" opacity=".85">
+        <path d="M300 68 C 322 68, 316 320, 332 320" stroke="#a855f7"/>
+        <path d="M300 236 C 322 236, 316 320, 332 320" stroke="#51a6d4"/>
+        <path d="M300 404 C 322 404, 316 320, 332 320" stroke="#8aa85e"/>
+        <path d="M300 572 C 322 572, 316 320, 332 320" stroke="#df8224"/>
+      </g>
+      <g fill="none" stroke-width="2.2">
+        <path d="M434 320 C 462 320, 456 68, 486 68" stroke="#a855f7" marker-end="url(#h)"/>
+        <path d="M434 320 C 462 320, 456 236, 486 236" stroke="#51a6d4" marker-end="url(#h)"/>
+        <path d="M434 320 C 462 320, 456 404, 486 404" stroke="#8aa85e" marker-end="url(#h)"/>
+        <path d="M434 320 C 462 320, 456 572, 486 572" stroke="#df8224" marker-end="url(#h)"/>
+      </g>
+    </svg>
+
+    <div class="cols"><div>block kind</div><div>virtual file we make</div><div>existing tool that compiles it</div></div>
+
+    <div class="lane k-style" style="top:0">
+      <div class="kind"><span class="name">&lt;style&gt;</span><span class="tag">shared · first</span></div>
+      <div class="vfile"><div class="id">Card.ucf?ucf&amp;type=style<br>&amp;index=0&amp;<em>lang.css</em></div><div class="note">plus a class-map module for <code>$style</code></div></div>
+      <div class="tool"><div class="n">compileStyleAsync → Vite CSS</div><div class="d">Vue's style compiler: scoped, modules, scss / less. Every target gets the scope id, <code>$style</code> and the CSS.</div></div>
+      <div class="arrow a1"></div><div class="arrow a2"></div>
+    </div>
+
+    <div class="lane k-react" style="top:168px">
+      <div class="kind"><span class="name">&lt;react&gt;</span><span class="tag">target</span></div>
+      <div class="vfile"><div class="id">Card.ucf?target=react<br>&amp;<em>lang.tsx</em></div><span class="pill">+ $style · scope stamp</span></div>
+      <div class="tool"><div class="n">@vitejs/plugin-react</div><div class="d">JSX and TypeScript, Fast Refresh.</div></div>
+      <div class="arrow a1"></div><div class="arrow a2"></div>
+    </div>
+
+    <div class="lane k-vue" style="top:336px">
+      <div class="kind"><span class="name">&lt;vue&gt;</span><span class="tag">target</span></div>
+      <div class="vfile"><div class="id">Card.ucf <em>as SFC code</em></div><div class="note">real path, root styles put back in, so plugin-vue compiles them itself</div></div>
+      <div class="tool"><div class="n">@vitejs/plugin-vue</div>
+        <div class="nested"><span class="lbl">Vue's own block pipeline runs here, unchanged</span><span class="m">?vue&amp;type=script</span><span class="m">template</span><span class="m">style</span></div></div>
+      <div class="arrow a1"></div><div class="arrow a2"></div>
+    </div>
+
+    <div class="lane k-svelte" style="top:504px">
+      <div class="kind"><span class="name">&lt;svelte&gt;</span><span class="tag">target</span></div>
+      <div class="vfile"><div class="id">Card.ucf?target=svelte<br>&amp;<em>lang.svelte</em></div><span class="pill">+ $style · scope stamp</span></div>
+      <div class="tool"><div class="n">@sveltejs/vite-plugin-svelte</div><div class="d">The Svelte compiler. No Svelte &lt;style&gt;: CSS comes from the shared block.</div></div>
+      <div class="arrow a1"></div><div class="arrow a2"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span><span class="sw" style="border:1.5px dashed #60a5fa;background:rgba(96,165,250,.08)"></span>made by multifront</span>
+    <span><span class="sw" style="border:1px solid #243242;background:#16202b"></span>existing tool, used as is</span>
+    <span style="margin-left:auto;color:var(--faint)">The file ending (<code>lang.tsx</code>, <code>lang.css</code>) decides which tool gets the file, the same trick plugin-vue uses for its own blocks.</span>
+  </div>
+</div>
+</body></html>

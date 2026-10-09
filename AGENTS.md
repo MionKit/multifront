@@ -4,7 +4,7 @@
 > Never use em dashes "—"
 > Do not load linked files into context unless the current task needs them!
 
-What we are building: [docs/spec.md](docs/spec.md). How and in which order: [docs/plan.md](docs/plan.md).
+What we are building: [docs/spec.md](docs/spec.md). How the pieces fit: [docs/architecture.md](docs/architecture.md). How and in which order: [docs/plan.md](docs/plan.md).
 Setup and every command: [SETUP.md](SETUP.md).
 
 ## Assistant support
@@ -68,7 +68,7 @@ One pnpm workspace, one `@multifront/*` namespace, one version (`version.json`) 
 ## PR readiness
 
 - New or changed behaviour has Vitest coverage, and `pnpm devx check` passes.
-- Docs updated: [docs/plan.md](docs/plan.md) when a plan decision changes.
+- Docs updated: [docs/plan.md](docs/plan.md) when a plan decision changes, [docs/architecture.md](docs/architecture.md) and its graphics when the structure changes. Graphics are HTML under `docs/assets/src/`, rendered with `pnpm devx docs-images`; commit the HTML and the PNG together.
 - If the PR implements a [docs/todos/](docs/todos/) spec, `git mv` it into [docs/done/](docs/done/) and update it to match what shipped.
 - Every touched source file gets a comment pass by the `comments-simplifier` subagent ([simplify-comments skill](.agents/skills/simplify-comments/SKILL.md)), never by the session that wrote the code, committed on its own as `chore(comments): …`.
 

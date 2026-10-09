@@ -1,6 +1,6 @@
 # Implementation plan
 
-How we build [the spec](spec.md).
+How we build [the spec](spec.md). How the pieces fit: [architecture.md](architecture.md).
 
 ## Packages
 
@@ -39,8 +39,9 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 ## Milestones
 
-### 1. Splitter + styles
+### 1. Splitter, block kinds + styles
 
+- The `BlockKind` contract and the registry in core ([architecture.md](architecture.md)), with `<style>` as the first full kind. Every later milestone fills in one row.
 - `splitBlocks(source, filename)` in core: a hand-written scanner for top-level `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Content is raw text up to the first matching closing tag.
 - Errors carry `{code, message, line, column}`: `duplicate-target`, `unknown-root-tag`, `unclosed-block`, `missing-target`, `react-no-default-export`, `style-inside-target`.
 - `compileStyles(blocks, {id, filename})`: `compileStyleAsync` once per `<style>`, returns CSS, map and the CSS-module class map.

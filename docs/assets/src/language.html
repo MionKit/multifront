@@ -1,0 +1,101 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css">
+<style>
+  .canvas { width: 1500px; }
+  .cols { margin-top: 32px; display: grid; grid-template-columns: 1.08fr 1fr; gap: 22px; }
+  .side { border-radius: 18px; background: var(--panel); border: 1px solid var(--line); padding: 22px; }
+  .side h2 { font: 800 22px/1.1 var(--sans); }
+  .side .s { margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .layer { margin-top: 18px; }
+  .layer .lh { display: flex; align-items: center; gap: 10px; font: 600 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+  .layer .lh b { color: #cbd5e1; letter-spacing: .08em; }
+  .lines { display: flex; flex-direction: column; gap: 8px; }
+  .ln { display: grid; grid-template-columns: 128px 26px 1fr 26px 1fr; align-items: center; gap: 0; }
+  .ln .b { font: 700 14px/1 var(--mono); padding: 11px 12px; border-radius: 10px; border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 13%, var(--panel)); color: inherit; }
+  .ln .ar { text-align: center; color: #4b5f78; font: 700 16px/1 var(--sans); }
+  .ln .v { font: 600 13px/1.25 var(--mono); padding: 10px 12px; border-radius: 10px; border: 1.5px dashed rgba(96,165,250,.55); background: rgba(96,165,250,.05); color: #dbeafe; }
+  .ln .t { font: 600 13px/1.25 var(--sans); padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+  .gram { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .g { border-radius: 10px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 9%, var(--panel)); }
+  .g .tg { font: 700 13.5px/1 var(--mono); }
+  .g .sc { margin-top: 7px; font: 12px/1 var(--mono); color: var(--muted); }
+  .imp { display: flex; flex-direction: column; gap: 10px; }
+  .impr { display: grid; grid-template-columns: 150px 26px 1fr; align-items: center; }
+  .file { font: 700 14px/1 var(--mono); padding: 11px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+  .resolver { margin: 14px 0; border-radius: 14px; padding: 14px 16px; border: 1.5px solid var(--core); background: rgba(96,165,250,.08); box-shadow: 0 0 30px rgba(96,165,250,.12); }
+  .resolver .n { font: 800 16px/1.2 var(--sans); color: #dbeafe; }
+  .resolver .n code { font-size: 14px; }
+  .resolver .d { margin-top: 5px; font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+  .out { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .o { border-radius: 10px; padding: 11px 12px; border: 1.5px dashed color-mix(in srgb, var(--k) 70%, transparent); background: color-mix(in srgb, var(--k) 7%, transparent); }
+  .o .f { font: 700 12.5px/1.25 var(--mono); }
+  .o .x { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+  .cli { margin-top: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .cl { border-radius: 14px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); }
+  .cl .n { font: 800 15px/1 var(--mono); color: #dbeafe; }
+  .cl .d { margin-top: 7px; font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+</style></head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">multifront · editor and types</div>
+  <h1>The same blocks, seen by the editor</h1>
+  <p class="sub">Inside a <code>.ucf</code> file each block gets its own colours and its own language service. Outside it, an importer gets the types of the framework it picked, with the same rules the build uses.</p>
+
+  <div class="cols">
+    <div class="side">
+      <h2>Editing <code>Card.ucf</code></h2>
+      <div class="s">VS Code extension + language server</div>
+
+      <div class="layer">
+        <div class="lh"><b>grammar</b> · TextMate embeds one grammar per block</div>
+        <div class="gram">
+          <div class="g k-style"><div class="tg">&lt;style lang="scss"&gt;</div><div class="sc">source.css.scss</div></div>
+          <div class="g k-react"><div class="tg">&lt;react&gt;</div><div class="sc">source.tsx</div></div>
+          <div class="g k-vue"><div class="tg">&lt;vue&gt;</div><div class="sc">source.vue</div></div>
+          <div class="g k-svelte"><div class="tg">&lt;svelte&gt;</div><div class="sc">source.svelte</div></div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="lh"><b>editor</b> · each block becomes embedded code for an existing service</div>
+        <div class="lines">
+          <div class="ln k-style"><span class="b">&lt;style&gt;</span><span class="ar">→</span><span class="v">css · scss code</span><span class="ar">→</span><span class="t">CSS language service</span></div>
+          <div class="ln k-react"><span class="b">&lt;react&gt;</span><span class="ar">→</span><span class="v">tsx code + $style</span><span class="ar">→</span><span class="t">TypeScript service</span></div>
+          <div class="ln k-vue"><span class="b">&lt;vue&gt;</span><span class="ar">→</span><span class="v">ts · html · css codes</span><span class="ar">→</span><span class="t">@vue/language-core</span></div>
+          <div class="ln k-svelte"><span class="b">&lt;svelte&gt;</span><span class="ar">→</span><span class="v">ts code + html</span><span class="ar">→</span><span class="t">svelte2tsx + HTML service</span></div>
+        </div>
+      </div>
+      <p class="legend" style="margin-top:14px">Every embedded code carries a map back to the block, so errors and hovers land on the right line of <code>Card.ucf</code>.</p>
+    </div>
+
+    <div class="side">
+      <h2>Importing <code>Card.ucf</code></h2>
+      <div class="s">TypeScript plugin, inside VS Code's own TypeScript</div>
+
+      <div class="layer">
+        <div class="lh"><b>importers</b></div>
+        <div class="imp">
+          <div class="impr"><span class="file k-react" style="color:var(--react-hi)">App.tsx</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.ucf'</code></span></div>
+          <div class="impr"><span class="file" style="color:var(--vue-hi)">Page.vue</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.ucf'</code></span></div>
+          <div class="impr"><span class="file" style="color:var(--svelte-hi)">Docs.ts</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>… with { framework: 'svelte' }</code></span></div>
+        </div>
+      </div>
+
+      <div class="resolver"><div class="n"><code>resolveTarget()</code> from core</div><div class="d">The same function the Vite plugin calls, so the editor and the build can never disagree on which framework an import gets.</div></div>
+
+      <div class="lh" style="display:flex;gap:10px;font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px"><b style="color:#cbd5e1">types</b> · one virtual script per target</div>
+      <div class="out">
+        <div class="o k-react"><div class="f">Card.ucf.react.tsx</div><div class="x">React component props</div></div>
+        <div class="o k-vue"><div class="f">Card.ucf.vue.ts</div><div class="x">Vue DefineComponent</div></div>
+        <div class="o k-svelte"><div class="f">Card.ucf.svelte.ts</div><div class="x">Svelte Component</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cli">
+    <div class="cl"><div class="n">mf-tsc</div><div class="d">The same <code>types</code> files on the command line, checked for every target, so a block that breaks one framework fails CI.</div></div>
+    <div class="cl"><div class="n">mf-lint</div><div class="d">oxlint on each block's <code>build</code> file, with errors mapped back to <code>Card.ucf</code>.</div></div>
+    <div class="cl"><div class="n">mf-fmt</div><div class="d">oxfmt's <code>format()</code> on each block, then the file is put back together.</div></div>
+  </div>
+</div>
+</body></html>

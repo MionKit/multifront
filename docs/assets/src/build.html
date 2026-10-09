@@ -1,0 +1,93 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css">
+<style>
+  .canvas { width: 1500px; }
+  .rail { position: relative; margin-top: 34px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+  .rail::before { content: ''; position: absolute; left: 30px; right: 30px; top: 22px; height: 2px; background: linear-gradient(90deg, #3b4b60, #60a5fa 40%, #51a6d4 75%, #3b4b60); }
+  .step { position: relative; }
+  .num { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 800 18px/1 var(--sans); color: #dbeafe; background: #0f1c2b; border: 2px solid var(--core); box-shadow: 0 0 18px rgba(96,165,250,.3); }
+  .step.k-style .num { border-color: var(--style); color: #ede9fe; box-shadow: 0 0 18px rgba(168,85,247,.35); }
+  .step.k-react .num { border-color: var(--react); box-shadow: 0 0 18px rgba(81,166,212,.35); }
+  .step.tool .num { border-color: #4b5f78; color: #cbd5e1; box-shadow: none; }
+  .box { margin-top: 14px; border-radius: 14px; padding: 14px; min-height: 196px; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .step.ours .box { border: 1.5px dashed rgba(96,165,250,.6); background: rgba(96,165,250,.05); }
+  .step.k-style .box { border-color: rgba(168,85,247,.6); background: rgba(168,85,247,.06); }
+  .step.k-react .box { border-color: rgba(81,166,212,.65); background: rgba(81,166,212,.06); }
+  .t { font: 800 16px/1.2 var(--sans); }
+  .d { font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .c { font: 12px/1.5 var(--mono); color: #c7d2df; background: #0b131c; border: 1px solid #1f2b39; border-radius: 8px; padding: 8px 9px; white-space: pre; }
+  .c .a { color: var(--react-hi); } .c .s { color: var(--style-hi); } .c .m { color: var(--faint); }
+  .row2 { margin-top: 26px; display: grid; grid-template-columns: 1fr 1.25fr; gap: 18px; }
+  .panel { border-radius: 16px; background: var(--panel); border: 1px solid var(--line); padding: 20px 22px; }
+  .panel h3 { font: 800 18px/1 var(--sans); margin-bottom: 14px; }
+  .panel h3 span { font: 600 12px/1 var(--sans); color: var(--faint); letter-spacing: .12em; text-transform: uppercase; margin-left: 8px; }
+  .ladder { display: flex; flex-direction: column; gap: 8px; }
+  .rung { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; background: #0f1720; border: 1px solid #1f2b39; }
+  .rung .i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font: 800 13px/1 var(--sans); background: #1c2836; color: #cbd5e1; }
+  .rung .w { font-size: 14px; } .rung .w code { color: #dbeafe; font-size: 12.5px; }
+  .rung .r { font: 600 12px/1 var(--mono); color: var(--muted); }
+  .rung.err { border-style: dashed; } .rung.err .r { color: #f87171; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+  td { padding: 10px 12px; font-size: 13.5px; background: #0f1720; border-top: 1px solid #1f2b39; border-bottom: 1px solid #1f2b39; }
+  td:first-child { border-left: 3px solid var(--k); border-radius: 10px 0 0 10px; font: 700 14px/1 var(--mono); color: var(--k); width: 92px; }
+  td:last-child { border-right: 1px solid #1f2b39; border-radius: 0 10px 10px 0; color: var(--muted); }
+  td.id { font: 600 13px/1.3 var(--mono); color: #dbeafe; }
+  tr.k-vue td:first-child { color: var(--vue-hi); } tr.k-react td:first-child { color: var(--react-hi); } tr.k-svelte td:first-child { color: var(--svelte-hi); } tr.k-style td:first-child { color: var(--style-hi); }
+  .strip { margin-top: 18px; display: grid; grid-template-columns: 230px auto auto auto; justify-content: start; gap: 16px; align-items: center; border-radius: 16px; padding: 16px 20px; background: rgba(96,165,250,.05); border: 1.5px dashed rgba(96,165,250,.5); }
+  .strip .lbl { font: 800 15px/1.2 var(--sans); color: #dbeafe; }
+  .strip .arr { font: 700 20px/1 var(--sans); color: var(--core); }
+</style></head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">multifront · build</div>
+  <h1>One import, one target, one module</h1>
+  <p class="sub">What the Vite plugin does when an app imports a <code>.ucf</code> file. Shared blocks run first, then only the chosen target is compiled. The other blocks never reach the bundle.</p>
+
+  <div class="rail">
+    <div class="step tool"><div class="num">1</div><div class="box"><div class="t">Import</div><div class="c"><span class="m">// App.tsx</span>
+import Card
+  from './Card.ucf'</div><div class="d">A bare import. An attribute is only needed to mix frameworks.</div></div></div>
+    <div class="step ours"><div class="num">2</div><div class="box"><div class="t">Pick the target</div><div class="d">The rules below. Here the importer is a <code>.tsx</code> file.</div><div class="c">→ <span class="a">react</span></div></div></div>
+    <div class="step ours"><div class="num">3</div><div class="box"><div class="t">Split</div><div class="d">Once per file, cached. Every target reuses the same blocks.</div><div class="c">style · react
+vue · svelte</div></div></div>
+    <div class="step ours k-style"><div class="num">4</div><div class="box"><div class="t">Shared blocks first</div><div class="d"><code>style.build()</code> fills <code>ctx</code>.</div><div class="c"><span class="s">ctx</span> = {
+  scopeId,
+  $style,
+  cssIds }</div></div></div>
+    <div class="step ours k-react"><div class="num">5</div><div class="box"><div class="t">Target block</div><div class="d"><code>react.check()</code>, then <code>react.build(ctx)</code> makes the file.</div><div class="c"><span class="m">Card.ucf?target=</span>
+<span class="a">react&amp;lang.tsx</span></div></div></div>
+    <div class="step tool"><div class="num">6</div><div class="box"><div class="t">Framework plugin</div><div class="d"><code>@vitejs/plugin-react</code> compiles it, as if it were a normal <code>.tsx</code> file. Fast Refresh included.</div></div></div>
+    <div class="step tool"><div class="num">7</div><div class="box"><div class="t">Bundle</div><div class="d">One module per file and target. The CSS ships once, even when two targets import the same file.</div></div></div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <h3>Picking the target <span>step 2 · first match wins</span></h3>
+      <div class="ladder">
+        <div class="rung"><span class="i">1</span><span class="w">Import inside a <code>.ucf</code> block</span><span class="r">that block's framework</span></div>
+        <div class="rung"><span class="i">2</span><span class="w"><code>with { framework: 'vue' }</code></span><span class="r">the attribute</span></div>
+        <div class="rung"><span class="i">3</span><span class="w">Importer is <code>.vue</code> · <code>.svelte</code> · <code>.tsx</code></span><span class="r">its framework</span></div>
+        <div class="rung"><span class="i">4</span><span class="w">The plugin's <code>target</code> option</span><span class="r">global default</span></div>
+        <div class="rung err"><span class="i">!</span><span class="w">None of these</span><span class="r">build error</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Module ids <span>internal · users never write them</span></h3>
+      <table>
+        <tr class="k-style"><td>style</td><td class="id">Card.ucf?ucf&amp;type=style&amp;index=0&amp;lang.css</td><td>shared by every target</td></tr>
+        <tr class="k-react"><td>react</td><td class="id">Card.ucf?target=react&amp;lang.tsx</td><td>plugin-react picks up .tsx</td></tr>
+        <tr class="k-vue"><td>vue</td><td class="id">Card.ucf</td><td>the real path: plugin-vue re-reads it from disk</td></tr>
+        <tr class="k-svelte"><td>svelte</td><td class="id">Card.ucf?target=svelte&amp;lang.svelte</td><td>plugin-svelte picks up .svelte</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="strip">
+    <span class="lbl">Attribute rewrite<br><span style="font-weight:500;color:var(--muted);font-size:13px">a post plugin, on every importer</span></span>
+    <code class="c" style="background:transparent;border:0">import Card from './Card.ucf' with { framework: 'svelte' }</code>
+    <span class="arr">→</span>
+    <code class="c" style="background:transparent;border:0">import Card from './Card.ucf?target=svelte'</code>
+  </div>
+  <p class="legend" style="margin-top:10px">Browsers and Node reject import attributes they do not know, so the attribute moves into the id before any runtime sees the code.</p>
+</div>
+</body></html>

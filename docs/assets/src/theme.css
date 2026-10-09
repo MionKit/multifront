@@ -1,0 +1,67 @@
+/* Shared look of every docs graphic: the mion website palette (sites/<id>/theme.css in the mion repo). */
+:root {
+  --bg: #0b1016;
+  --panel: #111821;
+  --panel-2: #16202b;
+  --line: #243242;
+  --text: #e6edf3;
+  --muted: #8b9bb0;
+  --faint: #5b6b80;
+
+  /* one hue per block kind: mion rpc olive, runtypes blue, benchmarks orange, runtypes gradient purple */
+  --vue: #8aa85e;
+  --vue-hi: #a3be7a;
+  --react: #51a6d4;
+  --react-hi: #72bde7;
+  --svelte: #df8224;
+  --svelte-hi: #e0a473;
+  --style: #a855f7;
+  --style-hi: #c084fc;
+  --core: #60a5fa;
+
+  --title-gradient: linear-gradient(90deg, #8aa85e, #bdd09d 30%, #60a5fa 65%, #a855f7);
+  --mono: 'DejaVu Sans Mono', ui-monospace, monospace;
+  --sans: 'Inter', 'Liberation Sans', system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; }
+body { font-family: var(--sans); color: var(--text); -webkit-font-smoothing: antialiased; }
+.canvas {
+  position: relative;
+  background: radial-gradient(1200px 500px at 0% 0%, rgba(138, 168, 94, 0.10), transparent 60%),
+    radial-gradient(1000px 600px at 100% 100%, rgba(96, 165, 250, 0.10), transparent 60%), var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 44px 48px 40px;
+  overflow: hidden;
+}
+.eyebrow { font: 600 13px/1 var(--sans); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+h1 {
+  font: 800 38px/1.1 var(--sans);
+  letter-spacing: -0.02em;
+  margin-top: 10px;
+  background: var(--title-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+}
+.sub { margin-top: 10px; color: var(--muted); font-size: 17px; max-width: 980px; line-height: 1.45; }
+code, .mono { font-family: var(--mono); }
+
+/* reusable pieces */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 600 14px/1 var(--mono); padding: 8px 12px; border-radius: 999px;
+  border: 1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.tag { font: 600 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 8px; border-radius: 6px; }
+.k-vue { color: var(--vue-hi); --k: var(--vue); }
+.k-react { color: var(--react-hi); --k: var(--react); }
+.k-svelte { color: var(--svelte-hi); --k: var(--svelte); }
+.k-style { color: var(--style-hi); --k: var(--style); }
+.k-core { color: var(--core); --k: var(--core); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--k); box-shadow: 0 0 12px var(--k); display: inline-block; }
+.legend { color: var(--faint); font-size: 13px; }
+svg.wires { position: absolute; inset: 0; pointer-events: none; overflow: visible; }

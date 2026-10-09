@@ -18,7 +18,7 @@ Write one component file with a Vue, React and Svelte version, plus shared style
 </style>
 ```
 
-> **Status:** early development, nothing published yet. See the [spec](docs/spec.md) and the [plan](docs/plan.md).
+> **Status:** early development, nothing published yet. See the [spec](docs/spec.md), the [architecture](docs/architecture.md) and the [plan](docs/plan.md).
 
 ## Packages
 

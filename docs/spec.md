@@ -54,6 +54,8 @@ Rules:
 
 ## 3. Architecture
 
+The full picture, with graphics: [architecture.md](architecture.md).
+
 ```
 .ucf file
  └─ splitBlocks()               own code, raw-text root splitter + offsets
