@@ -24,6 +24,7 @@
 - [delegate-finding](.agents/skills/delegate-finding/): hand an unrelated bug to a parallel session.
 - [fuzzy-testing](.agents/skills/fuzzy-testing/): add a seeded random-input test.
 - [simplify-comments](.agents/skills/simplify-comments/): cut comments to one line that says what the code cannot.
+- [multifront-setup](.agents/skills/multifront-setup/): install or verify Node, pnpm and packages on Claude web.
 - [compact-agent-docs](.agents/skills/compact-agent-docs/): shrink AGENTS.md and skill files under the
   `pnpm devx agent-docs` limit, no rule lost.
 
