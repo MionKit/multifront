@@ -1,0 +1,35 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ label: string }>()
+  </script>
+  <template>
+    <button class="button" :class="classes.primary">{{ label }}</button>
+  </template>
+</vue>
+
+<react>
+  export default function Button({ label }: { label: string }) {
+    return <button className={`button ${classes.primary}`}>{label}</button>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { label }: { label: string } = $props()
+  </script>
+  <button class="button {classes.primary}">{label}</button>
+</svelte>
+
+<style scoped>
+.button {
+  border: 1px solid currentColor;
+  padding: 0.25rem 0.75rem;
+}
+</style>
+
+<style module='classes'>
+.primary {
+  color: white;
+  background: rebeccapurple;
+}
+</style>

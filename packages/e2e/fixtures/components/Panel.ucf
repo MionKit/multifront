@@ -1,0 +1,34 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ heading: string }>()
+  </script>
+  <template>
+    <section class="panel"><h3 class="heading">{{ heading }}</h3><slot /></section>
+  </template>
+</vue>
+
+<react>
+  import type { ReactNode } from 'react'
+
+  export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
+    return <section className="panel"><h3 className="heading">{heading}</h3>{children}</section>
+  }
+</react>
+
+<style scoped lang=scss>
+$pad: 1rem;
+
+.panel {
+  padding: $pad;
+
+  .heading {
+    margin: 0 0 $pad * 0.5;
+  }
+}
+</style>
+
+<style>
+:root {
+  --panel-border: #ccc;
+}
+</style>
