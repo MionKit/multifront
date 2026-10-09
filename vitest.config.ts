@@ -1,6 +1,6 @@
 import {defineConfig} from 'vitest/config';
 
-// The single list of test projects: one per package, each with its own vitest.config.ts.
+// The single list of test projects.
 export default defineConfig({
   resolve: {conditions: ['source']},
   ssr: {resolve: {conditions: ['source']}},
