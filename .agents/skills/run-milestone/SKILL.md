@@ -86,7 +86,7 @@ Start from the first step that is not done. Tell the user in one line where the 
 
 Subscribe to the PR's activity (the tool mapping, "Pull requests and CI"). Subagents get no PR events, so you are their eyes:
 
-- **Red CI, a review comment, a merge conflict**: send the event to the step agent as it came, with "fix and push". It replies `PUSHED <sha>`.
+- **Red CI, a review comment, a merge conflict**: send the event to the step agent as it came, with "fix and push". A conflict is fixed by a rebase onto `origin/main`, never a merge of `main`. It replies `PUSHED <sha>`.
 - **Done** means: CI green on the latest commit, no merge conflict, no open review thread, and the Claude Approvals check passing where the repo runs it. When the step added test infra, also ask the step agent to quote the CI log lines that show its new tests ran: a skipped test turns CI green too.
 - **Auto merge**: merge it with the rebase method (AGENTS.md: PRs land with rebase-and-merge). **Human merge**: say once that the PR is ready and wait for its merged event.
 - After the merge: fetch `origin/main` and check the step's `- Status: done` line is there. Then go to step 2 with the next step.
@@ -156,6 +156,6 @@ A step agent never starts sessions. An unrelated finding becomes a guidelines to
 - **Do not start a step before the previous step's PR is merged**, and never run two step agents at once.
 - **Do not ask the user what the decision rules can answer.**
 - **Do not filter a review or comment report** before it reaches the step agent.
-- **Do not merge a PR that is not done** (step 3), and in human merge mode never merge at all.
+- **Do not merge a PR that is not done** (step 3), and in human merge mode never merge at all. Never merge with a merge commit or a squash: rebase-and-merge only.
 - **Do not give an agent your reasoning or another agent's context.** A fresh agent with only its prompt is the point.
 - **Do not set an agent's effort.** It comes from the session the user started.

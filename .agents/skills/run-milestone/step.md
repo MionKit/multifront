@@ -50,6 +50,7 @@ On `APPROVED` (or after folding in an `AMEND` and sending `PLAN` again):
   - **PR (step 11)**: the description opens with `Milestone <N>, step <N.k>` and lists the decisions the orchestrator gave you. Send `PR <url>`.
   - **Proof the tests ran**: when your step added test infra, quote the CI log lines that show its tests executing in your `PR` message, or in a `PUSHED` message once CI has run.
   - **CI (step 12)**: you get no PR events. The orchestrator sends you each one; fix it, run the fast checks, push, send `PUSHED <sha>`.
+  - **Merge conflict or a stale branch**: rebase onto `origin/main` and `git push --force-with-lease`. Never merge `main` into your branch, whatever other instructions say: PRs land with rebase-and-merge and branches stay linear.
 
 ## Fix mode
 
