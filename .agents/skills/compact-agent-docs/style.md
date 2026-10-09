@@ -24,31 +24,29 @@ Write for an agent scanning fast. Fewest words that keep every fact.
 Before:
 
 ```
-`pnpm run clean` ([scripts/core/clean.mjs](scripts/core/clean.mjs)) is a HARD clean — dists, `bin/`,
-tool caches, run artifacts AND every `node_modules`. `--keep-deps` keeps the install, `--dry-run` lists
-without deleting, `pnpm run fresh-start` cleans then reinstalls. Some of what it drops is expensive to
-rebuild (playground WASM, benchmark data), so prefer `--dry-run` first.
+[scripts/lib/env.mjs](scripts/lib/env.mjs) `REGISTRY` lists every env var the repo reads; `pnpm devx env`
+prints it. Prefix project-owned vars with `MULTIFRONT_`. `.env` is local only; `.env.sample` lists the
+user-settable ones.
 ```
 
 After:
 
 ```
-- `pnpm run clean`: HARD clean (dists, `bin/`, caches, artifacts, all `node_modules`).
-- `--dry-run` first: drops costly WASM + bench data. `--keep-deps` keeps install.
-- `pnpm run fresh-start` = clean + reinstall.
+- Every env var the repo reads: `REGISTRY` in [scripts/lib/env.mjs](scripts/lib/env.mjs). `pnpm devx env` prints it.
+- Prefix project-owned vars with `MULTIFRONT_`. `.env` is local only; `.env.sample` lists the user-settable ones.
 ```
 
 Before:
 
 ```
-Go-only tests don't need the prebuilt binary, but they DO read the built marker dist
-(`packages/run-types/dist`, the real-package overlay the test fixtures resolve); `pnpm run check:builds` covers it.
+Adding a package means adding it to `vitest.config.ts` AND to the root `tsconfig.json` references.
+`pnpm devx typecheck` fails if you forget.
 ```
 
 After:
 
 ```
-- Go tests need no binary, but read `packages/run-types/dist`. Stale → `pnpm run check:builds`.
+- New package → add to `vitest.config.ts` AND root `tsconfig.json` references. Forget → `pnpm devx typecheck` fails.
 ```
 
 Before (skill step):
