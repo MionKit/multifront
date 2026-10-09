@@ -300,7 +300,7 @@ None: this is the first milestone. It builds on what the repo already has:
     export function classMapId(filename: string, index: number): string; // `${filename}?ucf&type=style&index=${index}&module&lang.js`
     ```
 
-    The CSS id never names a target, so a file imported for two targets ships its CSS once. The class map id is new: spec 3.3 says the class map is a virtual JS module but 4.3 gives it no id.
+    The CSS id never names a framework, so React and Svelte share it (the Vue target uses plugin-vue's own style modules, spec 4.3). The class map id is new: spec 3.3 says the class map is a virtual JS module but 4.3 gives it no id.
   - Exports from core: `createBuildContext`, `compileStyles`, `scopeId`, `checkBlocks`, `styleId`, `classMapId`, and the types `BlockKind`, `BlockGrammar`, `GrammarScope`, `VirtualFile`, `SourceMap`, `BuildContext`, `BuildContextOptions`, `CompiledStyle`, `StyleModule`, `VueCompiler`, `Diagnostic`, `DiagnosticCode`.
   - Update the `BlockKind` snippet in `docs/architecture.md` to this shape (`fillContext`, `index`, the core and language-tools halves).
 - Deliverable: one call gives every later target everything the shared styles provide.

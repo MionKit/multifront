@@ -44,7 +44,7 @@
   <div class="cols">
     <div class="side">
       <h2>Editing <code>Card.ucf</code></h2>
-      <div class="s">VS Code extension + language server</div>
+      <div class="s">Hybrid mode: VS Code's tsserver + our plugin for TypeScript, our language server for the rest</div>
 
       <div class="layer">
         <div class="lh"><b>grammar</b> · TextMate embeds one grammar per block</div>
@@ -60,17 +60,17 @@
         <div class="lh"><b>editor</b> · each block becomes embedded code for an existing service</div>
         <div class="lines">
           <div class="ln k-style"><span class="b">&lt;style&gt;</span><span class="ar">→</span><span class="v">css · scss code</span><span class="ar">→</span><span class="t">CSS language service</span></div>
-          <div class="ln k-react"><span class="b">&lt;react&gt;</span><span class="ar">→</span><span class="v">tsx code + $style</span><span class="ar">→</span><span class="t">TypeScript service</span></div>
-          <div class="ln k-vue"><span class="b">&lt;vue&gt;</span><span class="ar">→</span><span class="v">ts · html · css codes</span><span class="ar">→</span><span class="t">@vue/language-core</span></div>
-          <div class="ln k-svelte"><span class="b">&lt;svelte&gt;</span><span class="ar">→</span><span class="v">ts code + html</span><span class="ar">→</span><span class="t">svelte2tsx + HTML service</span></div>
+          <div class="ln k-react"><span class="b">&lt;react&gt;</span><span class="ar">→</span><span class="v">tsx code + $style</span><span class="ar">→</span><span class="t">tsserver + our plugin</span></div>
+          <div class="ln k-vue"><span class="b">&lt;vue&gt;</span><span class="ar">→</span><span class="v">ts · html · css codes</span><span class="ar">→</span><span class="t">language-core: TS in tsserver</span></div>
+          <div class="ln k-svelte"><span class="b">&lt;svelte&gt;</span><span class="ar">→</span><span class="v">ts code + html</span><span class="ar">→</span><span class="t">svelte2tsx: TS in tsserver</span></div>
         </div>
       </div>
-      <p class="legend" style="margin-top:14px">Every embedded code carries a map back to the block, so errors and hovers land on the right line of <code>Card.ucf</code>.</p>
+      <p class="legend" style="margin-top:14px">One TypeScript program: unsaved edits reach importers at once, rename and references cross <code>.ucf</code> and <code>.ts</code>. Every embedded code maps back to its block.</p>
     </div>
 
     <div class="side">
       <h2>Importing <code>Card.ucf</code></h2>
-      <div class="s">TypeScript plugin, inside VS Code's own TypeScript</div>
+      <div class="s">The same TypeScript plugin, in the same tsserver</div>
 
       <div class="layer">
         <div class="lh"><b>importers</b></div>
@@ -94,7 +94,7 @@
 
   <div class="cli">
     <div class="cl"><div class="n">mf-tsc</div><div class="d">The same <code>types</code> files on the command line, checked for every target, so a block that breaks one framework fails CI.</div></div>
-    <div class="cl"><div class="n">mf-lint</div><div class="d">oxlint on each block's <code>build</code> file, with errors mapped back to <code>Card.ucf</code>.</div></div>
+    <div class="cl"><div class="n">mf-lint</div><div class="d">oxlint on each block's own text, with errors mapped back to <code>Card.ucf</code>.</div></div>
     <div class="cl"><div class="n">mf-fmt</div><div class="d">oxfmt's <code>format()</code> on each block, then the file is put back together.</div></div>
   </div>
 </div>

@@ -28,7 +28,7 @@ dist/react/
 
 Decisions this milestone makes:
 
-- **Where:** `buildLibrary(options)` and `defineLibrary(options)` in `@multifront/vite`, plus the `mf-build` bin in the same package. It runs one real `vite build` per target with `multifront({target, targets: [target]})` and that target's framework plugin.
+- **Where:** `buildLibrary(options)` and `defineLibrary(options)` in `@multifront/vite`, plus the `mf-build` bin in the same package. It runs one real `vite build` per target with `multifront({framework: target, frameworks: [target]})` and that target's framework plugin.
 - **One target, one row.** A small table, `libraryTargets`, holds what differs per target: the framework plugin, the default peer ranges, how types are made. React and Vue get rows now. Svelte (M6) is one more row.
 - **One JS file per component:** every `.ucf` file with a block for the target is an entry, and Rolldown keeps modules as files (`preserveModules`). `src/forms/Field.ucf` becomes `forms/Field.js`.
 - **CSS as real files.** Each component JS starts with `import "./Card.css"`. A combined `styles.css` sits beside them. `"sideEffects": ["*.css"]`.
@@ -54,8 +54,8 @@ From M2:
 
 From M3:
 
-- `resolveTarget(importer, attribute, options)` in core, where a build entry (no importer) resolves to the `target` option (M3 3.3).
-- `multifront({targets, target, importers})` returning the pre plugin and the post attribute plugin.
+- `resolveTarget(importer, attribute, options)` in core, where a build entry (no importer) resolves to the `framework` option (M3 3.3).
+- `multifront({frameworks, target, importers})` returning the pre plugin and the post attribute plugin.
 - The module ids of spec 4.3: `/abs/Card.ucf?target=react&lang.tsx` and `/abs/Card.ucf?ucf&type=style&index=N&lang.css`, and the `$style` class map module.
 - The scope transform in core (oxc-parser + MagicString) with root forwarding, and the virtual helper module holding `__ucfScopeAttrs`, served by the Vite plugin.
 - `@vitejs/plugin-react` as a peer (and pinned devDependency) of `@multifront/vite`.
@@ -84,7 +84,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
       src?: string;            // default 'src'
       index?: string | false;  // default 'src/index.ts' when it exists
       outDir?: string;         // default 'dist'; each target writes <outDir>/<target>/
-      targets?: Target[];      // default: every target with a row and at least one block
+      frameworks?: Target[];   // default: every framework with a row and at least one block
       packages?: Partial<Record<Target, {name?: string; peers?: Record<string, string>}>>;
       vite?: InlineConfig;     // merged into every target's build (extra plugins, css options)
       dts?: boolean;           // default true, used from 5.6
@@ -143,7 +143,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
   - `className={own}` becomes `className={__ucfClass(own, __props.className)}`; no `className` gets `className={__props.className}`.
   - `style` the same with `__ucfStyle(own, __props.style)` (props win).
   - `ref`: no own ref gets `ref={__props.ref}`; an own ref gets `ref={__ucfRef(own, __props.ref)}`.
-  - Skipped when the component reads that prop itself (destructures it, reads `props.className`, or spreads the props object on the root): the author wins. Fragment roots get nothing, like the scope forward.
+  - Skipped when the component handles that prop itself: the author wins. The detection rule (destructuring, `props.className`, a spread on the root, or something smarter, plus any `mf-lint` rule) is designed in this step's todo. Fragment roots get nothing, like the scope forward.
   - `__ucfClass`, `__ucfStyle`, `__ucfRef` go in the same virtual helper module as `__ucfScopeAttrs`, so they ship once per package under `_virtual/`.
 - Deliverable: `<Button className="extra" style={{color: 'red'}} ref={buttonRef} />` renders one `<button>` with both classes, the merged style, and `buttonRef.current` set to it. Same in apps and in the library.
 - Test: browser area, `packages/e2e/browser/react-root-props.spec.ts`, with a new fixture app `packages/e2e/fixtures/apps/react-root-props/` that imports `Button.ucf` and `Badge.ucf` from the library fixture. Real Vite build, served, Playwright: class list, computed `color`, `ref` element tag name written into the page by the app. Plus `react-dom/server` `renderToString` of the same App, hydrated in the page with no console warning. `Badge` shows its `className` once (author wins).
@@ -177,9 +177,9 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 5.8 The `mf-build` command and `multifront.config.ts`
 
-- Build: `packages/vite/src/library/cli.ts` and a `bin` entry `mf-build` in `packages/vite/package.json`. It loads `multifront.config.ts` (or `.js`, `.mjs`) from the root through Vite's config loader, merges flags (`--root`, `--target` repeatable, `--out-dir`, `--no-dts`), calls `buildLibrary` and prints one line per target with its file count and skipped files. Exit code 1 on any error. `docs/plan.md` gains the API and the command; spec 8 names `mf-build`.
+- Build: `packages/vite/src/library/cli.ts` and a `bin` entry `mf-build` in `packages/vite/package.json`. It loads `multifront.config.ts` (or `.js`, `.mjs`) from the root through Vite's config loader, merges flags (`--root`, `--framework` repeatable, `--out-dir`, `--no-dts`), calls `buildLibrary` and prints one line per target with its file count and skipped files. Exit code 1 on any error. `docs/plan.md` gains the API and the command; spec 8 names `mf-build`.
 - Deliverable: `pnpm exec mf-build` in a library folder builds every target.
-- Test: build area, `packages/e2e/build/library-cli.spec.ts`. Adds `multifront.config.ts` to the library fixture (package names `@mf-fixture/ui-react`, `@mf-fixture/ui-vue`). Runs the real bin as a child process into a temp out dir and checks the written `package.json` names. `--target vue` builds Vue only. A config naming an unknown target exits 1 with the message.
+- Test: build area, `packages/e2e/build/library-cli.spec.ts`. Adds `multifront.config.ts` to the library fixture (package names `@mf-fixture/ui-react`, `@mf-fixture/ui-vue`). Runs the real bin as a child process into a temp out dir and checks the written `package.json` names. `--framework vue` builds Vue only. A config naming an unknown target exits 1 with the message.
 
 ### 5.9 Consumer: a fresh Vite React app
 
@@ -238,8 +238,8 @@ It passes only if JS per component, CSS files, `"use client"`, `.d.ts`, `package
 - **Rolldown and `preserveModules`.** Ids with a query (`?target=react&lang.tsx`) and `\0` virtual ids must map to clean file names, and the CSS of a style id must land in the component's CSS file. 5.1 and 5.2 prove it early; the fallback is our own CSS emit (5.2).
 - **Directives.** Rolldown may keep or drop `"use client"`; we add it only when missing. Turbopack (Next's default bundler) and webpack must both accept CSS imported from a `"use client"` file in `node_modules`. 5.11 covers the default; a webpack run (`next build --webpack`) is cheap to add if it breaks.
 - **`"use client"` detection is a heuristic.** A hook reached in an unusual way (`React['useState']`) is missed. The author adds `'use client'` in the block; it is always kept.
-- **Automatic `className` / `style` / `ref` merge** changes what a React root gets, in apps too. The author opts out by handling the prop. Open: is automatic right, or should a missing merge be an `mf-lint` error instead?
-- **React 18.** Root `ref` forwarding needs React 19 (`ref` as a prop), so the peer range is `^19.0.0`. Open: support React 18 by wrapping in `forwardRef`?
+- **Automatic `className` / `style` / `ref` merge** (decided: automatic, spec 8). It changes what a React root gets, in apps too. How the compiler sees that a component handles a prop itself (destructuring, `props.className`, a spread, something smarter), and whether an `mf-lint` rule helps, is designed in this step's todo.
+- **React 18.** Root `ref` forwarding needs React 19 (`ref` as a prop), so the peer range is `^19.0.0` (decided). A `forwardRef` wrapper for React 18 can be added later if users ask.
 - **`vue-tsc` and TypeScript 6.** The repo pins TypeScript 6.0.3. If no `vue-tsc` release older than 30 days supports it, 5.6 pins the newest TypeScript `vue-tsc` supports for the Vue types step only.
 - **The staged types tree** mirrors `src/`. Path aliases in the library's `tsconfig.json` still work (we extend it). Aliases defined only in Vite config do not reach `tsc`.
 - **Index per target.** One `src/index.ts` serves every target, so it may only re-export components that have every target's block. Open: allow `index.react.ts` style per-target index files?

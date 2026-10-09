@@ -34,7 +34,7 @@ interface BlockKind {
   check(block): Diagnostic[];        // rules for the block, e.g. "react must export default"
   build(block, ctx): VirtualFile;    // the file the bundler compiles
   types(block, ctx): VirtualFile;    // the file TypeScript reads: what the module exports
-  editor(block, ctx): VirtualFile[]; // embedded codes for the language server
+  editor(block, ctx): VirtualFile[]; // embedded codes for tsserver (TypeScript) and our language server (the rest)
 }
 
 interface VirtualFile {
@@ -69,8 +69,8 @@ A host is a program that runs the operations. Each one does the same three steps
 | Host | Package | Operations it calls |
 | --- | --- | --- |
 | Vite plugin | `@multifront/vite` | `check`, `build` |
-| Language server | `@multifront/language-tools` | `check`, `editor` |
-| TypeScript plugin, `mf-tsc` | `@multifront/language-tools` | `types` |
+| Language server | `@multifront/language-tools` | `check`, `editor` (CSS, template HTML) |
+| TypeScript plugin (in VS Code's tsserver), `mf-tsc` | `@multifront/language-tools` | `types`, `editor` (TypeScript codes) |
 | `mf-lint`, `mf-fmt` | `@multifront/language-tools` | the block text, named by `build`'s ending |
 | VS Code extension | `packages/vscode` | `grammar`, at packaging time |
 
@@ -89,7 +89,8 @@ What the Vite plugin does when an app imports a `.ucf` file. Only the chosen tar
 ![The same blocks, seen by the editor](assets/language.png)
 
 - **Highlighting:** VS Code TextMate grammars can embed another language between a begin and an end tag; Vue's extension does this for `<style lang="scss">`. Our grammar is generated from the registry, one rule per tag. The extension bundles pinned copies of the Vue and Svelte grammars (both MIT), so it works without their extensions installed.
-- **Inside a `.ucf` file:** the language server asks each block for `editor()` codes and hands them to the CSS, TypeScript, Vue or Svelte services.
+- **Hybrid mode:** VS Code's own tsserver, with our TypeScript plugin, does every TypeScript job, inside `.ucf` files too. So there is one TypeScript program: unsaved edits reach importers at once, and rename and references cross file kinds. Our language server does the rest.
+- **Inside a `.ucf` file:** each block's `editor()` codes go to tsserver (TypeScript) and to our language server (CSS, template HTML), which asks tsserver when it needs types.
 - **Importing a `.ucf` file:** TypeScript never reads import attributes, so our TypeScript plugin resolves `./Card.ucf` with `resolveTarget()`, the same function the build uses, and points it at that target's `types()` script.
 
 ## Where the code lives

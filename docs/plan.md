@@ -76,7 +76,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 ### 5. Library build
 
-- In `@multifront/vite`: one Vite library build per target with `target` set, one JS file per component, real CSS files plus a combined `styles.css`.
+- In `@multifront/vite`: one Vite library build per target with `framework` set, one JS file per component, real CSS files plus a combined `styles.css`.
 - `"use client"` re-added per output file when the component uses hooks or event handlers.
 - Types: `.d.ts` per target from the per-target virtual scripts. Writes each target's `package.json` with exports, types and peer deps only.
 - Exit check: the packed React build works in a fresh Next.js App Router app and a fresh Vite React app.
@@ -100,8 +100,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 ## Open questions
 
-1. The attribute key: `framework` or `target`?
-2. Target-only `<style>` inside a target block?
-3. `v-bind()` in CSS for React / Svelte: drop, or CSS variables on the forwarded root?
-4. Shared prop types: a root `<types lang="ts">` block?
-5. Opt-out of scope attribute forwarding per component?
+1. Target-only `<style>` inside a target block?
+2. `v-bind()` in CSS for React / Svelte: drop, or CSS variables on the forwarded root?
+3. Shared prop types: a root `<types lang="ts">` block?
+4. Opt-out of scope attribute forwarding per component?

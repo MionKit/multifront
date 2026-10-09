@@ -20,7 +20,7 @@ No runtime package: the forwarding helper is a virtual module served by the Vite
 From the current code (exists today):
 
 - `@multifront/core`: `Target = 'vue' | 'react' | 'svelte'`, `TARGETS`, `isTarget(value)`.
-- `@multifront/vite`: `multifront(options: MultifrontOptions): Plugin` with `MultifrontOptions = {targets?: Target[]; target?: Target}`, `getVueCompiler(plugins, root)`, the plugin's `api.vueCompiler`, and the test `packages/vite/test/vueCompiler.spec.ts`.
+- `@multifront/vite`: `multifront(options: MultifrontOptions): Plugin` with `MultifrontOptions = {frameworks?: Target[]; framework?: Target}`, `getVueCompiler(plugins, root)`, the plugin's `api.vueCompiler`, and the test `packages/vite/test/vueCompiler.spec.ts`.
 - Commands: `pnpm devx test`, `pnpm devx check`, `pnpm devx typecheck`. Env registry `scripts/lib/env.mjs` (`REGISTRY`), `.env.sample`, `MULTIFRONT_CHROMIUM_PATH`.
 - Root devDependencies `vite@8.2.2`, `playwright@1.63.0`, `vitest@5.0.0`.
 
@@ -96,9 +96,9 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - MagicString edits, so the map is exact.
   - Adds `oxc-parser` and `magic-string` to core `dependencies`, exact-pinned (newest past the 30 day age).
   - Fixtures: M1's `fixtures/components/Card.ucf` (all three target blocks, a `<style module>`) is the imported file. M2's shared imports set `packages/e2e/fixtures/apps/imports/` gains three sub-projects, each with its own `vite.config.ts` and `tsconfig.json`:
-    - `no-default/` (no `target`): `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `none.ts`, `non-literal.ts`, `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` inside a string and a comment).
-    - `default-react/` (`target: 'react'`): `default.ts`, `importer-over-default.tsx`, `attribute-over-default.ts` (`framework: 'svelte'`).
-    - `react-only/` (`targets: ['react']`): `not-enabled.ts` (`framework: 'svelte'`).
+    - `no-default/` (no `framework`): `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `none.ts`, `non-literal.ts`, `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` inside a string and a comment).
+    - `default-react/` (`framework: 'react'`): `default.ts`, `importer-over-default.tsx`, `attribute-over-default.ts` (`framework: 'svelte'`).
+    - `react-only/` (`frameworks: ['react']`): `not-enabled.ts` (`framework: 'svelte'`).
     - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect}`), the one table the build and the editor both satisfy.
 - Deliverable: the one function every host uses to read and remove the attribute, and the importer fixture table.
 - Test: `packages/core/test/imports/rewrite.spec.ts`. Every importer file goes through `rewriteImportAttributes`. Checks: no `framework` key left, each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute, the output parses with oxc-parser, a second run changes nothing, `non-literal.ts` gives `framework-attribute-not-literal` at the right line and column, and `strings-and-comments.ts` comes back unchanged.
@@ -109,13 +109,13 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
   ```ts
   resolveTarget(importer: Importer | undefined, attribute: string | undefined, options?: ResolveTargetOptions): TargetChoice
-  interface ResolveTargetOptions {targets?: readonly Target[]; target?: Target; importers?: Record<string, Target>} // targets: new, default all
+  interface ResolveTargetOptions {frameworks?: readonly Target[]; framework?: Target; importers?: Record<string, Target>} // frameworks: new, default all
   importerFromId(id: string): Importer // new: module ids and virtual script names to an Importer
   ```
 
   - `importerFromId` derives `block` (spec 4.1): `X.ucf?target=react&lang.tsx` is inside `<react>`, `X.ucf?target=svelte&lang.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.react.tsx`, `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
-  - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.target`, else `no-target`.
-  - A result outside `options.targets` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode`: `target-not-enabled`, `framework-attribute-not-literal` (3.2), `missing-target-block` and `target-not-built` (3.6).
+  - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.framework`, else `no-target`.
+  - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode`: `target-not-enabled`, `framework-attribute-not-literal` (3.2), `missing-target-block` and `target-not-built` (3.6).
   - The TypeScript plugin keeps calling the same function (3.8).
 - Deliverable: the one place the target rules live (spec 5: "the editor and the build cannot disagree").
 - Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the same values as its `vite.config.ts`), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
@@ -173,7 +173,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 ### 3.8 The TypeScript plugin uses the same rules
 
-- Build: `@multifront/language-tools/typescript-plugin` calls `resolveTarget` from core with the same `target` and `importers` options, read from its tsconfig plugin entry. No copy of the rules stays in language-tools.
+- Build: `@multifront/language-tools/typescript-plugin` calls `resolveTarget` from core with the same `framework` and `importers` options, read from its tsconfig plugin entry. No copy of the rules stays in language-tools.
 - Deliverable: one import, one answer, in the build and in the editor.
 - Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/imports/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf.react.tsx`. Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared only if spike 1 kept per-import attributes in the types.
 
@@ -217,7 +217,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - A fragment root gets no forwarding. In dev it becomes `(__ucfWarnFragment(<props>, "Name"), <>...</>)`, Vue's multi-root warning. Nothing in production.
   - `null`, strings, calls and `children` get nothing (documented limitation, like third-party components).
   - `<props>` is the first parameter's name. With no parameter, `__props` is added; inside `forwardRef` it becomes `(__props, __ref)` so React's two-parameter check stays quiet.
-  - Forwarding runs on every React component from a `.ucf` file, scoped style or not, so a parent's scope reaches a child that has no style of its own (see open question 1). Stamping still needs `ctx.hasScoped`.
+  - Forwarding runs on every React component from a `.ucf` file, scoped style or not, so a parent's scope reaches a child that has no style of its own (spec 3.5.1). Stamping still needs `ctx.hasScoped`.
   - Fixtures: `packages/e2e/fixtures/components/react/shapes/` `MultiReturn.ucf`, `Ternary.ucf`, `NestedTernary.ucf`, `AndRoot.ucf`, `Memo.ucf`, `ForwardRef.ucf`, `MemoForwardRef.ucf`, `ExportIdentifier.ucf`, `ArrowExpression.ucf`, `NoParams.ucf`, `ConstRoot.ucf`, `ComponentRoot.ucf`, `FragmentRoot.ucf`, `NullRoot.ucf`. `fixtures/apps/react-scope/Parent.ucf` has a scoped style on the class each shape puts on its root, and renders each shape once per branch.
 - Deliverable: a parent's scoped style reaches the root of a child `.ucf` component.
 - Test: one snapshot per shape in `packages/core/test/react/scope.spec.ts`. `packages/e2e/browser/react-scope.spec.ts`, dev and preview, for every shape and branch: the child's root DOM element carries the parent's `data-v-<parent id>`, the parent's scoped rule applies to it (computed color), and a non-root element does not carry it. `FragmentRoot` logs exactly one warning in dev and none in preview. The `ForwardRef` ref still points at the DOM node.
@@ -290,7 +290,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 Core (`@multifront/core`):
 
-- `resolveTarget(importer, attribute, options): TargetResult`, `ResolveTargetOptions`, `TargetResult`, `TargetErrorCode`, `DEFAULT_IMPORTERS`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `target` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
+- `resolveTarget(importer, attribute, options): TargetResult`, `ResolveTargetOptions`, `TargetResult`, `TargetErrorCode`, `DEFAULT_IMPORTERS`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
 - `SCOPE_HELPER_ID` (`'virtual:multifront/scope-attrs'`) and `scopeHelperCode(dev)`. Milestone 5 bundles it once per library build.
@@ -361,8 +361,6 @@ Risks:
 
 Open questions:
 
-1. Forwarding on every `.ucf` React component, or only when the file has a scoped style (spec 3.5 says "when any style is scoped")? This plan forwards always, because a child without its own style must still let a parent's scope reach its root, as Vue does. Step 3.11 updates spec 3.5 if accepted.
-2. The attribute key, `framework` or `target` (spec 12, plan open question 1)? This plan keeps `framework`; the rewritten query `?framework=` follows whatever is chosen.
 3. Non-JSX roots (`return renderX()`, `return children`): silent, as planned, or a build warning? A warning would need a severity on `Diagnostic`.
 4. Class components: stamped but not forwarded. Enough?
 5. Opt-out of forwarding per component (spec 12): not in this milestone.

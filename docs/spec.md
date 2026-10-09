@@ -98,7 +98,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - Emit a virtual `Card.ucf.tsx` module from the `<react>` block, with:
   - `import $style from '<style module virtual id>'` injected when a module style exists;
   - `import '<style virtual id>'` for each style block;
-  - the scope transform below, applied when any style is scoped.
+  - the scope transform below: stamping (steps 1 and 2) when any style is scoped, root forwarding (steps 3 and 4) always.
 - **Scope transform** (oxc or Babel AST, MagicString edits):
   1. Every host JSX element (lowercase tag) gets `data-v-<id>=""`.
   2. Every component JSX element (capitalized / member expression) in this file also gets `data-v-<id>=""`, so the parent scope reaches the child root, matching Vue.
@@ -108,12 +108,28 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
 - Third-party components don't forward scope attributes; document `className` + CSS modules as the way to style them.
 
+### 3.5.1 Scope forwarding is the same in every framework
+
+A parent's scoped style reaches the root of any child `.ucf` component, in every framework, as it does in Vue. So root forwarding always runs, on every component, whether or not the child has a style of its own:
+
+```tsx
+// Badge.ucf <react>, no <style> of its own
+export default function Badge({label}) { return <span className="badge">{label}</span> }
+// compiles to
+export default function Badge(__props) {
+  const {label} = __props
+  return <span {...__ucfScopeAttrs(__props)} className="badge">{label}</span>
+}
+```
+
+Svelte does the same through its props rest (3.6). It is pinned by browser tests in every framework and by fuzz tests over generated components.
+
 ### 3.6 Svelte target
 
 - Emit a virtual `.svelte` file from the `<svelte>` block, inject the `$style` import into its `<script>`, and import the style virtual modules.
 - Apply the same scope-attribute stamping to the markup (host elements and component elements) using `svelte/compiler`'s `parse` for locations.
 - Do not emit a Svelte `<style>`. Svelte's own scoping is unused, so CSS behaves identically across targets.
-- Root forwarding for Svelte is a stretch goal (`{...rest}` pass-through on the root element).
+- Root forwarding (3.5.1) through the props rest: `let { title, ...__ucfRest } = $props()` and `{...__ucfScopeAttrs(__ucfRest)}` on the root. Required, not a stretch goal. A component with several roots warns, like a React fragment root.
 
 ### 3.7 `$style` typing
 
@@ -160,7 +176,7 @@ For a plain `.ts`, `.tsx`, `.vue` or `.svelte` file, the most specific rule wins
    The key is `framework`, never `type` (hosts reserve `type` for `json` / `css`). The value must be a string literal; anything else is a build error.
 
 2. **The importer's framework.** A `.vue` file gets vue, a `.svelte` file gets svelte, a `.jsx` / `.tsx` file gets react (configurable with the `importers` option).
-3. **The global default**, the plugin's `target` option. A library build runs once per target with it set, so every bare import in that build follows.
+3. **The global default**, the plugin's `framework` option. A library build runs once per framework with it set, so every bare import in that build follows.
 4. **None of these** → a build error naming the three ways.
 
 So in a one-framework app, a plain `import Card from './Card.ucf'` just works. The attribute is only for mixing frameworks in one app (a docs site showing all three, tests).
@@ -169,7 +185,7 @@ So in a one-framework app, a plain `import Card from './Card.ucf'` just works. T
 
 - Each (file, target) pair is its own module. Its code is only that target's block, compiled. The other blocks never reach the framework plugin or the bundle.
 - The file is split once and cached; every target reuses the split.
-- Style modules do not carry the target, so a file imported as React and as Vue in one app ships its CSS once.
+- React and Svelte share the style modules, which do not carry the framework. The Vue target uses plugin-vue's own style modules (3.4). So an app that imports one file as Vue and as another framework ships those rules twice. They are identical, so rendering does not change, and a library build has one framework per package, so it never happens there. Accepted for now; a later dedupe (answering plugin-vue's style request with the shared module) can remove it.
 - Module ids (internal; users never write them):
 
 | Target | Module id | Why |
@@ -199,9 +215,21 @@ TypeScript gives one type per resolved file and never looks at import attributes
 
 From the first milestones, not the last. Built on Volar, the framework behind Vue's language tools.
 
+**Hybrid mode from day one**, as Vue's tools work today. VS Code's own tsserver, with our TypeScript plugin, does every TypeScript job, inside `.ucf` blocks too. Our language server does the rest: CSS, template HTML, our own diagnostics, formatting and linting. When it needs type information it asks tsserver through the client.
+
+```json
+"typescriptServerPlugins": [{
+  "name": "@multifront/language-tools/typescript-plugin",
+  "enableForWorkspaceTypeScriptVersions": true,
+  "languages": ["ucf"]
+}]
+```
+
+So there is one TypeScript program: an unsaved edit in `Card.ucf` reaches `App.tsx` at once, and find references and rename work across `.ucf` and `.ts` files.
+
 | Package | Job |
 | --- | --- |
-| `@multifront/language-tools` | The Volar language plugin (embedded code per block, the per-target virtual scripts and the resolution rules of 5); the TypeScript plugin (`./typescript-plugin`) so `.ts`, `.tsx`, `.vue` and `.svelte` files importing `.ucf` get the right types; the language server (`./server`) for completions, errors, hover and go to definition per block; and the `mf-tsc`, `mf-lint` and `mf-fmt` commands. |
+| `@multifront/language-tools` | The Volar language plugin (embedded code per block, the per-target virtual scripts and the resolution rules of 5); the TypeScript plugin (`./typescript-plugin`), which serves every TypeScript feature inside `.ucf` blocks and gives `.ts`, `.tsx`, `.vue` and `.svelte` importers the right types; the language server (`./server`) for CSS, template HTML and our own diagnostics; and the `mf-tsc`, `mf-lint` and `mf-fmt` commands. |
 | `multifront-vscode` | The VS Code extension: `.ucf` language id, a TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars, starts the server, registers the TypeScript plugin. Published to the VS Code Marketplace and Open VSX, not npm. |
 
 Order:
@@ -225,11 +253,12 @@ The same tools as the rest of the repo: oxlint and oxfmt, reading the project's 
 
 ## 7. Vite plugin
 
-- `multifront({ targets?, target?, importers? })`
-  - `targets`: what this build may compile. Defaults to all three. An import that picks a target outside the list is a build error.
-  - `target`: the global default of 4.2.
-  - `importers`: importer extension to target. Defaults to `{ '.vue': 'vue', '.svelte': 'svelte', '.jsx': 'react', '.tsx': 'react' }`.
-  - **Library build mode:** one Vite build per target, with `target` set.
+- `multifront({ frameworks?, framework?, importers? })`
+  - `frameworks`: what this build may compile. Defaults to all three. An import that picks a framework outside the list is a build error.
+  - `framework`: the global default of 4.2.
+  - `importers`: importer extension to framework. Defaults to `{ '.vue': 'vue', '.svelte': 'svelte', '.jsx': 'react', '.tsx': 'react' }`.
+  - **Library build mode:** one Vite build per framework, with `framework` set.
+  - Users only ever see the word "framework": the import attribute, these options, the TypeScript plugin options and CLI flags. "Target" stays an internal word (the `Target` type, internal module ids), because `target` already means something else in the same config files (`build.target`, `compilerOptions.target`).
   - **App/dev mode:** imports follow 4.1 and 4.2.
 - Must run with `enforce: 'pre'` so plugin-vue / plugin-react / plugin-svelte see normal component code. The attribute rewrite of 4.4 is a second, post plugin returned in the same array.
 - **HMR:**
@@ -251,7 +280,7 @@ Requirements:
 
 - **CSS as real files**, never runtime injection (SSR + CSP safe). Each component JS imports its CSS; also emit a combined `styles.css` for consumers who prefer one import. `"sideEffects": ["*.css"]`.
 - **React Server Components:** files whose component uses hooks or event handlers get `"use client"` at the top of the output file. The build must preserve the directive per output file (bundlers strip it in library mode).
-- **React conventions:** root elements accept and merge `className` and `style`; refs forwarded. Theming through CSS variables, identical across targets.
+- **React conventions:** the compiler makes every component root accept and merge `className` and `style`, and forward `ref`, automatically (React 19 and later, where `ref` is a prop). A component that handles one of these props itself keeps its own handling; how the compiler detects that (or whether a lint rule helps) is designed when that step is built. Theming through CSS variables, identical across targets.
 - **Peer dependencies only:** react/react-dom, vue, or svelte. Zero runtime dependencies otherwise.
 - `exports` map per package with types.
 
@@ -291,4 +320,3 @@ Requirements:
 - `v-bind()` in CSS for React/Svelte: drop, or implement via CSS variables on the forwarded root?
 - Shared types between targets (props interfaces): a root `<types lang="ts">` block imported by every target?
 - Should forwarding of scope attributes be opt-out per component?
-- The attribute key: `framework` or `target`?

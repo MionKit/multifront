@@ -49,6 +49,9 @@ Decided when the seven documents were checked against each other. Where a docume
 - **One code per error.** `framework-in-block` (not `framework-attribute-in-block`). Codes join M1's `DiagnosticCode` union.
 - **`pnpm devx vsix`** is created in M2; M7 extends it.
 - **Core checks never load a compiler.** Rules that need the Vue or Svelte compiler run in `build()`.
+- **Users see the word "framework".** The import attribute `with { framework }`, the plugin options `frameworks` / `framework` / `importers`, the TypeScript plugin options and the CLI flags (`--framework`). "Target" stays internal (the `Target` type, `resolveTarget`, module ids).
+- **Scope forwarding is the same in every framework** (spec 3.5.1): always on, pinned by browser tests in each framework and by fuzz tests.
+- **Hybrid mode from day one** (spec 6): tsserver with our plugin does every TypeScript job, inside `.ucf` files too; our language server does CSS, template HTML, our diagnostics, formatting and linting.
 
 ## Document template
 

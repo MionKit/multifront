@@ -135,7 +135,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
   Each rule is proven by breaking the output on purpose once (drop one stamp, add one twice) and watching it fail.
 
-### 6.8 Root forwarding with `{...rest}` (stretch goal)
+### 6.8 Root forwarding with `{...rest}`
 
 - Build: in `build()`, for a runes-mode block with exactly one root (descending into `{#if}` / `{:else}`, `{#key}`, `{#await}` branches and `<svelte:boundary>`, each branch with one root):
   - `let { title } = $props()` becomes `let { title, ...__ucfRest } = $props()` (an existing rest name is reused; `let props = $props()` forwards from `props`);
@@ -143,7 +143,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
   More than one root, an `{#each}` root, or a legacy (non-runes) component: no forwarding, plus the same warning React gives for a fragment root.
 - Deliverable: a parent's scoped style reaches a Svelte child's root, as in Vue and React.
-- Test: browser area, `packages/e2e/browser/svelte-scope-forward.spec.ts`: in `apps/all-targets`, `Panel.ucf` styles `PanelItem`'s root with a scoped rule; its computed style is the same in all three targets. Root shape fixtures in `fixtures/components/svelte/roots/` (if/else roots, a component root, a `<svelte:element>` root, an each root that warns). The 6.7 fuzz gets one more rule: a generated single-root child always has the parent's scope on its root. If this step is not reliable, it ships without forwarding and the docs say "style Svelte children through `$style`".
+- Test: browser area, `packages/e2e/browser/svelte-scope-forward.spec.ts`: in `apps/all-targets`, `Panel.ucf` styles `PanelItem`'s root with a scoped rule; its computed style is the same in all three targets. Root shape fixtures in `fixtures/components/svelte/roots/` (if/else roots, a component root, a `<svelte:element>` root, an each root that warns). The 6.7 fuzz gets one more rule: a generated single-root child always has the parent's scope on its root. Required (spec 3.5.1): every framework forwards the same way, so this step is part of the milestone's exit.
 
 ### 6.9 Types: `Card.ucf.svelte.ts`
 
@@ -156,9 +156,9 @@ From milestone 5 (exact names as milestone 5 ships them):
 
 ### 6.10 The `<svelte>` block in the language server
 
-- Build: the `editor(block, ctx)` half: the `svelte2tsx` output as embedded TypeScript code. Its source map is turned into Volar mappings: each segment runs to the next one and keeps the length where the source and generated text match. `check` diagnostics show up as well. Markup completions (tags, attributes, component props) are milestone 7.
+- Build: the `editor(block, ctx)` half: the `svelte2tsx` output as embedded TypeScript code, served by tsserver with our plugin (hybrid mode, M2). Its source map is turned into Volar mappings: each segment runs to the next one and keeps the length where the source and generated text match. `check` diagnostics show up as well. Markup completions (tags, attributes, component props) are milestone 7.
 - Deliverable: errors, hover, go to definition and script completions inside `<svelte>`, including type errors in markup expressions.
-- Test: editor area, `packages/e2e/editor/svelte-block.spec.ts`, our real language server over LSP on `fixtures/components/`:
+- Test: editor area, `packages/e2e/editor/svelte-block.spec.ts`, the real tsserver with our plugin (TypeScript features) and our real language server over LSP (our diagnostics), on `fixtures/components/`:
   - hover on `title` in `{title}` gives `string`;
   - `$style.cardd` is an error at the exact `.ucf` range, and completion after `$style.` lists the class names;
   - go to definition on `<PanelItem>` lands in `PanelItem.ucf`;
@@ -212,6 +212,7 @@ All for milestone 7 (full editor support):
 
 - `apps/all-targets` in dev and after a build: `Panel.ucf` renders as Vue, React and Svelte side by side, the computed styles of the key elements are equal in all three, and the `data-v-*` value is the same.
 - An edit to the `<svelte>` block hot-updates without a reload while the React counter keeps its state.
+- Scope forwarding is the same in every framework: `Panel.ucf`'s scoped rule reaches `PanelItem`'s root as Vue, React and Svelte (6.8), with equal computed styles.
 - The SvelteKit consumer of 6.13 passes.
 
 ## Risks and open questions

@@ -201,7 +201,6 @@ New dependencies, all exact-pinned:
 - Build:
   - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue and a Vue island. It mounts `Counter.ucf` as Vue (`import Counter from './Counter.ucf' with { framework: 'vue' }` in `mountVue.ts`) beside the existing React mount of the same file.
   - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
-  - Update spec 4.3 on CSS: see "Risks", CSS twice.
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
 - Test:
   - `packages/e2e/build/mixed-targets.spec.ts`: one `vite build` of the demo. The React chunk has no Vue render code, and the Vue chunk has no JSX runtime import from `Counter.ucf`. No `framework` attribute is left.
@@ -210,11 +209,11 @@ New dependencies, all exact-pinned:
 ### 4.12 The `<vue>` block in the language server
 
 - Build: in `packages/language-tools/src/blocks/vue.ts` and the server setup:
-  - turn on the services the spike approved for the nested Vue code (TypeScript, plus Vue's template services or the HTML service, per the 4.1 outcome);
+  - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code; our server turns on Vue's template services or the HTML service (per the 4.1 outcome) and asks tsserver for type information, as Vue's own server does;
   - `$style` and named modules are typed from the root `<style module>` blocks, which are present in the same-length SFC code, so language-core types them natively;
   - the in-block import rule for `<vue>`: `import Icon from './Icon.ucf'` in a `<vue>` block resolves to `Icon.ucf.vue.ts`.
 - Deliverable: writing a `<vue>` block feels like writing a `.vue` file.
-- Test: `packages/e2e/editor/vue-block-features.spec.ts`, real language server over LSP on `Counter.ucf` and `UsesIcon.ucf`:
+- Test: `packages/e2e/editor/vue-block-features.spec.ts`, the real tsserver with our plugin plus the real language server over LSP, on `Counter.ucf` and `UsesIcon.ucf`:
   - hover on a `<script setup>` variable used in the template shows its type;
   - completion inside `{{ }}` lists it;
   - go to definition from the template lands on its declaration in the same `.ucf` file;
@@ -229,7 +228,7 @@ New dependencies, all exact-pinned:
 - Test: `packages/e2e/editor/vue-types.spec.ts`. Use `startTsserver()` with our plugin on `fixtures/apps/demo/`:
   - in `mountVue.ts`, quick info on `Counter` shows a `DefineComponent` with the `start: number` prop;
   - `h(Counter, {start: 'x'})` is an error;
-  - with the plugin option `target: 'vue'`, a bare import in a `.ts` file resolves the same way;
+  - with the plugin option `framework: 'vue'`, a bare import in a `.ts` file resolves the same way;
   - a React importer of the same file still gets the React type.
 
 ### 4.14 `.vue` importers beside Vue's TypeScript plugin
@@ -252,7 +251,7 @@ New dependencies, all exact-pinned:
 
 - `vueSfcCode(source, blocks)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
 - `vueBlock`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
-- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?(?:target=|ucf\b)/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({target: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`?target=svelte` ids already pass the exclude, so the Svelte target needs no change here).
+- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?(?:target=|ucf\b)/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`?target=svelte` ids already pass the exclude, so the Svelte target needs no change here).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
 - If spike 2 moved them: Vue tag and directive completions in the `<vue>` block. Used by **M7**.
 - Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
@@ -271,7 +270,7 @@ New dependencies, all exact-pinned:
 
 - **plugin-vue behavior we rely on that is not formal API:** the HMR `read` override, the cache-miss read from disk, the hook-filter `exclude` and the moment `api.include` locks. Every one is covered by a test in 4.4, 4.7 or 4.9, run on the CI matrix of supported plugin-vue versions. Worth proposing upstream: a plugin-vue option that hands it the SFC code of non-`.vue` files. That would remove the warm-up and the `read` override.
 - **`handleHotUpdate` is on its way out** in Vite in favor of `hotUpdate`. When plugin-vue moves, our override must move with it, because the two hooks get different context objects. The 4.9 test fails first.
-- **CSS twice in a mixed app.** The Vue target uses plugin-vue's own style modules (spec 3.4), while React uses ours. So an app importing one file as both ships its CSS rules twice. They are identical, with the same `data-v-*`, so rendering does not change, and library builds (one target each) are not affected. Spec 4.3 says CSS ships once. Open: accept it and reword spec 4.3, or rewrite plugin-vue's style imports to our shared style ids (which ties us to plugin-vue's output format).
+- **CSS twice in a mixed app** (decided: accepted for now, spec 4.3). The Vue target uses plugin-vue's own style modules, React and Svelte use ours, so an app importing one file as Vue and as another framework ships identical rules twice. A later dedupe can answer plugin-vue's style request with the shared module.
 - **Two Volar TypeScript plugins in one tsserver.** If both load from one `@volar/typescript` copy, the second never decorates the host. VS Code loads each from its own extension folder, so it works there. Other editors that hoist both into one `node_modules` may not. 4.14 tests both setups.
 - **Version skew in the editor.** Our pinned `@vue/language-core` may differ from the one inside the user's Vue extension. The generated code is self-contained, but the global types may not be. The spike decides how we ship them.
 - **Who resolves the bare `.ucf` id for `vue`**, M3 or this milestone. Listed under "Needs", with 4.4 as the fallback.
