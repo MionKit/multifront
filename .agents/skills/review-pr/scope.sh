@@ -21,7 +21,10 @@ merge_base=$(git merge-base "$base_ref" HEAD 2>/dev/null) || {
 range="$merge_base..HEAD"
 
 section() { printf '\n## %s\n' "$1"; }
-indent()  { local out; out=$(cat); if [ -z "$out" ]; then echo "  (none)"; else printf '%s\n' "$out" | sed 's/^/  /'; fi; }
+indent()  {
+  local out; out=$(cat)
+  if [ -z "$out" ]; then echo "  (none)"; else printf '%s\n' "$out" | sed 's/^/  /'; fi
+}
 area()    { awk -F/ '{ if ($1=="packages" && NF>1) print $1"/"$2; else print $1 }'; }
 
 printf '## Target\n'
