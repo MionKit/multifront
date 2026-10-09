@@ -17,7 +17,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin {
   let vueCompiler: VueCompiler | undefined;
   return {
     name: 'multifront',
-    // Runs before plugin-vue, plugin-react and plugin-svelte so they only ever see plain component files.
+    // Before plugin-vue, plugin-react and plugin-svelte, so they only ever see plain component files.
     enforce: 'pre',
     configResolved(resolved) {
       config = resolved;
