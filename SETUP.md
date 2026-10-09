@@ -31,6 +31,7 @@ pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
 pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
+pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
 ```
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`.
