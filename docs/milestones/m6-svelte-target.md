@@ -79,7 +79,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
   ```svelte
   <script lang="ts">
-    import __ucfStyle from '/abs/Card.ucf?ucf&type=style-map…';
+    import __ucfStyle from '<class map id from milestone 3>';
     import '/abs/Card.ucf?ucf&type=style&index=0&lang.css';
     let { title }: { title: string } = $props()
   </script>
