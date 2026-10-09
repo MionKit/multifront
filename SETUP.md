@@ -17,6 +17,15 @@ pnpm exec husky     # wires the git hooks (install scripts are blocked, so this 
 
 Never `npm install`. Install policy (exact pins, 30-day minimum release age, no install scripts) lives in `pnpm-workspace.yaml`.
 
+### Claude Code on the web
+
+[scripts/setup-claude-web.sh](scripts/setup-claude-web.sh) installs Node 26, the pinned pnpm, every package and the git hooks, and points `MULTIFRONT_CHROMIUM_PATH` at the image's Chromium when Playwright's own is missing.
+
+- Paste the whole script into the web environment's **Setup script** field. It runs before each new session, and the environment cache keeps Node 26, the pnpm store and `node_modules`.
+- Bump `SETUP_DATE` at the top of the script to force a fresh run.
+- `bash scripts/setup-claude-web.sh --check` reports what is missing without installing anything.
+- Network access it needs: `*.nodejs.org` and `registry.npmjs.org`.
+
 ## Commands
 
 Everything runs through `devx` ([scripts/devx.mjs](scripts/devx.mjs)), the same commands CI runs.
