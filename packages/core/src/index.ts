@@ -1,5 +1,3 @@
-import type {Target} from './types.ts';
-
 export type {
   Block,
   BlockGrammar,
@@ -25,11 +23,5 @@ export {classMapId, styleId} from './ids.ts';
 export {scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
 export {compileStyles, moduleName, stylePreprocessOptions} from './styles.ts';
+export {TARGETS, isTarget} from './targets.ts';
 export {loadVueCompiler} from './vueCompiler.ts';
-
-/** Every target, in the order a library build emits them. */
-export const TARGETS: readonly Target[] = ['vue', 'react', 'svelte'];
-
-export function isTarget(value: string): value is Target {
-  return (TARGETS as readonly string[]).includes(value);
-}
