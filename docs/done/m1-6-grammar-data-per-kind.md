@@ -12,8 +12,8 @@ step: 1.6
 ## Problem
 
 M2 builds the `.ucf` TextMate grammar and the `embeddedLanguages` of `packages/vscode` from the block registry. Each
-kind must say which real grammar highlights its content, and for `<style>`, which one goes with each `lang`. Today
-`BlockKind` (`packages/core/src/types.ts:32-36`) has only `tag`, `role` and `check`.
+kind must say which real grammar highlights its content, and for `<style>`, which one goes with each `lang`. Before 1.6,
+`BlockKind` in `packages/core/src/types.ts` had only `tag`, `role` and `check`.
 
 The milestone text said `vue` → `source.vue`. No real Vue grammar has that name now: the official Vue extension
 (vuejs/language-tools `extensions/vscode/package.json`) and shiki 4.4.3 both name it `text.html.vue`. The 1.6 test is
@@ -33,10 +33,11 @@ built to catch exactly this, so the registry ships `text.html.vue`.
    ```
    `BlockKind` gets `grammar: BlockGrammar` (required, between `role` and `check`).
 2. **Values, one per kind file:**
-   - `blocks/style.ts`: `{scopeName: 'source.css', languageId: 'css', byLang: {scss: source.css.scss / scss,
-     sass: source.sass / sass, less: source.css.less / less, styl: source.stylus / stylus,
-     stylus: source.stylus / stylus, postcss: source.css.postcss / postcss}}`. `css` has no `byLang` entry: the
-     default covers it.
+   - `blocks/style.ts`: `{scopeName: 'source.css', languageId: 'css', byLang: BY_LANG}`, with `BY_LANG` =
+     `{scss: source.css.scss / scss, sass: source.sass / sass, less: source.css.less / less,
+     styl: source.stylus / stylus, stylus: source.stylus / stylus, postcss: source.css.postcss / postcss}`. `css` has
+     no `byLang` entry: the default covers it. `BY_LANG` is the one list of langs: `STYLE_LANGS` (the
+     `unknown-style-lang` check) is `['css', ...Object.keys(BY_LANG)]`, same order, same message.
    - `blocks/react.ts`: `source.tsx` / `typescriptreact`.
    - `blocks/vue.ts`: `text.html.vue` / `vue`.
    - `blocks/svelte.ts`: `source.svelte` / `svelte`.
@@ -68,10 +69,13 @@ no new CI piece. Uses the real `splitBlocks`, `BLOCK_KINDS`, `getBlockKind` from
 - **Every registry scope is a real grammar**: every `scopeName` in `BLOCK_KINDS` and in each `byLang` is a key of the
   map; failure lists the missing names. A typo, or the old `source.vue`, fails here.
 - **`it.each(listComponents())`, every block tokenizes with its grammar**: every block's `content`, line by line through
-  `highlighter.getLanguage(name).tokenizeLine(line, ruleStack)` (state carried over). Every token's root scope is the
-  picked `scopeName`, and no non-whitespace text is left at the root scope alone (no plain-text fallback).
+  `highlighter.getLanguage(name).tokenizeLine(line, ruleStack)` (state carried over). No non-whitespace text is left
+  at the root scope alone (no plain-text fallback).
 - **Negative control (permanent)**: `Panel.ucf`'s `lang = scss` block through `source.css` instead of its pick leaves
   text at the root scope (`$`, `}`): the plain-text check catches a wrong pick.
+- **Grammar table pin**, `packages/core/test/blocks/index.spec.ts`: the whole `kind.grammar` table by tag, beside
+  the role pin. It covers what tokenizing cannot tell apart: every `languageId`, the langs no fixture uses (`sass`,
+  `less`, `styl`, `stylus`, `postcss`), and a CSS-superset default.
 - Checked while building: the old `source.vue` fails the first two tests, and a `byLang` key typo (`scsss`) fails the
   `Panel.ucf` case and the negative control.
 
@@ -90,6 +94,9 @@ None: static registry data. Tokenizing every real fixture block is the oracle; a
 
 - `vue` scope is `text.html.vue`, not `source.vue` (orchestrator: do what Vue does; the step's test catches the old name).
 - The negative control stays as a permanent test (orchestrator: every step ends with a test that would fail without it).
+- Review: the grammar table is pinned in core's registry test; `BY_LANG` replaces the hand-copied lang list; the
+  always-true root-scope check was dropped; the spec's helpers stay in the spec (they use its `beforeAll` state, like
+  `rulesFor` in `build/vue-reference.spec.ts`).
 
 ## Done when
 
