@@ -15,6 +15,7 @@ class CliError extends Error {}
 // The JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
 function bin(pkg, name = pkg) {
   const dir = join(REPO_ROOT, 'node_modules', pkg);
+  if (!existsSync(join(dir, 'package.json'))) throw new CliError(`${CLI}: ${pkg} is not installed, run pnpm install`);
   const field = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).bin;
   return join(dir, typeof field === 'string' ? field : field[name]);
 }
