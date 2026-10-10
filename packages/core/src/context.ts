@@ -21,7 +21,7 @@ export async function createBuildContext(split: SplitResult, options: BuildConte
     styles: [],
     modules: {},
   };
-  // One after another, in registry order: a later shared kind may read what an earlier one filled.
+  // Sequential, in registry order: a later shared kind may read what an earlier one filled.
   for (const kind of BLOCK_KINDS) {
     if (kind.role !== 'shared') continue;
     await kind.fillContext?.(
