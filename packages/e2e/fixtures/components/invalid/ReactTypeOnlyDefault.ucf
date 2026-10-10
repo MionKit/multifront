@@ -1,0 +1,13 @@
+<react>
+  function ReactTypeOnlyDefault() {
+    return <p>Exported as a type only</p>
+  }
+
+  export type { ReactTypeOnlyDefault as default }
+</react>
+
+<style scoped>
+p {
+  color: teal;
+}
+</style>
