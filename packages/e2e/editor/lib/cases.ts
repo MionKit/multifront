@@ -105,7 +105,6 @@ function expectedDiagnostics(document: Document, name: string) {
   return expected.sort(byStart);
 }
 
-/** Every diagnostic not ours: which service sent it, and whether it starts inside the first <style>. */
 async function styleErrors(server: LanguageServer, document: Document, {filename, source}: Component) {
   const {contentStart, contentEnd} = splitBlocks(source, filename).styles[0]!;
   return (await diagnosticsOf(server, document))
@@ -167,7 +166,7 @@ export function languageServerCases(getServer: () => LanguageServer): void {
     });
   });
 
-  // Goal: "Inside <style>: CSS and SCSS ... errors", mapped back to the .ucf file.
+  // M2 goal: "Inside <style>: CSS and SCSS ... errors".
   describe('the language server reports CSS and SCSS errors inside <style>', () => {
     it('invalid/ScssSyntaxError.ucf: an scss error inside its <style>', async () => {
       const component = readComponent('invalid/ScssSyntaxError.ucf');
