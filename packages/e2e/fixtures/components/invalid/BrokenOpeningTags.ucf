@@ -1,0 +1,15 @@
+<react>
+  export default function BrokenOpeningTags() {
+    return <p className="broken">Broken opening tags</p>
+  }
+</react>
+
+<style scoped/>
+
+<style lang="scss>
+.broken {
+  color: purple;
+}
+</style>
+
+<style

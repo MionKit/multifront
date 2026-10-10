@@ -1,0 +1,21 @@
+<react>
+  export default function UnknownRootTag() {
+    return <p className="note">Unknown root tags</p>
+  }
+</react>
+
+<angular>
+  <p class="note">{{ title }}</p>
+</angular>
+
+<react_old>
+  export default function Old() {
+    return <p>old</p>
+  }
+</react_old>
+
+<style scoped>
+.note {
+  color: gray;
+}
+</style>

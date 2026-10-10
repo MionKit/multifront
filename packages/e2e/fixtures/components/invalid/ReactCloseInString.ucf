@@ -1,0 +1,12 @@
+<react>
+  export default function ReactCloseInString() {
+    const closing = '</react>'
+    return <code className="closing">{closing}</code>
+  }
+</react>
+
+<style scoped>
+.closing {
+  color: maroon;
+}
+</style>

@@ -1,0 +1,10 @@
+<react>
+  export default function UnclosedReact() {
+    return <p className="unclosed">Never closed</p>
+  }
+
+<style scoped>
+.unclosed {
+  color: red;
+}
+</style>
