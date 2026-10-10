@@ -223,11 +223,13 @@ From the first milestones, not the last. Built on Volar, the framework behind Vu
 
 ```json
 "typescriptServerPlugins": [{
-  "name": "@multifront/language-tools/typescript-plugin",
+  "name": "multifront-typescript-plugin-pack",
   "enableForWorkspaceTypeScriptVersions": true,
   "languages": ["ucf"]
 }]
 ```
+
+tsserver finds a plugin only in an extension's own `node_modules`, so the extension ships a pack there that loads the bundled `@multifront/language-tools/typescript-plugin`. A project lists that subpath in its `compilerOptions.plugins` for its options.
 
 So there is one TypeScript program: an unsaved edit in `Card.ucf` reaches `App.tsx` at once, and find references and rename work across `.ucf` and `.ts` files.
 
