@@ -24,7 +24,6 @@ function ucfLiterals(sourceFile: ts.SourceFile): ts.StringLiteralLike[] {
   return literals;
 }
 
-// The importer's own script, as TypeScript reads it.
 function blockScript(name: string) {
   const {filename, source} = readComponent(name);
   const script = splitBlocks(source, filename).targets.react!.content;

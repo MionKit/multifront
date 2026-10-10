@@ -51,11 +51,11 @@ function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expre
 // A new SourceFile per edit: one parse per file version.
 const rewrites = new WeakMap<ts.SourceFile, Pick<ReturnType<typeof rewriteImportAttributes>, 'imports' | 'errors'>>();
 
-/** The build's `framework-attribute-not-literal` error of this import (spec 4.4), if any. */
+/** The build's `framework-attribute-not-literal` error at this import (spec 4.4). */
 function attributeError(literal: ts.StringLiteralLike, sourceFile: ts.SourceFile): Diagnostic | undefined {
   const {imports, errors} = rewrites.get(sourceFile) ?? rewriteImportAttributes(sourceFile.text, sourceFile.fileName);
   rewrites.set(sourceFile, {imports, errors});
-  // An error sits in the options of the last `.ucf` import before it; `end` is a plain field, set during resolution.
+  // An error sits in the options of the last `.ucf` import before it; mid-resolution only plain fields like `end` are safe.
   return errors.find(({start}) => imports.findLast(({end}) => end <= start)?.end === literal.end);
 }
 
@@ -73,7 +73,7 @@ export function resolveUcfImport(
   literal: ts.StringLiteralLike,
   containingFile: string,
   options: UcfImportOptions,
-  sourceFile: ts.SourceFile // the importer as TypeScript parsed it; the build's rewrite reads its text
+  sourceFile: ts.SourceFile // the importer's parse; the build's rewrite reads its text
 ): UcfResolution {
   // In tsserver a `.ucf` file's own script is its main target's block.
   const importer: Importer = {fileName: containingFile};
