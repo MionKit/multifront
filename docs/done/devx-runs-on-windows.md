@@ -39,12 +39,16 @@ Delegated session, automatic mode: the delegation stood in for plan approval.
 - `scripts/devx.mjs`: `bin(pkg, name)` reads the tool's entry from `node_modules/<pkg>/package.json` `bin`;
   `run` spawns `process.execPath` with that entry. No `.bin` shim, no shell, same path on every OS.
   All five tools (tsc, oxlint, oxfmt, vitest, commitlint) ship JS entries, so this covers every devx command.
-  A tool missing from `node_modules` fails with `devx: <pkg> is not installed, run pnpm install`, not a stack trace.
+  A tool missing from `node_modules`, or a package with no entry for it, fails with
+  `devx: <pkg> is not installed, run pnpm install` (not a spawn error or a stack trace).
 - CI `windows` job: runs `pnpm devx format --check`, `pnpm devx lint`, then
-  `pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts`.
+  `pnpm devx test --reporter verbose packages/core/test/context.spec.ts packages/e2e/devx/`.
   That job is the end-to-end test: devx launching oxfmt, oxlint, tsc and vitest on `windows-latest`.
-  No Vitest spec for `scripts/`: one would run on Linux only and prove what the `check` job already proves.
 - Found by the new Windows lint step: `scripts/lib/workspace.mjs` built package dirs with `\`, so devx's
   package-list check (`checkTree`) never matched tsconfig.json or vitest.config.ts. Dirs now always use `/`.
+- Tests: new e2e area `packages/e2e/devx/` (vitest include, tsconfig include, AGENTS.md, milestones README).
+  `workspace.spec.ts` checks every `listPackages()` dir against the root configs' text; `launch.spec.ts` runs devx
+  for real: a tool through its bin entry, a missing tool, a package without the entry. The `windows` job runs the
+  folder next to `context.spec.ts`, so the `/` dir fix and the launcher are both checked on Windows.
 - `docs/milestones/README.md` Windows paths row: names `pnpm devx test`, drops "devx does not run on Windows yet".
 - `SETUP.md` unchanged: it gains no Windows note.
