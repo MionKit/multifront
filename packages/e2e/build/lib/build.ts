@@ -35,7 +35,6 @@ export function exportedScopeId(code: string): string | undefined {
   return /\[\s*["']__scopeId["']\s*,\s*["'](data-v-[0-9a-f]+)["']\s*\]/.exec(code)?.[1];
 }
 
-/** The name of an import attribute or object key, unless it is computed. */
 export function keyName(key: ESTree.ImportAttributeKey | ESTree.PropertyKey): string | undefined {
   if (key.type === 'Identifier') return key.name;
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;

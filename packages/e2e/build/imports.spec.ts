@@ -34,7 +34,6 @@ function rowsOf(file: string): Row[] {
 
 const isTargetRow = (row: Row): row is Extract<Row, {rule: unknown}> => 'rule' in row;
 
-// The sub-project of a file: the folder of the nearest vite.config.ts.
 function projectOf(file: string): string {
   let dir = dirname(join(APP, file));
   while (!readdirSync(dir).includes('vite.config.ts')) dir = dirname(dir);
@@ -92,12 +91,11 @@ function expectNoAttribute(code: string) {
   }
 }
 
-// Fast Refresh makes a React module import itself; that is no `.ucf` import of the block.
+// Fast Refresh makes a React module import itself.
 function ucfImports(code: string, url: string): Reference[] {
   return references(code).filter(({specifier}) => specifier.includes('.ucf') && specifier !== url);
 }
 
-// Each error row points at the rewrite's error, the import itself, or the block check's diagnostic.
 function expectError(err: BuildError | undefined, loc: BuildError['loc'], file: string) {
   expect(err, `${file} did not fail`).toBeDefined();
   const filename = join(APP, file);

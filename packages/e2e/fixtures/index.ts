@@ -19,7 +19,7 @@ export async function copyApp(name: string): Promise<string> {
   return root;
 }
 
-/** The files of a fixture app matching `pattern`, '/' separators, sorted; `expected.ts` and `vite.config.ts` are no importers. */
+/** `expected.ts` and the `vite.config.ts` files are no importers. */
 export function filesOf(app: string, pattern: RegExp): string[] {
   return readdirSync(join(FIXTURES_DIR, 'apps', app), {recursive: true, encoding: 'utf8'})
     .map((path) => path.split(sep).join('/'))
