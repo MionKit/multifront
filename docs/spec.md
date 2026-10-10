@@ -106,6 +106,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - **Scope transform** (oxc or Babel AST, MagicString edits):
   1. Every host JSX element (lowercase tag) gets `data-v-<id>=""`.
   2. Every component JSX element (capitalized / member expression) in this file also gets `data-v-<id>=""`, so the parent scope reaches the child root, matching Vue.
+     Fragments (`<>`, React's `Fragment`) get nothing: React warns on extra Fragment props.
   3. In the default-exported component, every **returned root** JSX element gets `{...__ucfScopeAttrs(props)}`, forwarding incoming `data-v-*` props. Handle multiple returns, conditional (`?:`, `&&`) roots, and unwrap `memo(...)` / `forwardRef(...)`. Fragment roots get no forwarding, plus a dev warning (Vue's multi-root rule).
   4. If the component destructures props in its parameter, rewrite to `(__props)` + `const {...} = __props` so the forward has access to all props.
 - `__ucfScopeAttrs` is a helper of a few lines, served by the Vite plugin as a virtual module, so it is bundled once and shipped components get no runtime dependency.

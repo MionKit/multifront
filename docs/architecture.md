@@ -124,6 +124,8 @@ packages/language-tools/src/blocks/
   svelte.ts
 ```
 
+React-only transforms (the scope transform) live in `packages/core/src/react/`; every React API name they look for is in `reactApis.ts`.
+
 ## Updating the graphics
 
 The images are HTML pages under [assets/src/](assets/src/), styled with the mion website palette in [assets/src/theme.css](assets/src/theme.css): olive for Vue, blue for React, orange for Svelte, purple for styles. Edit a page, then render it to PNG:

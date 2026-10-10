@@ -220,11 +220,13 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: `packages/core/src/react/scope.ts`, called by `react.build` when `ctx.hasScoped`. Inserts only.
   - `packages/core/src/react/reactApis.ts`: the one file that names React APIs (the module `'react'`, `Fragment`, the wrappers `memo` and `forwardRef`). The scope code reads them from there, so a new React version edits this file only.
-  - Every JSX opening element in the block gets ` data-v-<scopeId>=""` right after its name: host elements (lowercase, dashed custom elements, namespaced `svg:x`) and component elements (capitalized or member expression, like `<Foo.Bar>`).
+  - Every JSX opening element in the block gets ` data-v-<scopeId>=""` right after its name and type arguments (`<List<string> data-v-…="">`): host elements (lowercase, dashed custom elements, namespaced `svg:x`) and component elements (capitalized or member expression, like `<Foo.Bar>`).
   - Never on fragments: `<>`, `<Fragment>` and `<X.Fragment>` where `Fragment` or `X` comes from `'react'` (aliases followed through the imports). React warns on extra Fragment props.
-  - Fixtures: `packages/e2e/fixtures/components/react/scope/Stamped.ucf` (hosts, svg, `my-el`, `<Foo.Bar>`, both fragment forms, a `.map()` list, a generic `<T,>` and `a < b` in TSX, a scoped style). `packages/e2e/fixtures/apps/react-scope/` renders it.
+  - Fixtures: `packages/e2e/fixtures/components/react/scope/Stamped.ucf` (hosts, svg, `my-el`, `<Foo.Bar>`, a generic `<List<string>>`, a lookalike `<Ui.Fragment>`, both fragment forms, each named fragment once as a sole child (only there React checks Fragment props on mount), a `.map()` list, a generic `<T,>` and `a < b` in TSX, a scoped style). `packages/e2e/fixtures/apps/react-scope/` renders it. `scope/Namespaced.ucf` holds the `svg:x` elements and is built only: React's JSX transform rejects namespace tags in a Vite build.
 - Deliverable: Vue's "every element in the template carries the scope id", for React.
 - Test: snapshot through `react.build` in `packages/core/test/react/scope.spec.ts`. `packages/e2e/browser/react-scope.spec.ts` (area: browser), dev and preview: every DOM element from the block has `data-v-<id>`, the scoped rules apply (computed styles), and the console has no React warning.
+  - The core spec also runs every scoped react fixture: output parses, only inserts, one stamp per non-fragment opening element, mappings kept.
+- Status: done
 
 ### 3.11 Root forwarding and the helper module
 
@@ -273,7 +275,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: `packages/e2e/build/scope-fuzz.spec.ts` and the generator `packages/e2e/build/lib/scopeFuzz.ts`, written with the fuzzy-testing skill.
   - Seeded with M1's `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS`.
-  - Writes real `.ucf` files to `packages/e2e/.tmp/fuzz/`, made by mutating and recombining the `shapes/` and `scope/` fixtures: wrap the default export in `memo`, `forwardRef` or both; switch function and arrow, block and expression body; destructured, plain or no props; wrap a root in `?:`, `&&` or parentheses; add early returns; swap host and component tags; splice in children from another fixture; add comments, `a < b`, `<T,>`, non-ASCII text and a `"use client"` line; toggle `scoped`.
+  - Writes real `.ucf` files to `packages/e2e/.tmp/fuzz/`, made by mutating and recombining the `shapes/` and `scope/` fixtures (rule 4 never renders `scope/Namespaced.ucf`'s namespace tags: React's JSX transform rejects them in a build): wrap the default export in `memo`, `forwardRef` or both; switch function and arrow, block and expression body; destructured, plain or no props; wrap a root in `?:`, `&&` or parentheses; add early returns; swap host and component tags; splice in children from another fixture; add comments, `a < b`, `<T,>`, non-ASCII text and a `"use client"` line; toggle `scoped`.
   - The generator records what it built (which roots are JSX elements), so the checks never redo the transform.
 - Deliverable: confidence that the transform holds on shapes nobody wrote by hand. Each failure is shrunk and saved as a fixture in `fixtures/components/react/fuzz-found/`, with a snapshot added to 3.11's test.
 - Test: CI runs 300 files with a fixed seed. Before the verdict (3.16), one long run: `MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`, with 10 seeds. Both green.
