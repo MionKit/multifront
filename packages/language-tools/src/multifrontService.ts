@@ -4,7 +4,7 @@ import type {Diagnostic, LanguageServicePlugin} from '@volar/language-server';
 import {URI} from 'vscode-uri';
 import type {UcfVirtualCode} from './types.ts';
 
-/** Our own checks (`checkBlocks`) on the `.ucf` file itself, through its root code. */
+/** Diagnostics on the `.ucf` file itself, not on its embedded codes. */
 export const multifrontService: LanguageServicePlugin = {
   name: 'multifront',
   capabilities: {diagnosticProvider: {interFileDependencies: false, workspaceDiagnostics: false}},

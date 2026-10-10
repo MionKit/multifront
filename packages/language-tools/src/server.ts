@@ -9,7 +9,7 @@ function fileName(uri: URI): string {
   return uri.scheme === 'file' ? uri.fsPath : uri.toString();
 }
 
-// Volar's server keys scripts by URI; the plugin reads file names, as tsserver gives them.
+// Volar's server keys scripts by URI; the plugin reads tsserver-style file names.
 function byUri(plugin: LanguagePlugin<string>): LanguagePlugin<URI> {
   return {
     getLanguageId: (uri) => plugin.getLanguageId(fileName(uri)),
@@ -19,16 +19,13 @@ function byUri(plugin: LanguagePlugin<string>): LanguagePlugin<URI> {
   };
 }
 
-/**
- * The `.ucf` language server: CSS / SCSS in `<style>` and our own diagnostics. No TypeScript: in hybrid mode tsserver,
- * with our TypeScript plugin, serves every TypeScript feature, inside `.ucf` files too. No Vue compiler either: it only
- * types `$style` in the React code, which no service here reads.
- */
+/** No TypeScript: in hybrid mode tsserver, with our TS plugin, serves every TypeScript feature, `.ucf` files too. */
 export function startServer(): void {
   const connection = createConnection();
   const server = createServer(connection);
   connection.listen();
   connection.onInitialize((params) => {
+    // No Vue compiler: it only types `$style` in the React code, which no service here reads.
     const plugin = byUri(createUcfLanguagePlugin());
     return server.initialize(params, createSimpleProject([plugin]), [createCssService(), multifrontService]);
   });

@@ -7,15 +7,15 @@ export interface LanguageServer extends LanguageServerHandle {
   stop(): Promise<void>;
 }
 
-// The bin as installed, so the test starts the server the way another editor does.
+// The installed bin, so the server starts as another editor would start it.
 const SERVER_BIN = join(
   fileURLToPath(new URL('../..', import.meta.url)),
   'node_modules/@multifront/language-tools/bin/multifront-language-server.js'
 );
 
-/** The real `multifront-language-server --stdio` over LSP, from source, with diagnostics pulled as VS Code does. */
+/** Runs from source; pulls diagnostics as VS Code does. */
 export async function startLanguageServer(workspace: string): Promise<LanguageServer> {
-  // test-utils forks with `process.env` and replaces execArgv, so the condition can only come through NODE_OPTIONS.
+  // test-utils forks with `process.env` and replaces execArgv: NODE_OPTIONS is the only way in.
   const nodeOptions = process.env.NODE_OPTIONS;
   process.env.NODE_OPTIONS = `${nodeOptions ?? ''} --conditions=source`.trim();
   let handle: LanguageServerHandle;

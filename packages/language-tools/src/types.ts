@@ -23,7 +23,7 @@ export interface EditorContext extends EditorOptions {
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
 }
 
-/** The root code of a `.ucf` file keeps its split, so a host's services never split the file again. */
+/** Root code of a `.ucf` file; keeps its split so services never split the file again. */
 export interface UcfVirtualCode extends VirtualCode {
   split: SplitResult;
 }
