@@ -1,0 +1,6 @@
+import "<fixtures>/components/scoped-modules/ScopedModuleEdges.ucf?ucf&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/scoped-modules/ScopedModuleEdges.ucf?ucf&type=style&index=0&module&lang.js";
+
+  export default function Fader() {
+    return <div data-v-19bab4eb="" className={`${$style.wrap} ${$style.fade}`} />
+  }
