@@ -96,7 +96,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const resolved = await this.resolve(path, importer, {...resolveOptions, skipSelf: true});
         if (!resolved || resolved.external) return resolved;
         const file = splitId(resolved.id).path;
-        // A dev URL of the Vue id, which keeps the real path: Vite resolves a URL with no importer, or its root `index.html`.
+        // Dev URL of the Vue id (the real path): Vite resolves URLs with no importer or with its root `index.html`.
         if (config!.command === 'serve' && !query.has('framework') && isUrlImporter(importer, config!.root)) return file;
         const from = importer === undefined ? undefined : importerFromId(importer);
         // In dev Vite resolves the file `load` watches from the module itself: the real file, not an import.

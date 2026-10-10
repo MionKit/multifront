@@ -18,7 +18,7 @@ const OTHER_MARKERS = ['all-blocks-vue-marker', 'all-blocks-svelte-marker'];
 
 type BuildError = Error & {errors?: {loc?: unknown}[]};
 
-/** The app's config, or `multifront(options)` with plugin-react when options are given. */
+/** `{}` keeps the app's own `vite.config.ts`. */
 function inline(options?: MultifrontOptions): InlineConfig {
   return options ? {configFile: false, plugins: [react(), multifront(options)]} : {};
 }

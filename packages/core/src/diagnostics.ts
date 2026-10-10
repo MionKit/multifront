@@ -37,7 +37,7 @@ export function styleInsideTarget(
     );
 }
 
-/** A file's errors, thrown by host functions such as `buildTarget`; the message is the first one's. */
+/** A file's errors, thrown by host functions such as `buildTarget`. */
 export class DiagnosticsError extends Error {
   readonly diagnostics: Diagnostic[];
 
