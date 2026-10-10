@@ -1,6 +1,6 @@
-import {copyFile, rm, writeFile} from 'node:fs/promises';
+import {copyFile, readdir, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {basename, join} from 'node:path';
+import {basename, dirname, join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BuildContext, SplitResult, VueCompiler} from '@multifront/core';
@@ -19,6 +19,8 @@ async function buildCss(root: string, entry: string, ctx: BuildContext): Promise
   const {css} = await buildApp(root, {
     configFile: false,
     plugins: [vue({features: {componentIdGenerator: () => ctx.scopeId}})],
+    // Our class names; a composed file has no block index, and every fixture composes from block 0 only.
+    css: {modules: {generateScopedName: (local, file) => `${local}_${ctx.scopeId}_${/[?&]index=(\d+)/.exec(file)?.[1] ?? 0}`}},
     build: {cssMinify: false, rolldownOptions: {input: join(root, entry)}},
   });
   return css.join('');
@@ -36,14 +38,20 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
     const {filename, source} = readComponent(name);
     root = await copyApp('vue-reference');
     await copyFile(filename, join(root, 'src', `${base}.ucf`));
+    // Relative `composes … from` paths need the fixture CSS files beside the copied component.
+    for (const file of await readdir(dirname(filename))) {
+      if (file.endsWith('.css')) await copyFile(join(dirname(filename), file), join(root, 'src', file));
+    }
     split = splitBlocks(source, join(root, 'src', `${base}.ucf`));
     ctx = await createBuildContext(split, {root, compiler, production: true});
 
-    const plain = split.styles.filter((block) => !('module' in block.attrs));
-    const vueSource = ['<template><div /></template>', ...plain.map((block) => source.slice(block.start, block.end))];
+    const vueSource = ['<template><div /></template>', ...split.styles.map((block) => source.slice(block.start, block.end))];
     await writeFile(join(root, 'src', `${base}.vue`), vueSource.join('\n'));
     // Joined as Vite joins the CSS modules of a chunk.
-    await writeFile(join(root, 'src', `${base}.ours.css`), plain.map((block) => styleKind.build!(block, ctx).code).join(''));
+    await writeFile(
+      join(root, 'src', `${base}.ours.css`),
+      split.styles.map((block) => styleKind.build!(block, ctx).code).join('')
+    );
     // Vite drops a scoped block's CSS (cssScopeTo) unless the bundle keeps the component's default export.
     await writeFile(join(root, 'src', 'vue-entry.ts'), `import Component from './${base}.vue';\nconsole.log(Component);\n`);
     await writeFile(join(root, 'src', 'ours-entry.ts'), `import './${base}.ours.css';\n`);
@@ -62,10 +70,9 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
     expect(ctx.styles.flatMap((style) => style.errors)).toEqual([]);
   });
 
-  it('emits the CSS plugin-vue emits for the same non-module blocks', () => {
+  it('emits the CSS plugin-vue and Vite CSS modules emit for the same blocks', () => {
     expect(oursCss).toBe(vueCss);
-    const hasPlain = split.styles.some((block) => !('module' in block.attrs));
-    if (!hasPlain) return expect(vueCss).toBe('');
+    if (split.styles.length === 0) return expect(vueCss).toBe('');
     expect(vueCss.trim()).not.toBe('');
     if (ctx.hasScoped) expect(vueCss).toContain(`[data-v-${ctx.scopeId}]`);
   });
@@ -79,7 +86,8 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
       expect(Object.keys(classes).length).toBeGreaterThan(0);
       for (const [local, generated] of Object.entries(classes)) {
         expect(hasClass(block.content, local)).toBe(true);
-        expect(hasClass(css, generated)).toBe(true);
+        // `composes` appends the composed classes after the local one.
+        for (const className of generated.split(' ')) expect(hasClass(css, className)).toBe(true);
       }
     }
   });

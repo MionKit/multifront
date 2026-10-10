@@ -1,3 +1,5 @@
+import {readFile} from 'node:fs/promises';
+import {dirname, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {decode, encode} from '@jridgewell/sourcemap-codec';
 import {createDiagnostic} from './diagnostics.ts';
@@ -52,7 +54,7 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
       // compiler-sfc asks sass for `indentedSyntax`, which sass's `compileString` ignores.
       preprocessOptions: block.attrs.lang === 'sass' ? {syntax: 'indented'} : undefined,
       modules: module !== undefined,
-      modulesOptions: {generateScopedName: (local: string) => `${local}_${id}_${block.index}`},
+      modulesOptions: modulesOptions(block, scoped, options),
       inMap: blockMap(block, options),
     });
     const errors = result.errors.map((err) => compileError(err, block, options));
@@ -68,6 +70,56 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
     // A missing preprocessor throws before compileStyleAsync can collect it.
     return {...style, code: '', map: undefined, classes: undefined, errors: [compileError(err as Error, block, options)]};
   }
+}
+
+// postcss-modules' loader throws outside its promise on a missing or broken `composes … from` file: this one rejects.
+function modulesOptions(block: Block, scoped: boolean, {id, filename: root, compiler, production}: CompileStylesOptions) {
+  const generateScopedName = (local: string) => `${local}_${id}_${block.index}`;
+  // Shared across every composed file, however deep, so each is compiled and emitted once.
+  const imports = new Map<string, string[]>();
+  const tokens = new Map<string, Promise<Record<string, string>>>();
+  const codes = new Map<string, string>();
+
+  async function compile(filename: string): Promise<Record<string, string>> {
+    const composedOptions = {generateScopedName, Loader: loader(false)};
+    const result = await compiler.compileStyleAsync({
+      filename,
+      id: `data-v-${id}`,
+      isProd: production,
+      scoped,
+      source: await readFile(filename, 'utf8'),
+      modules: true,
+      modulesOptions: composedOptions,
+    });
+    if (result.errors[0]) throw result.errors[0];
+    codes.set(filename, result.code);
+    return result.modules ?? {};
+  }
+
+  // Dependencies before the files that compose from them, in `composes` order, like postcss-modules.
+  function emit(filename: string, done: Set<string>): string {
+    if (done.has(filename)) return '';
+    done.add(filename);
+    return (imports.get(filename) ?? []).map((next) => emit(next, done)).join('') + (codes.get(filename) ?? '');
+  }
+
+  function loader(emits: boolean) {
+    return class ComposesLoader {
+      async fetch(file: string, importer: string): Promise<Record<string, string>> {
+        const filename = resolve(dirname(importer), file);
+        // Recorded before any await: postcss-modules fetches in source order, all at once.
+        imports.set(importer, [...(imports.get(importer) ?? []), filename]);
+        if (!tokens.has(filename)) tokens.set(filename, compile(filename));
+        return tokens.get(filename)!;
+      }
+
+      get finalSource(): string {
+        return emits ? emit(root, new Set()) : '';
+      }
+    };
+  }
+
+  return {generateScopedName, Loader: loader(true)};
 }
 
 // So every map chained after it points into the .ucf file, not the bare block.

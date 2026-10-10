@@ -1,0 +1,16 @@
+<react>
+  export default function Tag({ label }: { label: string }) {
+    return <span className={`${$style.tag} ${$style.chip}`}>{label}</span>
+  }
+</react>
+
+<style module>
+.tag {
+  composes: base from './tag-base.css';
+  color: teal;
+}
+
+.chip {
+  composes: round from './tag-round.css';
+}
+</style>
