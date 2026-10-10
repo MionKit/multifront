@@ -1,0 +1,12 @@
+[
+  {
+    "code": "text-outside-block",
+    "severity": "error",
+    "message": "Text outside a block; move it into a block or an HTML comment",
+    "filename": "invalid/TextOutsideBlock.ucf",
+    "start": 118,
+    "end": 153,
+    "line": 7,
+    "column": 2
+  }
+]

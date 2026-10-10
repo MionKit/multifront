@@ -1,0 +1,12 @@
+[
+  {
+    "code": "duplicate-target",
+    "severity": "error",
+    "message": "<react> appears twice; keep one",
+    "filename": "invalid/DuplicateReact.ucf",
+    "start": 100,
+    "end": 107,
+    "line": 7,
+    "column": 0
+  }
+]
