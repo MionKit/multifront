@@ -104,9 +104,8 @@ describe('react.check', () => {
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
-// By hand from the fixture files: `css` = the <style> indexes, `modules` = injection name → the block it keeps,
-// `tokens` = text in the <react> block at its .ucf line (1-based) and column (0-based, UTF-16),
-// `directives` = the prologue that stays first, `foreign` = text of the other target blocks.
+// Hand-read from the fixtures; `tokens` sit at their .ucf line (1-based) and column (0-based, UTF-16).
+// `modules` maps injection name to the <style> index it keeps; `foreign` is text of the other target blocks.
 const BUILD_CASES: {
   fixture: string;
   css: number[];
@@ -191,7 +190,7 @@ const BUILD_CASES: {
   },
 ];
 
-// An import our build put in: its source is a style or class map id.
+// Style and class map ids both carry `?ucf&type=style&`.
 function isInjected(node: Node): node is ImportDeclaration {
   return node.type === 'ImportDeclaration' && /[?]ucf&type=style&/.test(node.source.value);
 }
