@@ -66,6 +66,7 @@ export type DiagnosticCode =
   | 'missing-target'
   | 'text-outside-block'
   | 'react-no-default-export'
+  | 'react-syntax-error'
   | 'style-inside-target'
   | 'unknown-style-lang'
   | 'duplicate-style-module'

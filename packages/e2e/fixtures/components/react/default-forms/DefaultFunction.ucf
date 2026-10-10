@@ -1,0 +1,5 @@
+<react>
+  export default function DefaultFunction() {
+    return <p>export default function</p>
+  }
+</react>

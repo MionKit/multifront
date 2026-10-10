@@ -1,0 +1,12 @@
+[
+  {
+    "code": "react-no-default-export",
+    "severity": "error",
+    "message": "<react> has no default export; add export default to the component",
+    "filename": "react/errors/NamedOnly.ucf",
+    "start": 0,
+    "end": 7,
+    "line": 1,
+    "column": 0
+  }
+]

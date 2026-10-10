@@ -1,0 +1,12 @@
+[
+  {
+    "code": "react-syntax-error",
+    "severity": "error",
+    "message": "<react> does not parse: Expected corresponding JSX closing tag for 'p'.",
+    "filename": "react/errors/SyntaxError.ucf",
+    "start": 172,
+    "end": 175,
+    "line": 4,
+    "column": 38
+  }
+]

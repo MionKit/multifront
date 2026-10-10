@@ -1,0 +1,11 @@
+<style scoped>
+.plain {
+  color: teal;
+}
+</style>
+
+<react>
+  function NoDefault() {
+    return <p className="plain">No export at all</p>
+  }
+</react>

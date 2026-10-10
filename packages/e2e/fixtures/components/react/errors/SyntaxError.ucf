@@ -1,0 +1,6 @@
+<react>
+  // The emoji is two UTF-16 units, so the error's column after it pins the offset unit.
+  export default function Broken() {
+    return <p title="café 😀">Broken</div>
+  }
+</react>

@@ -1,0 +1,15 @@
+<react>
+  import Card from '../../Card.ucf'
+  import Badge from '../../Badge.ucf' with { framework: 'vue' }
+  import Button from '../../Button.ucf' with { type: 'component', "framework": 'react' }
+  export { default as Panel } from '../../Panel.ucf' with { framework: 'svelte' }
+  export * from '../../Hello.ucf' with { framework: 'vue' }
+
+  const pick = () => 'vue'
+  export const lazyCard = import('../../Card.ucf', { with: { framework: 'vue' } })
+  export const lazyBadge = import(`../../Badge.ucf`, { with: { 'framework': pick() } })
+
+  export default function AttrInBlock() {
+    return <><Card title="Hello" /><Badge label="New" /><Button /></>
+  }
+</react>
