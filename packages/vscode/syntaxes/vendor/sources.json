@@ -1,0 +1,24 @@
+{
+  "vue": {
+    "repo": "https://github.com/vuejs/language-tools",
+    "commit": "85f665e9397b028c48d3ddd6ecd9a46e3fadeb94",
+    "license": "MIT",
+    "files": {
+      "LICENSE": "LICENSE",
+      "vue.tmLanguage.json": "extensions/vscode/syntaxes/vue.tmLanguage.json",
+      "vue-directives.json": "extensions/vscode/syntaxes/vue-directives.json",
+      "vue-interpolations.json": "extensions/vscode/syntaxes/vue-interpolations.json",
+      "vue-sfc-style-variable-injection.json": "extensions/vscode/syntaxes/vue-sfc-style-variable-injection.json"
+    }
+  },
+  "svelte": {
+    "repo": "https://github.com/sveltejs/language-tools",
+    "commit": "af7c6a505a8aa631f5ca7794f41163e46cb0bc33",
+    "license": "MIT",
+    "files": {
+      "LICENSE": "LICENSE",
+      "svelte.tmLanguage.json": "packages/svelte-vscode/syntaxes/svelte.tmLanguage.src.yaml"
+    },
+    "converted": "npx js-yaml@3.14.1 svelte.tmLanguage.src.yaml > svelte.tmLanguage.json (upstream's build:grammar script)"
+  }
+}

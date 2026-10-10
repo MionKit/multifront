@@ -1,0 +1,8 @@
+{
+  // Check only: the extension is bundled at pack time, never built by tsc.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "*.config.ts"]
+}
