@@ -32,12 +32,21 @@
   "dependencies": {
     "@multifront/core": "workspace:*",
     "@volar/language-core": "2.4.28",
-    "@volar/typescript": "2.4.28"
+    "@volar/typescript": "2.4.28",
+    "postcss": "8.5.28",
+    "postcss-selector-parser": "7.1.6"
   },
   "peerDependencies": {
+    "@vue/compiler-sfc": "^3.5.0",
     "typescript": "^6.0.0"
   },
+  "peerDependenciesMeta": {
+    "@vue/compiler-sfc": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@vue/compiler-sfc": "3.5.42",
     "typescript": "6.0.3"
   }
 }

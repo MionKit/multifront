@@ -1,4 +1,4 @@
-import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile} from '@multifront/core';
+import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile, VueCompiler} from '@multifront/core';
 import type {CodeMapping} from '@volar/language-core';
 
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
@@ -13,17 +13,23 @@ export interface EditorFile extends VirtualFile {
   mappings: CodeMapping[]; // Volar offsets with feature flags; `map` stays undefined
 }
 
+export interface EditorOptions {
+  compiler?: VueCompiler; // without it, only plain CSS modules are read
+}
+
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */
 export interface EditorContext {
   split: SplitResult;
+  compiler: VueCompiler | undefined;
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
 }
 
 export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
-  classes: StyleClass[];
+  classes: StyleClass[] | undefined; // undefined: the block could not be read
 }
 
+/** One key the build's CSS module exports: a class, a `@keyframes` name or a `@value` name. */
 export interface StyleClass {
   name: string;
-  offset?: number; // offset of `.name` in the .ucf file, when written there
+  offset?: number; // offset of the name in the .ucf file (`card` in `.card`), when written there
 }
