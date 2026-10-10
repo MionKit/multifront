@@ -8,7 +8,7 @@ import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
 import {createEditorContext, editorFiles} from './context.ts';
 import {ALL_FEATURES} from './mappings.ts';
-import type {EditorOptions} from './types.ts';
+import type {EditorOptions, UcfVirtualCode} from './types.ts';
 
 const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.tsx': 'typescriptreact',
@@ -27,9 +27,10 @@ function codeId(block: Block): string {
   return isTarget(block.type) ? block.type : `${block.type}_${block.index}`;
 }
 
-function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: EditorOptions): VirtualCode {
+function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: EditorOptions): UcfVirtualCode {
   const source = snapshot.getText(0, snapshot.getLength());
-  const ctx = createEditorContext(splitBlocks(source, fileName), options);
+  const split = splitBlocks(source, fileName);
+  const ctx = createEditorContext(split, options);
   const embeddedCodes: VirtualCode[] = editorFiles(ctx).map(({block, file: {code, ext, mappings}}) => ({
     id: codeId(block),
     languageId: LANGUAGE_ID_BY_EXT[ext],
@@ -37,7 +38,7 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
     mappings,
   }));
   const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_FEATURES}];
-  return {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes};
+  return {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
 }
 
 /** The Volar language plugin for `.ucf` files: a root code per file, one embedded code per block a service reads. */

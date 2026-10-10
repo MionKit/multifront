@@ -19,9 +19,18 @@
       "source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./server": {
+      "source": "./src/server.ts",
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
     }
   },
+  "bin": {
+    "multifront-language-server": "./bin/multifront-language-server.js"
+  },
   "files": [
+    "bin",
     "dist",
     "!dist/**/*.tsbuildinfo"
   ],
@@ -32,9 +41,13 @@
   "dependencies": {
     "@multifront/core": "workspace:*",
     "@volar/language-core": "2.4.28",
+    "@volar/language-server": "2.4.28",
+    "@volar/language-service": "2.4.28",
     "@volar/typescript": "2.4.28",
     "postcss": "8.5.28",
-    "postcss-selector-parser": "7.1.6"
+    "postcss-selector-parser": "7.1.6",
+    "volar-service-css": "0.0.71",
+    "vscode-uri": "3.2.0"
   },
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.0",
