@@ -1,5 +1,17 @@
-import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile, VueCompiler} from '@multifront/core';
+import type {
+  Block,
+  BlockTag,
+  DiagnosticCode,
+  ResolveTargetOptions,
+  SplitResult,
+  StyleModule,
+  Target,
+  TargetRule,
+  VirtualFile,
+  VueCompiler,
+} from '@multifront/core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
+import type * as ts from 'typescript';
 
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
 export interface EditorBlockKind {
@@ -36,4 +48,21 @@ export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
 export interface StyleClass {
   name: string;
   offset?: number; // offset of the name in the .ucf file (`card` in `.card`), when written there
+}
+
+/** The `typescript` module a host hands us; CommonJS typings of it carry no `default`. */
+export type TypeScript = Omit<typeof ts, 'default'>;
+
+/** What `resolveUcfImport` needs from its program: the tsserver plugin, or a `tsc` host. */
+export interface UcfImportOptions extends ResolveTargetOptions {
+  compilerOptions: ts.CompilerOptions;
+  host: ts.ModuleResolutionHost;
+  getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one
+}
+
+export interface UcfResolution {
+  resolvedModule: ts.ResolvedModuleFull | undefined; // the .ucf file itself, served as its target's script
+  target?: Target;
+  rule?: TargetRule;
+  error?: {code: DiagnosticCode; message: string}; // reported at the import
 }
