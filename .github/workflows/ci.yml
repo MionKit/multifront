@@ -53,7 +53,7 @@ jobs:
       - run: pnpm devx format --check
       - run: pnpm devx lint
       - name: Test
-        run: pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts
+        run: pnpm devx test --reporter verbose packages/core/test/context.spec.ts packages/e2e/devx/
 
   commitlint:
     if: github.event_name == 'pull_request'

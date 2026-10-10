@@ -35,6 +35,7 @@ The e2e tests live in one private workspace package, `packages/e2e` (never publi
 | Browser | `packages/e2e/browser/` | Playwright against the built or served apps: rendering, styles, HMR, hydration, visual parity across targets. |
 | Editor | `packages/e2e/editor/` | The real language server over LSP, the real tsserver with our TypeScript plugin, `mf-tsc`, `mf-lint`, `mf-fmt` on the fixtures. |
 | Consumer | `packages/e2e/consumer/` | The library build packed into tarballs, installed into fresh real apps (Next.js App Router, Vite React, Vite Vue, SvelteKit), built and rendered. |
+| Devx | `packages/e2e/devx/` | The repo's dev CLI (`scripts/devx.mjs`) and its helpers on the real repo files, also on Windows. |
 
 ## Test infrastructure
 
@@ -43,7 +44,7 @@ Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only b
 | Area | First needed | What the step adds |
 | --- | --- | --- |
 | Build | M1 | nothing: real `vite.build()` runs inside `pnpm devx test` |
-| Windows paths | M1 (1.9) | a `windows-latest` job, LF checkout (`core.autocrlf false`), running `packages/core/test/context.spec.ts` with `pnpm devx test`; a later Windows-only behaviour adds its test file to that job |
+| Windows paths | M1 (1.9) | a `windows-latest` job, LF checkout (`core.autocrlf false`), running `packages/core/test/context.spec.ts` and `packages/e2e/devx/` with `pnpm devx test`; a later Windows-only behaviour adds its test file to that job |
 | Fuzz | M1 (1.5) | the `MULTIFRONT_FUZZ_SEED` / `MULTIFRONT_FUZZ_RUNS` knobs, a fixed seed in CI, the seed printed on failure; later a hand-run soak workflow that takes a seed |
 | Editor: tsserver, LSP, vsix | M2 | nothing: child processes and `pnpm devx vsix` inside the test |
 | Editor: real VS Code | M2 (2.11) | `xvfb-run` on Linux, a cached `.vscode-test/` download |
