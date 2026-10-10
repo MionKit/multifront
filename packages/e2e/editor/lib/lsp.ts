@@ -15,7 +15,7 @@ const SERVER_BIN = join(
 
 interface LanguageServerOptions {
   server?: string; // a bundled server file, run as is; default: the bin, from source
-  initializationOptions?: object;
+  initializationOptions?: {typescript: {tsdk: string}};
 }
 
 /** Pulls diagnostics as VS Code does. */
