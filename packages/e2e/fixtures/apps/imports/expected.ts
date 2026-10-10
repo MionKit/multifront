@@ -8,7 +8,7 @@ type ExpectedImport = {
   file: string; // from this folder, '/' separators
   specifier: string;
   line: number; // 1-based, in the whole file
-  options: ResolveTargetOptions; // the plugin entry of the nearest tsconfig.json
+  options: ResolveTargetOptions; // the plugin entry of the nearest tsconfig.json, and its vite.config.ts options
 } & ({expect: Target; rule: TargetRule} | {expect: TargetErrorCode | RewriteErrorCode});
 
 const CARD = '../../../components/Card.ucf';
@@ -57,6 +57,9 @@ export const EXPECTED_IMPORTS: ExpectedImport[] = [
   {file: 'no-default/dynamic.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
   {file: 'no-default/importer.tsx', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'importer'},
   {file: 'no-default/importer.jsx', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'importer'},
+  {file: 'no-default/plain.js', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
+  {file: 'no-default/importer.mts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'vue', rule: 'importer'},
+  {file: 'no-default/ssr-entry.tsx', specifier: CARD, line: 2, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
   {file: 'no-default/non-literal.ts', specifier: CARD, line: 2, options: NO_DEFAULT, expect: 'framework-attribute-not-literal'},
   {file: 'no-default/unknown.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'unknown-framework'},
   {file: 'custom-importers/widget.ts', specifier: CARD, line: 1, options: CUSTOM, expect: 'svelte', rule: 'importer'},

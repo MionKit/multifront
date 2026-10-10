@@ -1,19 +1,17 @@
-import {existsSync, readdirSync, readFileSync} from 'node:fs';
-import {dirname, join, sep} from 'node:path';
+import {existsSync, readFileSync} from 'node:fs';
+import {dirname, join} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {TARGETS, importerFromId, resolveTarget} from '@multifront/core';
 import type {ResolveTargetOptions, Target} from '@multifront/core';
 // Relative paths, not a package dependency: @multifront/e2e depends on core.
 import {EXPECTED_IMPORTS} from '../../../e2e/fixtures/apps/imports/expected.ts';
-import {FIXTURES_DIR, componentPath} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, filesOf} from '../../../e2e/fixtures/index.ts';
 import {readImports, scriptName, scriptsOf} from './readImports.ts';
 
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
 
-const APP_FILES = readdirSync(APP, {recursive: true, encoding: 'utf8'})
-  .map((path) => path.split(sep).join('/'))
-  .filter((file) => /\.(ts|tsx|jsx|vue|svelte|ucf)$/.test(file) && file !== 'expected.ts');
+const APP_FILES = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|ucf)$/);
 
 // Written by hand.
 const MESSAGES: Record<string, string> = {

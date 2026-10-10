@@ -1,0 +1,13 @@
+{
+  "code": "import {renderToString} from 'react-dom/server';\nimport Card from '../../../components/Card.ucf?framework=react';\n\nexport function render(): string {\n  return renderToString(<Card title=\"Hello\" />);\n}\n",
+  "imports": [
+    {
+      "kind": "static",
+      "specifier": "../../../components/Card.ucf",
+      "start": 66,
+      "end": 96,
+      "framework": "react"
+    }
+  ],
+  "errors": []
+}
