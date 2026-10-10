@@ -15,7 +15,7 @@ function fail(code: TargetErrorCode, message: string): TargetChoice {
   return {error: {code, message}};
 }
 
-/** The framework a `.ucf` import gets (spec 4.1, 4.2): the first rule that applies wins. The caller adds the position. */
+/** First rule that applies wins (spec 4.1, 4.2). The caller adds the position. */
 export function resolveTarget(
   importer: Importer,
   attribute: string | undefined,

@@ -63,7 +63,7 @@ function staticAttribute(attributes: ImportAttribute[]): string | undefined {
   return attributes.find((attr) => keyName(attr.key) === 'framework')?.value.value;
 }
 
-/** Every import of a `.ucf` path in a real file: static, `export ... from` and `import()` with a literal. */
+/** Only `.ucf` imports; an `import()` counts only with a string literal. */
 export function readImports(fileName: string): FoundImport[] {
   const source = readFileSync(fileName, 'utf8');
   const found: FoundImport[] = [];

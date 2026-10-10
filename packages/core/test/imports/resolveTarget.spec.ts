@@ -11,12 +11,11 @@ import {readImports} from './readImports.ts';
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
 
-// Every importer of the app, from APP with '/' separators.
 const APP_FILES = readdirSync(APP, {recursive: true, encoding: 'utf8'})
   .map((path) => path.split(sep).join('/'))
   .filter((file) => /\.(ts|tsx|jsx|vue|svelte|ucf)$/.test(file) && file !== 'expected.ts');
 
-// Written by hand, keyed by `file:line`.
+// Written by hand.
 const MESSAGES: Record<string, string> = {
   'src/bad.ts:1': 'unknown framework "angular"; use vue, react or svelte',
   'src/BlockAttribute.ucf:2': 'a framework attribute cannot sit inside the <react> block; imports there always get react',
