@@ -82,7 +82,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 ### 3.3 Style pipeline
 
 - Each `<style>` is compiled once per file with `compileStyleAsync({ id, scoped, modules, preprocessLang, filename, source })`.
-- **Scope id:** a hash of the file path relative to the package root plus content (same scheme as plugin-vue), emitted as `data-v-<hash>`. It must be deterministic across builds and machines for SSR hydration.
+- **Scope id:** a hash of the file path relative to the Vite root plus content (same scheme as plugin-vue), emitted as `data-v-<hash>`. It must be deterministic across builds and machines for SSR hydration.
 - The resulting CSS is served as a virtual module (`Card.ucf?ucf&type=style&index=0&lang.css`) so Vite handles CSS, HMR and extraction.
 - The CSS-module class map is served as a virtual JS module and imported as `$style` by non-Vue targets.
 

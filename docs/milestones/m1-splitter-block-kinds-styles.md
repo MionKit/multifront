@@ -212,6 +212,7 @@ None: this is the first milestone. It builds on what the repo already has:
 - Test: area **Build**, `packages/e2e/build/scope-id.spec.ts`, against the real plugin-vue with no `componentIdGenerator` set:
   - production: a real `vite.build()` of `fixtures/apps/vue-reference`; the `data-v-` value in the output equals `scopeId('src/Reference.vue', <file source>, true)`;
   - development: a real `createServer()` of the same app and `server.transformRequest('/src/Reference.vue')`; the `data-v-` value equals `scopeId('src/Reference.vue', <file source>, false)`.
+- Status: done
 
 ### 1.8 `compileStyles` through `compileStyleAsync`
 
