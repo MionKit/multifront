@@ -5,12 +5,12 @@ import {REPO_ROOT} from './env.mjs';
 import {listPackages} from './workspace.mjs';
 
 // Per framework: its peers in packages/vite/package.json, and each types package with the peer whose floor it takes.
-export const FLOOR_PEERS = {
+const FLOOR_PEERS = {
   react: {peers: ['react', 'react-dom', '@vitejs/plugin-react'], types: {'@types/react': 'react', '@types/react-dom': 'react-dom'}},
 };
 
 export function floorOverrides(framework) {
-  const row = FLOOR_PEERS[framework];
+  const row = Object.hasOwn(FLOOR_PEERS, framework ?? '') ? FLOOR_PEERS[framework] : undefined;
   if (!row) throw new Error(`peer-floor knows ${Object.keys(FLOOR_PEERS).join(', ')}; got ${framework ?? 'nothing'}`);
   const {peerDependencies = {}} = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'vite', 'package.json'), 'utf8'));
   const overrides = {};
@@ -20,7 +20,7 @@ export function floorOverrides(framework) {
 }
 
 // Only single-comparator ranges: their lowest version is the one they name.
-function lowestVersion(name, range) {
+export function lowestVersion(name, range) {
   const version = /^(?:\^|~|>=)?(\d+\.\d+\.\d+)$/.exec(range?.trim() ?? '')?.[1];
   if (!version) throw new Error(`peer-floor cannot read the lowest version of ${name} ${range ?? '(no peer range)'}`);
   return version;

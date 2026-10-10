@@ -126,14 +126,16 @@ const handlers = {
   },
   'peer-floor'([framework]) {
     if (!process.env.CI) throw new CliError(`${CLI}: peer-floor rewrites pnpm-workspace.yaml and the lockfile, so it runs only in CI (CI set), on a throwaway checkout`);
+    const workspace = join(REPO_ROOT, 'pnpm-workspace.yaml');
     let overrides;
+    let written;
     try {
       overrides = floorOverrides(framework);
+      written = withOverrides(readFileSync(workspace, 'utf8'), overrides);
     } catch (error) {
       throw new CliError(`${CLI}: ${error.message}`);
     }
-    const workspace = join(REPO_ROOT, 'pnpm-workspace.yaml');
-    writeFileSync(workspace, withOverrides(readFileSync(workspace, 'utf8'), overrides));
+    writeFileSync(workspace, written);
     // pnpm is not a package in node_modules: CI puts it on PATH.
     const install = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], {stdio: 'inherit', cwd: REPO_ROOT});
     if (install.error) throw new CliError(`${CLI}: failed to launch pnpm: ${install.error.message}`);
