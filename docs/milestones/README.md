@@ -38,11 +38,12 @@ The e2e tests live in one private workspace package, `packages/e2e` (never publi
 
 ## Test infrastructure
 
-Today CI is one `check` job (`pnpm devx check`) plus commitlint. Most areas need more before their tests can run there. **The step whose test first needs a piece builds it**, in the same PR, and its plan says so. A test is never skipped because the infra is missing.
+Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only behaviour) and commitlint. Most areas need more before their tests can run there. **The step whose test first needs a piece builds it**, in the same PR, and its plan says so. A test is never skipped because the infra is missing.
 
 | Area | First needed | What the step adds |
 | --- | --- | --- |
 | Build | M1 | nothing: real `vite.build()` runs inside `pnpm devx test` |
+| Windows paths | M1 (1.9) | a `windows-latest` job, LF checkout (`core.autocrlf false`), running `packages/core/test/context.spec.ts` with `pnpm exec vitest` (devx does not run on Windows yet); a later Windows-only behaviour adds its test file to that job |
 | Fuzz | M1 (1.5) | the `MULTIFRONT_FUZZ_SEED` / `MULTIFRONT_FUZZ_RUNS` knobs, a fixed seed in CI, the seed printed on failure; later a hand-run soak workflow that takes a seed |
 | Editor: tsserver, LSP, vsix | M2 | nothing: child processes and `pnpm devx vsix` inside the test |
 | Editor: real VS Code | M2 (2.11) | `xvfb-run` on Linux, a cached `.vscode-test/` download |

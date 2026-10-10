@@ -72,7 +72,8 @@ Facts this plan rests on (current `main`):
 ## Tests
 
 All run on this host and in CI's `check` job (`pnpm devx test`, step "Test"); they need only `@vue/compiler-sfc`
-(core devDependency) and `sass` (root), both already installed. No new infra.
+(core devDependency) and `sass` (root), both already installed. `context.spec.ts` also runs in the new `windows`
+CI job (see below), the only place the `/` join can fail.
 
 - **`packages/core/test/context.spec.ts`** (new), real `@vue/compiler-sfc` through `createRequire`, fixtures through
   `../../e2e/fixtures/index.ts` (relative path, as `styles.spec.ts` does), `root` = the fixtures folder, so
@@ -94,8 +95,12 @@ All run on this host and in CI's `check` job (`pnpm devx test`, step "Test"); th
     `ctx.styles[0].errors`, `ctx.modules.$style.classes` is `{}`, `build` gives `code: ''`, `map: undefined`;
   - `invalid/DuplicateStyleModule.ucf`: `ctx.modules.$style.index === 4`, the last duplicate (last block wins).
 - Each test fails without the step (no `createBuildContext`, `classMapId`, `fillContext` or `build`).
-- The `/` join in `relativePath` is a no-op on POSIX, and CI runs only Linux: no test covers it. It stays, because
-  plugin-vue normalizes the same way (`normalizePath`) and scope ids must match on Windows.
+- **`.github/workflows/ci.yml`, new `windows` job** (`windows-latest`): `git config --global core.autocrlf false`
+  before checkout (fixtures keep LF), `pnpm install --frozen-lockfile`, then
+  `pnpm exec vitest run --project core --reporter verbose packages/core/test/context.spec.ts`. The `/` join in
+  `relativePath` is a no-op on POSIX; on Windows `relative()` gives `components\Card.ucf`, so the
+  `ctx.relativePath === 'components/<Name>.ucf'` assertion fails there without the join. `pnpm exec`, not
+  `pnpm devx test`: devx spawns `node_modules/.bin` shims without a shell, which Windows cannot run.
 
 ## Docs
 
@@ -126,11 +131,14 @@ None: the step names no fuzz test (orchestrator decision).
 
 - Review: `classMapId` was pinned on a made-up path, checked against itself per fixture; now pinned on `Card.ucf`'s
   real `ctx.modules.$style.id`. A registry shape test (which kinds have `fillContext` / `build`) was dropped: no real
-  file, and `context.spec.ts` covers the style kind. The base test no longer claims to check `/` separators.
+  file, and `context.spec.ts` covers the style kind.
+- Review: the `/` join in `relativePath` had no test that fails without it (CI ran only Linux). Built the `windows`
+  CI job above (orchestrator decision: missing test infra is built in the same PR).
 - Review, declined: dropping `filename`, `source`, `relativePath` or `StyleModule.name` from the context, and
   replacing the `fillContext` hook with a direct call. The step gives these exact shapes, and M3, M4 and M6 read them
   (`ctx.source`, `ctx.split`, the shared-kind loop of the registry design in `docs/architecture.md`).
-- Review, declined: a Windows CI job to cover the `/` join. A new OS for the whole repo is outside this step.
+- `pnpm devx` does not run on Windows (`spawnSync` of a `.bin` shim with no shell). Unrelated to this step's
+  behaviour: filed as a guidelines chore todo in this PR.
 
 ## Decisions
 
@@ -139,6 +147,7 @@ None: the step names no fuzz test (orchestrator decision).
 - A module block that does not compile keeps its `ctx.modules` entry with `classes: {}` (orchestrator).
 - Duplicate module name: last block wins, as plugin-vue does (orchestrator).
 - No fuzz test (orchestrator).
+- The `/` join is tested by a new `windows` CI job running `context.spec.ts` (orchestrator).
 
 ## Done when
 
