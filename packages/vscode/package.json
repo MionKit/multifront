@@ -5,10 +5,86 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MionKit/multifront.git",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
   "exports": {
     "./grammar": {
       "source": "./src/grammar.ts"
     }
+  },
+  "files": [
+    "dist/syntaxes",
+    "syntaxes/vendor/*/LICENSE",
+    "syntaxes/vendor/sources.json",
+    "icons",
+    "language-configuration.json",
+    "LICENSE"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ucf",
+        "aliases": ["UCF", "ucf"],
+        "extensions": [".ucf"],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/ucf.svg",
+          "dark": "./icons/ucf.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ucf",
+        "scopeName": "source.ucf",
+        "path": "./dist/syntaxes/source.ucf.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.style": "css",
+          "meta.embedded.block.style.scss": "scss",
+          "meta.embedded.block.style.sass": "sass",
+          "meta.embedded.block.style.less": "less",
+          "meta.embedded.block.style.stylus": "stylus",
+          "meta.embedded.block.style.postcss": "postcss",
+          "meta.embedded.block.vue": "vue",
+          "meta.embedded.block.react": "typescriptreact",
+          "meta.embedded.block.svelte": "svelte"
+        }
+      },
+      {
+        "scopeName": "source.ucf.vue",
+        "path": "./dist/syntaxes/source.ucf.vue.tmLanguage.json"
+      },
+      {
+        "scopeName": "source.ucf.vue.vue.directives",
+        "path": "./dist/syntaxes/source.ucf.vue.vue.directives.tmLanguage.json",
+        "injectTo": ["source.ucf"]
+      },
+      {
+        "scopeName": "source.ucf.vue.vue.interpolations",
+        "path": "./dist/syntaxes/source.ucf.vue.vue.interpolations.tmLanguage.json",
+        "injectTo": ["source.ucf"]
+      },
+      {
+        "scopeName": "source.ucf.vue.vue.sfc.script.leading-operator-fix",
+        "path": "./dist/syntaxes/source.ucf.vue.vue.sfc.script.leading-operator-fix.tmLanguage.json",
+        "injectTo": ["source.ucf"]
+      },
+      {
+        "scopeName": "source.ucf.vue.vue.sfc.style.variable.injection",
+        "path": "./dist/syntaxes/source.ucf.vue.vue.sfc.style.variable.injection.tmLanguage.json",
+        "injectTo": ["source.ucf"]
+      },
+      {
+        "scopeName": "source.ucf.svelte",
+        "path": "./dist/syntaxes/source.ucf.svelte.tmLanguage.json"
+      }
+    ]
   },
   "dependencies": {
     "@multifront/core": "workspace:*"
