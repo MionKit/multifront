@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.10
@@ -59,15 +59,18 @@ Root forwarding (3.11) and destructured props (3.12) are not part of this step.
   `import {Fragment, Fragment as Frag} from 'react'`, `import * as React from 'react'`,
   `const identity = <T,>(value: T) => value`, `const less = count < limit`,
   `const Foo = {Bar: …}` (root `<b className="member">`), lookalike `const Ui = {Fragment: …}`
-  (root `<em className="lookalike">`), a generic component element (`<List<string> …>`), and
+  (root `<em className="lookalike">`), a generic `function List<Item>` used as `<List<string> items={ITEMS} />`, and
   `export default function Stamped()` with a `<>` root holding `<div className="box">`, `<p className="text">`,
-  `<svg className="icon"><circle className="dot" …/><svg:x /></svg>`, `<my-el class="custom">`, `<Foo.Bar>`,
-  `<Ui.Fragment>`, `<ul>{ITEMS.map((item) => <Fragment key={item}><li className="item">…</li></Fragment>)}</ul>`,
-  `<Frag><span>…</span></Frag>`, `<React.Fragment><span>…</span></React.Fragment>`.
-  One `<style scoped>` with a rule (distinct rgb color / fill) per `.box`, `.dot`, `my-el`, `.item`, `.member`,
-  `.lookalike`.
-  - Oxc's JSX transform logs a Vite build warning on namespace tags ("Namespace tags are not supported by default")
-    but compiles them; inside `<svg>` React creates the element with no console warning.
+  `<svg className="icon"><circle className="dot" …/></svg>`, `<my-el class="custom">`, `<Foo.Bar>`, `<Ui.Fragment>`,
+  `<List<string> …>`, `<ul>{ITEMS.map((item) => <Fragment key={item}><li className="item">…</li></Fragment>)}</ul>`,
+  and `<p><Fragment>…</Fragment></p>`, `<p><Frag>…</Frag></p>`, `<p><React.Fragment>…</React.Fragment></p>`.
+  - Each named fragment is a sole child once: react-dom 19 checks Fragment props on mount only for a single child
+    (and a keyed or unkeyed top-level fragment), never for array children. Siblings would hide a stamped Fragment.
+  - One `<style scoped>` with a rule (distinct rgb color / fill) per `.box`, `.dot`, `my-el`, `.item`, `.member`,
+    `.lookalike`, `.list`.
+- `packages/e2e/fixtures/components/react/scope/Namespaced.ucf`: `<svg>` with two `<svg:x>` (self-closing and not)
+  and a scoped style. Built only, by the core spec: React's JSX transform (Oxc) rejects namespace tags in a Vite build
+  ("Namespace tags are not supported by default"; a dev transform only warns).
 - `packages/e2e/fixtures/apps/react-scope/`, the `react-basic` layout: `index.html` (empty icon, so no favicon 404),
   `src/main.tsx` rendering `<Stamped />` in `StrictMode` into `#app`, `vite.config.ts` with `react()` and
   `multifront()`. 3.11 adds `Parent.ucf` here.
@@ -81,7 +84,7 @@ Root forwarding (3.11) and destructured props (3.12) are not part of this step.
 ## Tests
 
 - **`packages/core/test/react/scope.spec.ts`** (core project; this host, CI `check` and `react-floor`).
-  Cases: `react/scope/Stamped.ucf` and the existing scoped react fixtures `Badge.ucf`, `Button.ucf`, `Panel.ucf`,
+  Cases: `react/scope/Stamped.ucf`, `react/scope/Namespaced.ucf` and the existing scoped react fixtures `Badge.ucf`, `Button.ucf`, `Panel.ucf`,
   `ComposesScoped.ucf`, `ScopedModuleScss.ucf`, `TsxEdges.ucf` (`<T,>`, `a<b && c>d`, a `<>` root);
   `react/AllBlocks.ucf` as the unscoped control. Each through `splitBlocks` → `createBuildContext({root: FIXTURES_DIR,
   production: false})` → the registry's `react.build`. Checks:
@@ -98,19 +101,22 @@ Root forwarding (3.11) and destructured props (3.12) are not part of this step.
   `buildAndPreview`. Expected id = core's `scopeId(relative(appRoot, Stamped.ucf), source, production)`, not read back
   from the DOM.
   - Every element under `#app` has `data-v-<id>` as its only `data-v-*` attribute, the count equals a hand-written
-    number; `#app` itself has none.
-  - Scoped rules apply (computed styles): `.box`, `.item` color, `.dot` fill (svg), `my-el` color, `.member` and
-    `.lookalike` color.
+    number (19); `#app` itself has none.
+  - Scoped rules apply (computed styles): `.box`, `.item`, `.list` color, `.dot` fill (svg), `my-el` color, `.member`
+    and `.lookalike` color.
   - After `networkidle`, no `warning`, `error` or `pageerror` console entry (a stamped Fragment trips React's dev
-    warning). Negative control by hand during the build, not committed: stamping fragments fails the dev run.
+    warning). Negative control run by hand, not committed: with fragments stamped, the dev run fails on three
+    ``Invalid prop `data-v-…` supplied to `React.Fragment` `` errors.
 
 ## Docs
 
-- `docs/spec.md` 3.5, item 2: "Fragments (`<>`, React's `Fragment`) get nothing: React warns on extra Fragment props."
+- `docs/spec.md` 3.5, under item 2: "Fragments (`<>`, React's `Fragment`) get nothing: React warns on extra Fragment props."
 - `docs/architecture.md`, "Where the code lives": one line, React transforms in `packages/core/src/react/`, every React
   API name in `reactApis.ts`. Graphics unchanged.
 - `docs/plan.md`: none (no decision changes).
-- Milestone doc: step 3.10's Build line says "right after its name and type arguments"; `- Status: done`.
+- Milestone doc, step 3.10: "right after its name and type arguments", the fixture list (sole-child fragments,
+  `Namespaced.ucf` built only), the core spec's sweep over every scoped react fixture, `- Status: done`.
+  Step 3.13: its render rule never renders `scope/Namespaced.ucf`'s namespace tags.
 - Public docs: none (the milestone's docs writer).
 
 ## Fuzzing
@@ -128,6 +134,9 @@ run here over every real scoped react fixture.
 - `WRAPPERS` (`memo`, `forwardRef`) goes in `reactApis.ts` now: the step's Build line names them there.
 - The stamp goes after the type arguments (`<List<string> data-v-…="">`): "right after its name" would break generic
   elements. The step's Build line now says "right after its name and type arguments".
+- Found while building, decided here (automatic mode): `<svg:x>` fails a Vite build with plugin-react, so it moved
+  from `Stamped.ucf` (rendered) into `scope/Namespaced.ucf` (core build only). Smallest change that keeps namespaced
+  names covered without changing plugin-react options in a fixture.
 
 ## Done when
 
