@@ -1,0 +1,7 @@
+
+  import Badge from '../Badge.ucf'
+  import Card from '../Card.ucf'
+
+  export default function Profile() {
+    return <section><Card title="Ada" /><Badge label="Admin" /></section>
+  }
