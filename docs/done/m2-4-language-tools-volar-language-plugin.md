@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.4
@@ -24,7 +24,11 @@ repo's `tsconfig.base.json` in a scratch folder):
   `path-browserify`, no peers.
 - **The `typescript` field of `LanguagePlugin`** is a module augmentation in `@volar/typescript` (`lib/common.d.ts`):
   a type-only import from `@volar/typescript` (`TypeScriptServiceScript`) switches it on. `skipLibCheck` hides its
-  augmentation of the absent `@volar/language-service`.
+  augmentation of the absent `@volar/language-service`. The emitted `.d.ts` keeps only the `@volar/language-core`
+  import, so a consumer of `dist/` lost the field (`TS2339` on `.typescript`, checked against the built package):
+  `languagePlugin.ts` carries `/// <reference types="@volar/typescript" preserve="true" />`, which tsc keeps (a
+  type-only `import type {} from` is dropped). oxlint's `typescript/triple-slash-reference` is turned off for that one
+  line only.
 - **No runtime TypeScript needed.** `scriptKind: 4 satisfies ts.ScriptKind.TSX` and `7 satisfies ts.ScriptKind.Deferred`
   typecheck against `import type * as ts from 'typescript'`, and a wrong number fails (`TS1360`), the same pattern as
   Vue's language-core. So `createUcfLanguagePlugin()` takes no `ts`, and in 2.4 the package imports nothing from Volar
@@ -77,6 +81,8 @@ repo's `tsconfig.base.json` in a scratch folder):
      `mappings`. Root code: `id: 'root'`, `languageId: 'ucf'`, the incoming snapshot, one 1:1 mapping over the whole
      source with `ALL_FEATURES` (2.6's `multifront` service reports on the root document), and `embeddedCodes`.
    - `typescript.extraFileExtensions`: `[{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}]`.
+   - `/// <reference types="@volar/typescript" preserve="true" />` at the top, so the built types keep the
+     `typescript` field (Problem).
    - `typescript.getServiceScript(root)`: the `react` code as `{code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX}`,
      `undefined` with no `<react>` (spike 1, answer 3: no extra service scripts).
 6. **`src/index.ts`**: exports `createUcfLanguagePlugin`, `EDITOR_BLOCK_KINDS` and the five types.
@@ -108,8 +114,8 @@ Runs the real `createUcfLanguagePlugin().createVirtualCode(filename, 'ucf', ts.S
   keeps them apart from 2.5's `Card.ucf.react.tsx` types snapshot.
 - **Halves check**: `EDITOR_BLOCK_KINDS.map(tag)` equals `BLOCK_KINDS.map(tag)`.
 
-Each check confirmed to fail without its behaviour (a `style_<n>` id off by one, a mapping shifted by one, a dropped
-shared-first loop, a missing row).
+Each check confirmed to fail without its behaviour (a `style_<n>` id off by one, a mapping shifted by one, the style row
+moved last, a missing row, no `scss` code).
 
 ## Docs
 
@@ -119,7 +125,8 @@ shared-first loop, a missing row).
   2.9. No m3 to m7 doc names `createUcfLanguagePlugin`.
 - `docs/architecture.md` "Block kinds" code block: `EditorFile`. "Where the code lives": the language-tools style row
   reads `editor`.
-- `docs/plan.md` "Packages": `@multifront/language-tools` "When" becomes `exists`.
+- `docs/plan.md` "Packages": `@multifront/language-tools` "When" becomes `exists`, and `packages/vscode` too (it has
+  existed since 2.2).
 - Root `README.md` packages table: one row. `docs/spec.md`, `SETUP.md`: none (no new command or behaviour).
   `publicdocs/`: the milestone's docs writer.
 

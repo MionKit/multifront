@@ -49,6 +49,10 @@ interface VirtualFile {
   code: string;
   map: SourceMap | undefined; // back to the block in the .ucf file
 }
+
+interface EditorFile extends VirtualFile {
+  mappings: CodeMapping[]; // Volar mappings with per-span feature flags; map stays undefined
+}
 ```
 
 - **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. `createBuildContext()` in core calls each shared kind's `fillContext`, in registry order. The chosen target reads `ctx`.
@@ -113,7 +117,7 @@ packages/core/src/blocks/
   svelte.ts
 packages/language-tools/src/blocks/
   index.ts          the same tags, editor halves
-  style.ts          types · editor
+  style.ts          editor
   react.ts
   vue.ts
   svelte.ts
