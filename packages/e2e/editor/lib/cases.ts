@@ -1,4 +1,5 @@
 import {checkBlocks, splitBlocks} from '@multifront/core';
+import {TSSERVER_CODES} from '@multifront/language-tools';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
@@ -96,7 +97,8 @@ async function multifrontDiagnostics(server: LanguageServer, document: Document)
 
 function expectedDiagnostics(document: Document, name: string) {
   const {filename, source} = readComponent(name);
-  const expected = checkBlocks(splitBlocks(source, filename)).map(({code, severity, message, start, end}) => ({
+  const ours = checkBlocks(splitBlocks(source, filename)).filter(({code}) => !TSSERVER_CODES.has(code));
+  const expected = ours.map(({code, severity, message, start, end}) => ({
     code,
     severity: SEVERITY[severity],
     message,
@@ -146,7 +148,7 @@ export function languageServerCases(getServer: () => LanguageServer): void {
     });
   });
 
-  describe('the language server reports checkBlocks on the .ucf file', () => {
+  describe('the language server reports checkBlocks on the .ucf file, minus the codes tsserver reports', () => {
     it.each(listComponents('invalid'))('%s', async (name) => {
       const document = await getServer().openTextDocument(componentPath(name), 'ucf');
       expect(await multifrontDiagnostics(getServer(), document)).toEqual(expectedDiagnostics(document, name));
