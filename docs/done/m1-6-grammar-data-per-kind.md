@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.6
@@ -72,6 +72,8 @@ no new CI piece. Uses the real `splitBlocks`, `BLOCK_KINDS`, `getBlockKind` from
   picked `scopeName`, and no non-whitespace text is left at the root scope alone (no plain-text fallback).
 - **Negative control (permanent)**: `Panel.ucf`'s `lang = scss` block through `source.css` instead of its pick leaves
   text at the root scope (`$`, `}`): the plain-text check catches a wrong pick.
+- Checked while building: the old `source.vue` fails the first two tests, and a `byLang` key typo (`scsss`) fails the
+  `Panel.ucf` case and the negative control.
 
 ## Fuzzing
 

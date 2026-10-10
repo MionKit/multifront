@@ -199,10 +199,11 @@ None: this is the first milestone. It builds on what the repo already has:
     }
     ```
 
-  - Values: `style` → `source.css` / `css`, with `byLang` `scss` → `source.css.scss` / `scss`, `sass` → `source.sass` / `sass`, `less` → `source.css.less` / `less`, `styl` and `stylus` → `source.stylus` / `stylus`, `postcss` → `source.css.postcss` / `postcss`. `react` → `source.tsx` / `typescriptreact`. `vue` → `source.vue` / `vue`. `svelte` → `source.svelte` / `svelte`.
-  - Root devDependency `shiki`, exact-pinned (it ships real TextMate grammars for every one of these languages).
+  - Values: `style` → `source.css` / `css`, with `byLang` `scss` → `source.css.scss` / `scss`, `sass` → `source.sass` / `sass`, `less` → `source.css.less` / `less`, `styl` and `stylus` → `source.stylus` / `stylus`, `postcss` → `source.css.postcss` / `postcss`. `react` → `source.tsx` / `typescriptreact`. `vue` → `text.html.vue` / `vue` (the official Vue extension's name). `svelte` → `source.svelte` / `svelte`.
+  - Root devDependency `shiki` 4.4.3, exact-pinned (it ships real TextMate grammars for every one of these languages).
 - Deliverable: the registry holds everything milestone 2 needs to generate the `.ucf` TextMate grammar.
-- Test: area **Editor**, `packages/e2e/editor/grammar-scopes.spec.ts`. Loads shiki's bundled grammars. Checks every `scopeName` in `BLOCK_KINDS` (and in each `byLang`) is the `scopeName` of a real grammar. Then, for every block of every valid fixture, tokenizes `block.content` with the grammar picked by its kind and `lang`, and checks it tokenizes with no fallback to plain text. A typo in a scope name fails it.
+- Test: area **Editor**, `packages/e2e/editor/grammar-scopes.spec.ts`. Loads shiki's bundled grammars. Checks every `scopeName` in `BLOCK_KINDS` (and in each `byLang`) is the `scopeName` of a real grammar. Then, for every block of every valid fixture, tokenizes `block.content` with the grammar picked by its kind and `lang`, and checks it tokenizes with no fallback to plain text: every token's root scope is the picked one, and no non-whitespace text sits at the root scope alone. A negative control (the `lang = scss` block of `Panel.ucf` through `source.css`) proves the plain-text check catches a wrong pick. A typo in a scope name fails it.
+- Status: done
 
 ### 1.7 `scopeId` with the plugin-vue scheme
 
@@ -348,7 +349,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
-| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki`, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |
+| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki` 4.4.3, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |
 | Commands | `pnpm devx test` runs the `e2e` project; one area: `pnpm devx test packages/e2e/build` | everyone |
 
 ## Exit test
