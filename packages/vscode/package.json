@@ -1,0 +1,16 @@
+{
+  "name": "multifront-vscode",
+  "version": "0.0.0",
+  "description": "VS Code extension for multifront component files: the .ucf grammar, generated from the block registry.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./grammar": {
+      "source": "./src/grammar.ts"
+    }
+  },
+  "dependencies": {
+    "@multifront/core": "workspace:*"
+  }
+}

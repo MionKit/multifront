@@ -5,7 +5,12 @@ export default defineConfig({
   resolve: {conditions: ['source']},
   ssr: {resolve: {conditions: ['source']}},
   test: {
-    projects: ['packages/core/vitest.config.ts', 'packages/e2e/vitest.config.ts', 'packages/vite/vitest.config.ts'],
+    projects: [
+      'packages/core/vitest.config.ts',
+      'packages/e2e/vitest.config.ts',
+      'packages/vite/vitest.config.ts',
+      'packages/vscode/vitest.config.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
