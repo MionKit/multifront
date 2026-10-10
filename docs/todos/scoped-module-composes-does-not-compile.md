@@ -39,3 +39,23 @@ scopes it, then Vite's CSS modules run on the result, and composed files come ou
 
 - A scoped module block with `composes` compiles, and its CSS equals plugin-vue + Vite's in the style-parity test.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: two passes for a scoped module block (approved 2026-10-10)
+
+- Reproduced on `@vue/compiler-sfc` 3.5.42. `doCompileStyle` always pushes `scopedPlugin` before `postcssModules`:
+  the order is not configurable.
+- plugin-vue + Vite: Vite's CSS step runs CSS modules on the raw block (composed files inlined), then plugin-vue's
+  scoped step runs over that whole output.
+- `compileStyle` in `packages/core/src/styles.ts`: a `scoped` + `module` block takes two `compileStyleAsync` calls.
+  Pass 1 = modules, preprocessing and `inMap`, no `scoped`. Pass 2 = `scoped` only, over pass 1's code and map.
+  Class map from pass 1. Any other block keeps its one pass.
+- `modulesOptions` drops its `scoped` parameter: composed files compile unscoped, pass 2 scopes them with the rest.
+- Every scoped module block takes two passes, not only one using `composes`: it is the order plugin-vue + Vite run.
+- New valid fixture `ComposesScoped.ucf`: one `<style module scoped>` block at index 0, composing a local class,
+  `./tag-base.css` and `./tag-round.css` (which composes `./tag-base.css`). A new file, not a second block in
+  `ComposesFrom.ucf`: the style-parity test names composed classes as if they come from block 0.
+- Tests: style-parity picks the fixture up; core `styles.spec.ts` gets `STYLE_BLOCKS` + `COMPOSED` rows and a CSS
+  snapshot; `split.spec.ts` and `context.spec.ts` get their rows; new split and editor snapshots committed.
+- Docs: m1 step 1.8's "one `compileStyleAsync` call per block" bullet and `docs/plan.md` section 1's
+  `compileStyles` line say a scoped module block takes two passes.
+- No fuzzing: a fix.
