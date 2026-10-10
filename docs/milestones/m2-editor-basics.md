@@ -86,7 +86,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 ### 2.4 `@multifront/language-tools` and the Volar language plugin
 
 - Build:
-  - New package `packages/language-tools`, `@multifront/language-tools`. Exports `.` (with the `source` condition); `./server` comes with its code in 2.6, `./typescript-plugin` in 2.9. Exact-pinned dependencies: `@multifront/core` (`workspace:*`), `@volar/language-core` and `@volar/typescript` 2.4.28. Peer: `typescript` `^6.0.0`. Joins the root `vitest.config.ts` projects and the root `tsconfig.json` references. `@multifront/e2e` gets it as `workspace:*`.
+  - New package `packages/language-tools`, `@multifront/language-tools`. Exports `.` (with the `source` condition); `./server` comes with its code in 2.6, `./typescript-plugin` in 2.9. Exact-pinned dependencies: `@multifront/core` (`workspace:*`), `@volar/language-core` and `@volar/typescript` 2.4.28. Peer: `typescript` `^6.0.0`. Joins the root `vitest.config.ts` projects and the root `tsconfig.json` references. `@multifront/e2e` gets it as `workspace:*`. Root devDependency `@volar/language-core` 2.4.28 (exact pin), so the test runs Volar's own registry.
   - `src/blocks/index.ts`: the editor half of the registry, `EDITOR_BLOCK_KINDS`, same tags in the same order as `BLOCK_KINDS`. Types in `src/types.ts`:
 
     ```ts
@@ -111,11 +111,13 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
   - `src/blocks/react.ts`: `editor()` returns the block as one `.tsx` code, mapped 1:1.
   - `src/languagePlugin.ts`: `createUcfLanguagePlugin()` returns a Volar `LanguagePlugin`. `getLanguageId` is `ucf` for `.ucf`. `createVirtualCode` splits once with `splitBlocks`, loops `EDITOR_BLOCK_KINDS` (shared rows first, so they fill `ctx`), and returns a root code with embedded codes `react` (`typescriptreact`) and `style_0`, `style_1`, ... (`css` or `scss`). A target row reads its first block only, as the build does; a shared row every block of its tag. `typescript.extraFileExtensions` has `ucf`. The TypeScript script is the `react` code, returned by `getServiceScript` as the `.ucf` file's main service script: Volar's tsserver plugin does not serve `getExtraServiceScripts` (spike 1, answer 3). No parameter yet: the first step that needs an option adds it.
 - Deliverable: a Volar language plugin that turns a `.ucf` file into mapped TSX and CSS / SCSS codes.
-- Test: area **Editor**, `packages/e2e/editor/virtualCode.spec.ts`. Runs the real `createUcfLanguagePlugin().createVirtualCode()` on every name in `listComponents()`, `listComponents('langs')` and every invalid fixture. Checks:
+- Test: area **Editor**, `packages/e2e/editor/virtualCode.spec.ts`. Loads `createUcfLanguagePlugin()` into Volar's real `createLanguage()` and sets every name in `listComponents()`, `listComponents('langs')`, `listComponents('editor')` and every invalid fixture. Checks:
   - each embedded code against a readable file snapshot (`toMatchFileSnapshot('__snapshots__/virtualCode/Card.ucf.react.tsx')`);
   - every mapping is exact: for every segment, the source slice equals the generated slice;
   - invalid fixtures still give codes for the blocks `splitBlocks` kept (for example `invalid/DuplicateReact.ucf` keeps its `<style>` code);
-  - the halves check: `BLOCK_KINDS` and `EDITOR_BLOCK_KINDS` list the same tags in the same order. It fails if a tag has only one half.
+  - the halves check: `BLOCK_KINDS` and `EDITOR_BLOCK_KINDS` list the same tags in the same order. It fails if a tag has only one half;
+  - a `.ts` file gets no code;
+  - `packages/e2e/editor/builtTypes.spec.ts`: after the real `tsc --build` of the package, a consumer without the `source` condition (`fixtures/apps/language-tools-dist/`) typechecks against `dist/` and sees the plugin's `typescript` field.
 - Status: done
 
 ### 2.5 Typed `$style` and the `Card.ucf.react.tsx` types script
@@ -226,7 +228,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 - **`generateGrammar(kinds): GrammarFile[]`** (`multifront-vscode/grammar`; root `source.ucf` first, then the copies served as `source.ucf.vue`, `source.ucf.svelte`, `source.ucf.vue.vue.*`; content scopes `meta.embedded.block.<tag>` and `meta.embedded.block.style.<languageId>`), the vendored grammars in `packages/vscode/syntaxes/vendor/`, and **`pnpm devx vsix`** (grammar, bundle, `.vsix`). Every later row gets highlighting from its `grammar` field. **M7** adds the Marketplace fields and publishing to the same command.
 - **Editor test helpers** in `packages/e2e/editor/lib/`: `tokenizeUcf(path, grammars)` and `hasScope(token, scope)`, `startLanguageServer(workspace)`, `startTsserver({cwd, plugins})`, and the VS Code harness in `packages/e2e/editor/vscode/`. **M4**, **M5**, **M6** and **M7** add their cases with them.
 - **Fixtures**: `packages/e2e/fixtures/components/editor/` with `GrammarEdges.ucf` (every file there must stay splitter-valid: the 2.2 grammar test reads them all), `Profile.ucf`, `ImportErrors.ucf`, `TypeError.ucf`; `packages/e2e/fixtures/components/imports/VueOnly.ucf` (the shared imports folder M3, M4 and M6 add to).
-- **Root devDependencies** (exact pins): `vscode-textmate` 9.3.2, `vscode-oniguruma` 2.0.1, `@volar/test-utils`, `@vscode/vsce`, `@vscode/test-electron`, `react`, `@types/react`.
+- **Root devDependencies** (exact pins): `vscode-textmate` 9.3.2, `vscode-oniguruma` 2.0.1, `@volar/language-core` 2.4.28, `@volar/test-utils`, `@vscode/vsce`, `@vscode/test-electron`, `react`, `@types/react`.
 
 ## Exit test
 

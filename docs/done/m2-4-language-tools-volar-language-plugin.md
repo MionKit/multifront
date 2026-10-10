@@ -25,7 +25,7 @@ repo's `tsconfig.base.json` in a scratch folder):
 - **The `typescript` field of `LanguagePlugin`** is a module augmentation in `@volar/typescript` (`lib/common.d.ts`):
   a type-only import from `@volar/typescript` (`TypeScriptServiceScript`) switches it on. `skipLibCheck` hides its
   augmentation of the absent `@volar/language-service`. The emitted `.d.ts` keeps only the `@volar/language-core`
-  import, so a consumer of `dist/` lost the field (`TS2339` on `.typescript`, checked against the built package):
+  import, so a consumer of `dist/` lost the field (`TS2339` on `.typescript`; the built-types test pins it):
   `languagePlugin.ts` carries `/// <reference types="@volar/typescript" preserve="true" />`, which tsc keeps (a
   type-only `import type {} from` is dropped). oxlint's `typescript/triple-slash-reference` is turned off for that one
   line only.
@@ -55,7 +55,7 @@ repo's `tsconfig.base.json` in a scratch folder):
      `"@multifront/language-tools": "workspace:*"`. `pnpm-lock.yaml` updated by `pnpm install`.
 2. **`src/types.ts`**: `EditorBlockKind`, `EditorFile` (`extends VirtualFile`, `mappings: CodeMapping[]`, `map` stays
    `undefined`), `EditorContext` (`{split, modules: Record<string, EditorStyleModule>}`), `EditorStyleModule`
-   (`{name, index, classes: StyleClass[]}`), `StyleClass` (`{name, offset?}`): the shapes of the step text. Nothing fills
+   (`Pick<StyleModule, 'name' | 'index'>` from core, plus `classes: StyleClass[]`), `StyleClass` (`{name, offset?}`): the shapes of the step text. Nothing fills
    `modules` in 2.4; 2.5 does.
 3. **`src/mappings.ts`**: `ALL_FEATURES: CodeInformation` (verification, completion, semantic, navigation, structure,
    format all `true`) and `contentMapping(block): CodeMapping`
@@ -73,7 +73,7 @@ repo's `tsconfig.base.json` in a scratch folder):
    - `getLanguageId(fileName)`: `'ucf'` for `.ucf`, else `undefined`.
    - `createVirtualCode(fileName, languageId, snapshot)`: `undefined` unless `ucf`. Splits once with
      `splitBlocks(source, fileName)`, `ctx = {split, modules: {}}`, loops `EDITOR_BLOCK_KINDS` in registry order (shared
-     rows first). A row's blocks follow core's `getBlockKind(tag).role`: `shared` gets every block of its tag, `target`
+     rows first). A row's blocks follow core's `isTarget(tag)`: a shared row gets every block of its tag, a target row
      gets `split.targets[tag]` only (the first, as the build takes). Each returned file becomes an embedded
      `VirtualCode`: `id` = the tag for a target (`react`), `<tag>_<block.index>` for a shared block (`style_0`, ...);
      `languageId` from `ext` (a total `Record<VirtualFile['ext'], string>`: `.tsx` → `typescriptreact`, `.css` → `css`,
@@ -87,35 +87,47 @@ repo's `tsconfig.base.json` in a scratch folder):
      `undefined` with no `<react>` (spike 1, answer 3: no extra service scripts).
 6. **`src/index.ts`**: exports `createUcfLanguagePlugin`, `EDITOR_BLOCK_KINDS` and the five types.
 7. **Repo config**: `packages/e2e/tsconfig.json` gets `"exclude": ["**/__snapshots__"]`; `.oxlintrc.json`
-   `ignorePatterns` gets `"**/__snapshots__/**"`.
+   `ignorePatterns` gets `"**/__snapshots__/**"`. Root devDependency `@volar/language-core` `2.4.28` (exact pin), so
+   the test runs the plugin through Volar's own registry.
 
 ## Tests
 
-`packages/e2e/editor/virtualCode.spec.ts`, area Editor, vitest project `e2e`. Runs on this host and in CI's `check` job
-(`pnpm devx test`); needs only Node and the pnpm install. No new infra (milestones README: "Editor: tsserver, LSP,
-vsix | nothing").
+Two files, area Editor, vitest project `e2e`. Both run on this host and in CI's `check` job (`pnpm devx test`); they
+need only Node and the pnpm install. No new infra (milestones README: "Editor: tsserver, LSP, vsix | nothing").
 
-Runs the real `createUcfLanguagePlugin().createVirtualCode(filename, 'ucf', ts.ScriptSnapshot.fromString(source), ...)`
-(real `typescript` snapshot) on every name in `listComponents()`, `listComponents('invalid')` and
-`listComponents('langs')` (`langs/` pins "no code for `sass` and `postcss`"). Per file:
+`packages/e2e/editor/virtualCode.spec.ts` loads `createUcfLanguagePlugin()` into Volar's real
+`createLanguage([plugin], new Map(), () => {})` and sets each file with `language.scripts.set(filename,
+ts.ScriptSnapshot.fromString(source))` (real `typescript` snapshot), so Volar picks the language, builds the codes and
+keeps them by id. Every name in `listComponents()`, `listComponents('invalid')`, `listComponents('langs')` (no code
+for `sass` and `postcss`) and `listComponents('editor')` (`GrammarEdges.ucf`: `lang` on a later line, `lang='less'`,
+`title="a lang=scss b"` gives `.css`). Per file:
 
-- `getLanguageId(filename)` is `'ucf'`; the root code is `root` / `ucf` and its text equals the source.
+- the script's language is `ucf`; the root code is `root` / `ucf`, its text equals the source, and its one mapping
+  covers the whole source with every feature on.
 - **The kept blocks**: the embedded ids equal the list built from the real `splitBlocks`: `style_<i>` for each style
   with no `lang`, `css` or `scss`, then `react` when `split.targets.react` exists; each with its `languageId`. Covers
   `invalid/DuplicateReact.ucf` (`style_0` and the first `react`), `invalid/UnknownStyleLang.ucf` (react only),
-  `invalid/StylesOnly.ucf` (no react).
+  `invalid/StylesOnly.ucf` (no react). Volar's `generated.embeddedCodes` holds `root` and those ids.
 - **Exact mappings**: for every code, root included, and every segment, the source slice equals the generated slice.
-- **Whole block, all features**: each embedded code's mappings cover its block's `[contentStart, contentEnd)` with every
-  feature on (2.5's extra unmapped `$style` lines keep this true).
+- **Whole block, all features**: through Volar's mapper (`language.maps.get(code, script).toGeneratedLocation`), every
+  offset of the block's `[contentStart, contentEnd)` maps to the same character, and every mapping has every feature on
+  (2.5's extra unmapped `$style` lines keep this true).
 - **Service script**: `getServiceScript(root)` is the `react` code with `.tsx` and `ScriptKind.TSX`, or `undefined`
   with no react; `extraFileExtensions` has `ucf`.
 - **Snapshots**: each embedded code's text, `toMatchFileSnapshot('__snapshots__/virtualCode/<name>.<id><ext>')`
   (`virtualCode/Card.ucf.react.tsx`, `virtualCode/invalid/DuplicateReact.ucf.style_0.css`). The `virtualCode/` folder
   keeps them apart from 2.5's `Card.ucf.react.tsx` types snapshot.
 - **Halves check**: `EDITOR_BLOCK_KINDS.map(tag)` equals `BLOCK_KINDS.map(tag)`.
+- **Not a `.ucf` file**: `getLanguageId` is `undefined` for the real `fixtures/apps/vue-reference/src/main.ts`, and
+  `language.scripts.set(it, ..., 'typescript')` gets no generated code.
+
+`packages/e2e/editor/builtTypes.spec.ts` runs the real `tsc --build packages/language-tools/tsconfig.build.json`, then
+`tsc -p` on the new fixture `packages/e2e/fixtures/apps/language-tools-dist/` (no `source` condition, so the import
+resolves to `dist/*.d.ts`), which reads `createUcfLanguagePlugin().typescript!.extraFileExtensions`. Both exit 0 with no
+output.
 
 Each check confirmed to fail without its behaviour (a `style_<n>` id off by one, a mapping shifted by one, the style row
-moved last, a missing row, no `scss` code).
+moved last, a missing row, no `scss` code, no `languageId` check, a root mapping of length 0, no `reference` line).
 
 ## Docs
 
@@ -146,6 +158,8 @@ pins. Worth it once mappings stop being 1:1 (2.5 `$style`, M4 Vue codes).
 - Subpaths: only `.` in 2.4; `./server` moves to 2.6, `./typescript-plugin` and its folder to 2.9 (orchestrator).
 - `createUcfLanguagePlugin()` takes no parameter; the first step that needs an option adds it (orchestrator).
 - No fuzz test in 2.4: the milestone puts none in this step (orchestrator).
+- Review: dropping `modules`, `EditorStyleModule`, `StyleClass`, `types?`, `ctx`, the type exports and the snapshots
+  was declined: the 2.4 step text sets those names, shapes and file snapshots as its floor and hands them to 2.5 and M7.
 
 ## Done when
 
