@@ -28,7 +28,8 @@ const REACT_FLOOR = {
 // The react-floor CI job has already added its overrides to the working copy.
 const COMMITTED_WORKSPACE = spawnSync('git', ['show', 'HEAD:pnpm-workspace.yaml'], {cwd: REPO_ROOT, encoding: 'utf8'}).stdout;
 
-const {CI: _ci, ...LOCAL_ENV} = process.env;
+const LOCAL_ENV = {...process.env};
+delete LOCAL_ENV.CI;
 
 function devx(env: NodeJS.ProcessEnv, ...args: string[]) {
   return spawnSync(process.execPath, [join(REPO_ROOT, 'scripts', 'devx.mjs'), ...args], {encoding: 'utf8', env});
