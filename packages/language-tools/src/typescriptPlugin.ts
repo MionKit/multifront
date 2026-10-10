@@ -1,3 +1,5 @@
+import {loadVueCompiler} from '@multifront/core';
+import type {DiagnosticCode, Target, VueCompiler} from '@multifront/core';
 import {createLanguageServicePlugin} from '@volar/typescript/lib/quickstart/createLanguageServicePlugin.js';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
@@ -26,22 +28,46 @@ interface ImportError {
 
 function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ImportError[] {
   const errors: ImportError[] = [];
-  for (const literal of ucfLiterals(ts, sourceFile)) {
-    const {error} = resolveUcfImport(ts, literal, sourceFile.fileName, options);
-    if (!error) continue;
+  const report = (literal: ts.StringLiteralLike, code: DiagnosticCode, message: string, warning = false): void => {
     const diagnostic: ts.Diagnostic = {
       file: sourceFile,
       start: literal.getStart(sourceFile),
       length: literal.getWidth(sourceFile),
-      category: ts.DiagnosticCategory.Error,
+      category: warning ? ts.DiagnosticCategory.Warning : ts.DiagnosticCategory.Error,
       // Our string code, as the language server reports it; tsserver passes it on as is.
-      code: error.code as unknown as number,
+      code: code as unknown as number,
       source: 'multifront',
-      messageText: error.message,
+      messageText: message,
     };
     errors.push({diagnostic, node: literal.parent});
+  };
+  const targets = new Map<string, Target>(); // specifier → the first framework it was imported as
+  for (const literal of ucfLiterals(ts, sourceFile)) {
+    const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options);
+    if (error) report(literal, error.code, error.message);
+    if (!target) continue;
+    const first = targets.get(literal.text);
+    if (!first) targets.set(literal.text, target);
+    else if (first !== target) {
+      // TypeScript keeps one resolution per (specifier, mode): the last import's wins for all (spike 1, answer 2).
+      const message =
+        `${literal.text} is imported as ${first} and as ${target} in this file; TypeScript keeps one resolution per ` +
+        `specifier, so every import of it here gets the last one's types. Import each framework from its own small ` +
+        `re-export file`;
+      report(literal, 'mixed-frameworks', message, true);
+    }
   }
   return errors;
+}
+
+/** Without `@vue/compiler-sfc` in the project (a React-only app), `$style` reads plain CSS modules only. */
+function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefined {
+  try {
+    return loadVueCompiler(info.project.getCurrentDirectory());
+  } catch (err) {
+    info.project.projectService.logger.info(`${(err as Error).message}; $style reads plain CSS modules only`);
+    return undefined;
+  }
 }
 
 /** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
@@ -83,7 +109,7 @@ export default createLanguageServicePlugin((ts, info) => {
   };
 
   return {
-    languagePlugins: [createUcfLanguagePlugin()],
+    languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info)})],
     setup(language) {
       getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
       // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.

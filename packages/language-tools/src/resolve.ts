@@ -1,6 +1,6 @@
 import {basename, dirname, isAbsolute, relative, sep} from 'node:path';
 import {isTarget, resolveTarget} from '@multifront/core';
-import type {Importer, ResolveTargetOptions, Target} from '@multifront/core';
+import type {Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
@@ -8,6 +8,13 @@ import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
 const PLUGIN_NAME = '@multifront/language-tools/typescript-plugin';
 // TypeScript looks for `Card.d.ucf.ts` when `./Card.ucf` has no TS extension; it stands for the `.ucf` file.
 const UCF_DECLARATION = '.d.ucf.ts';
+
+const RULE_REASON: Record<TargetRule, string> = {
+  block: 'the block it sits in',
+  attribute: 'its framework attribute',
+  importer: "the importer's extension",
+  default: 'the default framework',
+};
 
 function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
   for (const property of object.properties) {
@@ -34,6 +41,12 @@ function frameworkAttribute(ts: TypeScript, literal: ts.StringLiteralLike): stri
   return value && ts.isStringLiteralLike(value) ? value.text : undefined;
 }
 
+/** `fileName` as the importer would write it: relative, with `./` or `../`. */
+function importPath(containingFile: string, fileName: string): string {
+  const path = relative(dirname(containingFile), fileName).split(sep).join('/');
+  return isAbsolute(path) || /^\.\.?\//.test(path) ? path : `./${path}`;
+}
+
 function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
   return {
     ...host,
@@ -54,24 +67,26 @@ export function resolveUcfImport(
   if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
   const choice = resolveTarget(importer, frameworkAttribute(ts, literal), options);
   if ('error' in choice) return {resolvedModule: undefined, error: choice.error};
-  const {target} = choice;
+  const {target, rule} = choice;
   // No shared cache: the same specifier gets another answer from another importer.
   const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, ucfHost(options.host));
-  if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule};
+  if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule, target};
   const fileName = resolvedModule.resolvedFileName.slice(0, -UCF_DECLARATION.length) + '.ucf';
+  const path = importPath(containingFile, fileName);
   const split = options.getSplit(fileName);
   let error: UcfResolution['error'];
   if (split && !split.targets[target]) {
-    let path = relative(dirname(containingFile), fileName).split(sep).join('/');
-    if (!isAbsolute(path) && !/^\.\.?\//.test(path)) path = `./${path}`;
     const message = `${path} has no <${target}> block; ${basename(containingFile)} imports it as ${target}`;
     error = {code: 'missing-target-block', message};
   }
   // tsserver serves only the main target's script; vue and svelte get theirs in M4 and M6.
-  if (target !== MAIN_SCRIPT_TARGET) return {resolvedModule: undefined, error};
+  if (target !== MAIN_SCRIPT_TARGET) {
+    const message = `${path} is imported as ${target} (by ${RULE_REASON[rule]}); multifront has no ${target} types yet`;
+    return {resolvedModule: undefined, target, error: error ?? {code: 'target-not-built', message}};
+  }
   // Resolved even without the block, so adding it in an unsaved edit needs no new resolution.
   const {isExternalLibraryImport} = resolvedModule;
-  return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, error};
+  return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};
 }
 
 /** `framework` and `importers` of our entry in `compilerOptions.plugins`. */
