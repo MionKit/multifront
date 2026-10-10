@@ -44,5 +44,7 @@ Delegated session, automatic mode: the delegation stood in for plan approval.
   `pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts`.
   That job is the end-to-end test: devx launching oxfmt, oxlint, tsc and vitest on `windows-latest`.
   No Vitest spec for `scripts/`: one would run on Linux only and prove what the `check` job already proves.
+- Found by the new Windows lint step: `scripts/lib/workspace.mjs` built package dirs with `\`, so devx's
+  package-list check (`checkTree`) never matched tsconfig.json or vitest.config.ts. Dirs now always use `/`.
 - `docs/milestones/README.md` Windows paths row: names `pnpm devx test`, drops "devx does not run on Windows yet".
 - `SETUP.md` unchanged: it gains no Windows note.
