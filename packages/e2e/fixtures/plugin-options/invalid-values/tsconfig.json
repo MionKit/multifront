@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "plugins": [
-      {"name": "@multifront/language-tools/typescript-plugin", "framework": "angular", "importers": {".ts": "vue", ".tsx": 1}}
+      {
+        "name": "@multifront/language-tools/typescript-plugin",
+        "frameworks": ["react", "angular", 1],
+        "framework": "angular",
+        "importers": {".ts": "vue", ".tsx": 1}
+      }
     ]
   }
 }

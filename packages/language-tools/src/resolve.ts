@@ -96,11 +96,15 @@ export function resolveUcfImport(
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};
 }
 
-/** `framework` and `importers` of our entry in `compilerOptions.plugins`. */
+/** `frameworks`, `framework` and `importers` of our entry in `compilerOptions.plugins`. */
 export function entryOptions(compilerOptions: ts.CompilerOptions): ResolveTargetOptions {
-  const plugins = (compilerOptions.plugins ?? []) as (ts.PluginImport & {framework?: unknown; importers?: unknown})[];
+  type Entry = ts.PluginImport & {frameworks?: unknown; framework?: unknown; importers?: unknown};
+  const plugins = (compilerOptions.plugins ?? []) as Entry[];
   const entry = plugins.find(({name}) => name === PLUGIN_NAME);
   const options: ResolveTargetOptions = {};
+  if (Array.isArray(entry?.frameworks)) {
+    options.frameworks = entry.frameworks.filter((value): value is Target => typeof value === 'string' && isTarget(value));
+  }
   if (typeof entry?.framework === 'string' && isTarget(entry.framework)) options.framework = entry.framework;
   if (entry?.importers && typeof entry.importers === 'object') {
     const importers: Record<string, Target> = {};
