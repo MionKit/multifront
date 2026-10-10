@@ -106,12 +106,11 @@ describe('compileStyles on valid fixtures', () => {
   });
 });
 
-// Written by hand from the fixture files. `rule` is the text of the error's line, `text` the text it spans:
-// a point inside the block, or the opening tag when the error has no place in the block.
+// Written by hand from the fixtures. `rule` is the error's whole line, `text` its span (opening tag when unplaced).
 const ERROR_CASES = [
   {fixture: 'invalid/ScssSyntaxError.ucf', line: 10, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
   {fixture: 'invalid/CssSyntaxError.ucf', line: 8, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
-  // The error sits in the imported _broken-partial.scss, so its offsets say nothing about the block.
+  // Error is in the imported _broken-partial.scss: its offsets say nothing about the block.
   {
     fixture: 'invalid/ScssPartialError.ucf',
     line: 7,
