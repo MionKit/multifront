@@ -289,3 +289,19 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 - The Vite side of `resolveTarget()` and the attribute rewrite (M3); `.d.ts` build output (M5).
 - Publishing to the VS Code Marketplace and Open VSX (M7).
 - Testing other editors (WebStorm, Neovim). The subpaths and the bin are ready for them.
+
+## Manual QA
+
+Run from the repo root. Marks: **pass** (run by the QA agent on 2026-10-10), **fail**, or **needs a person**.
+
+1. `pnpm devx check` ends green, and `pnpm devx test packages/e2e/editor --reporter verbose` lists every editor spec with no skipped test. **pass** (947 tests on `main`; CI run 38067841746 names every editor test, exit test included).
+2. `pnpm devx vsix` prints `DONE Packaged: …/packages/vscode/multifront-vscode-0.0.0.vsix (22 files, …)`. **pass**
+3. `pnpm devx build`, then `node packages/language-tools/bin/multifront-language-server.js --stdio` stays up and waits for LSP input (Ctrl+C quits). An `initialize` request answers with `hoverProvider`, `completionProvider` and `definitionProvider`. **pass**
+4. `pnpm devx test packages/e2e/editor/vscode` runs the exit test in the real VS Code 1.137.0: 17 checks pass. **pass**
+5. `pnpm devx test packages/e2e/editor/seams.spec.ts`: the paths across steps (the `.ucf` rows of `expected.ts` in tsserver, `getTypesScript` equal to the editor's React code, `classes.primary` in tsserver, CSS and SCSS errors in `<style>`, `resolveUcfImport` with no open buffer). **fail**: `resolveUcfImport` with no open buffer gives no `missing-target-block`; the rest pass.
+6. `code --install-extension packages/vscode/multifront-vscode-0.0.0.vsix`, open the folder `packages/e2e/fixtures/apps/imports`, then open `../../components/Card.ucf`: the status bar says `UCF`, the tab shows the `.ucf` icon, and each block is coloured as its language (TSX, Vue, Svelte, SCSS). **needs a person**
+7. In `Card.ucf`'s `<react>`: type `$style.` and see `card` offered; F12 on `$style.card` jumps to `.card` in `<style>`; hover on `title` shows `string`. **needs a person**
+8. In `Panel.ucf`, hover on `padding` shows the CSS docs; `$pad` completes and F12 on it jumps to `$pad: 1rem`. **needs a person**
+9. Open `invalid/DuplicateReact.ucf`: the Problems panel shows `duplicate-target` from `multifront`. Open `editor/TypeError.ucf`: a type error on the `label:` line. **needs a person**
+10. In `src/App.tsx`, hover on `<Card` shows `{ title: string }` and F12 lands in `Card.ucf`'s `<react>`. Rename `title` in `Card.ucf` without saving: `App.tsx` turns red at once; undo clears it. **needs a person**
+11. In `src/mixed.ts`, the second import has the `mixed-frameworks` warning naming a re-export file; `src/reexport.ts` shows `target-not-built` naming vue and its framework attribute. **needs a person**
