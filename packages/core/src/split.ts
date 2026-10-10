@@ -26,7 +26,7 @@ function tagNameEnd(source: string, pos: number): number {
   return end;
 }
 
-// Offset of the next `<name` with a root tag name: where the scan picks up again after stray text or an unclosed block.
+// Where the scan resumes after stray text or an unclosed block.
 function nextRootTag(source: string, from: number): number {
   for (let pos = source.indexOf('<', from); pos !== -1; pos = source.indexOf('<', pos + 1)) {
     if (isNameStart(source[pos + 1]) && isRootTag(source.slice(pos + 1, tagNameEnd(source, pos)))) return pos;
@@ -42,7 +42,6 @@ interface OpeningTag {
   broken?: Broken; // set = the tag never ends cleanly and counts as unclosed
 }
 
-// `pos` = just after the tag name.
 function readOpeningTag(source: string, pos: number): OpeningTag {
   const nameEnd = pos;
   const attrs: Block['attrs'] = {};
@@ -177,7 +176,7 @@ export function splitBlocks(source: string, filename: string): SplitResult {
   // An unclosed target tag already has its own error: one error per mistake.
   if (!sawTarget) {
     report('missing-target', 0, 0, `No target block; add a ${TARGET_TAG_LIST} block`);
-    errors.unshift(errors.pop()!);
+    errors.unshift(errors.pop()!); // keeps errors in `start` order
   }
   const targets: Partial<Record<Target, Block>> = {};
   for (const block of blocks) if (isTargetTag(block.type)) targets[block.type] ??= block;
