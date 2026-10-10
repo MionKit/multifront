@@ -1,5 +1,5 @@
-// The milestone 2 exit test, run inside the real VS Code by exit.spec.ts, on the workspace fixtures/apps/imports/.
-// `vscode` is set by `run`, so exit.spec.ts can read the check names outside VS Code.
+// Milestone 2 exit test, run in real VS Code by exit.spec.ts on fixtures/apps/imports/.
+// `vscode` is required in `start`, so exit.spec.ts can load the check names outside VS Code.
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
@@ -22,7 +22,6 @@ function extension() {
   return found;
 }
 
-/** Scopes of the first token with text `text` inside `blockScope`. */
 function token(tokens, text, blockScope) {
   const found = tokens.find(({c: tokenText, t: scopes}) => tokenText.trim() === text && scopes.split(' ').includes(blockScope));
   assert.ok(found, `no ${text} token in ${blockScope}`);
@@ -35,7 +34,7 @@ function blockRange(document, tag) {
   return {start, end: text.indexOf(`</${tag}>`, start)};
 }
 
-/** Where the one definition at `at` lands: a Location or a LocationLink. */
+/** A definition comes as a Location or a LocationLink. */
 async function definitionAt(document, at, what) {
   const definitions = await until(async () => {
     const found = await vscode.commands.executeCommand('vscode.executeDefinitionProvider', document.uri, at);
@@ -46,7 +45,6 @@ async function definitionAt(document, at, what) {
   return {fsPath: (definition.targetUri ?? definition.uri).fsPath, start: (definition.targetSelectionRange ?? definition.targetRange ?? definition.range).start};
 }
 
-/** Polls the hover at `at` until its text holds `wanted` and is no longer `(loading...)`. */
 function hoverAt(document, at, wanted, what) {
   return until(async () => {
     const text = hoverText(await vscode.commands.executeCommand('vscode.executeHoverProvider', document.uri, at));
@@ -203,7 +201,7 @@ const checks = [
   },
 ];
 
-// For a run with the TypeScript extension disabled: the extension still activates and its server still answers.
+// The extension must still activate and its server still answer.
 const withoutTypescript = [
   {
     name: 'the TypeScript extension is disabled',

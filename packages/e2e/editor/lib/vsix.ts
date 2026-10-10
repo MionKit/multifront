@@ -12,7 +12,7 @@ export const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js
   readZip: (path: string, filter: (name: string) => boolean) => Promise<Map<string, Buffer>>;
 };
 
-// jszip, which @vscode/test-electron brings: unlike readZip it keeps names as packed (grammars are `*.tmLanguage.json`).
+// jszip from @vscode/test-electron: unlike readZip it keeps name case (grammars are `*.tmLanguage.json`).
 interface ZipEntry {
   dir: boolean;
   async(type: 'nodebuffer'): Promise<Buffer>;
@@ -40,7 +40,6 @@ export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   return root;
 }
 
-/** Packs with the real `pnpm devx vsix` in a temp repo and unzips the `.vsix` into `dir`; returns the extension folder. */
 export async function packVsix(dir: string): Promise<string> {
   const root = tempRepo();
   try {
@@ -53,7 +52,7 @@ export async function packVsix(dir: string): Promise<string> {
   return join(dir, 'extension');
 }
 
-/** Writes the `.vsix` entries under `dir`, as VS Code installs them (`dir/extension/...`). */
+/** Same layout VS Code installs: `dir/extension/...`. */
 async function unzipVsix(vsixPath: string, dir: string): Promise<void> {
   const {files} = await JSZip.loadAsync(readFileSync(vsixPath));
   for (const [name, entry] of Object.entries(files)) {
