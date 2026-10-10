@@ -106,7 +106,7 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return [createDiagnostic(split, 'react-no-default-export', block.start, block.contentStart, message), ...diagnostics];
 }
 
-// End of the directive prologue in the block content, or undefined without one; `"use client"` must stay first.
+// Offset in the block content after its directives; `"use client"` must stay first.
 function prologueEnd(block: Block, filename: string): number | undefined {
   const {program} = parseSync(filename, block.content, {lang: 'tsx', sourceType: 'module'});
   let end: number | undefined;
@@ -117,12 +117,12 @@ function prologueEnd(block: Block, filename: string): number | undefined {
   return end;
 }
 
-// Edits a MagicString over the whole .ucf source, so the map points straight into the .ucf file.
+// MagicString over the whole .ucf source, so the map points straight into the .ucf file.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
-  // Ids quoted as JSON, so any path stays a valid string.
+  // JSON quoting keeps any path a valid string.
   const imports = [
     ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
     ...Object.values(ctx.modules)
