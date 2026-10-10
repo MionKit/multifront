@@ -17,7 +17,7 @@ function token(text: string, offset: number): string {
   return /^[\w.#:%@-]+/.exec(text.slice(offset))?.[0] ?? text.charAt(offset);
 }
 
-// Written by hand from the fixture files: one row per <style> block.
+// Written by hand from the fixture files.
 const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> = {
   'Badge.ucf': [{scoped: true, module: undefined}],
   'Button.ucf': [
