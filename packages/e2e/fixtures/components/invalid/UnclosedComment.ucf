@@ -1,0 +1,13 @@
+<react>
+  export default function UnclosedComment() {
+    return <p className="comment">Unclosed comment</p>
+  }
+</react>
+
+<!-- a note that never ends
+
+<style scoped>
+.comment {
+  color: brown;
+}
+</style>

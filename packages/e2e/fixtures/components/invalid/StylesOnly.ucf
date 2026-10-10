@@ -1,0 +1,11 @@
+<style scoped>
+.alone {
+  color: navy;
+}
+</style>
+
+<style module>
+.alone {
+  margin: 0;
+}
+</style>
