@@ -1,5 +1,5 @@
 {
-  "code": "export const kept = await import('../../components/Card.ucf?framework=react', {with: {type: 'x'}});\nexport const options = await import('../../components/Card.ucf?framework=vue', {note: 'kept'});\nexport const after = await import('../../components/Card.ucf?framework=svelte', {note: 'kept'});\nexport const trailing = await import('../../components/Card.ucf?framework=svelte');\nexport const multiline = await import(\n  '../../components/Card.ucf?framework=react');\nexport const template = await import(`../../components/Card.ucf?framework=react`);\nexport const quoted = await import('../../components/Card.ucf?framework=vue');\nexport const noFramework = await import('../../components/Card.ucf', {with: {type: 'x'}});\nexport const noOptions = await import('../../components/Card.ucf');\nexport const notUcf = await import('./target.js', {with: {framework: 'react'}});\n",
+  "code": "export const kept = await import('../../components/Card.ucf?framework=react', {with: {type: 'x'}});\nexport const options = await import('../../components/Card.ucf?framework=vue', {note: 'kept'});\nexport const after = await import('../../components/Card.ucf?framework=svelte', {note: 'kept'});\nexport const trailing = await import('../../components/Card.ucf?framework=svelte');\nexport const multiline = await import(\n  '../../components/Card.ucf?framework=react');\nexport const template = await import(`../../components/Card.ucf?framework=react`);\nexport const quoted = await import('../../components/Card.ucf?framework=vue');\nexport const noFramework = await import('../../components/Card.ucf', {with: {type: 'x'}});\nexport const noOptions = await import('../../components/Card.ucf');\nexport const notUcf = await import('./target.js', {with: {framework: 'react'}});\n// oxlint-disable-next-line no-dupe-keys\nexport const repeated = await import('../../components/Card.ucf?framework=vue', {with: {type: 'x'}});\nexport const quote = await import('../../components/Card.ucf?framework=it%27s');\nexport const loneSurrogate = await import('../../components/Card.ucf?framework=%EF%BF%BD');\n",
   "imports": [
     {
       "kind": "dynamic",
@@ -61,6 +61,27 @@
       "specifier": "../../components/Card.ucf",
       "start": 876,
       "end": 903
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 1065,
+      "end": 1092,
+      "framework": "vue"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 1188,
+      "end": 1215,
+      "framework": "it's"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 1289,
+      "end": 1316,
+      "framework": "\ud800"
     }
   ],
   "errors": []

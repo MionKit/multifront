@@ -41,7 +41,7 @@ interface UcfImport {
 
 - Code without `.ucf` → returned as is (`map: null`, no imports, no errors), no parse.
 - Parse: oxc-parser `parseSync`, `sourceType: 'module'`. `lang` from the path before `?`: `.tsx` / `.jsx` as is,
-  `.ts` / `.mts` / `.cts` → ts, `.js` / `.mjs` / `.cjs` → js; else a `lang.<x>` query
+  `.js` / `.mjs` / `.cjs` → js; else a `lang.<x>` query
   (`C.vue?vue&type=script&setup=true&lang.ts`); else ts. Parse errors → input untouched, no imports, no errors (the
   importer's own compiler reports them). A static `with {framework: x}` is already a parse error in oxc.
 - Imports: `ImportDeclaration` → static; `ExportNamedDeclaration` with a source and `ExportAllDeclaration` → reexport;
@@ -54,7 +54,9 @@ interface UcfImport {
 - Dynamic: `node.options` an object literal with a `with` object literal holding `framework`. Same removal; an emptied
   `with` removes its property, an emptied options object removes the whole argument (`import(x, {…},)` →
   `import(x)`).
-- Specifier: `?framework=<encodeURIComponent(value)>` before the closing quote or backtick.
+- Specifier: `?framework=<encodeURIComponent(value)>` before the closing quote or backtick; `'` becomes `%27` (it
+  would end a single-quoted specifier) and a lone surrogate U+FFFD (`encodeURIComponent` throws on it).
+- A dynamic `with` object that repeats `framework` moves the last one (the runtime's pick) and removes them all.
 - `framework-attribute-not-literal` (joins `DiagnosticCode`, not `TargetErrorCode`), via `createDiagnostic`. The
   import stays unedited and listed without `framework`. Raised for a `framework` value that is not a string or plain
   template literal, and for `import()` options or their `with` value that is not an object literal or holds a spread
@@ -75,7 +77,8 @@ interface UcfImport {
 - `react-only/` comes with 3.3 (`frameworks`, `target-not-enabled`); each sub-project's `vite.config.ts` with 3.7.
 - `expected.ts`: a row per new import; the error branch also takes `framework-attribute-not-literal`.
 - `packages/e2e/fixtures/apps/rewrite-edges/` (`.js`, so the formatter leaves them as written; never built):
-  `other-keys.js`, `dynamic-options.js`, `comments.js`, `not-literal-options.js`.
+  `other-keys.js`, `dynamic-options.js`, `comments.js`, `not-literal-options.js`, and `syntax-error.mjs` (in
+  `.oxlintrc.json`'s `ignorePatterns`, since it does not parse).
 
 ### 3. Tests reading the set
 
@@ -90,7 +93,8 @@ interface UcfImport {
 of `fixtures/apps/imports/` (scripts of `.vue` / `.svelte` through `scriptsOf`; `.ucf` left out, block imports never
 go through the rewrite) and every `rewrite-edges/` file:
 
-- the output parses with zero errors; no `framework` key in any attribute list or `import()` `with` object;
+- the output parses with zero errors; every moved import keeps its other keys and loses its `framework` key; an
+  import with an error is left as written;
 - each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute (oracle: `expected.ts`
   rows);
 - a second run changes nothing (`map: null`, the same errors; rewritten specifiers no longer end in `.ucf`, so it
@@ -99,7 +103,8 @@ go through the rewrite) and every `rewrite-edges/` file:
   same text in the input;
 - a JSON file snapshot of `{code, imports, errors}` per file, under `packages/core/test/__snapshots__/rewrite/`;
 - hand-written: `non-literal.ts` gives `framework-attribute-not-literal` at its line and column,
-  `not-literal-options.js` its four errors, `strings-and-comments.ts` comes back unchanged.
+  `not-literal-options.js` its four errors, `strings-and-comments.ts` and `syntax-error.mjs` come back unchanged.
+- `readImports.ts` throws on a script that does not parse, so a broken fixture never passes as one without imports.
 
 Existing tests now cover the new rows: `resolveTarget.spec.ts`, `packages/language-tools/test/resolve.spec.ts`,
 `packages/e2e/editor/tsserver.spec.ts`.

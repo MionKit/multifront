@@ -13,3 +13,7 @@ export const quoted = await import('../../components/Card.ucf', {'with': {'frame
 export const noFramework = await import('../../components/Card.ucf', {with: {type: 'x'}});
 export const noOptions = await import('../../components/Card.ucf');
 export const notUcf = await import('./target.js', {with: {framework: 'react'}});
+// oxlint-disable-next-line no-dupe-keys
+export const repeated = await import('../../components/Card.ucf', {with: {framework: 'react', type: 'x', framework: 'vue'}});
+export const quote = await import('../../components/Card.ucf', {with: {framework: "it's"}});
+export const loneSurrogate = await import('../../components/Card.ucf', {with: {framework: '\uD800'}});

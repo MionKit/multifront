@@ -5,14 +5,15 @@ import {Visitor, parseSync} from 'oxc-parser';
 import type {Expression, ImportAttribute, ObjectExpression} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
 import {rewriteImportAttributes} from '@multifront/core';
-import type {UcfImport} from '@multifront/core';
 // Relative paths, not a package dependency: @multifront/e2e depends on core.
 import {EXPECTED_IMPORTS} from '../../../e2e/fixtures/apps/imports/expected.ts';
 import {FIXTURES_DIR} from '../../../e2e/fixtures/index.ts';
-import {scriptName, scriptsOf} from './readImports.ts';
+import {lineAt, scriptName, scriptsOf} from './readImports.ts';
 import type {Script} from './readImports.ts';
 
 const APPS = join(FIXTURES_DIR, 'apps');
+// Every other test parses its input: this one is the rewrite's own input that does not.
+const SYNTAX_ERROR = 'syntax-error.mjs';
 // The value every unknown-framework row of expected.ts uses.
 const UNKNOWN_FRAMEWORK = 'angular';
 
@@ -33,7 +34,9 @@ function filesOf(app: string, pattern: RegExp): string[] {
 // `.ucf` importers are left out: block imports never go through the rewrite (an attribute there is framework-in-block).
 const INPUTS: Input[] = [
   ...filesOf('imports', /\.(ts|tsx|jsx|vue|svelte)$/).map((file) => `imports/${file}`),
-  ...filesOf('rewrite-edges', /\.js$/).map((file) => `rewrite-edges/${file}`),
+  ...filesOf('rewrite-edges', /\.m?js$/)
+    .filter((file) => file !== SYNTAX_ERROR)
+    .map((file) => `rewrite-edges/${file}`),
 ].flatMap((key) => {
   const filename = join(APPS, key);
   const source = readFileSync(filename, 'utf8');
@@ -101,10 +104,6 @@ function expectedFramework(file: string, line: number): string | undefined {
   return row.expect === 'unknown-framework' ? UNKNOWN_FRAMEWORK : undefined;
 }
 
-function lineOf(input: Input, start: number): number {
-  return input.source.slice(0, input.script.offset + start).split('\n').length;
-}
-
 describe('rewriteImportAttributes over the importer fixtures', () => {
   describe.each(INPUTS.map((input) => [input.key, input] as const))('%s', (key, input) => {
     const result = rewrite(input);
@@ -121,14 +120,19 @@ describe('rewriteImportAttributes over the importer fixtures', () => {
       const after = ucfImports(result.code, lang);
       expect(before.map(({specifier}) => specifier)).toEqual(result.imports.map(({specifier}) => specifier));
       expect(after).toHaveLength(before.length);
-      result.imports.forEach((entry: UcfImport, index) => {
+      result.imports.forEach((entry, index) => {
         const {framework, specifier} = entry;
-        const moved = framework === undefined ? specifier : `${specifier}?framework=${encodeURIComponent(framework)}`;
-        expect(after[index]!.specifier).toBe(moved);
+        const [path, query] = after[index]!.specifier.split('?');
+        expect(path).toBe(specifier);
+        if (framework === undefined) expect(query).toBeUndefined();
+        // A lone surrogate cannot be URI-encoded: it becomes U+FFFD, as String#toWellFormed does.
+        else expect(new URLSearchParams(query).get('framework')).toBe(framework.replace(/[\uD800-\uDFFF]/gu, '\uFFFD'));
         const {keys} = before[index]!;
         expect(after[index]!.keys).toEqual(keys && framework !== undefined ? keys.filter((name) => name !== 'framework') : keys);
         if (input.key.startsWith('imports/')) {
-          expect(framework).toBe(expectedFramework(input.key.slice('imports/'.length), lineOf(input, entry.start)));
+          expect(framework).toBe(
+            expectedFramework(input.key.slice('imports/'.length), lineAt(input.source, input.script.offset + entry.start))
+          );
         }
       });
     });
@@ -190,6 +194,11 @@ describe('rewriteImportAttributes, hand-written cases', () => {
       ].map(([line, column]) => ({code: 'framework-attribute-not-literal', line, column, text: message}))
     );
     expect(result.imports.map(({framework}) => framework)).toEqual([undefined, undefined, undefined, undefined]);
+  });
+
+  it(`rewrite-edges/${SYNTAX_ERROR}: a file that does not parse comes back untouched`, () => {
+    const source = readFileSync(join(APPS, 'rewrite-edges', SYNTAX_ERROR), 'utf8');
+    expect(rewriteImportAttributes(source, SYNTAX_ERROR)).toEqual({code: source, map: null, imports: [], errors: []});
   });
 
   it('no-default/strings-and-comments.ts: .ucf in strings and comments is left alone', () => {

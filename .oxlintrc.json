@@ -11,7 +11,7 @@
     "typescript/consistent-type-imports": "error",
     "import/no-cycle": "error"
   },
-  "ignorePatterns": ["node_modules/**", "**/dist/**", "**/coverage/**", "**/.tmp/**", "**/__snapshots__/**", "scripts/**", ".claude/**", "docs/**"],
+  "ignorePatterns": ["node_modules/**", "**/dist/**", "**/coverage/**", "**/.tmp/**", "**/__snapshots__/**", "scripts/**", ".claude/**", "docs/**", "packages/e2e/fixtures/apps/rewrite-edges/syntax-error.mjs"],
   "overrides": [
     {
       "files": ["**/*.spec.ts", "**/*.test.ts"],

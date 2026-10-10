@@ -1,7 +1,7 @@
-import type {ResolveTargetOptions, Target, TargetErrorCode, TargetRule} from '@multifront/core';
+import type {DiagnosticCode, ResolveTargetOptions, Target, TargetErrorCode, TargetRule} from '@multifront/core';
 
 // Reported by `rewriteImportAttributes`, before any `resolveTarget` call.
-type RewriteErrorCode = 'framework-attribute-not-literal';
+type RewriteErrorCode = Extract<DiagnosticCode, 'framework-attribute-not-literal'>;
 
 /** One `.ucf` import of this app and what it must resolve to, in the build and in the editor alike. */
 type ExpectedImport = {
