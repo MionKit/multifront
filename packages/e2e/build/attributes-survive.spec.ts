@@ -1,15 +1,12 @@
 import {rm} from 'node:fs/promises';
 import {basename} from 'node:path';
-import {createServer, parseAst, type Plugin, type ViteDevServer} from 'vite';
+import {createServer, parseAst, Visitor, type ESTree, type Plugin, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp} from '../fixtures/index.ts';
+import {withNodeEnv} from './lib/build.ts';
 
 // Spec 4.4's post rewrite needs `with { framework }` still on the import when post plugins run.
 const IMPORTERS = ['plain.ts', 'component.tsx'];
-const ENVIRONMENTS = ['client', 'ssr'] as const;
-
-type Node = {type: string; [key: string]: unknown};
-type Property = {key: {name?: string; value?: string}; value: Node & {value?: unknown}};
 
 let root: string;
 let server: ViteDevServer;
@@ -27,51 +24,57 @@ const recorder: Plugin = {
 
 beforeAll(async () => {
   root = await copyApp('attribute-canary');
-  server = await createServer({
-    root,
-    logLevel: 'silent',
-    plugins: [recorder],
-    server: {middlewareMode: true, ws: false},
-    optimizeDeps: {noDiscovery: true},
-  });
+  // plugin-react turns Fast Refresh off under an outside NODE_ENV=production.
+  server = await withNodeEnv('development', () =>
+    createServer({
+      root,
+      logLevel: 'silent',
+      plugins: [recorder],
+      server: {middlewareMode: true, ws: false},
+      optimizeDeps: {noDiscovery: true},
+    })
+  );
 });
 
 afterAll(async () => {
   await server?.close();
-  await rm(root, {recursive: true, force: true});
+  if (root) await rm(root, {recursive: true, force: true});
 });
 
-function keyName(property: Property): string | undefined {
-  return property.key.name ?? property.key.value;
+function keyName(key: ESTree.ImportAttributeKey | ESTree.PropertyKey): string | undefined {
+  if (key.type === 'Identifier') return key.name;
+  return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
 }
 
-function frameworkOf(properties: Property[] | undefined): unknown {
-  return properties?.find((property) => keyName(property) === 'framework')?.value.value;
+function property(object: ESTree.Expression | null | undefined, name: string): ESTree.Expression | undefined {
+  if (object?.type !== 'ObjectExpression') return undefined;
+  for (const prop of object.properties)
+    if (prop.type === 'Property' && keyName(prop.key) === name) return prop.value as ESTree.Expression;
+  return undefined;
 }
 
 // Each import of `./target.js` as `[node type, its framework attribute]`.
-function targetImports(code: string): [string, unknown][] {
-  const found: [string, unknown][] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as Node;
-    const source = node.source as {value?: unknown} | undefined;
-    if (source?.value === './target.js') {
-      if (node.type === 'ImportExpression') {
-        const options = node.options as {properties?: Property[]} | null;
-        const withKey = options?.properties?.find((property) => keyName(property) === 'with');
-        found.push([node.type, frameworkOf(withKey?.value.properties as Property[] | undefined)]);
-      } else found.push([node.type, frameworkOf(node.attributes as Property[])]);
-    }
-    for (const key in node) if (key !== 'source') visit(node[key]);
+function targetImports(code: string): [string, string | undefined][] {
+  const found: [string, string | undefined][] = [];
+  const add = (type: string, source: ESTree.Expression | null, framework: string | undefined) => {
+    if (source?.type === 'Literal' && source.value === './target.js') found.push([type, framework]);
   };
-  visit(parseAst(code));
+  const fromStatic = (node: {type: string; source: ESTree.Expression | null; attributes: ESTree.ImportAttribute[]}) =>
+    add(node.type, node.source, node.attributes.find((attr) => keyName(attr.key) === 'framework')?.value.value);
+  new Visitor({
+    ImportDeclaration: fromStatic,
+    ExportNamedDeclaration: fromStatic,
+    ExportAllDeclaration: fromStatic,
+    ImportExpression: (node) => {
+      const framework = property(property(node.options, 'with'), 'framework') as ESTree.StringLiteral | undefined;
+      add(node.type, node.source, framework?.value);
+    },
+  }).visit(parseAst(code));
   return found.sort(([left], [right]) => left.localeCompare(right));
 }
 
 describe('import attributes survive Vite and plugin-react', () => {
-  for (const environment of ENVIRONMENTS)
+  for (const environment of ['client', 'ssr'] as const)
     for (const file of IMPORTERS)
       it(`keeps framework on all four imports of ${file} (${environment})`, async () => {
         await server.environments[environment].transformRequest(`/${file}`);
