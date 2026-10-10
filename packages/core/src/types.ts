@@ -48,7 +48,7 @@ export type DiagnosticCode =
 export interface Diagnostic {
   code: DiagnosticCode;
   severity: 'error' | 'warning';
-  message: string; // one line, names the tag: "<react> appears twice; keep one"
+  message: string; // one line, names the tag: "<react> appears more than once; keep one"
   filename: string;
   start: number; // offsets into the .ucf source
   end: number;

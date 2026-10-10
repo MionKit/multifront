@@ -5,7 +5,7 @@ const ROOT_TAGS: ReadonlySet<string> = new Set(BLOCK_KINDS.map((kind) => kind.ta
 
 function tagList(tags: string[]): string {
   const names = tags.map((tag) => `<${tag}>`);
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : names.join('');
+  return `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
 }
 const ROOT_TAG_LIST = tagList(BLOCK_KINDS.map((kind) => kind.tag));
 const TARGET_TAG_LIST = tagList(BLOCK_KINDS.filter((kind) => kind.role === 'target').map((kind) => kind.tag));
@@ -20,7 +20,7 @@ function isTargetTag(tag: BlockTag): tag is Target {
 }
 
 // HTML tag name rule: `<react_old>` is one unknown tag, not `<react>` with an attribute.
-function readTagName(source: string, pos: number): number {
+function tagNameEnd(source: string, pos: number): number {
   let end = pos + 1;
   while (end < source.length && !isSpace(source[end]) && source[end] !== '/' && source[end] !== '>') end++;
   return end;
@@ -29,7 +29,7 @@ function readTagName(source: string, pos: number): number {
 // Offset of the next `<name` with a root tag name: where the scan picks up again after stray text or an unclosed block.
 function nextRootTag(source: string, from: number): number {
   for (let pos = source.indexOf('<', from); pos !== -1; pos = source.indexOf('<', pos + 1)) {
-    if (isNameStart(source[pos + 1]) && isRootTag(source.slice(pos + 1, readTagName(source, pos)))) return pos;
+    if (isNameStart(source[pos + 1]) && isRootTag(source.slice(pos + 1, tagNameEnd(source, pos)))) return pos;
   }
   return source.length;
 }
@@ -95,19 +95,9 @@ function findClosingTag(source: string, tag: string, from: number): {start: numb
 }
 
 // Lines break on '\n' only, like Rollup's locator; columns are 0-based UTF-16 offsets.
-function lineLocator(source: string): (offset: number) => {line: number; column: number} {
-  const lineStarts = [0];
-  for (let pos = source.indexOf('\n'); pos !== -1; pos = source.indexOf('\n', pos + 1)) lineStarts.push(pos + 1);
-  return (offset) => {
-    let low = 0;
-    let high = lineStarts.length - 1;
-    while (low < high) {
-      const mid = (low + high + 1) >> 1;
-      if (lineStarts[mid]! <= offset) low = mid;
-      else high = mid - 1;
-    }
-    return {line: low + 1, column: offset - lineStarts[low]!};
-  };
+function locate(source: string, offset: number): Pick<Diagnostic, 'line' | 'column'> {
+  const lines = source.slice(0, offset).split('\n');
+  return {line: lines.length, column: lines.at(-1)!.length};
 }
 
 function unclosedMessage(tag: string, broken: Broken | undefined): string {
@@ -122,10 +112,8 @@ export function splitBlocks(source: string, filename: string): SplitResult {
   const blocks: Block[] = [];
   const errors: Diagnostic[] = [];
   const counts = new Map<BlockTag, number>();
-  let locate: ReturnType<typeof lineLocator> | undefined;
   const report = (code: DiagnosticCode, start: number, end: number, message: string): void => {
-    locate ??= lineLocator(source);
-    errors.push({code, severity: 'error', message, filename, start, end, ...locate(start)});
+    errors.push({code, severity: 'error', message, filename, start, end, ...locate(source, start)});
   };
   let sawTarget = false;
   let pos = 0;
@@ -140,14 +128,19 @@ export function splitBlocks(source: string, filename: string): SplitResult {
       continue;
     }
     if (source[pos] === '<' && isNameStart(source[pos + 1])) {
-      const nameEnd = readTagName(source, pos);
+      const nameEnd = tagNameEnd(source, pos);
       const name = source.slice(pos + 1, nameEnd);
       const opening = readOpeningTag(source, nameEnd);
       if (!isRootTag(name)) {
         report('unknown-root-tag', pos, nameEnd, `<${name}> is not a root tag; use ${ROOT_TAG_LIST}`);
-        if (opening.broken === 'self-closing') pos = opening.end;
-        else if (opening.broken) pos = nextRootTag(source, opening.end);
-        else pos = findClosingTag(source, name, opening.end)?.end ?? opening.end;
+        if (opening.broken === 'self-closing') {
+          pos = opening.end;
+          continue;
+        }
+        // A closing tag past the next root tag is not this tag's: skipping to it would swallow that block.
+        const resync = nextRootTag(source, opening.end);
+        const closing = opening.broken ? undefined : findClosingTag(source, name, opening.end);
+        pos = closing && closing.start < resync ? closing.end : resync;
         continue;
       }
       if (isTargetTag(name)) sawTarget = true;
@@ -159,7 +152,8 @@ export function splitBlocks(source: string, filename: string): SplitResult {
       }
       const index = counts.get(name) ?? 0;
       counts.set(name, index + 1);
-      if (index > 0 && isTargetTag(name)) report('duplicate-target', pos, opening.end, `<${name}> appears twice; keep one`);
+      if (index > 0 && isTargetTag(name))
+        report('duplicate-target', pos, opening.end, `<${name}> appears more than once; keep one`);
       blocks.push({
         type: name,
         attrs: opening.attrs,
@@ -182,8 +176,8 @@ export function splitBlocks(source: string, filename: string): SplitResult {
 
   // An unclosed target tag already has its own error: one error per mistake.
   if (!sawTarget) {
-    const message = `No target block; add a ${TARGET_TAG_LIST} block`;
-    errors.unshift({code: 'missing-target', severity: 'error', message, filename, start: 0, end: 0, line: 1, column: 0});
+    report('missing-target', 0, 0, `No target block; add a ${TARGET_TAG_LIST} block`);
+    errors.unshift(errors.pop()!);
   }
   const targets: Partial<Record<Target, Block>> = {};
   for (const block of blocks) if (isTargetTag(block.type)) targets[block.type] ??= block;
@@ -196,6 +190,7 @@ function strayTextMessage(source: string, start: number, end: number, previous: 
   const closedEarly =
     previous &&
     !source.slice(previous.end, start).trim() &&
+    !source.startsWith(`</${previous.type}`, start) &&
     (findClosingTag(source, previous.type, start)?.end ?? Infinity) <= end;
   if (closedEarly) {
     return `'</${previous.type}>' in the <${previous.type}> block closed it early; write '<\\/${previous.type}>' instead`;

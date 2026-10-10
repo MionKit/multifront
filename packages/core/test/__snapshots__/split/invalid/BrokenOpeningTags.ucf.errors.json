@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "<style> opening tag has no '>'",
     "filename": "invalid/BrokenOpeningTags.ucf",
-    "start": 202,
-    "end": 208,
+    "start": 206,
+    "end": 212,
     "line": 15,
     "column": 0
   }
