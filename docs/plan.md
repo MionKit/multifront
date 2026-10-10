@@ -83,7 +83,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 - `packages/vscode`: `.ucf` language id, file icon, TextMate grammar embedding the Vue, TSX, Svelte and CSS / SCSS grammars. Highlighting in every block from day one.
 - `language-tools`, the Volar language plugin: Embedded code for `<react>` (TSX) and `<style>` (CSS / SCSS), plus the `Card.ucf.react.tsx` virtual script with `$style` typed from the class names. A `.ucf` import inside the block resolves to the other file's React virtual script automatically.
 - `language-tools/typescript-plugin`: `.ts` / `.tsx` files importing `.ucf` get the React types, using `resolveTarget()` from core (spike 1).
-- `language-tools/server`: completions, errors, hover and go to definition inside `<react>` and `<style>`.
+- `language-tools/server`: completions, errors, hover and go to definition inside `<style>` (CSS, SCSS), and our own diagnostics on the whole `.ucf` file. Inside `<react>` they come from tsserver with our plugin (hybrid mode).
 - Tests: snapshots of the virtual code and its offset mapping; a tsserver test that a `.tsx` importer sees the right props.
 
 ### 3. React target and imports (go / no-go)
