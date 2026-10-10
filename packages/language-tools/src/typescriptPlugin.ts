@@ -1,10 +1,10 @@
 import {loadVueCompiler} from '@multifront/core';
-import type {DiagnosticCode, Target, VueCompiler} from '@multifront/core';
+import type {Target, VueCompiler} from '@multifront/core';
 import {createLanguageServicePlugin} from '@volar/typescript/lib/quickstart/createLanguageServicePlugin.js';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
-import type {TypeScript, UcfImportOptions, UcfVirtualCode} from './types.ts';
+import type {TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
 
 const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
 
@@ -26,19 +26,12 @@ interface ImportError {
   node: ts.Node; // the import statement or `import()` call: TypeScript's own errors there are the same problem
 }
 
-interface ReportOptions {
-  warning: boolean;
-  start: number; // the specifier by default
-  end: number;
-}
-
 function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ImportError[] {
   const errors: ImportError[] = [];
   const report = (
     literal: ts.StringLiteralLike,
-    code: DiagnosticCode,
-    message: string,
-    {warning = false, start = literal.getStart(sourceFile), end = literal.end}: Partial<ReportOptions> = {}
+    {code, message, start = literal.getStart(sourceFile), end = literal.end}: NonNullable<UcfResolution['error']>,
+    warning = false
   ): void => {
     const diagnostic: ts.Diagnostic = {
       file: sourceFile,
@@ -55,7 +48,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   const targets = new Map<string, Target>();
   for (const literal of ucfLiterals(ts, sourceFile)) {
     const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options, sourceFile);
-    if (error) report(literal, error.code, error.message, {start: error.start, end: error.end});
+    if (error) report(literal, error);
     if (!target) continue;
     const first = targets.get(literal.text);
     if (!first) targets.set(literal.text, target);
@@ -65,7 +58,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
         `${literal.text} is imported as ${first} and as ${target} in this file; TypeScript keeps one resolution per ` +
         `specifier, so every import of it here gets the last one's types. Import each framework from its own small ` +
         `re-export file`;
-      report(literal, 'mixed-frameworks', message, {warning: true});
+      report(literal, {code: 'mixed-frameworks', message}, true);
     }
   }
   return errors;
