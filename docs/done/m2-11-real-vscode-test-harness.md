@@ -49,7 +49,7 @@ Facts from a throwaway probe (VS Code 1.141.0 tarball, the `.vsix` from `main` u
    - exit 6: `applyEdit` turns `Card({ title }: { title: string })` into `Card({ heading }: { heading: string })` with no save; `App.tsx` gets `2322` on its `<Card` line while `Card.ucf` is dirty and unchanged on disk; then revert, and `App.tsx` is clean again.
    - deactivate: `deactivate()` of the module the host loaded stops the server process.
 6. `packages/e2e/editor/vscode/exit.spec.ts` (new): `beforeAll` (15 min, covers the first download) runs `packVsix(temp)` then `runInVsCode(...)`; one test per name in `suite.cjs` `checks`: the result exists (a missing one means the suite died there) and has no `error`.
-7. `.github/workflows/ci.yml`, `check` job: `actions/cache@v5` on `.vscode-test`, keyed on the runner OS and `packages/e2e/editor/lib/vscode.ts`, before Test. The harness starts Xvfb, which `ubuntu-latest` ships. The `windows` job does not run this file.
+7. `.github/workflows/ci.yml`, `check` job: `actions/cache@v5` on `.vscode-test`, keyed on the runner OS and `packages/e2e/editor/lib/vscode.ts`, before Test, and the Test step runs with `--reporter verbose` so the log names every test that ran. The harness starts Xvfb, which `ubuntu-latest` ships. The `windows` job does not run this file.
 8. `scripts/lib/env.mjs` REGISTRY (`internal`): `DISPLAY`, `MULTIFRONT_VSCODE_RESULTS`.
 9. `SETUP.md`: the VS Code test downloads VS Code into `.vscode-test/` on first run (about 360 MB); on Linux with no display it starts Xvfb.
 

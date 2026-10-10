@@ -36,8 +36,9 @@ jobs:
         with:
           path: .vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('packages/e2e/editor/lib/vscode.ts') }}
+      # Verbose: the log names every test that ran, so a skipped one shows.
       - name: Test
-        run: pnpm devx test
+        run: pnpm devx test --reporter verbose
       - name: Build
         run: pnpm devx build
 
