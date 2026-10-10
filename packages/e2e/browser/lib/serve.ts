@@ -2,7 +2,7 @@ import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createServer, preview, type ResolvedServerUrls} from 'vite';
 import {TMP_DIR} from '../../fixtures/index.ts';
-import {APP_CONFIG_LOADER, buildApp, withNodeEnv} from '../../build/lib/build.ts';
+import {APP_CONFIG_LOADER, buildApp} from '../../build/lib/build.ts';
 
 async function tempDir(prefix: string): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
@@ -19,14 +19,20 @@ function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
 export async function startDev(appDir: string) {
   // Own cache per server: apps in one package share `node_modules/.vite` otherwise.
   const cacheDir = await tempDir('dev-cache-');
-  const removeCache = () => rm(cacheDir, {recursive: true, force: true});
+  // Vite's dep optimizer hashes NODE_ENV whenever it runs: a change while the server lives (Vitest's `test` back)
+  // marks the optimized deps outdated, and the page gets 504s.
+  const savedNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'development';
+  const restore = async () => {
+    if (savedNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = savedNodeEnv;
+    await rm(cacheDir, {recursive: true, force: true});
+  };
   let server;
   try {
-    server = await withNodeEnv('development', () =>
-      createServer({root: appDir, configLoader: APP_CONFIG_LOADER, cacheDir, logLevel: 'silent', server: {port: 0}})
-    );
+    server = await createServer({root: appDir, configLoader: APP_CONFIG_LOADER, cacheDir, logLevel: 'silent', server: {port: 0}});
   } catch (err) {
-    await removeCache();
+    await restore();
     throw err;
   }
   const close = async () => {
@@ -35,11 +41,11 @@ export async function startDev(appDir: string) {
       await server.environments.client.waitForRequestsIdle();
       await server.close();
     } finally {
-      await removeCache();
+      await restore();
     }
   };
   try {
-    await withNodeEnv('development', () => server.listen());
+    await server.listen();
     return {url: localUrl(server.resolvedUrls, appDir), server, close};
   } catch (err) {
     await close();
