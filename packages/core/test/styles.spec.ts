@@ -35,7 +35,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   'TsxEdges.ucf': [{scoped: true, module: undefined}],
 };
 
-// Written by hand: the classes each local class composes, in the order postcss-modules lists them.
+// Hand-written: the classes each local class composes, in postcss-modules order.
 const COMPOSED: Record<string, Record<string, string[]>> = {
   'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
 };
