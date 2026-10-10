@@ -145,15 +145,16 @@ None: this is the first milestone. It builds on what the repo already has:
 
     | Code | Where it points | What the splitter does next |
     | --- | --- | --- |
-    | `unknown-root-tag` | the `<name` of the tag | skips to its matching `</name>` if there is one |
-    | `unclosed-block` | the opening tag (also one that never ends cleanly: end of file, `/>`, a quote left open before `>` or a line break) | the block is left out of `blocks` |
+    | `unknown-root-tag` | the `<name` of the tag (the HTML name rule: `<react_old>` is one unknown tag) | skips to its first `</name>`; with none, past its opening tag (or to the next root opening tag when that tag never ends) |
+    | `unclosed-block` | the opening tag (also one that never ends cleanly: end of file, `/>`, a quote left open before `>` or a line break; then only `<name` when no `>` ends it) | the block is left out of `blocks`; the scan picks up again at the next root opening tag, so later blocks are still found |
     | `duplicate-target` | the second opening tag | both stay in `blocks`; `targets[tag]` is the first |
-    | `missing-target` | `start = end = 0` | (no target block in the file) |
-    | `text-outside-block` | the stray text run | skips it |
+    | `missing-target` | `start = end = 0` | only when no target tag appears at all: an unclosed one already has its `unclosed-block` |
+    | `text-outside-block` | the stray text run, up to the next root opening tag, trailing whitespace left out (an unclosed `<!--` starts one) | skips it |
 
-  - Invalid fixtures in `packages/e2e/fixtures/components/invalid/`: `UnknownRootTag.ucf` (`<angular>`), `UnclosedReact.ucf`, `DuplicateReact.ucf`, `StylesOnly.ucf`, `TextOutsideBlock.ucf`, and `ReactCloseInString.ucf`. The last one has `'</react>'` inside a TSX string: the block closes there and the rest is reported as `text-outside-block`. That is the documented limitation of spec 10, and the message tells the author to write `'<\/react>'`.
+  - Invalid fixtures in `packages/e2e/fixtures/components/invalid/`: `UnknownRootTag.ucf` (`<angular>` and `<react_old>`), `UnclosedReact.ucf`, `DuplicateReact.ucf`, `StylesOnly.ucf`, `TextOutsideBlock.ucf`, `ReactCloseInString.ucf`, `BrokenOpeningTags.ucf` (`<style scoped/>`, a quote left open, a `<style` with no `>`), and `UnclosedComment.ucf` (a `<!--` with no `-->`). `ReactCloseInString.ucf` has `'</react>'` inside a TSX string: the block closes there and the rest is reported as `text-outside-block`. That is the documented limitation of spec 10, and the message tells the author to write `'<\/react>'`.
 - Deliverable: every structural error of spec 3.2 comes back as a `Diagnostic` with exact offsets, line and column.
-- Test: `packages/core/test/split.spec.ts`, a table of `{fixture, code, line, column}` written by hand for each invalid fixture, plus a file snapshot of the full `errors` array per fixture. Also checks the blocks the splitter still returns (for example `DuplicateReact.ucf` keeps its `<style>` block).
+- Test: `packages/core/test/split.spec.ts`, a table of `{fixture, code, line, column}` written by hand for each invalid fixture, plus a file snapshot of the full `errors` array per fixture (`test/__snapshots__/split/invalid/<Name>.ucf.errors.json`). Also checks the blocks the splitter still returns (for example `DuplicateReact.ucf` keeps its `<style>` block).
+- Status: done
 
 ### 1.4 Block checks: `check` per kind and `checkBlocks`
 
@@ -341,7 +342,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2) | M2 to M7 |
 | Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |
-| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
+| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
 | Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki`, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |

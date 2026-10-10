@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.3
@@ -33,8 +33,8 @@ means the gaps are only whitespace and comments).
 4. **Gap loop in `splitBlocks`**, each case reports and recovers:
    - `unknown-root-tag`: `<` + letter, name not a root tag. Points at `<name` (`[start, nameEnd)`). Skips to the end of
      the first `</name` followed by `>` or whitespace after the opening tag (same browser raw-text rule as
-     `findClosingTag`, `split.ts:60`). No closing tag → skips past the opening tag (past `/>` when self-closing,
-     `nameEnd` when the tag never ends). Message `<angular> is not a root tag; use <style>, <vue>, <react> or
+     `findClosingTag`, `split.ts:60`). No closing tag → skips past the opening tag (past `/>` when self-closing);
+     an opening tag that never ends resyncs at `nextRootTag`, so its attributes are not reported again. Message `<angular> is not a root tag; use <style>, <vue>, <react> or
      <svelte>` (list built from `BLOCK_KINDS`).
    - `unclosed-block`: a root tag that is broken (2) or has no closing tag. Points at the whole opening tag
      `[start, opening end)`, or `<name` when the tag never ends. Block left out of `blocks`; the scan resyncs at
@@ -110,6 +110,8 @@ None here: step 1.5 is the splitter fuzz test; its rules 2, 3 and 5 rely on this
 - Extra fixtures `BrokenOpeningTags.ucf` and `UnclosedComment.ucf` (orchestrator: option A).
 - `missing-target` only when no target tag appears at all, one error per mistake (orchestrator: option A).
 - After an unclosed block, resync at the next root opening tag (orchestrator: option A).
+- Built: an unknown tag that never ends resyncs at the next root opening tag (the plan said its name end), one error
+  per mistake like an unclosed block.
 
 ## Out of scope
 
