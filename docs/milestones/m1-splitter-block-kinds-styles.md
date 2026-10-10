@@ -403,8 +403,8 @@ None: this is the first milestone. It builds on what the repo already has:
 
 Run from the repo root after `pnpm install`. Each check is marked with what the QA pass saw on `main` at `3dfa39b` plus the QA tests, updated after the QA fixes.
 
-1. `pnpm devx check` exits 0 on `main`. **Done:** green, 305 tests in 12 files; with the QA tests and fixes, 385 tests in 14 files.
-2. `pnpm devx test packages/e2e` runs the `e2e` project: `build/` and `editor/` tests, each with real Vite or real shiki. Expect every file listed with a test count, none skipped. **Done:** 6 files, 100 tests, all pass.
+1. `pnpm devx check` exits 0 on `main`. **Done:** green, 305 tests in 12 files; with the QA tests and fixes, 387 tests in 13 files.
+2. `pnpm devx test packages/e2e` runs the `e2e` project: `build/` and `editor/` tests, each with real Vite or real shiki. Expect every file listed with a test count, none skipped. **Done:** 5 files, 102 tests, all pass.
 3. `pnpm devx test packages/e2e/build/style-parity.spec.ts`: the exit test. Expect 27 passed (7 fixtures and 2 `langs/` fixtures, x 3). **Done.**
 4. Split a fixture:
    `node --input-type=module -e "import {readFileSync} from 'node:fs'; import {splitBlocks} from './packages/core/src/index.ts'; const f = 'packages/e2e/fixtures/components/Card.ucf'; for (const b of splitBlocks(readFileSync(f, 'utf8'), f).blocks) console.log(b.type, JSON.stringify(b.attrs), b.start, b.end)"`
