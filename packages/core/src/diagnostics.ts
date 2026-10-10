@@ -36,3 +36,14 @@ export function styleInsideTarget(
       createDiagnostic(split, 'style-inside-target', block.contentStart + tag.start, block.contentStart + tag.end, message)
     );
 }
+
+/** A file's errors, thrown by host functions such as `buildTarget`; the message is the first one's. */
+export class DiagnosticsError extends Error {
+  readonly diagnostics: Diagnostic[];
+
+  constructor(diagnostics: Diagnostic[]) {
+    super(diagnostics[0]?.message ?? 'no diagnostics');
+    this.name = 'DiagnosticsError';
+    this.diagnostics = diagnostics;
+  }
+}
