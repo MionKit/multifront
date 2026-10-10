@@ -23,5 +23,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export async function deactivate(): Promise<void> {
-  await client?.stop();
+  // stop() throws on a client that failed to start or is still starting.
+  if (client?.isRunning()) await client.stop();
 }
