@@ -26,12 +26,6 @@ const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, numb
   'TsxEdges.ucf': {hasScoped: true, modules: {}},
 };
 
-describe('classMapId', () => {
-  it('names the class map module of a <style module> block', () => {
-    expect(classMapId('/app/Card.ucf', 2)).toBe('/app/Card.ucf?ucf&type=style&index=2&module&lang.js');
-  });
-});
-
 describe('createBuildContext on valid fixtures', () => {
   it('covers every valid fixture', () => {
     expect(listComponents()).toEqual(Object.keys(FIXTURES));
@@ -77,8 +71,9 @@ describe('createBuildContext on valid fixtures', () => {
     });
   });
 
-  it('gives Card.ucf a $style class map with a card class', async () => {
-    const {ctx} = await context('Card.ucf');
+  it('gives Card.ucf a $style class map with a card class, at its class map module id', async () => {
+    const {filename, ctx} = await context('Card.ucf');
+    expect(ctx.modules.$style!.id).toBe(`${filename}?ucf&type=style&index=0&module&lang.js`);
     expect(ctx.modules.$style!.classes.card).toBe(`card_${ctx.scopeId}_0`);
   });
 
