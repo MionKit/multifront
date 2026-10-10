@@ -1,9 +1,11 @@
 import type {Plugin, ResolvedConfig} from 'vite';
 import {TARGETS} from '@multifront/core';
-import type {MultifrontOptions, VueCompiler} from './types.ts';
+import type {VueCompiler} from '@multifront/core';
+import type {MultifrontOptions} from './types.ts';
 import {getVueCompiler} from './vueCompiler.ts';
 
-export type {MultifrontOptions, VueCompiler} from './types.ts';
+export type {VueCompiler} from '@multifront/core';
+export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 export function multifront(options: MultifrontOptions = {}): Plugin {

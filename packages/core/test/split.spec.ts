@@ -98,6 +98,7 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'style'],
   },
+  {fixture: 'invalid/CssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/DuplicateReact.ucf',
     errors: [
@@ -119,6 +120,7 @@ const INVALID_CASES: InvalidCase[] = [
   },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
   {fixture: 'invalid/ReactSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ScssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/StrayClosingTag.ucf',
     errors: [{code: 'text-outside-block', line: 6, column: 0}],

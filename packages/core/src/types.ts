@@ -1,3 +1,5 @@
+import type * as CompilerSfc from '@vue/compiler-sfc';
+
 /** The frameworks a component file can hold one implementation for. */
 export type Target = 'vue' | 'react' | 'svelte';
 
@@ -69,4 +71,29 @@ export interface Diagnostic {
   end: number;
   line: number; // 1-based line of start
   column: number; // 0-based column of start (the Rollup / Vite `loc` convention)
+}
+
+/** The part of @vue/compiler-sfc core calls; hosts pass the one their Vue ships. */
+export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'parse' | 'MagicString'>;
+
+export interface SourceMap {
+  version: number;
+  file?: string;
+  sourceRoot?: string;
+  sources: string[];
+  sourcesContent?: (string | null)[];
+  names: string[];
+  mappings: string;
+}
+
+/** One `<style>` block, compiled. */
+export interface CompiledStyle {
+  index: number; // the block's index among the <style> blocks
+  id: string; // module id, from styleId()
+  code: string; // plain CSS
+  map: SourceMap | undefined; // back to the .ucf file
+  scoped: boolean;
+  module: string | undefined; // injection name: '$style' or the module="name" value
+  classes: Record<string, string> | undefined; // CSS module class map, local → generated
+  errors: Diagnostic[]; // 'style-compile-error', positioned in the .ucf file
 }

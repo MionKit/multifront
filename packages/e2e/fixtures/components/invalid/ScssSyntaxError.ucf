@@ -1,0 +1,13 @@
+<react>
+  export default function Tag({ label }: { label: string }) {
+    return <span className="tag-large">{label}</span>
+  }
+</react>
+
+<style lang="scss">
+$size: large;
+
+.tag-#{$size {
+  padding: 0.5rem;
+}
+</style>
