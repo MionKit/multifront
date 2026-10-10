@@ -37,7 +37,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
 
 // Written by hand: the classes each local class composes, in the order postcss-modules lists them.
 const COMPOSED: Record<string, Record<string, string[]>> = {
-  'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base']},
+  'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
 };
 
 describe('compileStyles on valid fixtures', () => {
@@ -135,6 +135,16 @@ const ERROR_CASES = [
     rule: '<style module>',
     text: '<style module>',
     tag: '<style>',
+  },
+  // Neither a package nor a file: the package error names what the user wrote.
+  {
+    fixture: 'invalid/ComposesMissingPackage.ucf',
+    line: 7,
+    column: 0,
+    rule: '<style module>',
+    text: '<style module>',
+    tag: '<style>',
+    reason: /Cannot find module 'no-such-package\/base\.css'$/,
   },
   {
     fixture: 'invalid/MissingPreprocessor.ucf',

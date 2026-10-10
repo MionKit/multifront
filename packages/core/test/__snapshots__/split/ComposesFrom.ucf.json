@@ -3,9 +3,9 @@
     "type": "react",
     "attrs": {},
     "start": 0,
-    "end": 157,
+    "end": 172,
     "contentStart": 7,
-    "contentEnd": 149,
+    "contentEnd": 164,
     "index": 0
   },
   {
@@ -13,10 +13,10 @@
     "attrs": {
       "module": true
     },
-    "start": 159,
-    "end": 299,
-    "contentStart": 173,
-    "contentEnd": 291,
+    "start": 174,
+    "end": 437,
+    "contentStart": 188,
+    "contentEnd": 429,
     "index": 0
   }
 ]

@@ -1,5 +1,7 @@
+import {existsSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
-import {dirname, resolve} from 'node:path';
+import {createRequire} from 'node:module';
+import {dirname, isAbsolute, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {decode, encode} from '@jridgewell/sourcemap-codec';
 import {createDiagnostic} from './diagnostics.ts';
@@ -108,7 +110,7 @@ function modulesOptions(block: Block, scoped: boolean, {id, filename: root, comp
   function loader(emits: boolean) {
     return class ComposesLoader {
       async fetch(file: string, importer: string): Promise<Record<string, string>> {
-        const filename = resolve(dirname(importer), file);
+        const filename = composedPath(file, importer);
         if (reaches(filename, importer)) throw new Error(`composes cycle: ${importer} composes from ${filename}`);
         // Recorded before any await: postcss-modules fetches in source order, all at once.
         imports.set(importer, [...(imports.get(importer) ?? []), filename]);
@@ -123,6 +125,19 @@ function modulesOptions(block: Block, scoped: boolean, {id, filename: root, comp
   }
 
   return {generateScopedName, Loader: loader(true)};
+}
+
+// Like postcss-modules: a bare name is a package resolved from the importer, else a relative path.
+function composedPath(file: string, importer: string): string {
+  const relative = resolve(dirname(importer), file);
+  if (file.startsWith('.') || isAbsolute(file)) return relative;
+  try {
+    return createRequire(importer).resolve(file);
+  } catch (err) {
+    // Neither a package nor a file: the package error names what the user wrote.
+    if (existsSync(relative)) return relative;
+    throw err;
+  }
 }
 
 // So every map chained after it points into the .ucf file, not the bare block.

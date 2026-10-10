@@ -4,6 +4,9 @@
   "description": "Cross-package end-to-end tests for multifront, one folder per area, and the shared fixtures.",
   "private": true,
   "type": "module",
+  "exports": {
+    "./fixtures/*": "./fixtures/*"
+  },
   "license": "MIT",
   "dependencies": {
     "@multifront/core": "workspace:*",
