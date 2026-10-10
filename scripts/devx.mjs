@@ -2,7 +2,8 @@
 // devx: the repo's dev CLI. A zero-dependency dispatcher over the same tools CI calls (tsc, oxlint, oxfmt,
 // vitest), so local runs and CI cannot drift. Run it as `pnpm devx <command>`.
 import {spawnSync} from 'node:child_process';
-import {copyFileSync, existsSync, readdirSync, readFileSync, rmSync} from 'node:fs';
+import {copyFileSync, cpSync, existsSync, globSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
 import {join, relative} from 'node:path';
 import {agentDocs} from './lib/agent-docs.mjs';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
@@ -100,11 +101,28 @@ const handlers = {
     // vsce takes the version as given, and it names the output file.
     if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version ?? '')) throw new CliError(`${CLI}: version.json has no valid version`);
     const extension = join(REPO_ROOT, 'packages', 'vscode');
+    // So nothing the build no longer makes is packed.
+    rmSync(join(extension, 'dist'), {recursive: true, force: true});
     run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
+    run(join(REPO_ROOT, 'scripts', 'lib', 'bundle-vscode.mjs'), []);
     // vsce reads a license only from the extension folder, and prompts without one.
     copyFileSync(join(REPO_ROOT, 'LICENSE'), join(extension, 'LICENSE'));
-    // vsce would otherwise run `npm version` on package.json.
-    run(bin('@vscode/vsce', 'vsce'), ['package', version, '--no-update-package-json', '--no-dependencies'], {cwd: extension});
+    // vsce packs a node_modules folder only when `npm list` names it a dependency, which the workspace links break:
+    // so it packs a copy of the shipped files whose only dependency is the plugin pack.
+    const manifest = JSON.parse(readFileSync(join(extension, 'package.json'), 'utf8'));
+    const pack = JSON.parse(readFileSync(join(extension, 'node_modules', 'multifront-typescript-plugin-pack', 'package.json'), 'utf8'));
+    const stage = mkdtempSync(join(tmpdir(), 'multifront-vsix-'));
+    try {
+      for (const pattern of manifest.files) {
+        for (const path of globSync(pattern, {cwd: extension})) cpSync(join(extension, path), join(stage, path), {recursive: true});
+      }
+      writeFileSync(join(stage, 'package.json'), `${JSON.stringify({...manifest, dependencies: {[pack.name]: pack.version}}, null, 2)}\n`);
+      const out = join(extension, `multifront-vscode-${version}.vsix`);
+      // vsce would otherwise run `npm version` on package.json.
+      run(bin('@vscode/vsce', 'vsce'), ['package', version, '--no-update-package-json', '--out', out], {cwd: stage});
+    } finally {
+      rmSync(stage, {recursive: true, force: true});
+    }
   },
   env() {
     for (const row of REGISTRY) console.log(`${row.name.padEnd(28)} ${row.scope.padEnd(9)} ${row.desc}`);

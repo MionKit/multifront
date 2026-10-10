@@ -1,7 +1,7 @@
 {
   "name": "multifront-vscode",
   "version": "0.0.0",
-  "description": "VS Code extension for multifront component files: the .ucf grammar, generated from the block registry.",
+  "description": "VS Code extension for multifront component files: the .ucf grammar, the language server and the TypeScript plugin.",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -13,19 +13,22 @@
   "engines": {
     "vscode": "^1.100.0"
   },
+  "main": "./dist/extension.cjs",
   "exports": {
     "./grammar": {
       "source": "./src/grammar.ts"
     }
   },
   "files": [
-    "dist/syntaxes",
+    "dist",
+    "node_modules/multifront-typescript-plugin-pack",
     "syntaxes/vendor/*/LICENSE",
     "syntaxes/vendor/sources.json",
     "icons",
     "language-configuration.json",
     "LICENSE"
   ],
+  "activationEvents": ["onLanguage:ucf"],
   "contributes": {
     "languages": [
       {
@@ -84,9 +87,20 @@
         "scopeName": "source.ucf.svelte",
         "path": "./dist/syntaxes/source.ucf.svelte.tmLanguage.json"
       }
+    ],
+    "typescriptServerPlugins": [
+      {
+        "name": "multifront-typescript-plugin-pack",
+        "enableForWorkspaceTypeScriptVersions": true,
+        "languages": ["ucf"]
+      }
     ]
   },
   "dependencies": {
-    "@multifront/core": "workspace:*"
+    "@multifront/core": "workspace:*",
+    "@multifront/language-tools": "workspace:*",
+    "@oxc-parser/binding-wasm32-wasi": "0.149.0",
+    "@volar/vscode": "2.4.28",
+    "vscode-languageclient": "9.0.1"
   }
 }
