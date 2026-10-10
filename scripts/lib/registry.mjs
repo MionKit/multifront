@@ -13,7 +13,7 @@ export const COMMANDS = [
   {name: 'clean', summary: 'delete every dist/, coverage/ and *.tsbuildinfo', flags: [['--deps', 'also delete every node_modules'], ['--dry-run', 'list, delete nothing']]},
   {name: 'docs-images', args: '[names…]', summary: 'render docs/ and publicdocs/ assets/src/*.html to assets/*.png with Playwright'},
   {name: 'vsix', summary: 'write the .ucf grammars to packages/vscode/dist/syntaxes/, then pack packages/vscode/multifront-vscode-<version>.vsix'},
-  {name: 'env',summary: 'print every env var the repo reads'},
+  {name: 'env', summary: 'print every env var the repo reads'},
 ];
 
 export function renderHelp() {
