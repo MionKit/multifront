@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.2
@@ -60,7 +60,7 @@ Found while planning (an in-memory prototype with shiki's textmate fork passes o
    `GrammarFile {scopeName; path; grammar; injectTo?}`, where `path` is the file name 2.3 writes under
    `dist/syntaxes/` (`<scopeName>.tmLanguage.json`) and `injectTo` is `['source.ucf']` for an injection grammar.
 4. **`packages/vscode/src/grammar.ts`**:
-   `generateGrammar(kinds: readonly BlockKind[] = BLOCK_KINDS): GrammarFile[]`, plus a type re-export of `GrammarFile`
+   `generateGrammar(kinds: readonly BlockKind[] = BLOCK_KINDS): GrammarFile[]` and `ROOT_SCOPE`, plus a type re-export of `GrammarFile`
    and `TmGrammar`. It reads the vendored JSON with `readFileSync(new URL('../syntaxes/vendor/…', import.meta.url))`,
    not JSON imports, so no tsconfig changes in e2e. A table maps registry scopes to copies: `'text.html.vue'` → vue
    main + 3 injections, `'source.svelte'` → svelte main.
