@@ -20,7 +20,19 @@ const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
 };
 
 /** The target whose script tsserver serves as the `.ucf` file's own: Volar's tsserver plugin serves no extra scripts. */
-export const MAIN_SCRIPT_TARGET: Target = 'react';
+export const MAIN_SCRIPT_TARGET = 'react' satisfies Target;
+
+// Without one, tsserver reads the raw `.ucf` text as TSX; one per root, so Volar's mapping cache holds.
+const emptyScripts = new WeakMap<VirtualCode, VirtualCode>();
+
+function emptyScript(root: VirtualCode): VirtualCode {
+  let code = emptyScripts.get(root);
+  if (!code) {
+    code = {id: MAIN_SCRIPT_TARGET, languageId: 'typescriptreact', snapshot: stringSnapshot('export {};\n'), mappings: []};
+    emptyScripts.set(root, code);
+  }
+  return code;
+}
 
 function stringSnapshot(text: string): IScriptSnapshot {
   return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
@@ -52,9 +64,9 @@ export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePl
       languageId === 'ucf' ? createRootCode(fileName, snapshot, options) : undefined,
     typescript: {
       extraFileExtensions: [{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
-      getServiceScript(root): TypeScriptServiceScript | undefined {
-        const code = root.embeddedCodes?.find(({id}) => id === MAIN_SCRIPT_TARGET);
-        return code && {code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX};
+      getServiceScript(root): TypeScriptServiceScript {
+        const code = root.embeddedCodes?.find(({id}) => id === MAIN_SCRIPT_TARGET) ?? emptyScript(root);
+        return {code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX};
       },
     },
   };

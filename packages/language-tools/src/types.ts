@@ -1,12 +1,10 @@
 import type {
   Block,
   BlockTag,
-  DiagnosticCode,
+  Diagnostic,
   ResolveTargetOptions,
   SplitResult,
   StyleModule,
-  Target,
-  TargetRule,
   VirtualFile,
   VueCompiler,
 } from '@multifront/core';
@@ -60,9 +58,7 @@ export interface UcfImportOptions extends ResolveTargetOptions {
   getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one
 }
 
-export interface UcfResolution {
-  resolvedModule: ts.ResolvedModuleFull | undefined; // the .ucf file itself, served as its target's script
-  target?: Target;
-  rule?: TargetRule;
-  error?: {code: DiagnosticCode; message: string}; // reported at the import
+/** What TypeScript reads, plus the error the plugin reports at the import. */
+export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocations {
+  error?: Pick<Diagnostic, 'code' | 'message'>;
 }

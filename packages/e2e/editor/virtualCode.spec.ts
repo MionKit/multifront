@@ -129,10 +129,12 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
       }
     });
 
-    it('serves the react code as the file’s own TypeScript script', () => {
+    it('serves the react code as the file’s own TypeScript script, an empty module without one', () => {
       const react = embedded.find(({id}) => id === 'react');
-      const expected = react && {code: react, extension: '.tsx', scriptKind: ts.ScriptKind.TSX};
-      expect(plugin.typescript!.getServiceScript(root)).toEqual(expected);
+      const script = plugin.typescript!.getServiceScript(root)!;
+      expect(script).toMatchObject({extension: '.tsx', scriptKind: ts.ScriptKind.TSX});
+      if (react) expect(script.code).toBe(react);
+      else expect([textOf(script.code), script.code.mappings]).toEqual(['export {};\n', []]);
     });
 
     it('matches the code snapshots', async () => {
