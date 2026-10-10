@@ -35,7 +35,7 @@ function typeOnlyNames(program: Program): Set<string> {
 }
 
 function syntaxError(block: Block, split: SplitResult, error: OxcError): Diagnostic {
-  // Every oxc syntax error seen has a label; without one, the block's first character stands in.
+  // Every oxc syntax error seen so far has a label.
   const {start, end} = error.labels[0] ?? {start: 0, end: 0};
   const message = `<react> does not parse: ${error.message}`;
   return createDiagnostic(split, 'react-syntax-error', block.contentStart + start, block.contentStart + end, message);
@@ -59,7 +59,7 @@ function hasDefaultExport(program: Program): boolean {
   });
 }
 
-// The same `.ucf` imports `rewriteImportAttributes` reads; any value counts, the attribute itself is the error.
+// The `.ucf` imports `rewriteImportAttributes` reads; the attribute is an error whatever its value.
 function frameworkAttributes(program: Program): Span[] {
   const found: Span[] = [];
   const isUcf = (source: Expression) => literalValue(source)?.endsWith('.ucf') ?? false;

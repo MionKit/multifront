@@ -19,7 +19,7 @@ const BLOCK_SUFFIXES: readonly (readonly [string, Target])[] = [
   ['.svelte.ts', 'svelte'],
 ];
 
-/** Shared with `react.check`, which reports the attribute inside the block. */
+/** Shared with `react.check`. */
 export function frameworkInBlockMessage(block: Target): string {
   return `a framework attribute cannot sit inside the <${block}> block; imports there always get ${block}`;
 }

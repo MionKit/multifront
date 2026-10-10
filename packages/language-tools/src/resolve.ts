@@ -20,13 +20,13 @@ function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: 
   for (const property of object.properties) {
     const {name} = property;
     if (!name || !(ts.isIdentifier(name) || ts.isStringLiteral(name)) || name.text !== key) continue;
-    // A shorthand, method or accessor has no initializer: its name stands for a value that is no literal.
+    // A shorthand, method or accessor has no initializer; its name stands in as a non-literal value.
     return ts.isPropertyAssignment(property) ? property.initializer : name;
   }
   return undefined;
 }
 
-// Only the literal's own parent link is set during resolution, so nothing here reads a position.
+// During resolution only the literal's own parent link is set: read no positions here.
 function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expression | undefined {
   const node = literal.parent as ts.Node | undefined;
   if (!node) return undefined;
@@ -62,7 +62,7 @@ export function resolveUcfImport(
   containingFile: string,
   options: UcfImportOptions
 ): UcfResolution {
-  // In tsserver a `.ucf` file's own script is its main target's block, so its imports sit in that block.
+  // In tsserver a `.ucf` file's own script is its main target's block.
   const importer: Importer = {fileName: containingFile};
   if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
   const value = frameworkValue(ts, literal);
