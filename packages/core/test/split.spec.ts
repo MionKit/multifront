@@ -77,7 +77,7 @@ interface InvalidCase {
   blocks: BlockTag[];
 }
 
-// Written by hand from the fixture files: the code, line and column each mistake must get.
+// Written by hand from the fixture files.
 const INVALID_CASES: InvalidCase[] = [
   {
     fixture: 'invalid/BrokenOpeningTags.ucf',
