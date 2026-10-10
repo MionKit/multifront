@@ -76,7 +76,8 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - Own implementation. Do not use Vue's `parse()` for the root level, because TSX (`<>`, generics, `a < b`) can confuse an HTML tokenizer.
 - Scan only for top-level opening tags `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Take content as **raw text** up to the matching closing tag (browser `<script>` semantics: the first `</react>` closes it).
 - Output per block: `{ type, attrs, content, start, end, contentStart, contentEnd, index }`, used for source maps; `index` is the block's position among blocks of its type.
-- Errors with exact locations (offsets, line and column): duplicate target block, unknown root tag, unclosed block, missing target block, text outside a block, `<react>` without `export default`. The splitter keeps going after an error, so every readable block still comes back.
+- Errors with exact locations (offsets, line and column): duplicate target block, unknown root tag, unclosed block, missing target block, text outside a block. The splitter keeps going after an error, so every readable block still comes back.
+- `checkBlocks(split)` adds the block rules of section 2, each block checked by its kind, with the same locations: `<react>` without a default export, a `<style>` at the top level of `<vue>` or `<svelte>`, an unknown style `lang`, two `<style>` blocks injecting the same module name. It returns the splitter errors too, in source order: the one call hosts make.
 
 ### 3.3 Style pipeline
 

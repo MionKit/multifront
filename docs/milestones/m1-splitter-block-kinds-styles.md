@@ -161,13 +161,14 @@ None: this is the first milestone. It builds on what the repo already has:
 - Build:
   - `BlockKind` gets `check(block: Block, split: SplitResult): Diagnostic[]`.
   - `blocks/react.ts`: `react-no-default-export`. Parses the content with `oxc-parser` (`parseSync`, `lang: 'tsx'`) and looks for `export default …` or `export {X as default}`. Points at the opening `<react>` tag. If the block does not parse, it reports nothing: the TSX compiler and the TypeScript service report syntax errors with better messages.
-  - `blocks/vue.ts` and `blocks/svelte.ts`: `style-inside-target`. Scans the block content one level down with the splitter's own tag scanner (skipping `<script>` raw text and comments, counting nested `<template>` tags for vue) and reports a top-level `<style` tag. Points at that tag.
+  - `blocks/vue.ts` and `blocks/svelte.ts`: `style-inside-target`. Scans the block content one level down with the splitter's own tag scanner (`topLevelTags` in `src/scan.ts`, shared with `split.ts`; skipping comments and the raw text of `<script>` and `<style>`, counting nested `<template>` tags for vue, every non-void element for svelte, which leaves a `<style>` inside `<svelte:head>` or an element alone, as Svelte does) and reports a top-level `<style` tag. Points at that tag. Svelte `{#…}` logic blocks are not counted (risk 4).
   - `blocks/style.ts`: `unknown-style-lang` when `lang` is not one of `css`, `scss`, `sass`, `less`, `styl`, `stylus`, `postcss`. `duplicate-style-module` when two `<style>` blocks inject the same name (`module` → `$style`, `module="classes"` → `classes`). Points at the second block's opening tag.
   - `packages/core/src/check.ts`: `checkBlocks(split: SplitResult): Diagnostic[]` returns `split.errors` plus every block's `getBlockKind(block.type).check(block, split)`, sorted by `start`. This is the one function hosts call.
-  - `oxc-parser` becomes an exact-pinned `dependency` of `@multifront/core` (newest version older than the 30 day release age; milestone 3 reuses it for the scope transform).
+  - `oxc-parser` becomes an exact-pinned `dependency` of `@multifront/core` (newest version older than the 30 day release age, `0.149.0`; milestone 3 reuses it for the scope transform).
   - Invalid fixtures: `invalid/ReactNoDefault.ucf` (named export only), `invalid/StyleInVue.ucf`, `invalid/StyleInSvelte.ucf`, `invalid/UnknownStyleLang.ucf` (`lang="foo"`), `invalid/DuplicateStyleModule.ucf` (two bare `module` blocks).
 - Deliverable: `checkBlocks()` reports every milestone 1 rule; valid fixtures report nothing.
 - Test: `packages/core/test/check.spec.ts`. Every valid fixture gives `[]`. Each new invalid fixture gives exactly its code at the hand-written line and column. `Card.ucf` with `export {Card as default}` instead of `export default function` stays valid (a fixture copy, `ReactDefaultSpecifier.ucf`, added to `components/`).
+- Status: done
 
 ### 1.5 Splitter fuzz test (generated real files)
 
@@ -338,7 +339,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M6 |
 | `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |
-| `oxc-parser` | exact-pinned dependency of `@multifront/core` | M3 (scope transform) |
+| `oxc-parser` | exact-pinned dependency of `@multifront/core` (`0.149.0`) | M3 (scope transform) |
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2) | M2 to M7 |
 | Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |

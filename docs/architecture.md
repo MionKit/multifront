@@ -31,7 +31,7 @@ interface BlockKind {
   tag: 'react' | 'vue' | 'svelte' | 'style';
   role: 'target' | 'shared';         // target = a framework component, shared = used by every target
   grammar: {scopeName: string};      // VS Code highlighting
-  check(block): Diagnostic[];        // rules for the block, e.g. "react must export default"
+  check(block, split): Diagnostic[]; // rules for the block, e.g. "react must export default"
   build(block, ctx): VirtualFile;    // the file the bundler compiles
   types(block, ctx): VirtualFile;    // the file TypeScript reads: what the module exports
   editor(block, ctx): VirtualFile[]; // embedded codes for tsserver (TypeScript) and our language server (the rest)
