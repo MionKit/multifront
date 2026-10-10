@@ -23,7 +23,8 @@ Facts this plan rests on (`@vue/compiler-sfc` 3.5.42, `dist/compiler-sfc.cjs.js`
   `compileStyleAsync({filename, id: 'data-v-' + id, isProd, source, scoped})`.
 - `doCompileStyle` (`compiler-sfc.cjs.js:19952-20057`): the preprocessor (`processors` at :12129, keys
   `less | sass | scss | styl | stylus`) gets `options.inMap || options.map` and returns a merged map; PostCSS gets it
-  as `map.prev`. Errors come back in `result.errors`, never thrown.
+  as `map.prev`. Errors come back in `result.errors`, except a preprocessor that is not installed: `load('less')`
+  runs before any `try`, so `compileStyleAsync` rejects.
 - Sass errors carry `span.start.offset` / `span.end.offset` relative to the block content (no `additionalData`) and
   `sassMessage` (one line). PostCSS `CssSyntaxError` carries `reason` and `input.offset`, relative to the source
   PostCSS read: the block content when nothing preprocessed it.
@@ -59,13 +60,17 @@ Facts this plan rests on (`@vue/compiler-sfc` 3.5.42, `dist/compiler-sfc.cjs.js`
        `modules: module !== undefined`, `modulesOptions.generateScopedName: (local) => `${local}_${id}_${block.index}``.
      - Map: keep only segments whose source is `filename`, `sources: [filename]`, `sourcesContent: [source]`,
        decoded and encoded with `@jridgewell/sourcemap-codec`. Drops the segments that point at sass's output.
-     - Errors → `style-compile-error` through `createDiagnostic` (`diagnostics.ts:11`):
-       - sass error (`span`): `contentStart + span.start.offset` to `contentStart + span.end.offset`, `sassMessage`;
-       - PostCSS `CssSyntaxError` on a block nothing preprocessed: `contentStart + input.offset`
+     - Errors → `style-compile-error` through `createDiagnostic` (`diagnostics.ts:11`); a thrown error (a missing
+       preprocessor) is caught and reported the same way:
+       - sass error whose `span.url` is the `.ucf` file: `contentStart + span.start.offset` to
+         `contentStart + span.end.offset`, `sassMessage`;
+       - PostCSS error whose `input.source` is the raw block content: `contentStart + input.offset`
          (end `input.endOffset ?? offset`), `reason`;
-       - anything else (a less or stylus error, a missing `sass`): the opening tag, first line of `err.message`.
+       - anything else (a sass error in an imported file, a missing preprocessor, a less or stylus error): the
+         opening tag, first line of `err.message`.
        - Message: `<style lang="scss"> does not compile: expected "}".` (`<style>` with no `lang`), one line.
-     - On error: `code` `''`, `map` and `classes` `undefined`, as the compiler returns them.
+     - On error: `code` `''`, `map` and `classes` `undefined` (the compiler returns `{}` classes for a module block
+       whose preprocessor failed, so this is set, not passed on).
 4. **`packages/core/src/index.ts`**: export `compileStyles`, `styleId`, types `CompiledStyle`, `SourceMap`,
    `VueCompiler`.
 5. **`packages/core/package.json`**: optional peer `"@vue/compiler-sfc": "^3.5.0"`, devDependency
@@ -75,10 +80,16 @@ Facts this plan rests on (`@vue/compiler-sfc` 3.5.42, `dist/compiler-sfc.cjs.js`
    `@multifront/core`; `index.ts` re-exports `export type {VueCompiler} from '@multifront/core'`.
 7. **Fixtures** in `packages/e2e/fixtures/components/invalid/`:
    - `ScssSyntaxError.ucf`: `<react>` with a default export, `<style lang="scss">` with `$size: large;` and the rule
-     `.tag-#{$size {` (the interpolation's `}` is missing): sass points at that rule.
-   - `CssSyntaxError.ucf`: `<react>`, `<style scoped>` with `.note { color: gray;` left open: PostCSS reports
-     `Unclosed block` at `.note`.
-   - Both are valid for the splitter and `checkBlocks`: rows in `split.spec.ts` `INVALID_CASES` (`errors: []`) and
+     `.tag-#{$size {` (the interpolation's `}` is missing): sass points at that rule. The block is `module`, so the
+     test also pins `classes: undefined` on error.
+   - `CssSyntaxError.ucf`: `<react>`, `<style scoped lang="postcss">` with `.note { color: gray;` left open: PostCSS
+     reports `Unclosed block` at `.note`.
+   - `ScssPartialError.ucf` with `_broken-partial.scss` beside it: the error sits in the partial, so it lands on the
+     opening tag.
+   - `MissingPreprocessor.ucf`: `<style lang="less">`; `less` is not installed (the test pins that), so the thrown
+     error lands on the opening tag.
+   - `TsxEdges.ucf`'s style gets `lang="css"`, so a `lang="css"` block is compiled and its map checked.
+   - All are valid for the splitter and `checkBlocks`: rows in `split.spec.ts` `INVALID_CASES` (`errors: []`) and
      `__snapshots__/split/invalid/*.errors.json` (`[]`).
 
 ## Tests
@@ -96,10 +107,10 @@ All run on this host and in CI's `check` job (`pnpm devx test`); they need only 
   - maps: `sources` `[filename]`, `sourcesContent` `[source]`; plain CSS blocks: every segment has the same token at
     the generated and original position (a generated module class counts as its local name); SCSS blocks: every
     segment's original offset is inside `[contentStart, contentEnd)`;
-  - `invalid/ScssSyntaxError.ucf` and `invalid/CssSyntaxError.ucf`: one `style-compile-error` each at a hand-written
-    line and column, message names the tag on one line, `code === ''`, `map === undefined`.
+  - every error fixture: one `style-compile-error` at a hand-written line, column and range (`source.slice(start, end)`),
+    message names the tag on one line, `code === ''`, `map` and `classes` `undefined`.
 - **`packages/vite/test/vueCompiler.spec.ts`**: `compileStyles` with `getVueCompiler([], root)` compiles
-  `Badge.ucf`'s style; with typecheck, proves vite hands core a compiler core accepts.
+  `Badge.ucf`'s style with its real `scopeId()`; with typecheck, proves vite hands core a compiler core accepts.
 - **`packages/core/test/split.spec.ts`**: the two `INVALID_CASES` rows.
 
 ## Docs
@@ -127,6 +138,15 @@ None: the step names no fuzz test (orchestrator decision).
 - `packages/e2e/build/scope-id.spec.ts` (1.7) timed out about one full run in eight once this step's tests added
   load: when Vite's dep optimizer finished before `server.transformRequest()`, the request never resolved. The dev
   server there now runs with `optimizeDeps: {noDiscovery: true}` (no optimizer); 30 full runs green after, own commit.
+
+- Review: `composes: … from` a missing or broken file crashes the process inside compiler-sfc's bundled
+  postcss-modules loader (an uncaught throw in a `readFile` callback), so no fixture can test it here. Filed as a
+  guidelines fix todo in this PR.
+- Review, declined: `production` gets no test of its own, because its only effect (`isProd` in compiler-sfc's
+  `v-bind()` variables) is out of milestone 1 scope; `parse` stays in `VueCompiler` and `SourceMap` stays exported
+  (the milestone asks for both); `ids.ts` stays (1.9 adds `classMapId`).
+- The PostCSS `input.source` guard has no failing case: no known sass output is rejected by PostCSS, and errors from a
+  composed file crash before they reach it. It stays as the condition under which the offset is valid.
 
 ## Decisions
 

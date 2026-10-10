@@ -109,7 +109,7 @@ None: this is the first milestone. It builds on what the repo already has:
     | `Button.ucf` | vue, react, svelte, `<style scoped>`, `<style module='classes'>` | scoped plus a named module; single-quoted attribute |
     | `Panel.ucf` | vue, react, `<style scoped lang = scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute, spaces around `=` |
     | `Hello.ucf` | react only, no style | a file with no `<style>`; closing tag `</react >` |
-    | `TsxEdges.ucf` | react, `<style scoped>` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'`, a `'</reactive>'` string, an HTML comment holding `<style>` between blocks |
+    | `TsxEdges.ucf` | react, `<style scoped lang="css">` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'`, a `'</reactive>'` string, an HTML comment holding `<style>` between blocks |
 
 - Deliverable: `splitBlocks()` returns the right blocks, attributes and offsets for every valid fixture.
 - Test: `packages/core/test/split.spec.ts` (package's own test). For every name from `listComponents()` (read through a relative path to `packages/e2e/fixtures/components/`, no package dependency, so no workspace cycle):
@@ -246,16 +246,16 @@ None: this is the first milestone. It builds on what the repo already has:
     `CompiledStyle` lives in `types.ts` (`context.ts` shares it in 1.9).
   - One `compileStyleAsync` call per block, with the same options plugin-vue passes (`filename`, `id: 'data-v-' + id`, `isProd: production`, `scoped`, `source`) plus `preprocessLang` from `lang` (none for `css` and `postcss`), `modules` when the block has `module`, and `inMap` (`map` is deprecated): an input map from `compiler.MagicString` over the `.ucf` source, so the output map points into the `.ucf` file, not the block.
   - The output map keeps only segments whose source is the `.ucf` file. After a preprocessor, PostCSS keeps the segments it cannot follow through the input map (the closing `}` lines sass does not map) under a second source name, pointing at the preprocessor's output.
-  - Compile errors become `style-compile-error`: a sass error at its span, a PostCSS syntax error at its offset (only when nothing preprocessed the block), anything else at the opening tag. Message: `<style lang="scss"> does not compile: <reason>`, one line.
+  - Compile errors become `style-compile-error`, never a rejected promise: a sass error in the block at its span, a PostCSS syntax error at its offset when PostCSS read the raw block content, anything else at the opening tag (a sass error in an imported file, a preprocessor that is not installed). Message: `<style lang="scss"> does not compile: <reason>`, one line. A block with errors has `code: ''` and no `map` or `classes`.
   - CSS module class names are deterministic: `modulesOptions.generateScopedName` is `<local>_<scopeId>_<index>` (for example `card_1a2b3c4d_0`).
-  - `SourceMap` type in `types.ts`: `{version: number; file?: string; sourceRoot?: string; sources: string[]; sourcesContent?: (string | null)[]; names: string[]; mappings: string}`.
-  - Fixtures `invalid/ScssSyntaxError.ucf` (a missing `}` in a `lang="scss"` block: `.tag-#{$size {`) and `invalid/CssSyntaxError.ucf` (a plain CSS rule left open).
+  - `SourceMap` type in `types.ts`: `{version: 3; file?: string; sourceRoot?: string; sources: string[]; sourcesContent?: (string | null)[]; names: string[]; mappings: string}`.
+  - Fixtures in `invalid/`: `ScssSyntaxError.ucf` (a missing `}` in a `module lang="scss"` block: `.tag-#{$size {`), `CssSyntaxError.ucf` (a `lang="postcss"` rule left open), `ScssPartialError.ucf` (the error sits in the imported `_broken-partial.scss`), `MissingPreprocessor.ucf` (`lang="less"`, and `less` is not installed). `TsxEdges.ucf`'s style becomes `<style scoped lang="css">`, so `lang="css"` is compiled too.
 - Deliverable: every `<style>` block compiles once into CSS, a map into the `.ucf` file and, for modules, a class map.
 - Test: `packages/core/test/styles.spec.ts`, with the real `@vue/compiler-sfc` and the real `sass`:
   - a file snapshot of every style block of every valid fixture, `test/__snapshots__/styles/<Name>.ucf.<index>.css`, among them scoped (`Badge.ucf`), module (`Card.ucf`), named module (`Button.ucf`), scss (`Card.ucf`, `Panel.ucf`), global (`Panel.ucf`);
   - every key of a class map is a class selector in the block source, and every value is a class selector in the CSS;
   - maps: for plain CSS blocks, every mapped segment (read with `@jridgewell/trace-mapping`) points at the same text in the `.ucf` file; for SCSS blocks, every segment lands inside the block's content range;
-  - `ScssSyntaxError.ucf` and `CssSyntaxError.ucf` each give one `style-compile-error` at the `.ucf` line and column of the broken rule.
+  - each error fixture gives one `style-compile-error` at a hand-written `.ucf` line, column and range: the broken rule for `ScssSyntaxError.ucf` and `CssSyntaxError.ucf`, the opening tag for `ScssPartialError.ucf` and `MissingPreprocessor.ucf`.
   - `packages/vite/test/vueCompiler.spec.ts`: `compileStyles` takes the compiler `getVueCompiler()` returns.
 - Status: done
 
@@ -353,7 +353,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2) | M2 to M7 |
 | Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |
-| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ScssSyntaxError`, `CssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
+| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ScssSyntaxError`, `CssSyntaxError`, `ScssPartialError` (with `_broken-partial.scss`), `MissingPreprocessor` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
 | Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki` 4.4.3, `@jridgewell/trace-mapping` 0.3.31 (exact pins) | M2 to M7 |
