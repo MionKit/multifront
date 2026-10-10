@@ -7,7 +7,7 @@ import {componentPath, readComponent} from '../fixtures/index.ts';
 
 describe('resolveUcfImport with no open buffer', () => {
   const {filename, source} = readComponent('editor/ImportErrors.ucf');
-  // The <react> block, as TypeScript reads it: the importer's own script.
+  // The importer's own script, as TypeScript reads it.
   const script = splitBlocks(source, filename).targets.react!.content;
   const sourceFile = ts.createSourceFile(filename, script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 

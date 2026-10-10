@@ -27,7 +27,7 @@ type Completions = ts.server.protocol.CompletionInfo;
 
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
 const BUTTON = readComponent('Button.ucf');
-// The rows tsserver serves (`.ucf` importers through our plugin); .vue, .svelte and .jsx come with M4 and M6.
+// The rows tsserver serves; .vue, .svelte and .jsx importers come with M4 and M6.
 const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.(tsx?|ucf)$/.test(file) && file !== 'src/mixed.ts');
 const RULE_REASON: Record<TargetRule, string> = {
   block: 'the block it sits in',
