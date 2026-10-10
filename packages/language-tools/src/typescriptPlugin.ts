@@ -148,14 +148,15 @@ const plugin: ts.server.PluginModuleFactory = (modules) => {
   return {
     ...volar,
     create(info) {
-      const project = info.project as ts.server.Project & {[SERVED]?: true};
-      if (project[SERVED]) {
+      // The owner is this module copy, so a tsconfig reload, which calls `create` again, is not another copy.
+      const project = info.project as ts.server.Project & {[SERVED]?: unknown};
+      if (project[SERVED] && project[SERVED] !== plugin) {
         info.project.projectService.logger.info(
           'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside'
         );
         return info.languageService;
       }
-      project[SERVED] = true;
+      project[SERVED] = plugin;
       return volar.create(info);
     },
   };
