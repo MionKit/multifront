@@ -83,7 +83,7 @@ A host is a program that runs the operations. Each one does the same three steps
 | Language server | `@multifront/language-tools` | `check`, `editor` (CSS, template HTML) |
 | TypeScript plugin (in VS Code's tsserver), `mf-tsc` | `@multifront/language-tools` | `types`, `editor` (TypeScript codes) |
 | `mf-lint`, `mf-fmt` | `@multifront/language-tools` | the block text, named by `build`'s ending |
-| VS Code extension | `packages/vscode` | `grammar`, at packaging time |
+| VS Code extension | `packages/vscode` | `grammar`, at packaging time; starts the language server, bundles it and the TypeScript plugin |
 
 ## Build
 
@@ -103,6 +103,7 @@ What the Vite plugin does when an app imports a `.ucf` file. Only the chosen tar
 - **Hybrid mode:** VS Code's own tsserver, with our TypeScript plugin, does every TypeScript job, inside `.ucf` files too. So there is one TypeScript program: unsaved edits reach importers at once, and rename and references cross file kinds. Our language server does the rest.
 - **Inside a `.ucf` file:** each block's `editor()` codes go to tsserver (TypeScript) and to our language server (CSS, template HTML), which asks tsserver when it needs types.
 - **Importing a `.ucf` file:** TypeScript never reads import attributes, so our TypeScript plugin resolves `./Card.ucf` with `resolveTarget()`, the same function the build uses, and points it at that target's `types()` script. tsserver serves one script per `.ucf` file (Volar's tsserver plugin has no extra scripts), so in M2 the React script is the `.ucf` file's own; the Vue target must serve its script another way.
+- **Packaging:** `pnpm devx vsix` bundles the extension, the language server and the TypeScript plugin, so the `.vsix` needs nothing else installed. Core parses `<react>` with oxc-parser, which the bundles load through its wasm binding: one `.vsix` serves every platform. tsserver finds a plugin only in an extension's own `node_modules`, so the plugin ships there as a pack (a file that loads the bundle). When a project also lists its own installed plugin and VS Code runs the workspace TypeScript, both copies load: the first one in a project serves it, the other steps aside.
 
 ## Where the code lives
 
