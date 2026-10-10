@@ -1,7 +1,7 @@
 ---
 type: chore
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.1
@@ -58,7 +58,8 @@ day age (cutoff 2026-09-10): `vite` 8.2.2, `@vitejs/plugin-react` 6.1.1, `@vitej
   optimizer metadata or arrives later:
   - (a) `resolveId` returns the react id during the scan too;
   - (b) `resolveId` returns `{id, external: true}` when `options.scan`;
-  - (c) (b) plus an `optimizeDeps.rolldownOptions.plugins` entry whose `load` serves the `<react>` block as `tsx`.
+  - (c) (a) plus an `optimizeDeps.rolldownOptions.plugins` entry whose `load` serves the `<react>` block as `tsx`.
+  - Each run on three id shapes: `?target=react&lang.tsx`, `.ucf.tsx?target=react`, `.ucf.react.tsx`.
 - Check 3: oxc-parser `parseSync('x.tsx', ...)` on a file with an emoji and accents before JSX. Pass = the element's
   `start` equals the JS (UTF-16) `indexOf`.
 
@@ -78,21 +79,24 @@ day age (cutoff 2026-09-10): `vite` 8.2.2, `@vitejs/plugin-react` 6.1.1, `@vitej
     `ExportAllDeclaration`, `ImportExpression`), each with `framework: 'react'`;
   - plugin-react ran: the client code of `component.tsx` has its Fast Refresh marker.
 
-### 4. Write the verdict
+### 4. Write the verdict (as shipped)
 
-- `docs/plan.md` "Prototype first", item 3: "Answers" in item 1's style: versions, one bullet per compiler, one per
-  check with evidence, the decision for each "no".
-- `docs/milestones/m3-react-and-imports.md`: 3.1 `- Status: done`; 3.6 plugin-react floor and the concrete scan
-  bullet; 3.7 plugin-react already at the root; the Risks "The dependency scanner" bullet; 3.5 / 3.10 / 3.14 only if a
-  check fails.
-- Only for a "drops it" / "cannot parse" result: spec 4.4 + architecture "Build" (Oxc), the M4 step (plugin-vue), the
-  M6 step (Svelte), spec 4.2's note (cannot parse).
-- Oxc drops it → stop and ask before writing the canary.
+Answers: every compiler keeps the attribute; check 1 fails (new ids); check 2 needs a load-only scan plugin; check 3
+passes. Side fact: without our rewrite, Vite's import analysis drops static attributes but leaves `import()`'s
+`{ with: { framework } }` in the dev output.
 
-## Decisions
-
-- Check 2: if variant (c) works, it is 3.6's scan approach; else (b), with the conflict with 3.14's cold start test
-  named in the verdict (orchestrator: 3.14's Test line is the binding outcome).
+- `docs/plan.md` "Prototype first", item 3: "Answers" (five bullets); plan items "Building on plugin-vue" 2, M3 and M6
+  name the new ids.
+- Spec 4.3: React id `/abs/Card.ucf.react.tsx`, Svelte id `/abs/Card.ucf.svelte.svelte`, a bullet on the missing file
+  tie (`addWatchFile`, `hotUpdate` by id). `docs/architecture.md` "The idea" names `.react.tsx`.
+- M3: 3.1 outcome lines, verdict, `- Status: done`; 3.3 `importerFromId`; 3.6 plugin-react `^6.0.0`, the scan plugin
+  and `addWatchFile`; 3.7 ids and root devDependencies; 3.15 lookup by id; Risks (plugin-react id, no file tie,
+  scanner); exit criteria name `.ucf.react.tsx`.
+- M4: the non-Vue id rule, the exclude becomes `/\.ucf\?(?:.*&)?ucf\b/`. M5: ids, naming function, preserveModules
+  risk. M6: plugin-svelte picks up `.svelte.svelte` by default, so `svelteInclude` and its risk are gone; component
+  name `Card_ucf_svelte`.
+- Graphics `build`, `grid`, `overview` re-rendered; `build` also gets the rewrite form `?framework=svelte` and the
+  `framework` option name (both were stale).
 
 ## Tests
 
