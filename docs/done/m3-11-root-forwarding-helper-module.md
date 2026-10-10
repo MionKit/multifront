@@ -211,3 +211,10 @@ None here: 3.13 owns the scope fuzz and records which roots are JSX elements.
 - Orchestrator (approved): `export {X as default}` is followed like `export default X`.
 - Orchestrator (approved): the spread goes after the stamp, so 3.10's "stamp is the first attribute" mapping test holds.
 - Orchestrator (approved): `react-scope` switches pages by `?page=shapes` rather than a second HTML entry.
+
+## As shipped
+
+- `NoParams.ucf` writes `function NoParams /* () */ ()`, so the build must skip a `(` inside a comment.
+- 3.5's token rows in `react.spec.ts` mark `AllBlocks(` and `DuplicateStyleModule(`: the build now adds `__props`
+  inside their empty parameter lists.
+- 3.10's mapping test reads the text after a root's forwarding spread, which sits right after its stamp.
