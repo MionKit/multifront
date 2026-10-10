@@ -17,7 +17,7 @@ interface OpeningTag {
   end: number; // just after its '>'
 }
 
-// Reads the attributes after the tag name at `pos`; undefined when the tag never ends cleanly (counts as unclosed).
+// `pos` = just after the tag name; undefined = the tag never ends cleanly (counts as unclosed).
 function readOpeningTag(source: string, pos: number): OpeningTag | undefined {
   const attrs: Block['attrs'] = {};
   while (pos < source.length) {
@@ -56,7 +56,7 @@ function readOpeningTag(source: string, pos: number): OpeningTag | undefined {
   return undefined;
 }
 
-// Browser `<script>` rules: the first `</tag` followed by '>' or whitespace closes the block.
+// Browser `<script>` rule: the first `</tag` followed by '>' or whitespace closes the block, whatever the content.
 function findClosingTag(source: string, tag: string, from: number): {start: number; end: number} | undefined {
   const needle = `</${tag}`;
   for (let start = source.indexOf(needle, from); start !== -1; start = source.indexOf(needle, start + 1)) {
@@ -68,7 +68,7 @@ function findClosingTag(source: string, tag: string, from: number): {start: numb
   return undefined;
 }
 
-/** Splits a `.ucf` file into its root blocks; content is raw text, offsets index into `source`. */
+/** Block content is raw text; every offset indexes into `source`. */
 export function splitBlocks(source: string, filename: string): SplitResult {
   const blocks: Block[] = [];
   const counts = new Map<BlockTag, number>();
@@ -108,7 +108,7 @@ export function splitBlocks(source: string, filename: string): SplitResult {
         continue;
       }
     }
-    // Stray text, an unclosed comment, an unknown tag or an unclosed block: skipped up to the next '<', not reported yet.
+    // Stray text, unknown tags, unclosed blocks or comments: skipped, not reported yet.
     const next = source.indexOf('<', pos + 1);
     pos = next === -1 ? source.length : next;
   }
