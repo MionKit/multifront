@@ -1,16 +1,18 @@
 import {BLOCK_KINDS, splitBlocks} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS} from '@multifront/language-tools';
+import {createLanguage} from '@volar/language-core';
+import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import ts from 'typescript';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
-import {listComponents, readComponent} from '../fixtures/index.ts';
+import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
 const plugin = createUcfLanguagePlugin();
-// Volar's types, through the plugin: e2e does not depend on Volar itself.
-type VirtualCode = NonNullable<ReturnType<NonNullable<typeof plugin.createVirtualCode>>>;
-type CodeMapping = VirtualCode['mappings'][number];
-const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs')];
-const LANGUAGE_IDS: Record<string, string> = {css: 'css', scss: 'scss', react: 'typescriptreact'};
+// Volar's own registry: it asks the plugin for the language, creates the codes and keeps them by id.
+const language = createLanguage([plugin], new Map(), () => {});
+const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs'), ...listComponents('editor')];
 const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx'};
 const ALL_ON = {verification: true, completion: true, semantic: true, navigation: true, structure: true, format: true};
 
@@ -18,13 +20,11 @@ function textOf(code: VirtualCode): string {
   return code.snapshot.getText(0, code.snapshot.getLength());
 }
 
-function createRoot(name: string) {
+function load(name: string) {
   const {filename, source} = readComponent(name);
-  const snapshot = ts.ScriptSnapshot.fromString(source);
-  const root = plugin.createVirtualCode!(filename, plugin.getLanguageId(filename)!, snapshot, {
-    getAssociatedScript: () => undefined,
-  })!;
-  return {filename, source, split: splitBlocks(source, filename), root, embedded: root.embeddedCodes ?? []};
+  const script = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!;
+  const {root, embeddedCodes} = script.generated!;
+  return {script, source, split: splitBlocks(source, filename), root, byId: embeddedCodes, embedded: root.embeddedCodes ?? []};
 }
 
 // The codes the kept blocks must give: every css / scss style, then the first <react>.
@@ -33,7 +33,7 @@ function expectedCodes(styles: Block[], react: Block | undefined): {id: string; 
     const lang = block.attrs.lang ?? 'css';
     return lang === 'css' || lang === 'scss' ? [{id: `style_${block.index}`, languageId: lang, block}] : [];
   });
-  return react ? [...codes, {id: 'react', languageId: LANGUAGE_IDS.react!, block: react}] : codes;
+  return react ? [...codes, {id: 'react', languageId: 'typescriptreact', block: react}] : codes;
 }
 
 function segments(mapping: CodeMapping): {source: [number, number]; generated: [number, number]}[] {
@@ -53,20 +53,25 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
   });
 
   it('claims .ucf files only, and tells TypeScript about the extension', () => {
-    expect(plugin.getLanguageId('/abs/Card.ucf')).toBe('ucf');
-    expect(plugin.getLanguageId('/abs/App.tsx')).toBeUndefined();
+    const tsFile = join(FIXTURES_DIR, 'apps', 'vue-reference', 'src', 'main.ts');
+    expect(plugin.getLanguageId(componentPath('Card.ucf'))).toBe('ucf');
+    expect(plugin.getLanguageId(tsFile)).toBeUndefined();
+    const tsScript = language.scripts.set(tsFile, ts.ScriptSnapshot.fromString(readFileSync(tsFile, 'utf8')), 'typescript');
+    expect(tsScript?.generated).toBeUndefined();
     expect(plugin.typescript?.extraFileExtensions).toEqual([
       {extension: 'ucf', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred},
     ]);
   });
 
   describe.each(NAMES)('%s', (name) => {
-    const {source, split, root, embedded} = createRoot(name);
+    const {script, source, split, root, byId, embedded} = load(name);
 
     it('has a ucf root code over the whole source', () => {
+      expect(script.languageId).toBe('ucf');
       expect(root.id).toBe('root');
       expect(root.languageId).toBe('ucf');
       expect(textOf(root)).toBe(source);
+      expect(root.mappings).toEqual([{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_ON}]);
     });
 
     it('gives one code per block the splitter kept, with its language', () => {
@@ -74,6 +79,7 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
       expect(embedded.map(({id, languageId}) => ({id, languageId}))).toEqual(
         expected.map(({id, languageId}) => ({id, languageId}))
       );
+      expect([...byId.keys()]).toEqual(['root', ...expected.map(({id}) => id)]);
     });
 
     it('maps every segment exactly: the source slice equals the generated slice', () => {
@@ -90,19 +96,16 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
       }
     });
 
-    it('maps the whole block content with every feature on', () => {
+    it('maps the whole block content with every feature on, through Volar’s mapper', () => {
       for (const {id, block} of expectedCodes(split.styles, split.targets.react)) {
-        const code = embedded.find((candidate) => candidate.id === id)!;
-        const covered = new Set<number>();
-        for (const mapping of code.mappings) {
-          expect(mapping.data).toEqual(ALL_ON);
-          for (const {
-            source: [start, end],
-          } of segments(mapping))
-            for (let offset = start; offset < end; offset++) covered.add(offset);
+        const code = byId.get(id)!;
+        const text = textOf(code);
+        const mapper = language.maps.get(code, script);
+        for (const mapping of code.mappings) expect(mapping.data).toEqual(ALL_ON);
+        for (let offset = block.contentStart; offset < block.contentEnd; offset++) {
+          const [generated] = mapper.toGeneratedLocation(offset).next().value ?? [];
+          expect(generated === undefined ? undefined : text[generated], `${id} at ${offset}`).toBe(source[offset]);
         }
-        for (let offset = block.contentStart; offset < block.contentEnd; offset++)
-          expect(covered.has(offset), `${id} at ${offset}`).toBe(true);
       }
     });
 
