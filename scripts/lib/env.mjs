@@ -15,7 +15,7 @@ export function loadEnv() {
 }
 
 // Every env var a script, test or CI step reads. Project-owned names start with MULTIFRONT_.
-// scope: secret = credential, dev = knob with a default, internal = set by the scripts (never in .env).
+// scope: secret = credential, dev = knob with a default, internal = set by the scripts or a tool they run (never in .env).
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite'},
