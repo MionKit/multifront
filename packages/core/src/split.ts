@@ -6,27 +6,25 @@ const ROOT_TAGS: ReadonlySet<string> = new Set(BLOCK_KINDS.map((kind) => kind.ta
 const isSpace = (char: string | undefined): boolean =>
   char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
 const isNameStart = (char: string | undefined): boolean => char !== undefined && /[A-Za-z]/.test(char);
-const isNameChar = (char: string | undefined): boolean => char !== undefined && /[A-Za-z0-9-]/.test(char);
-
-function isRootTag(name: string): name is BlockTag {
-  return ROOT_TAGS.has(name);
-}
+const isRootTag = (name: string): name is BlockTag => ROOT_TAGS.has(name);
 
 function isTargetTag(tag: BlockTag): tag is Target {
   return getBlockKind(tag).role === 'target';
 }
 
 interface OpeningTag {
-  attrs: Record<string, string | true>;
+  attrs: Block['attrs'];
   end: number; // just after its '>'
 }
 
-// Reads the attributes after the tag name at `pos`; undefined when the file ends before the '>'.
+// Reads the attributes after the tag name at `pos`; undefined when the tag never ends cleanly (counts as unclosed).
 function readOpeningTag(source: string, pos: number): OpeningTag | undefined {
-  const attrs: Record<string, string | true> = {};
+  const attrs: Block['attrs'] = {};
   while (pos < source.length) {
     const char = source[pos];
     if (char === '>') return {attrs, end: pos + 1};
+    // A self-closing root tag would otherwise take the next block as its content.
+    if (char === '/' && source[pos + 1] === '>') return undefined;
     if (isSpace(char) || char === '/') {
       pos++;
       continue;
@@ -45,7 +43,8 @@ function readOpeningTag(source: string, pos: number): OpeningTag | undefined {
     const quote = source[pos];
     if (quote === '"' || quote === "'") {
       const close = source.indexOf(quote, pos + 1);
-      if (close === -1) return undefined;
+      // A quote left open would run on into the next block.
+      if (close === -1 || /[>\n]/.test(source.slice(pos + 1, close))) return undefined;
       attrs[name] = source.slice(pos + 1, close);
       pos = close + 1;
     } else {
@@ -79,15 +78,16 @@ export function splitBlocks(source: string, filename: string): SplitResult {
       pos++;
       continue;
     }
-    if (source.startsWith('<!--', pos)) {
-      const close = source.indexOf('-->', pos + 4);
-      pos = close === -1 ? source.length : close + 3;
+    const commentEnd = source.startsWith('<!--', pos) ? source.indexOf('-->', pos + 4) : -1;
+    if (commentEnd !== -1) {
+      pos = commentEnd + 3;
       continue;
     }
-    const start = pos;
     if (source[pos] === '<' && isNameStart(source[pos + 1])) {
+      // HTML tag name rule: `<react_old>` is one unknown tag, not `<react>` with an attribute.
       let nameEnd = pos + 1;
-      while (isNameChar(source[nameEnd])) nameEnd++;
+      while (nameEnd < source.length && !isSpace(source[nameEnd]) && source[nameEnd] !== '/' && source[nameEnd] !== '>')
+        nameEnd++;
       const name = source.slice(pos + 1, nameEnd);
       const opening = isRootTag(name) ? readOpeningTag(source, nameEnd) : undefined;
       const closing = opening && findClosingTag(source, name, opening.end);
@@ -98,7 +98,7 @@ export function splitBlocks(source: string, filename: string): SplitResult {
           type: name,
           attrs: opening.attrs,
           content: source.slice(opening.end, closing.start),
-          start,
+          start: pos,
           end: closing.end,
           contentStart: opening.end,
           contentEnd: closing.start,
@@ -108,7 +108,7 @@ export function splitBlocks(source: string, filename: string): SplitResult {
         continue;
       }
     }
-    // Stray text, an unknown tag or an unclosed block: skipped up to the next '<', not reported yet.
+    // Stray text, an unclosed comment, an unknown tag or an unclosed block: skipped up to the next '<', not reported yet.
     const next = source.indexOf('<', pos + 1);
     pos = next === -1 ? source.length : next;
   }
