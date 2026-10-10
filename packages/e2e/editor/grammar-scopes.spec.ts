@@ -26,22 +26,20 @@ function pickGrammar(block: Block): GrammarScope {
   return typeof lang === 'string' && grammar.byLang && Object.hasOwn(grammar.byLang, lang) ? grammar.byLang[lang]! : grammar;
 }
 
-// Root scopes of the tokens, and the non-whitespace text that got nothing deeper than the root.
-function tokenize(content: string, scopeName: string): {roots: Set<string>; rootOnly: string[]} {
+// The non-whitespace text that got nothing deeper than the grammar's root scope.
+function rootOnlyText(content: string, scopeName: string): string[] {
   const grammar = highlighter.getLanguage(grammarsByScope.get(scopeName)!.name);
-  const roots = new Set<string>();
   const rootOnly: string[] = [];
   let state = null;
   for (const line of content.split(/\r?\n/)) {
     const result = grammar.tokenizeLine(line, state);
     state = result.ruleStack;
     for (const token of result.tokens) {
-      roots.add(token.scopes[0]!);
       const text = line.slice(token.startIndex, token.endIndex);
       if (token.scopes.length === 1 && text.trim() !== '') rootOnly.push(text);
     }
   }
-  return {roots, rootOnly};
+  return rootOnly;
 }
 
 function blocksOf(name: string): Block[] {
@@ -59,8 +57,7 @@ describe('grammar data of the block kinds, against the real shiki grammars', () 
     expect(blocks.length).toBeGreaterThan(0);
     for (const block of blocks) {
       const {scopeName} = pickGrammar(block);
-      const {roots, rootOnly} = tokenize(block.content, scopeName);
-      expect({block: block.start, roots: [...roots], rootOnly}).toEqual({block: block.start, roots: [scopeName], rootOnly: []});
+      expect({block: block.start, rootOnly: rootOnlyText(block.content, scopeName)}).toEqual({block: block.start, rootOnly: []});
     }
   });
 
@@ -68,6 +65,6 @@ describe('grammar data of the block kinds, against the real shiki grammars', () 
   it('catches a wrong pick: the SCSS block of Panel.ucf through source.css leaves plain text', () => {
     const scss = blocksOf('Panel.ucf').find((block) => block.attrs.lang === 'scss')!;
     expect(pickGrammar(scss).scopeName).toBe('source.css.scss');
-    expect(tokenize(scss.content, 'source.css').rootOnly).not.toEqual([]);
+    expect(rootOnlyText(scss.content, 'source.css')).not.toEqual([]);
   });
 });

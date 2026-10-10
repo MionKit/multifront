@@ -1,7 +1,16 @@
 import {createDiagnostic, orList} from '../diagnostics.ts';
-import type {Block, BlockGrammar, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
+import type {Block, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
 
-const STYLE_LANGS: readonly string[] = ['css', 'scss', 'sass', 'less', 'styl', 'stylus', 'postcss'];
+// The one list of style langs beside `css`, which the default grammar covers.
+const BY_LANG: Record<string, GrammarScope> = {
+  scss: {scopeName: 'source.css.scss', languageId: 'scss'},
+  sass: {scopeName: 'source.sass', languageId: 'sass'},
+  less: {scopeName: 'source.css.less', languageId: 'less'},
+  styl: {scopeName: 'source.stylus', languageId: 'stylus'},
+  stylus: {scopeName: 'source.stylus', languageId: 'stylus'},
+  postcss: {scopeName: 'source.css.postcss', languageId: 'postcss'},
+};
+const STYLE_LANGS: readonly string[] = ['css', ...Object.keys(BY_LANG)];
 const LANG_LIST = orList(STYLE_LANGS);
 
 // Vue's parser reads `module=""` as a bare `module`.
@@ -26,20 +35,9 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return diagnostics;
 }
 
-const stylus: GrammarScope = {scopeName: 'source.stylus', languageId: 'stylus'};
-
-// `css` has no entry: the default covers it.
-const grammar: BlockGrammar = {
-  scopeName: 'source.css',
-  languageId: 'css',
-  byLang: {
-    scss: {scopeName: 'source.css.scss', languageId: 'scss'},
-    sass: {scopeName: 'source.sass', languageId: 'sass'},
-    less: {scopeName: 'source.css.less', languageId: 'less'},
-    styl: stylus,
-    stylus,
-    postcss: {scopeName: 'source.css.postcss', languageId: 'postcss'},
-  },
+export const styleKind: BlockKind = {
+  tag: 'style',
+  role: 'shared',
+  grammar: {scopeName: 'source.css', languageId: 'css', byLang: BY_LANG},
+  check,
 };
-
-export const styleKind: BlockKind = {tag: 'style', role: 'shared', grammar, check};
