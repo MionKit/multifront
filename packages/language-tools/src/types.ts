@@ -1,7 +1,7 @@
 import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile} from '@multifront/core';
 import type {CodeMapping} from '@volar/language-core';
 
-/** The editor half of a block kind; the registry in `blocks/` holds one per core `BlockKind`, same tags, same order. */
+/** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
 export interface EditorBlockKind {
   tag: BlockTag;
   types?(block: Block, ctx: EditorContext): EditorFile; // what an importer sees: Card.ucf.<target><ext>
