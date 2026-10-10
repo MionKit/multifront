@@ -38,6 +38,8 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
       {code: IN_BLOCK, line: 2, column: 45, text: "framework: 'vue'"},
     ],
   },
+  // No JSX, so the block also parses as a .ts file: the editor must not read it through the build's rewrite.
+  {fixture: 'react/errors/AttrNoJsx.ucf', errors: [{code: IN_BLOCK, line: 5, column: 61, text: 'framework'}]},
   {fixture: 'react/errors/NamedOnly.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0, text: '<react>'}]},
   {fixture: 'react/errors/NoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0, text: '<react>'}]},
   // Column 38 counts the emoji as two UTF-16 units.

@@ -49,24 +49,14 @@ function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expre
 }
 
 // A new SourceFile per edit: one parse per file version.
-const rewriteErrors = new WeakMap<ts.SourceFile, Diagnostic[]>();
+const rewrites = new WeakMap<ts.SourceFile, Pick<ReturnType<typeof rewriteImportAttributes>, 'imports' | 'errors'>>();
 
-/** The build's `framework-attribute-not-literal` errors (spec 4.4); block imports never go through the rewrite. */
-function attributeErrors(sourceFile: ts.SourceFile): Diagnostic[] {
-  if (sourceFile.fileName.endsWith('.ucf')) return [];
-  let errors = rewriteErrors.get(sourceFile);
-  if (!errors) {
-    errors = rewriteImportAttributes(sourceFile.text, sourceFile.fileName).errors;
-    rewriteErrors.set(sourceFile, errors);
-  }
-  return errors;
-}
-
-// Only `import()` options can hold one; plain `end` fields, since no position helper works during resolution.
+/** The build's `framework-attribute-not-literal` error of this import (spec 4.4), if any. */
 function attributeError(literal: ts.StringLiteralLike, sourceFile: ts.SourceFile): Diagnostic | undefined {
-  const call = literal.parent as ts.Node | undefined;
-  if (!call) return undefined;
-  return attributeErrors(sourceFile).find(({start, end}) => literal.end <= start && end <= call.end);
+  const {imports, errors} = rewrites.get(sourceFile) ?? rewriteImportAttributes(sourceFile.text, sourceFile.fileName);
+  rewrites.set(sourceFile, {imports, errors});
+  // An error sits in the options of the last `.ucf` import before it; `end` is a plain field, set during resolution.
+  return errors.find(({start}) => imports.findLast(({end}) => end <= start)?.end === literal.end);
 }
 
 function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
@@ -85,15 +75,13 @@ export function resolveUcfImport(
   options: UcfImportOptions,
   sourceFile: ts.SourceFile // the importer as TypeScript parsed it; the build's rewrite reads its text
 ): UcfResolution {
-  // The build fails this import, so it stays unresolved; a file that does not parse has none.
-  const notLiteral = attributeError(literal, sourceFile);
-  if (notLiteral) {
-    const {code, message, start, end} = notLiteral;
-    return {resolvedModule: undefined, error: {code, message, start, end}};
-  }
   // In tsserver a `.ucf` file's own script is its main target's block.
   const importer: Importer = {fileName: containingFile};
   if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
+  // Block imports never go through the rewrite; a file that does not parse gets no rewrite error.
+  const notLiteral = importer.block ? undefined : attributeError(literal, sourceFile);
+  // The build fails this import, so it stays unresolved.
+  if (notLiteral) return {resolvedModule: undefined, error: notLiteral};
   const value = frameworkValue(ts, literal);
   const text = value && ts.isStringLiteralLike(value) ? value.text : undefined;
   // Inside a block the key itself is framework-in-block, whatever its value.
