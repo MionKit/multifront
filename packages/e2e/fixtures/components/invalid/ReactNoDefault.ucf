@@ -1,0 +1,11 @@
+<style scoped>
+.named {
+  color: coral;
+}
+</style>
+
+<react>
+  export function ReactNoDefault() {
+    return <p className="named">Named export only</p>
+  }
+</react>

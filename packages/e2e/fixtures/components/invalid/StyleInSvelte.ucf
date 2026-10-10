@@ -1,0 +1,22 @@
+<svelte>
+  <script lang="ts">
+    const decoy = '<style>'
+    let count = $state(0)
+  </script>
+  <svelte:head>
+    <style>.head { color: gray; }</style>
+  </svelte:head>
+  <button class="inside" onclick={() => count > 1 ? (count = 0) : count++}>{decoy}</button>
+  <br>
+  <style>
+  .inside {
+    color: crimson;
+  }
+  </style>
+</svelte>
+
+<style>
+.inside {
+  margin: 0;
+}
+</style>

@@ -1,5 +1,7 @@
 import {BLOCK_KINDS, getBlockKind} from './blocks/index.ts';
-import type {Block, BlockTag, Diagnostic, DiagnosticCode, SplitResult, Target} from './types.ts';
+import {createDiagnostic} from './diagnostics.ts';
+import {findClosingTag, isNameStart, isSpace, readOpeningTag, tagNameEnd} from './scan.ts';
+import type {Block, BlockTag, Diagnostic, DiagnosticCode, SplitResult, TagBreak, Target} from './types.ts';
 
 const ROOT_TAGS: ReadonlySet<string> = new Set(BLOCK_KINDS.map((kind) => kind.tag));
 
@@ -10,20 +12,10 @@ function tagList(tags: string[]): string {
 const ROOT_TAG_LIST = tagList(BLOCK_KINDS.map((kind) => kind.tag));
 const TARGET_TAG_LIST = tagList(BLOCK_KINDS.filter((kind) => kind.role === 'target').map((kind) => kind.tag));
 
-const isSpace = (char: string | undefined): boolean =>
-  char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
-const isNameStart = (char: string | undefined): boolean => char !== undefined && /[A-Za-z]/.test(char);
 const isRootTag = (name: string): name is BlockTag => ROOT_TAGS.has(name);
 
 function isTargetTag(tag: BlockTag): tag is Target {
   return getBlockKind(tag).role === 'target';
-}
-
-// HTML tag name rule: `<react_old>` is one unknown tag, not `<react>` with an attribute.
-function tagNameEnd(source: string, pos: number): number {
-  let end = pos + 1;
-  while (end < source.length && !isSpace(source[end]) && source[end] !== '/' && source[end] !== '>') end++;
-  return end;
 }
 
 // Where the scan resumes after stray text or an unclosed block.
@@ -34,72 +26,7 @@ function nextRootTag(source: string, from: number): number {
   return source.length;
 }
 
-type Broken = 'eof' | 'open-quote' | 'self-closing';
-
-interface OpeningTag {
-  attrs: Block['attrs'];
-  end: number; // just after its '>' or '/>'; the name end when it never ends
-  broken?: Broken; // set = the tag never ends cleanly and counts as unclosed
-}
-
-function readOpeningTag(source: string, pos: number): OpeningTag {
-  const nameEnd = pos;
-  const attrs: Block['attrs'] = {};
-  while (pos < source.length) {
-    const char = source[pos];
-    if (char === '>') return {attrs, end: pos + 1};
-    // A self-closing root tag would otherwise take the next block as its content.
-    if (char === '/' && source[pos + 1] === '>') return {attrs, end: pos + 2, broken: 'self-closing'};
-    if (isSpace(char) || char === '/') {
-      pos++;
-      continue;
-    }
-    const nameStart = pos;
-    while (pos < source.length && !isSpace(source[pos]) && !'=>/'.includes(source[pos]!)) pos++;
-    const name = source.slice(nameStart, pos);
-    let valueStart = pos;
-    while (isSpace(source[valueStart])) valueStart++;
-    if (source[valueStart] !== '=') {
-      attrs[name] = true;
-      continue;
-    }
-    pos = valueStart + 1;
-    while (isSpace(source[pos])) pos++;
-    const quote = source[pos];
-    if (quote === '"' || quote === "'") {
-      const close = source.indexOf(quote, pos + 1);
-      // A quote left open would run on into the next block.
-      if (close === -1 || /[>\n]/.test(source.slice(pos + 1, close))) return {attrs, end: nameEnd, broken: 'open-quote'};
-      attrs[name] = source.slice(pos + 1, close);
-      pos = close + 1;
-    } else {
-      const start = pos;
-      while (pos < source.length && !isSpace(source[pos]) && source[pos] !== '>') pos++;
-      attrs[name] = source.slice(start, pos);
-    }
-  }
-  return {attrs, end: nameEnd, broken: 'eof'};
-}
-
-// Browser `<script>` rule: the first `</tag` followed by '>' or whitespace closes the block, whatever the content.
-function findClosingTag(source: string, tag: string, from: number): {start: number; end: number} | undefined {
-  const needle = `</${tag}`;
-  for (let start = source.indexOf(needle, from); start !== -1; start = source.indexOf(needle, start + 1)) {
-    const after = source[start + needle.length];
-    if (after !== '>' && !isSpace(after)) continue;
-    const close = source.indexOf('>', start + needle.length);
-    return close === -1 ? undefined : {start, end: close + 1};
-  }
-  return undefined;
-}
-
-// Lines break on '\n' only, like Rollup's locator; columns are 0-based UTF-16 offsets.
-function locate(source: string, offset: number): Pick<Diagnostic, 'line' | 'column'> {
-  const lines = source.slice(0, offset).split('\n');
-  return {line: lines.length, column: lines.at(-1)!.length};
-}
-
-function unclosedMessage(tag: string, broken: Broken | undefined): string {
+function unclosedMessage(tag: string, broken: TagBreak | undefined): string {
   if (broken === 'eof') return `<${tag}> opening tag has no '>'`;
   if (broken === 'open-quote') return `<${tag}> has an attribute quote left open`;
   if (broken === 'self-closing') return `<${tag}/> cannot self-close; write <${tag}></${tag}>`;
@@ -112,7 +39,7 @@ export function splitBlocks(source: string, filename: string): SplitResult {
   const errors: Diagnostic[] = [];
   const counts = new Map<BlockTag, number>();
   const report = (code: DiagnosticCode, start: number, end: number, message: string): void => {
-    errors.push({code, severity: 'error', message, filename, start, end, ...locate(source, start)});
+    errors.push(createDiagnostic({filename, source}, code, start, end, message));
   };
   let sawTarget = false;
   let pos = 0;

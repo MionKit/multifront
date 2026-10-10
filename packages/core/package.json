@@ -28,5 +28,8 @@
   "sideEffects": false,
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "oxc-parser": "0.149.0"
   }
 }

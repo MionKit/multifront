@@ -31,6 +31,22 @@ export interface SplitResult {
 export interface BlockKind {
   tag: BlockTag;
   role: BlockRole;
+  check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
+}
+
+/** Why an opening tag never ends cleanly; set = the tag counts as unclosed. */
+export type TagBreak = 'eof' | 'open-quote' | 'self-closing';
+
+export interface OpeningTag {
+  attrs: Block['attrs'];
+  end: number; // just after its '>' or '/>'; the name end when it never ends
+  broken?: TagBreak;
+}
+
+export interface FoundTag {
+  name: string;
+  start: number; // offset of its '<'
+  end: number; // just after its '>' or '/>'
 }
 
 export type DiagnosticCode =
