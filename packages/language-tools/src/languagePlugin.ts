@@ -1,8 +1,8 @@
 // LanguagePlugin's `typescript` field is an augmentation in @volar/typescript; tsc drops a type-only import of it from the .d.ts.
 // oxlint-disable-next-line typescript/triple-slash-reference
 /// <reference types="@volar/typescript" preserve="true" />
-import {getBlockKind, splitBlocks} from '@multifront/core';
-import type {Block, BlockTag, SplitResult, Target, VirtualFile} from '@multifront/core';
+import {isTarget, splitBlocks} from '@multifront/core';
+import type {Block, BlockTag, SplitResult, VirtualFile} from '@multifront/core';
 import type {IScriptSnapshot, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
@@ -19,22 +19,19 @@ const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.svelte': 'svelte',
 };
 
-// The id of the code tsserver serves as the `.ucf` file's own script.
-const REACT_CODE_ID = 'react';
-
 function stringSnapshot(text: string): IScriptSnapshot {
   return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
 }
 
 // A target row gets its first block only, as the build does; a shared row gets every block of its tag.
 function blocksOf(tag: BlockTag, split: SplitResult): Block[] {
-  if (getBlockKind(tag).role === 'shared') return split.blocks.filter((block) => block.type === tag);
-  const block = split.targets[tag as Target];
+  if (!isTarget(tag)) return split.blocks.filter((block) => block.type === tag);
+  const block = split.targets[tag];
   return block ? [block] : [];
 }
 
 function codeId(block: Block): string {
-  return getBlockKind(block.type).role === 'shared' ? `${block.type}_${block.index}` : block.type;
+  return isTarget(block.type) ? block.type : `${block.type}_${block.index}`;
 }
 
 function createRootCode(fileName: string, snapshot: IScriptSnapshot): VirtualCode {
@@ -43,8 +40,7 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot): VirtualCod
   const embeddedCodes: VirtualCode[] = [];
   for (const kind of EDITOR_BLOCK_KINDS) {
     for (const block of blocksOf(kind.tag, ctx.split)) {
-      for (const file of kind.editor?.(block, ctx) ?? []) {
-        const {code, ext, mappings} = file;
+      for (const {code, ext, mappings} of kind.editor?.(block, ctx) ?? []) {
         embeddedCodes.push({id: codeId(block), languageId: LANGUAGE_ID_BY_EXT[ext], snapshot: stringSnapshot(code), mappings});
       }
     }
@@ -63,7 +59,7 @@ export function createUcfLanguagePlugin(): LanguagePlugin<string> {
       extraFileExtensions: [{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
       // Volar's tsserver plugin serves no extra scripts, so the React code is the file's own script.
       getServiceScript(root): TypeScriptServiceScript | undefined {
-        const code = root.embeddedCodes?.find(({id}) => id === REACT_CODE_ID);
+        const code = root.embeddedCodes?.find(({id}) => id === 'react');
         return code && {code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX};
       },
     },
