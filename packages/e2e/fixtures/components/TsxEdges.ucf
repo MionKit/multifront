@@ -20,7 +20,7 @@
 
 <!-- a <style> in a comment is not a block -->
 
-<style scoped>
+<style scoped lang="css">
 .edge {
   font-family: monospace;
 }

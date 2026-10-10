@@ -1,0 +1,13 @@
+<react>
+  export default function Pill({ label }: { label: string }) {
+    return <span className="pill">{label}</span>
+  }
+</react>
+
+<style lang="less">
+@pad: 0.5rem;
+
+.pill {
+  padding: @pad;
+}
+</style>

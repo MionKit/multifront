@@ -4,7 +4,7 @@
   }
 </react>
 
-<style scoped>
+<style scoped lang="postcss">
 .note {
   color: gray;
 </style>

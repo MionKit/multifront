@@ -1,3 +1,4 @@
+import {pathToFileURL} from 'node:url';
 import {decode, encode} from '@jridgewell/sourcemap-codec';
 import {createDiagnostic} from './diagnostics.ts';
 import {styleId} from './ids.ts';
@@ -11,18 +12,16 @@ interface CompileStylesOptions {
   production: boolean;
 }
 
-type PreprocessLang = 'scss' | 'sass' | 'less' | 'styl' | 'stylus';
-const PREPROCESS_LANGS: readonly string[] = ['scss', 'sass', 'less', 'styl', 'stylus'] satisfies PreprocessLang[];
+const PREPROCESS_LANGS = ['scss', 'sass', 'less', 'styl', 'stylus'] as const;
 
 interface SassError {
   sassMessage: string;
-  span: {start: {offset: number}; end: {offset: number}};
+  span: {url?: URL; start: {offset: number}; end: {offset: number}};
 }
 
 interface PostcssError {
-  name: 'CssSyntaxError';
   reason: string;
-  input: {offset: number; endOffset?: number};
+  input: {source: string; offset: number; endOffset?: number};
 }
 
 // Vue's parser reads `module=""` as a bare `module`.
@@ -39,32 +38,34 @@ export function compileStyles(blocks: Block[], options: CompileStylesOptions): P
 
 async function compileStyle(block: Block, options: CompileStylesOptions): Promise<CompiledStyle> {
   const {id, filename, source, compiler, production} = options;
-  const lang = typeof block.attrs.lang === 'string' ? block.attrs.lang : undefined;
-  const preprocessLang = lang !== undefined && PREPROCESS_LANGS.includes(lang) ? (lang as PreprocessLang) : undefined;
   const module = moduleName(block);
   const scoped = 'scoped' in block.attrs;
-  const result = await compiler.compileStyleAsync({
-    filename,
-    id: `data-v-${id}`,
-    isProd: production,
-    scoped,
-    source: block.content,
-    preprocessLang,
-    modules: module !== undefined,
-    modulesOptions: {generateScopedName: (local: string) => `${local}_${id}_${block.index}`},
-    inMap: blockMap(block, options),
-  });
-  const errors = result.errors.map((err) => compileError(err, block, options, preprocessLang !== undefined));
-  return {
-    index: block.index,
-    id: styleId(filename, block.index),
-    code: result.code,
-    map: result.map && onlyFile(result.map, filename, source),
-    scoped,
-    module,
-    classes: result.modules,
-    errors,
-  };
+  const style = {index: block.index, id: styleId(filename, block.index), scoped, module};
+  try {
+    const result = await compiler.compileStyleAsync({
+      filename,
+      id: `data-v-${id}`,
+      isProd: production,
+      scoped,
+      source: block.content,
+      preprocessLang: PREPROCESS_LANGS.find((lang) => lang === block.attrs.lang),
+      modules: module !== undefined,
+      modulesOptions: {generateScopedName: (local: string) => `${local}_${id}_${block.index}`},
+      inMap: blockMap(block, options),
+    });
+    const errors = result.errors.map((err) => compileError(err, block, options));
+    if (errors.length > 0) return {...style, code: '', map: undefined, classes: undefined, errors};
+    return {
+      ...style,
+      code: result.code,
+      map: result.map && onlyFile(result.map, filename, source),
+      classes: result.modules,
+      errors,
+    };
+  } catch (err) {
+    // A preprocessor that is not installed throws before compileStyleAsync can collect it.
+    return {...style, code: '', map: undefined, classes: undefined, errors: [compileError(err as Error, block, options)]};
+  }
 }
 
 // Maps the block content to its place in the .ucf file, so every map after it points into the .ucf file.
@@ -78,11 +79,7 @@ function blockMap(block: Block, {filename, source, compiler}: CompileStylesOptio
 
 // After a preprocessor, PostCSS keeps segments it cannot follow through the input map: they point at the
 // preprocessor's output under a second source name, so they go.
-function onlyFile(
-  map: {mappings: string; sources: string[]; names: string[]; file?: string},
-  filename: string,
-  source: string
-): SourceMap {
+function onlyFile(map: Pick<SourceMap, 'file' | 'sources' | 'names' | 'mappings'>, filename: string, source: string): SourceMap {
   const fileIndex = map.sources.indexOf(filename);
   const mappings = decode(map.mappings).map((line) => line.filter((segment) => segment.length === 1 || segment[1] === fileIndex));
   for (const segment of mappings.flat()) if (segment.length !== 1) segment[1] = 0;
@@ -96,25 +93,19 @@ function onlyFile(
   };
 }
 
-function compileError(err: Error, block: Block, {filename, source}: CompileStylesOptions, preprocessed: boolean): Diagnostic {
+function compileError(err: Error, block: Block, {filename, source}: CompileStylesOptions): Diagnostic {
   const tag = typeof block.attrs.lang === 'string' ? `<style lang="${block.attrs.lang}">` : '<style>';
   const report = (start: number, end: number, reason: string) =>
     createDiagnostic({filename, source}, 'style-compile-error', start, end, `${tag} does not compile: ${reason}`);
-  if (isSassError(err)) {
-    return report(block.contentStart + err.span.start.offset, block.contentStart + err.span.end.offset, err.sassMessage);
+  const {span, sassMessage} = err as Partial<SassError>;
+  // A sass error in an imported file has offsets into that file.
+  if (span && sassMessage && span.url?.href === pathToFileURL(filename).href) {
+    return report(block.contentStart + span.start.offset, block.contentStart + span.end.offset, sassMessage);
   }
-  // PostCSS offsets are into what it read, which is the block content only when nothing preprocessed it.
-  if (isPostcssError(err) && !preprocessed) {
-    const {offset, endOffset = offset} = err.input;
-    return report(block.contentStart + offset, block.contentStart + endOffset, err.reason);
+  const {input, reason} = err as Partial<PostcssError>;
+  // PostCSS offsets are into what it read: only the raw block content maps onto the .ucf file.
+  if (input && reason && input.source === block.content) {
+    return report(block.contentStart + input.offset, block.contentStart + (input.endOffset ?? input.offset), reason);
   }
   return report(block.start, block.contentStart, err.message.split('\n')[0]!);
-}
-
-function isSassError(err: Error): err is Error & SassError {
-  return typeof (err as Partial<SassError>).span?.start?.offset === 'number';
-}
-
-function isPostcssError(err: Error): err is Error & PostcssError {
-  return err.name === 'CssSyntaxError' && typeof (err as Partial<PostcssError>).input?.offset === 'number';
 }

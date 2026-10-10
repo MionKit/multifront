@@ -17,14 +17,7 @@ async function compile(name: string) {
 }
 
 function offsetOf(source: string, line: number, column: number): number {
-  return (
-    source
-      .split('\n')
-      .slice(0, line - 1)
-      .join('\n').length +
-    (line > 1 ? 1 : 0) +
-    column
-  );
+  return source.split('\n', line - 1).join('\n').length + (line > 1 ? 1 : 0) + column;
 }
 
 function token(text: string, offset: number): string {
@@ -65,7 +58,8 @@ describe('compileStyles on valid fixtures', () => {
       expect(styles.map(({scoped, module}) => ({scoped, module}))).toEqual(STYLE_BLOCKS[name]);
       styles.forEach((style, index) => {
         expect(style.index).toBe(index);
-        expect(style.id).toBe(styleId(filename, index));
+        expect(style.id).toBe(`${filename}?ucf&type=style&index=${index}&lang.css`);
+        expect(styleId(filename, index)).toBe(style.id);
         expect(style.errors).toEqual([]);
       });
     });
@@ -97,7 +91,7 @@ describe('compileStyles on valid fixtures', () => {
         const locals = new Map(Object.entries(style.classes ?? {}).map(([local, generated]) => [`.${generated}`, `.${local}`]));
         const generatedLines = style.code.split('\n');
         let segments = 0;
-        eachMapping(new TraceMap({...style.map!, version: 3}), (mapping) => {
+        eachMapping(new TraceMap(style.map!), (mapping) => {
           if (mapping.originalLine === null) return;
           segments++;
           const original = offsetOf(source, mapping.originalLine, mapping.originalColumn);
@@ -112,34 +106,57 @@ describe('compileStyles on valid fixtures', () => {
   });
 });
 
-// Written by hand from the fixture files; `rule` is the text of the line the error points at.
+// Written by hand from the fixture files. `rule` is the text of the error's line, `text` the text it spans:
+// a point inside the block, or the opening tag when the error has no place in the block.
 const ERROR_CASES = [
-  {fixture: 'invalid/ScssSyntaxError.ucf', line: 10, column: 13, tag: '<style lang="scss">', rule: '.tag-#{$size {'},
-  {fixture: 'invalid/CssSyntaxError.ucf', line: 8, column: 0, tag: '<style>', rule: '.note {'},
+  {fixture: 'invalid/ScssSyntaxError.ucf', line: 10, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
+  {fixture: 'invalid/CssSyntaxError.ucf', line: 8, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
+  // The error sits in the imported _broken-partial.scss, so its offsets say nothing about the block.
+  {
+    fixture: 'invalid/ScssPartialError.ucf',
+    line: 7,
+    column: 0,
+    rule: '<style lang="scss">',
+    text: '<style lang="scss">',
+    tag: '<style lang="scss">',
+  },
+  {
+    fixture: 'invalid/MissingPreprocessor.ucf',
+    line: 7,
+    column: 0,
+    rule: '<style lang="less">',
+    text: '<style lang="less">',
+    tag: '<style lang="less">',
+  },
 ];
 
 describe('compileStyles on blocks that do not compile', () => {
-  describe.each(ERROR_CASES)('$fixture', async ({fixture, line, column, tag, rule}) => {
+  it('runs MissingPreprocessor.ucf where less cannot load', () => {
+    const require = createRequire(import.meta.url);
+    expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
+  });
+
+  describe.each(ERROR_CASES)('$fixture', async ({fixture, line, column, rule, text, tag}) => {
     const {filename, source, styles} = await compile(fixture);
     const [style] = styles as [CompiledStyle];
 
-    it('reports one style-compile-error at the hand-written line and column of the broken rule', () => {
+    it('reports one style-compile-error at the hand-written line, column and range', () => {
       expect(style.errors.map(({code, line, column}) => ({code, line, column}))).toEqual([
         {code: 'style-compile-error', line, column},
       ]);
       const [error] = style.errors;
       expect(error!.filename).toBe(filename);
       expect(error!.start).toBe(offsetOf(source, line, column));
+      expect(source.slice(error!.start, error!.end)).toBe(text);
       expect(source.split('\n')[line - 1]).toBe(rule);
     });
 
-    it('names the tag in a one-line message and returns no CSS', () => {
-      expect(style.errors[0]!.message).toMatch(
-        new RegExp(`^${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} does not compile: \\S`)
-      );
+    it('names the tag in a one-line message and returns no CSS, map or class map', () => {
+      expect(style.errors[0]!.message.startsWith(`${tag} does not compile: `)).toBe(true);
       expect(style.errors[0]!.message).not.toMatch(/\n/);
       expect(style.code).toBe('');
       expect(style.map).toBeUndefined();
+      expect(style.classes).toBeUndefined();
     });
   });
 });
