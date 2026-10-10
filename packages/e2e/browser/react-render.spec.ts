@@ -18,7 +18,10 @@ afterAll(async () => {
 });
 
 function computed(locator: Locator, property: string): Promise<string> {
-  return locator.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
+  return locator.evaluate(
+    (element, name) => element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(name),
+    property
+  );
 }
 
 describe.each([
