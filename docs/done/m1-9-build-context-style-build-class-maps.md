@@ -18,9 +18,9 @@ module id, and a class map per CSS module with its own module id. Today core has
 
 Facts this plan rests on (current `main`):
 
-- `BlockKind` (`packages/core/src/types.ts:44-49`) has `tag`, `role`, `grammar`, `check`. `CompiledStyle`
-  (`types.ts:88-97`) already lives in `types.ts`, waiting for 1.9 to share it.
-- `styleKind` (`packages/core/src/blocks/style.ts:35-40`) has only `check`; it already imports `moduleName` from
+- `BlockKind` (`packages/core/src/types.ts:43-48`) has `tag`, `role`, `grammar`, `check`. `CompiledStyle`
+  (`types.ts:89-98`) already lives in `types.ts`, waiting for 1.9 to share it.
+- `styleKind` (`packages/core/src/blocks/style.ts:32-37`) has only `check`; it already imports `moduleName` from
   `styles.ts`. Target kinds (`blocks/react.ts`, `vue.ts`, `svelte.ts`) get no new member here.
 - `compileStyles(blocks, {id, filename, source, compiler, production})` (`packages/core/src/styles.ts:35-37`) never
   rejects; a block with errors has `code: ''`, `map` and `classes` `undefined`, `errors` filled.
@@ -89,13 +89,13 @@ All run on this host and in CI's `check` job (`pnpm devx test`, step "Test"); th
     `Hello.ucf` has `styles: []`, `modules: {}`, `hasScoped: false`;
   - `production: false` on `Card.ucf`: `ctx.scopeId === scopeId(relativePath, source, false)` and differs from the
     production id (the flag reaches `scopeId`);
-  - `classMapId(filename, i)` is `` `${filename}?ucf&type=style&index=${i}&module&lang.js` ``;
+  - `Card.ucf`'s `$style` id is `` `${filename}?ucf&type=style&index=0&module&lang.js` `` (pins `classMapId` on real output);
   - `invalid/ScssSyntaxError.ucf` (module block that fails): resolves, one `style-compile-error` in
     `ctx.styles[0].errors`, `ctx.modules.$style.classes` is `{}`, `build` gives `code: ''`, `map: undefined`;
   - `invalid/DuplicateStyleModule.ucf`: `ctx.modules.$style.index === 4`, the last duplicate (last block wins).
-- **`packages/core/test/blocks/index.spec.ts`**: one more case pins the empty slots: only `style` has `fillContext`
-  and `build`; the three target kinds have neither (M3, M4, M6 fill them).
 - Each test fails without the step (no `createBuildContext`, `classMapId`, `fillContext` or `build`).
+- The `/` join in `relativePath` is a no-op on POSIX, and CI runs only Linux: no test covers it. It stays, because
+  plugin-vue normalizes the same way (`normalizePath`) and scope ids must match on Windows.
 
 ## Docs
 
@@ -121,6 +121,16 @@ None: the step names no fuzz test (orchestrator decision).
 - The exit test, `style-parity.spec.ts` (1.10).
 - `build` for `react`, `vue`, `svelte`; `types` / `editor` halves; any Vite hook serving the style or class map modules.
 - The `composes … from` crash in `compileStyles` (its own todo); `less` / `stylus` fixtures (risk 8).
+
+## Found while building
+
+- Review: `classMapId` was pinned on a made-up path, checked against itself per fixture; now pinned on `Card.ucf`'s
+  real `ctx.modules.$style.id`. A registry shape test (which kinds have `fillContext` / `build`) was dropped: no real
+  file, and `context.spec.ts` covers the style kind. The base test no longer claims to check `/` separators.
+- Review, declined: dropping `filename`, `source`, `relativePath` or `StyleModule.name` from the context, and
+  replacing the `fillContext` hook with a direct call. The step gives these exact shapes, and M3, M4 and M6 read them
+  (`ctx.source`, `ctx.split`, the shared-kind loop of the registry design in `docs/architecture.md`).
+- Review, declined: a Windows CI job to cover the `/` join. A new OS for the whole repo is outside this step.
 
 ## Decisions
 
