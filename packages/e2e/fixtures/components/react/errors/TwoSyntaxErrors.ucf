@@ -1,0 +1,9 @@
+<react>
+  export default function First() {
+    return <p>First</div>
+  }
+
+  export function Second() {
+    return <b>Second</i>
+  }
+</react>

@@ -1,0 +1,7 @@
+<react>
+  import Badge from '../../Badge.ucf' with { framework: 'vue' }
+
+  export function AttrNoDefault() {
+    return <Badge label="New" />
+  }
+</react>

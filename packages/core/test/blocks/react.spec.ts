@@ -22,14 +22,29 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
       {code: IN_BLOCK, line: 4, column: 66, text: `"framework": 'react'`},
       {code: IN_BLOCK, line: 5, column: 60, text: "framework: 'svelte'"},
       {code: IN_BLOCK, line: 6, column: 41, text: "framework: 'vue'"},
-      {code: IN_BLOCK, line: 9, column: 61, text: "framework: 'vue'"},
-      {code: IN_BLOCK, line: 10, column: 63, text: "'framework': pick()"},
+      {code: IN_BLOCK, line: 12, column: 61, text: "framework: 'vue'"},
+      {code: IN_BLOCK, line: 13, column: 63, text: "'framework': pick()"},
+      {code: IN_BLOCK, line: 14, column: 65, text: 'framework'},
+    ],
+  },
+  {
+    fixture: 'react/errors/AttrNoDefault.ucf',
+    errors: [
+      {code: 'react-no-default-export', line: 1, column: 0, text: '<react>'},
+      {code: IN_BLOCK, line: 2, column: 45, text: "framework: 'vue'"},
     ],
   },
   {fixture: 'react/errors/NamedOnly.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0, text: '<react>'}]},
   {fixture: 'react/errors/NoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0, text: '<react>'}]},
   // Column 38 counts the emoji as two UTF-16 units.
   {fixture: 'react/errors/SyntaxError.ucf', errors: [{code: 'react-syntax-error', line: 4, column: 38, text: 'div'}]},
+  {
+    fixture: 'react/errors/TwoSyntaxErrors.ucf',
+    errors: [
+      {code: 'react-syntax-error', line: 3, column: 21, text: 'div'},
+      {code: 'react-syntax-error', line: 7, column: 22, text: 'i'},
+    ],
+  },
 ];
 
 // Each file holds the form it is named for.

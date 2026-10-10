@@ -44,9 +44,9 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 428,
-    "end": 444,
-    "line": 9,
+    "start": 559,
+    "end": 575,
+    "line": 12,
     "column": 61
   },
   {
@@ -54,9 +54,19 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 513,
-    "end": 532,
-    "line": 10,
+    "start": 644,
+    "end": 663,
+    "line": 13,
     "column": 63
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.ucf",
+    "start": 734,
+    "end": 743,
+    "line": 14,
+    "column": 65
   }
 ]
