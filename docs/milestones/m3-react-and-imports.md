@@ -358,6 +358,7 @@ Risks:
 - **Stamped props on other components.** Third-party components get `data-v-*` as a prop; most pass it on or drop it. Vue does the same with fallthrough attributes. Fragments are skipped, since React warns there.
 - **Two parses per React block** (ours and plugin-react's Oxc). Expected to be small next to the rest; watch the fuzz build times.
 - **`@vue/compiler-sfc` in a React-only app.** Styles need it (spec 3.1), so React users must install it.
+- **Scoped CSS of unrendered components.** Vite drops plugin-vue's scoped CSS when its component is never rendered: plugin-vue tags the style module `meta.vite.cssScopeTo`, and css-post skips it (Vite 8.2.2 `dist/node/chunks/node.js:22745-22747`). Our shared style modules carry no such tag, so a React build ships the scoped CSS of components nobody renders. Tagging our scoped style modules with `cssScopeTo` pointing at the React module's default export would match.
 
 Open questions:
 
