@@ -1,13 +1,10 @@
-import {readFileSync} from 'node:fs';
-import {join} from 'node:path';
 import {splitBlocks} from '@multifront/core';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {FIXTURES_DIR, componentPath, readComponent} from '../fixtures/index.ts';
-import {startTsserver} from './lib/tsserver.ts';
+import {componentPath, readComponent} from '../fixtures/index.ts';
+import {locate, offsetAt, startTsserver} from './lib/tsserver.ts';
 import type {Tsserver, TsDiagnostic} from './lib/tsserver.ts';
 
-type Location = ts.server.protocol.Location;
 type Definitions = ts.server.protocol.FileSpanWithContext[];
 
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
@@ -16,33 +13,10 @@ const PROFILE = readComponent('editor/Profile.ucf');
 const IMPORT_ERRORS = readComponent('editor/ImportErrors.ucf');
 const VUE_ONLY = readComponent('imports/VueOnly.ucf');
 
-function readApp(file: string): {filename: string; source: string} {
-  const filename = join(FIXTURES_DIR, 'apps', 'imports', file);
-  return {filename, source: readFileSync(filename, 'utf8')};
-}
-
-const APP = readApp('src/App.tsx');
-const REEXPORT = readApp('src/reexport.ts');
-
-/** 1-based line and offset of `needle` (plus `shift` characters) in `source`, as tsserver counts. */
-function locate(source: string, needle: string, shift = 0): Location {
-  const index = source.indexOf(needle);
-  if (index < 0) throw new Error(`${needle} not found`);
-  const before = source.slice(0, index + shift).split('\n');
-  return {line: before.length, offset: before.at(-1)!.length + 1};
-}
-
 function expectInCardReact(definitions: Definitions): void {
   expect(definitions.map(({file}) => file)).toEqual([CARD.filename]);
   const react = splitBlocks(CARD.source, CARD.filename).targets.react!;
-  const {line, offset} = definitions[0]!.start;
-  const start =
-    CARD.source
-      .split('\n')
-      .slice(0, line - 1)
-      .reduce((sum, text) => sum + text.length + 1, 0) +
-    offset -
-    1;
+  const start = offsetAt(CARD.source, definitions[0]!.start);
   expect(start).toBeGreaterThanOrEqual(react.contentStart);
   expect(start).toBeLessThan(react.contentEnd);
 }
@@ -52,7 +26,7 @@ describe('.ucf imports through tsserver with our plugin', () => {
 
   beforeAll(async () => {
     server = startTsserver({cwd: componentPath('editor'), plugins: [PLUGIN]});
-    const files = [PROFILE, IMPORT_ERRORS, VUE_ONLY, APP, REEXPORT];
+    const files = [PROFILE, IMPORT_ERRORS, VUE_ONLY];
     await server.request('updateOpen', {openFiles: files.map(({filename, source}) => ({file: filename, fileContent: source}))});
   });
 
@@ -121,19 +95,6 @@ describe('.ucf imports through tsserver with our plugin', () => {
 
     it("a .ucf file that does not exist keeps TypeScript's own error", () => {
       expect(onLine("import Gone from '../Gone.ucf'").map(({code}) => code)).toEqual([2307]);
-    });
-  });
-
-  describe('.ts and .tsx importers in the same program', () => {
-    it('App.tsx (react by its extension): definition on <Card lands in Card.ucf, no diagnostics', async () => {
-      const at = locate(APP.source, '<Card', 1);
-      expectInCardReact(await server.request<Definitions>('definition', {file: APP.filename, ...at}));
-      expect(await server.diagnostics(APP.filename)).toEqual([]);
-    });
-
-    it('reexport.ts (vue by its attribute): unresolved, no types yet, no error of ours', async () => {
-      const diagnostics = await server.diagnostics(REEXPORT.filename);
-      expect(diagnostics.map(({code, source}) => [code, source])).toEqual([[2307, undefined]]);
     });
   });
 

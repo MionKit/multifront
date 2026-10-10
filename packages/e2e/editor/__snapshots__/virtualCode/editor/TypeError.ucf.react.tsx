@@ -1,0 +1,5 @@
+
+  export default function Total({ count }: { count: number }) {
+    const label: string = count
+    return <p>{label}</p>
+  }
