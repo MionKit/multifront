@@ -154,21 +154,26 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.6 Vite plugin: resolve and load the React target
 
 - Build: in `packages/vite/src/`:
-  - `multifront(options)` now returns `Plugin[]` (the pre plugin `multifront`; 3.7 adds the post plugin). `MultifrontOptions` gains `importers?: Record<string, Target>`. `targets` keeps the spec default: all three.
-  - `cache.ts`: `loadUcf(file): Promise<UcfEntry>`, `UcfEntry = {split, ctx}`. Splits once per file content and runs the shared kinds (`createBuildContext`).
-  - Core: `buildTarget(split, ctx, target): VirtualFile`, the host function that runs that target row's `check` and `build`. The Vite `load` hook and M5's library build both call it.
-  - `@vitejs/plugin-react`, `react` and `react-dom` become optional peers of `@multifront/vite`, with the pinned devDependencies that satisfy them (like plugin-vue). Ranges: `react` and `react-dom` `^19.0.0` (spec 8: `ref` is a prop); plugin-react `^6.0.0` (spike check 1 passes from 6.0.0 on). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
-  - `resolveId` for a specifier whose path ends in `.ucf`: read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids (style, class map, target ids) pass through. During the dependency scan (`options.scan`), return the same react id: the `config` hook adds a scan plugin to `optimizeDeps.rolldownOptions.plugins` whose `load` serves the `<react>` block for `/\.ucf\.react\.tsx$/` as `moduleType: 'tsx'`, so bare imports inside `<react>` blocks are optimized at startup (spike check 2: without it the scan fails on the missing file, and as an external they are optimized late).
-  - `load`: the react id runs `react.check` (errors through `this.error` with `loc: {file, line, column}`) then `react.build`, and adds the `.ucf` file with `this.addWatchFile` (the id names no file on disk, spec 4.3). A style id returns its CSS and map. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
+  - `multifront(options)` now returns `Plugin[]` (the pre plugin `multifront`; 3.7 adds the post plugin). `MultifrontOptions` gains `importers?: Record<string, Target>`. `frameworks` keeps the spec default: all three.
+  - `cache.ts`: `createUcfCache(contextOptions): UcfCache`, `UcfCache = {splitUcf(file): Promise<SplitResult>; loadUcf(file): Promise<UcfEntry>}`, `UcfEntry = {split, ctx}`. Splits once per file content; `loadUcf` also runs the shared kinds (`createBuildContext`), `splitUcf` (for `resolveId`) does not.
+  - Core: `buildTarget(split, ctx, target): VirtualFile`, the host function that runs that target row's `check` and `build`. It throws `DiagnosticsError` (`diagnostics: Diagnostic[]`) with the splitter's errors and that block's own, `missing-target-block` without the block, `target-not-built` for a row with no `build`. Style errors stay with their style module, and other targets' blocks are not checked (as plugin-vue reports only the blocks it compiles). The Vite `load` hook and M5's library build both call it. `missingTargetBlockMessage(importer, file, target)` moves to core, so the build and the TypeScript plugin print the same text.
+  - `@vitejs/plugin-react`, `react` and `react-dom` become optional peers of `@multifront/vite`, with the pinned devDependencies that satisfy them (like plugin-vue). Ranges: `react` and `react-dom` `^19.0.0` (spec 8: `ref` is a prop); plugin-react `^6.0.0` (spike check 1 passes from 6.0.0 on). `react-dom` also becomes a root devDependency (the fixture mounts with `react-dom/client`). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
+  - `resolveId` for a specifier whose path ends in `.ucf` (no query but `framework`): read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids pass through: the target ids (also as dev URLs) resolve to the real file plus their suffix, the style and class map ids (any other query) go to Vite's own resolver. During the dependency scan (`options.scan`), return the same react id, and anything else (vue, svelte, an error) as external: the `config` hook adds a scan plugin `multifront:scan` to `optimizeDeps.rolldownOptions.plugins` whose `load` serves the `<react>` block for `/\.ucf\.react\.tsx$/` as `moduleType: 'tsx'`, so bare imports inside `<react>` blocks are optimized at startup (spike check 2: without it the scan fails on the missing file, and as an external they are optimized late).
+  - `load`: the react id runs `buildTarget` (errors through `this.error` with `loc: {file, line, column}`, message `<message> (<code>)`), and adds the `.ucf` file with `this.addWatchFile` (the id names no file on disk, spec 4.3). A style id returns its CSS and map, or its `style.check` and compile errors. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
   - `vueCompiler.spec.ts` is updated for the array.
-  - Fixtures: `packages/e2e/fixtures/apps/react-basic/` (`index.html`, `src/main.tsx` with bare imports, `vite.config.ts` with `react()` and `multifront()`, error entries under `src/errors/`). the shared `fixtures/components/imports/` folder: `Icon.ucf` and `UsesIcon.ucf` (its `<react>` block imports `./Icon.ucf` with no attribute); M4 and M6 add their blocks to both. M2's `imports/VueOnly.ucf` is the missing-block case.
+  - Test infra: fixture apps' `vite.config.ts` load `@multifront/vite` from source through `configLoader: 'native'` (`buildApp`, `APP_CONFIG_LOADER`) in an e2e worker run with `--conditions=source`.
+  - Fixtures: `packages/e2e/fixtures/apps/react-basic/` (`index.html`, `src/main.tsx` with bare imports, `vite.config.ts` with `react()` and `multifront()`, error entries under `src/errors/`; the vue pick imports `?framework=vue`, the form 3.7's rewrite emits). the shared `fixtures/components/imports/` folder: `Icon.ucf` and `UsesIcon.ucf` (its `<react>` block imports `./Icon.ucf` with no attribute); M4 and M6 add their blocks to both. M2's `imports/VueOnly.ucf` is the missing-block case.
 - Deliverable: `import AllBlocks from './AllBlocks.ucf'` in a `.tsx` file builds with real plugin-react.
 - Test: `packages/e2e/build/react-target.spec.ts` (area: build). A real `vite build` of `react-basic`:
   - the bundle has AllBlocks and Icon; `UsesIcon` got the React Icon without any attribute (4.1);
   - no text from the `<vue>` or `<svelte>` blocks is in the bundle;
   - one CSS asset holds each style block exactly once;
   - the source map sends a marker in the output back to its line in `AllBlocks.ucf`;
-  - the error entries fail with `missing-target-block` (naming both files), `react-no-default-export` at `NoDefault.ucf:line:column`, and `target-not-built` for a vue pick.
+  - the error entries fail with `missing-target-block` (naming both files), `react-no-default-export` at `NoDefault.ucf:line:column`, and `target-not-built` for a vue pick;
+  - a dev server's dependency scan logs no error and discovers `react-dom/client` (the scan plugin).
+
+  Plus `packages/core/test/blocks/index.spec.ts`: `buildTarget` on the react, missing-block and not-built cases.
+- Status: done
 
 ### 3.7 Post plugin: the attribute moves into the id
 
@@ -180,7 +185,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - **Build:** a build of every react row: no attribute in the output.
   - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML has the card; the SSR-transformed code has no attribute.
   - Error rows fail with their code and location.
-  - Adds `react-dom` and `@types/react-dom` as exact-pinned root devDependencies (`react`, `@types/react` and `@vitejs/plugin-react` are already there, plugin-react since 3.1), all the same versions as `@multifront/vite`'s (3.6).
+  - Adds `@types/react-dom` as an exact-pinned root devDependency (`react`, `react-dom`, `@types/react` and `@vitejs/plugin-react` are already there, plugin-react since 3.1, `react-dom` since 3.6), the same version as `@multifront/vite`'s `react-dom` (3.6).
 
 ### 3.8 The TypeScript plugin uses the same rules
 
@@ -317,7 +322,7 @@ Vite (`@multifront/vite`):
 
 - `multifront(options): Plugin[]`, the plugins `multifront` (pre) and `multifront:attributes` (post), `MultifrontOptions.importers`. Every later milestone.
 - `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `/abs/Card.ucf.svelte.svelte`. Milestones 4 and 6 add `load` / `transform`.
-- `packages/vite/src/cache.ts` `loadUcf(file): Promise<UcfEntry>`, and core's `buildTarget(split, ctx, target)`. Milestones 4, 5, 6.
+- `packages/vite/src/cache.ts` `createUcfCache(contextOptions)` with `loadUcf(file): Promise<UcfEntry>` and `splitUcf(file)`, and core's `buildTarget(split, ctx, target)` (throws `DiagnosticsError`). Milestones 4, 5, 6.
 - `packages/vite/src/hmr.ts`, with a target-only branch to fill per target. Milestones 4 and 6.
 
 Tests and fixtures (`packages/e2e`):

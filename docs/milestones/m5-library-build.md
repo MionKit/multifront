@@ -64,7 +64,7 @@ From M4:
 
 - The Vue target with the real `Card.ucf` id, `.ucf` in plugin-vue's `include`, and `features.componentIdGenerator` set to `scopeId`.
 - The vue row's `build(block, ctx)` returning the SFC code (`<vue>` content plus the root `<style>` blocks) as a `VirtualFile` with ext `.vue`, callable from outside the Vite plugin.
-- `buildTarget(split, ctx, target): VirtualFile` from `@multifront/core` (M3), with `createBuildContext` (M1): the vue row's `build()` gives the SFC code.
+- `buildTarget(split, ctx, target): VirtualFile` from `@multifront/core` (M3; throws `DiagnosticsError` on the file's errors), with `createBuildContext` (M1): the vue row's `build()` gives the SFC code.
 
 New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-workspace.yaml`):
 
