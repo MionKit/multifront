@@ -18,10 +18,10 @@ const RULE_REASON: Record<TargetRule, string> = {
 
 function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
   for (const property of object.properties) {
-    if (!ts.isPropertyAssignment(property)) continue;
-    if ((ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) && property.name.text === key) {
-      return property.initializer;
-    }
+    const {name} = property;
+    if (!name || !(ts.isIdentifier(name) || ts.isStringLiteral(name)) || name.text !== key) continue;
+    // A shorthand, method or accessor has no initializer: its name stands for a value that is no literal.
+    return ts.isPropertyAssignment(property) ? property.initializer : name;
   }
   return undefined;
 }

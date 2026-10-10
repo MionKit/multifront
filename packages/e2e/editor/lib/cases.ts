@@ -88,7 +88,14 @@ async function diagnosticsOf(server: LanguageServer, document: Document) {
   return 'items' in report ? report.items : [];
 }
 
-async function multifrontDiagnostics(server: LanguageServer, document: Document) {
+interface ServerDiagnostic {
+  code: number | string | undefined;
+  severity: number | undefined;
+  message: string;
+  range: Range;
+}
+
+export async function multifrontDiagnostics(server: LanguageServer, document: Document): Promise<ServerDiagnostic[]> {
   const ours = (await diagnosticsOf(server, document))
     .filter(({source}) => source === 'multifront')
     .map(({code, severity, message, range}) => ({code, severity, message, range}));
