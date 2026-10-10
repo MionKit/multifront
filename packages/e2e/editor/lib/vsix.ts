@@ -1,4 +1,5 @@
-import {cpSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
@@ -30,8 +31,21 @@ export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   return root;
 }
 
+/** Packs with the real `pnpm devx vsix` in a temp repo and unzips the `.vsix` into `dir`; returns the extension folder. */
+export async function packVsix(dir: string): Promise<string> {
+  const root = tempRepo();
+  try {
+    const result = spawnSync(process.execPath, [join(root, 'scripts', 'devx.mjs'), 'vsix'], {cwd: root, encoding: 'utf8'});
+    if (result.status !== 0) throw new Error(`pnpm devx vsix failed:\n${result.stdout}\n${result.stderr}`);
+    await unzipVsix(join(root, 'packages', 'vscode', 'multifront-vscode-0.0.0.vsix'), dir);
+  } finally {
+    rmSync(root, {recursive: true, force: true});
+  }
+  return join(dir, 'extension');
+}
+
 /** Writes the `.vsix` entries under `dir`, as VS Code installs them (`dir/extension/...`). */
-export async function unzipVsix(vsixPath: string, dir: string): Promise<void> {
+async function unzipVsix(vsixPath: string, dir: string): Promise<void> {
   // readZip lowercases names; every shipped path is lowercase except LICENSE.txt, which no test reads.
   for (const [name, content] of await readZip(vsixPath, () => true)) {
     mkdirSync(dirname(join(dir, name)), {recursive: true});

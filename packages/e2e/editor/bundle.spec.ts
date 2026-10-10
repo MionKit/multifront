@@ -1,4 +1,3 @@
-import {spawnSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
@@ -21,7 +20,7 @@ import {startLanguageServer} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {E2E_DIR, open, startTsserver} from './lib/tsserver.ts';
 import type {Tsserver} from './lib/tsserver.ts';
-import {tempRepo, unzipVsix} from './lib/vsix.ts';
+import {packVsix} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
 // Stands in for the extension's tsdk: a TypeScript lib folder.
@@ -34,15 +33,7 @@ let extension: string;
 
 beforeAll(async () => {
   temp = mkdtempSync(join(tmpdir(), 'multifront-bundle-'));
-  const root = tempRepo();
-  try {
-    const result = spawnSync(process.execPath, [join(root, 'scripts', 'devx.mjs'), 'vsix'], {cwd: root, encoding: 'utf8'});
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    await unzipVsix(join(root, 'packages', 'vscode', 'multifront-vscode-0.0.0.vsix'), temp);
-  } finally {
-    rmSync(root, {recursive: true, force: true});
-  }
-  extension = join(temp, 'extension');
+  extension = await packVsix(temp);
 }, 120_000);
 
 afterAll(() => {
