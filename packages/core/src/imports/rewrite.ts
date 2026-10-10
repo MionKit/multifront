@@ -10,12 +10,13 @@ import type {
   ImportExpression,
   ObjectExpression,
   ObjectProperty,
+  ParserOptions,
+  Span,
 } from 'oxc-parser';
 import {createDiagnostic} from '../diagnostics.ts';
 import type {Diagnostic, SourceMap, UcfImport} from '../types.ts';
 
-type Lang = 'js' | 'jsx' | 'ts' | 'tsx';
-type Span = {start: number; end: number};
+type Lang = Exclude<NonNullable<ParserOptions['lang']>, 'dts'>;
 type PlainObject = Omit<ObjectExpression, 'properties'> & {properties: ObjectProperty[]};
 
 const LANGS: Record<string, Lang> = {
@@ -23,16 +24,13 @@ const LANGS: Record<string, Lang> = {
   '.mjs': 'js',
   '.cjs': 'js',
   '.jsx': 'jsx',
-  '.ts': 'ts',
-  '.mts': 'ts',
-  '.cts': 'ts',
   '.tsx': 'tsx',
 };
 const VALUE_NOT_LITERAL = "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)";
 const OPTIONS_NOT_LITERAL =
   'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
 
-/** The path's extension, else a `lang.<ext>` query (`C.vue?vue&type=script&lang.ts`), else ts. */
+/** The path's extension, else a `lang.<ext>` query (`C.vue?vue&type=script&lang.ts`), else ts (`.ts`, `.mts`, `.cts` too). */
 function langOf(filename: string): Lang {
   const queryAt = filename.indexOf('?');
   const path = queryAt < 0 ? filename : filename.slice(0, queryAt);
@@ -100,7 +98,9 @@ export function rewriteImportAttributes(
   };
   const moveIntoSpecifier = (entry: UcfImport, framework: string) => {
     entry.framework = framework;
-    text.appendLeft(entry.end - 1, `?framework=${encodeURIComponent(framework)}`);
+    // `'` stays as is in encodeURIComponent and would end a single-quoted specifier; a lone surrogate makes it throw.
+    const value = encodeURIComponent(framework.replace(/[\uD800-\uDFFF]/gu, '\uFFFD')).replaceAll("'", '%27');
+    text.appendLeft(entry.end - 1, `?framework=${value}`);
   };
 
   const fromStatic = (kind: UcfImport['kind']) => (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
@@ -126,13 +126,13 @@ export function rewriteImportAttributes(
     if (!withValue) return;
     if (!isPlainObject(withValue)) return fail(withValue, OPTIONS_NOT_LITERAL);
     const attributes = withValue.properties;
-    const index = attributes.findIndex((prop) => keyName(prop.key) === 'framework');
-    if (index < 0) return;
-    const value = attributes[index]!.value;
-    const framework = literalValue(value);
-    if (framework === undefined) return fail(value, VALUE_NOT_LITERAL);
-    moveIntoSpecifier(entry, framework);
-    if (attributes.length > 1) return removeItem(attributes, index);
+    // An object literal may repeat a key; the last one wins at runtime, and none may reach it.
+    const indexes = attributes.flatMap((prop, index) => (keyName(prop.key) === 'framework' ? [index] : []));
+    if (!indexes.length) return;
+    const notLiteral = indexes.find((index) => literalValue(attributes[index]!.value) === undefined);
+    if (notLiteral !== undefined) return fail(attributes[notLiteral]!.value, VALUE_NOT_LITERAL);
+    moveIntoSpecifier(entry, literalValue(attributes[indexes.at(-1)!]!.value)!);
+    if (indexes.length < attributes.length) return indexes.forEach((index) => removeItem(attributes, index));
     if (options.properties.length > 1) return removeItem(options.properties, withIndex);
     // Up to the closing paren, so a trailing comma goes too.
     text.remove(entry.end, node.end - 1);
