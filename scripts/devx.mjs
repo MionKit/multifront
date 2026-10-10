@@ -2,7 +2,7 @@
 // devx: the repo's dev CLI. A zero-dependency dispatcher over the same tools CI calls (tsc, oxlint, oxfmt,
 // vitest), so local runs and CI cannot drift. Run it as `pnpm devx <command>`.
 import {spawnSync} from 'node:child_process';
-import {existsSync, readdirSync, readFileSync, rmSync} from 'node:fs';
+import {copyFileSync, existsSync, readdirSync, readFileSync, rmSync} from 'node:fs';
 import {join, relative} from 'node:path';
 import {agentDocs} from './lib/agent-docs.mjs';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
@@ -96,11 +96,15 @@ const handlers = {
     return renderDocsImages(args);
   },
   vsix() {
-    run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
     const {version} = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'), 'utf8'));
+    // vsce takes the version as given, and it names the output file.
+    if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version ?? '')) throw new CliError(`${CLI}: version.json has no valid version`);
+    const extension = join(REPO_ROOT, 'packages', 'vscode');
+    run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
+    // vsce reads a license only from the extension folder, and prompts without one.
+    copyFileSync(join(REPO_ROOT, 'LICENSE'), join(extension, 'LICENSE'));
     // The version goes into the packed manifest only; vsce would otherwise run `npm version` on package.json.
-    const pack = ['package', version, '--no-update-package-json', '--no-dependencies', '--out', `multifront-vscode-${version}.vsix`];
-    run(bin('@vscode/vsce', 'vsce'), pack, {cwd: join(REPO_ROOT, 'packages', 'vscode')});
+    run(bin('@vscode/vsce', 'vsce'), ['package', version, '--no-update-package-json', '--no-dependencies'], {cwd: extension});
   },
   env() {
     for (const row of REGISTRY) console.log(`${row.name.padEnd(28)} ${row.scope.padEnd(9)} ${row.desc}`);

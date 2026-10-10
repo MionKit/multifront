@@ -11,3 +11,5 @@ coverage/
 .idea/
 .tmp/
 *.vsix
+# Copied from the root LICENSE by pnpm devx vsix.
+packages/vscode/LICENSE
