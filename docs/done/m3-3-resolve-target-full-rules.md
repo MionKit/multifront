@@ -45,8 +45,8 @@ function, so the TypeScript plugin must read `frameworks` too.
 
 ### 3. The TypeScript plugin reads `frameworks`, `packages/language-tools/src/resolve.ts`
 
-- `entryOptions` (resolve.ts:100) also reads `frameworks`: an array is kept, filtered to valid targets (`isTarget`);
-  anything else ignored, like `importers` today.
+- `entryOptions` (resolve.ts:100) also reads `frameworks`: an array is filtered to valid targets (`isTarget`) and
+  deduplicated; anything else, and a list left with no valid value, is dropped (it never turns every framework off).
 - Needed now: the new `react-only` row goes through `readMultifrontOptions` (`language-tools/test/resolve.spec.ts`)
   and tsserver (`e2e/editor/tsserver.spec.ts`), and both must give `target-not-enabled`.
 - `resolveUcfImport` keeps building its own `Importer`: in tsserver a `.ucf` file's own script is its React script
@@ -61,7 +61,9 @@ function, so the TypeScript plugin must read `frameworks` too.
 - `expected.ts`: `REACT_ONLY: ResolveTargetOptions = {frameworks: ['react']}` and the row
   `{file: 'react-only/not-enabled.ts', specifier: CARD, line: 1, options: REACT_ONLY, expect: 'target-not-enabled'}`.
 - `packages/e2e/fixtures/plugin-options/invalid-values/tsconfig.json`: adds `"frameworks": ["react", "angular", 1]`;
-  the "drops values that are not a framework" test expects `frameworks: ['react']`.
+  plus a repeated `"react"`; the "drops values that are not a framework" test expects `frameworks: ['react']`.
+- `packages/e2e/fixtures/plugin-options/no-valid-frameworks/tsconfig.json`: `"frameworks": ["React", "vue2"]`, read
+  as no `frameworks` at all.
 
 ## Tests
 
@@ -78,13 +80,17 @@ All run in `pnpm devx test` (CI `check` job, and this host). No new infra.
     attribute gives `{target: block, rule: 'block'}`; an attribute gives `framework-in-block` (hand-written message);
     with `{frameworks: ['react']}` the vue and svelte ids give `target-not-enabled` (hand-written message), react
     still block.
+  - **The frameworks list after every rule:** every target row (rules block, attribute, importer, default) again
+    with `frameworks` set to the other two targets, then to `[]`: `target-not-enabled` with both hand-written
+    messages. The in-block case takes its attribute from the real `src/BlockAttribute.ucf` import.
   - **No importer:** every row again with `importer` undefined. Rows answered by the attribute (rule `attribute`,
     `unknown-framework`, `target-not-enabled`) keep their answer; rows without an attribute give `options.framework`
     (rule `default`), else `no-target` with the entry message. `framework-in-block` and rewrite-error rows are left out.
 - `packages/core/test/imports/rewrite.spec.ts`: picks up `react-only/not-enabled.ts` itself; new file snapshot
   `__snapshots__/rewrite/imports/react-only/not-enabled.ts.json`; `expectedFramework` learns the
   `target-not-enabled` row's value (`NOT_ENABLED_FRAMEWORK = 'svelte'`, like `UNKNOWN_FRAMEWORK`).
-- `packages/language-tools/test/resolve.spec.ts`: the new row against its tsconfig; invalid-values covers `frameworks`.
+- `packages/language-tools/test/resolve.spec.ts`: the new row against its tsconfig; invalid-values covers `frameworks`
+  (invalid and repeated values); `no-valid-frameworks` gives no `frameworks` option.
 - `packages/e2e/editor/tsserver.spec.ts`: no change; its `ROWS` filter takes `react-only/not-enabled.ts`, and a real
   tsserver must report `target-not-enabled` on the import.
 
@@ -97,13 +103,15 @@ All run in `pnpm devx test` (CI `check` job, and this host). No new infra.
 
 ## Fuzzing
 
-None: the rules are a small table, and the rows, the in-block id list and the no-importer re-run cover every rule
-and code.
+None: the rules are a small table, and the rows, the in-block id list, the every-rule frameworks check and the
+no-importer re-run cover every rule, code and message.
 
 ## Decisions
 
 - Orchestrator: the `frameworks` option row and the `target-not-enabled` error row go into the public docs in this PR.
 - Orchestrator: any query on an `X.ucf` path maps to `<vue>`; the milestone's `importerFromId` bullet says so.
+- Review: the in-block ids are the spec 4.3 names, typed in the test; no tool emits them before 3.6, whose tests
+  feed the real ids.
 - Found while building: `orList` (`packages/core/src/diagnostics.ts`) gave `" or react"` for one item; fixed here, pinned by the `react-only` message.
 
 ## Out of scope
