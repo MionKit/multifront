@@ -8,7 +8,8 @@ export function listPackages() {
   return readdirSync(root, {withFileTypes: true})
     .filter((entry) => entry.isDirectory() && existsSync(join(root, entry.name, 'package.json')))
     .map((entry) => {
-      const dir = join('packages', entry.name);
+      // Always `/`: matched as text against tsconfig.json and vitest.config.ts, also on Windows.
+      const dir = `packages/${entry.name}`;
       const manifest = JSON.parse(readFileSync(join(REPO_ROOT, dir, 'package.json'), 'utf8'));
       return {dir, name: manifest.name, private: manifest.private === true};
     });
