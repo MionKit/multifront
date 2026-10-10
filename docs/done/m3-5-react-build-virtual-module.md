@@ -27,7 +27,8 @@ needs the file plugin-react compiles for `/abs/Card.ucf.react.tsx`: the `<react>
   - one `import "<id>";` per `ctx.styles` entry (every `<style>`, module ones too, source order), id = `style.id`
     (`styleId()`, `?ucf&type=style&index=N&lang.css`);
   - one `import <name> from "<id>";` per `ctx.modules` entry (`$style`, or the `module="name"` value), id = the
-    class map id (`classMapId()`). Ids are written with `JSON.stringify`, so a quote or a Windows backslash in a
+    class map id (`classMapId()`). A name that is no identifier (`module="my-theme"`, regex `/^[A-Za-z_$][\w$]*$/`,
+    the one language-tools uses) gets no class map import, as the editor declares none; its CSS import stays. Ids are written with `JSON.stringify`, so a quote or a Windows backslash in a
     path stays a valid string.
 - Two modules with the same name: `ctx.modules` already keeps the last block (M1 1.9, as plugin-vue's
   `Object.assign` merge), so one import per name, from the last block. The warning is M1's `duplicate-style-module`
@@ -35,10 +36,10 @@ needs the file plugin-react compiles for `/abs/Card.ucf.react.tsx`: the `<react>
 - Directive prologue: parse `block.content` with oxc-parser (`lang: 'tsx'`, `sourceType: 'module'`, the same call as
   `check`). Leading `program.body` statements that are `ExpressionStatement` with `directive` set (oxc gives
   `directive: 'use client'`) form the prologue.
-  - Prologue present → `text.appendLeft(block.contentStart + last.end, '\n' + line)` per header line, so
-    `'use client';` stays the first statement.
-  - Else → `text.prependRight(block.contentStart, line + '\n')` per header line.
-  - No style at all → no header; the code is the block content.
+  - Prologue present → one `text.appendLeft(block.contentStart + last.end, …)` with the header lines joined, each
+    after a `\n`, so `'use client';` stays the first statement.
+  - Else → one `text.prependRight(block.contentStart, …)` with the header lines joined, each followed by `\n`.
+  - No style at all → no header and no parse; the code is the block content.
 - Returns `{ext: '.tsx', code: text.toString(), map}`, map = `text.generateMap({source: ctx.filename, hires: true,
   includeContent: true})` copied into core's plain `SourceMap` (`{version: 3, sources, sourcesContent, names,
   mappings}`, the shape `rewrite.ts:149-151` uses). `hires: true`: 3.13's fuzz rule 2 reads the hires map.
@@ -59,6 +60,7 @@ needs the file plugin-react compiles for `/abs/Card.ucf.react.tsx`: the `<react>
   rgb(…) }`, a global `<style>` `.all-blocks-global { … }`.
 - `UseClient.ucf`: `<react>` opening with `'use client';`, then `import {useState} from 'react';`, a counter button
   using `$style.button`; one `<style module>`.
+- `Directives.ucf`: two directives, the first without a `;` (`'use client'` then `'use strict';`), one `<style module>`.
 - `Unicode.ucf`: `<react>` with a comment holding accents and an emoji, a `const label = 'Ünïcödé 🎉'`, and JSX
   after emoji on the same line (`<p className={$style.text}>Crème brûlée 🍮 {label} <b>énd</b></p>`); one
   `<style module>`.
@@ -73,13 +75,15 @@ No new infra.
 
 - Context: `createBuildContext(splitBlocks(...), {root: FIXTURES_DIR, compiler, production: true})`, then
   `react.check` gives `[]` and `react.build(split.targets.react!, ctx)`.
-- Rows written by hand: `react/AllBlocks.ucf`, `react/UseClient.ucf`, `react/Unicode.ucf`, and
-  `invalid/DuplicateStyleModule.ucf` (last-wins case: five CSS imports, `$style` from index 4, `classes` from 1).
+- Rows written by hand: every `react/` fixture (`AllBlocks`, `Directives`, `Unicode`, `UseClient`), plus
+  `invalid/DuplicateStyleModule.ucf` (last-wins case: five CSS imports, `$style` from index 4, `classes` from 1),
+  `Hello.ucf` (no `<style>`: no header) and `editor/StyleModuleEdges.ucf` (`module="my-theme"`: no class map import).
   Each row: the CSS indexes, the module name → block index map, three tokens with their `.ucf` line and column.
   `listComponents('react')` must equal the `react/` rows (a new fixture there needs a row).
 - Per row:
   - `ext` is `'.tsx'`;
-  - snapshot of `code` per fixture, `__snapshots__/react/build/<name>.tsx.snap` (plain text, kept out of tsc,
+  - snapshot of `code` per fixture, `__snapshots__/react/build/<fixture path>.tsx.snap` (for example
+    `react/AllBlocks.ucf.tsx.snap`) (plain text, kept out of tsc,
     oxlint and oxfmt), with `FIXTURES_DIR` replaced by `<fixtures>`;
   - the output parses with oxc-parser (`lang: 'tsx'`) with zero errors;
   - its imports from our ids are exactly the row's: `import "<styleId(file, i)>"` per CSS index, in order, then
@@ -87,10 +91,12 @@ No new infra.
   - removing those import declarations (and their newline) gives exactly `block.content`: nothing else was added,
     and no text of the `<vue>` or `<svelte>` block is in it. Plus a direct check: no line unique to those blocks
     (AllBlocks' markers) appears in the code;
-  - `UseClient`: the first statement is the `'use client'` directive, every injected import comes after it;
+  - the row's directives are the first statements, every injected import comes after them (`UseClient`,
+    `Directives`);
   - map: `sources` is `[filename]`, `sourcesContent` `[source]`; each token, found once in the output, maps back
     through `TraceMap` / `originalPositionFor` to its hand-written line and column, which the test also checks
-    against the token's offset in the source (Unicode's tokens sit after the emoji: UTF-16 columns).
+    against the token's offset in the source (Unicode's tokens sit after the emoji: UTF-16 columns). Every injected
+    import maps to nothing.
 
 ## Docs
 
@@ -117,6 +123,9 @@ None in this step. 3.13 fuzzes `react.build` output (parses, only adds, the hire
 - Ids written with `JSON.stringify` (double quotes): a quote or a Windows backslash in a path stays valid.
 - Header order: CSS imports first, then class maps, as the step text lists them.
 - Snapshot as a plain `.tsx.snap` file: keeps it out of tsc, oxlint and oxfmt.
+- Review: a reserved word as a module name (`module="class"`) is left as is: the editor lets it through too, and the
+  block cannot name it either. `prologueEnd` stays its own function (it names the loop). The `invalid/` row keeps its
+  snapshot (no `skipIf` in the repo).
 
 ## Done when
 

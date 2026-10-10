@@ -144,9 +144,9 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: the build half of the react row, same file.
   - A MagicString over the **whole** `.ucf` source, with everything outside the block removed. Edits use `.ucf` offsets, so the map points straight into the `.ucf` file.
-  - After the directive prologue (a leading `"use client"` stays first, milestone 5 needs it), insert one `import '<cssId>';` per `<style>`, and `import $style from '<class map id>';` per module (a named module uses its name, `import classes from ...`). Two modules with the same name: the last wins, as in plugin-vue, and M1's `duplicate-style-module` reports it.
+  - After the directive prologue (a leading `"use client"` stays first, milestone 5 needs it), insert one `import '<cssId>';` per `<style>`, and `import $style from '<class map id>';` per module (a named module uses its name, `import classes from ...`). Two modules with the same name: the last wins, as in plugin-vue, and M1's `duplicate-style-module` reports it. A module name that is no identifier (`module="my-theme"`) gets no class map import, as the editor declares none.
   - Returns `VirtualFile = {ext: '.tsx', code, map}`.
-  - Fixtures: `packages/e2e/fixtures/components/react/AllBlocks.ucf` (all three target blocks, `<style module>`, `<style module="classes">`, a global `<style>`), `UseClient.ucf`, `Unicode.ucf` (emoji and accents before JSX).
+  - Fixtures: `packages/e2e/fixtures/components/react/AllBlocks.ucf` (all three target blocks, `<style module>`, `<style module="classes">`, a global `<style>`), `UseClient.ucf`, `Directives.ucf` (two directives, one without `;`), `Unicode.ucf` (emoji and accents before JSX).
 - Deliverable: the file plugin-react will compile, still without the scope transform.
 - Test: `packages/core/test/blocks/react.spec.ts`. Snapshot of `build` output per fixture. The output parses with oxc-parser. No text of the `<vue>` or `<svelte>` block is in it. Three marked tokens map back to their exact line and column in the `.ucf` file (checked with M1's `@jridgewell/trace-mapping`).
 - Status: done
