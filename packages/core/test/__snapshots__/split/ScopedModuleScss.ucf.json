@@ -1,0 +1,24 @@
+[
+  {
+    "type": "react",
+    "attrs": {},
+    "start": 0,
+    "end": 175,
+    "contentStart": 7,
+    "contentEnd": 167,
+    "index": 0
+  },
+  {
+    "type": "style",
+    "attrs": {
+      "module": true,
+      "scoped": true,
+      "lang": "scss"
+    },
+    "start": 177,
+    "end": 372,
+    "contentStart": 210,
+    "contentEnd": 364,
+    "index": 0
+  }
+]

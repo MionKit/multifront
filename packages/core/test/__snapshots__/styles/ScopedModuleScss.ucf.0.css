@@ -1,0 +1,12 @@
+.base_3de1afdc_0[data-v-3de1afdc] {
+  padding: 0.25rem;
+}
+.meter_3de1afdc_0[data-v-3de1afdc] {
+  padding: 0.5rem;
+}
+.meter_3de1afdc_0 .bar_3de1afdc_0[data-v-3de1afdc] {
+  margin: 1rem;
+}
+.meter_3de1afdc_0[data-v-3de1afdc]:hover {
+  color: teal;
+}

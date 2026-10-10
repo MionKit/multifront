@@ -16,6 +16,7 @@ describe('splitBlocks on valid fixtures', () => {
       'Hello.ucf',
       'Panel.ucf',
       'ReactDefaultSpecifier.ucf',
+      'ScopedModuleScss.ucf',
       'TsxEdges.ucf',
     ]);
   });

@@ -1,0 +1,22 @@
+<react>
+  export default function Meter({ value }: { value: number }) {
+    return <div className={$style.meter}><span className={$style.bar}>{value}</span></div>
+  }
+</react>
+
+<style module scoped lang="scss">
+$gap: 0.5rem;
+
+.meter {
+  composes: base from './tag-base.css';
+  padding: $gap;
+
+  .bar {
+    margin: $gap * 2;
+  }
+
+  &:hover {
+    color: teal;
+  }
+}
+</style>
