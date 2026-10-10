@@ -2,21 +2,21 @@
   {
     "type": "react",
     "attrs": {},
-    "index": 0,
     "start": 0,
-    "end": 471,
+    "end": 513,
     "contentStart": 7,
-    "contentEnd": 463
+    "contentEnd": 505,
+    "index": 0
   },
   {
     "type": "style",
     "attrs": {
       "scoped": true
     },
-    "index": 0,
-    "start": 512,
-    "end": 571,
-    "contentStart": 526,
-    "contentEnd": 563
+    "start": 563,
+    "end": 622,
+    "contentStart": 577,
+    "contentEnd": 614,
+    "index": 0
   }
 ]

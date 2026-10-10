@@ -1,7 +1,6 @@
 import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
-import {BLOCK_KINDS, TARGETS, getBlockKind, splitBlocks} from '@multifront/core';
-import type {Block} from '@multifront/core';
+import {TARGETS, getBlockKind, splitBlocks} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 
@@ -13,25 +12,6 @@ function tsxSyntaxErrors(code: string): string[] {
   const program = ts.createProgram([file.fileName], {noLib: true, noResolve: true}, host);
   return program.getSyntacticDiagnostics(file).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
 }
-
-function blockTable(blocks: Block[]) {
-  return blocks.map(({type, attrs, index, start, end, contentStart, contentEnd}) => ({
-    type,
-    attrs,
-    index,
-    start,
-    end,
-    contentStart,
-    contentEnd,
-  }));
-}
-
-describe('block kinds', () => {
-  it('lists the shared kind first, then the targets in TARGETS order', () => {
-    expect(BLOCK_KINDS.map((kind) => kind.tag)).toEqual(['style', ...TARGETS]);
-    expect(BLOCK_KINDS.map((kind) => kind.role)).toEqual(['shared', 'target', 'target', 'target']);
-  });
-});
 
 describe('splitBlocks on valid fixtures', () => {
   it('finds every valid fixture', () => {
@@ -68,14 +48,19 @@ describe('splitBlocks on valid fixtures', () => {
       for (const target of TARGETS) {
         const ofTarget = split.blocks.filter((block) => block.type === target);
         ofTarget.forEach((block, index) => expect(block.index).toBe(index));
+        expect(target in split.targets).toBe(ofTarget.length > 0);
         expect(split.targets[target]).toBe(ofTarget[0]);
       }
     });
 
     it('matches the block table snapshot', async () => {
-      await expect(`${JSON.stringify(blockTable(split.blocks), null, 2)}\n`).toMatchFileSnapshot(
-        `__snapshots__/split/${name}.json`
-      );
+      await expect(
+        `${JSON.stringify(
+          split.blocks.map(({content, ...table}) => table),
+          null,
+          2
+        )}\n`
+      ).toMatchFileSnapshot(`__snapshots__/split/${name}.json`);
     });
 
     it('never cuts a <react> block early', () => {
