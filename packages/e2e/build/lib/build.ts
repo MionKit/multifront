@@ -1,6 +1,6 @@
 import {build, type Rolldown} from 'vite';
 
-/** Runs `run` with NODE_ENV set to `mode`: plugin-vue picks its dev or production scope id from it. */
+/** plugin-vue picks its dev or production scope id from NODE_ENV. */
 export async function withNodeEnv<Result>(mode: string, run: () => Promise<Result>): Promise<Result> {
   const saved = process.env.NODE_ENV;
   process.env.NODE_ENV = mode;
@@ -12,7 +12,7 @@ export async function withNodeEnv<Result>(mode: string, run: () => Promise<Resul
   }
 }
 
-/** A production `vite.build()` of the app at `root`, with its own `vite.config.ts`, nothing written to disk. */
+/** Uses the app's own `vite.config.ts`. */
 export async function buildApp(root: string) {
   // Vitest sets NODE_ENV=test and Vite keeps it, which would give plugin-vue's dev scope id, not a real build's.
   const result = await withNodeEnv('production', () => build({root, logLevel: 'silent', build: {write: false, minify: false}}));
@@ -26,7 +26,7 @@ export async function buildApp(root: string) {
   };
 }
 
-/** The `data-v-…` value plugin-vue passes as `__scopeId` in a component module, dev or build. */
+/** plugin-vue's `__scopeId` in a component module; matches dev and build output. */
 export function exportedScopeId(code: string): string | undefined {
   return /\[\s*["']__scopeId["']\s*,\s*["'](data-v-[0-9a-f]+)["']\s*\]/.exec(code)?.[1];
 }
