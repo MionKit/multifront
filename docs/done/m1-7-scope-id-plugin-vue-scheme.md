@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.7
@@ -35,7 +35,9 @@ raw file text.
 3. **`packages/e2e/build/lib/build.ts`** (new, area helper per milestones README "Test helpers live in
    `<area>/lib/`"): `buildApp(root)` runs the production `vite.build()` that `vue-reference.spec.ts` runs today
    (`NODE_ENV=production` around it, `logLevel: 'silent'`, `build: {write: false, minify: false}`) and returns
-   `{chunks, cssAssets}` (CSS sources decoded to string). `vue-reference.spec.ts` switches to it, its checks unchanged.
+   `{chunks, cssAssets}` (CSS sources decoded to string). Beside it, `exportedScopeId(code)` reads the `__scopeId`
+   value out of a component module (dev or build), the regex `vue-reference.spec.ts` had inline.
+   `vue-reference.spec.ts` switches to both, its checks unchanged.
    1.10 reuses it. Not run by Vitest (`include` is `build/**/*.spec.ts`), checked by `packages/e2e/tsconfig.json`
    (`include` has `build`).
 4. **Milestone doc**: step 1.7 gets `- Status: done`. Step text and "Hands to later milestones" already match.
