@@ -98,9 +98,10 @@ The full picture, with graphics: [architecture.md](architecture.md).
 
 ### 3.5 React target
 
-- Emit a virtual `Card.ucf.tsx` module from the `<react>` block, with:
+- Emit a virtual `Card.ucf.react.tsx` module (the id of 4.3) from the `<react>` block, with:
   - `import $style from '<style module virtual id>'` injected when a module style exists;
   - `import '<style virtual id>'` for each style block;
+  - those imports after a leading directive, so a `"use client"` stays first;
   - the scope transform below: stamping (steps 1 and 2) when any style is scoped, root forwarding (steps 3 and 4) always.
 - **Scope transform** (oxc or Babel AST, MagicString edits):
   1. Every host JSX element (lowercase tag) gets `data-v-<id>=""`.
