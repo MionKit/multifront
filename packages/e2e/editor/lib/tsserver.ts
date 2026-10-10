@@ -2,7 +2,7 @@ import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {splitBlocks} from '@multifront/core';
+import {locate as lineAndColumn, splitBlocks} from '@multifront/core';
 import type {BlockTag} from '@multifront/core';
 import type * as ts from 'typescript';
 
@@ -49,6 +49,12 @@ export function locate(source: string, needle: string, shift = 0): TsLocation {
 export function offsetAt(source: string, {line, offset}: TsLocation): number {
   const lines = source.split('\n').slice(0, line - 1);
   return lines.reduce((sum, text) => sum + text.length + 1, 0) + offset - 1;
+}
+
+/** tsserver's location of a source offset, as core's `locate` lines and columns it. */
+export function tsLocation(source: string, offset: number): TsLocation {
+  const {line, column} = lineAndColumn(source, offset);
+  return {line, offset: column + 1};
 }
 
 export function inBlock({filename, source}: Component, tag: BlockTag, {file, start}: {file: string; start: TsLocation}): boolean {
