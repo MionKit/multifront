@@ -70,7 +70,7 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
   TypeScript finds another file (a real `Card.ucf.ts`) → its result, unchanged.
 - `getSplit(file)` gives a split without the target's block → `missing-target-block`, naming both files:
   `../imports/VueOnly.ucf has no <react> block; ImportErrors.ucf imports it as react` (path relative to the importer).
-  `getSplit` gives nothing → no error.
+  `getSplit` gives nothing → the file is read through `options.host` and split; unreadable → no error.
 - Target is not `MAIN_SCRIPT_TARGET` (vue, svelte in M2: tsserver serves one script per file) → unresolved, with the
   `missing-target-block` error if any (2.9 adds the message naming the target).
 - Else `{resolvedModule: {resolvedFileName: <abs .ucf>, extension: '.tsx', isExternalLibraryImport}, error}`: resolved
