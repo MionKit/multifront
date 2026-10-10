@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.9
@@ -72,7 +72,7 @@ Found while planning:
 
 - `blockImports.spec.ts` drops its `.ts and .tsx importers` describe (App.tsx definition, reexport.ts) and stops
   opening those files: both now live in `tsserver.spec.ts` (reexport.ts now expects `target-not-built`). `locate()`
-  moves into `editor/lib/tsserver.ts` as an export, used by both specs.
+  moves into `editor/lib/tsserver.ts` as an export, with its reverse `offsetAt(source, location)`, used by both specs.
 
 ## Decisions
 
@@ -110,8 +110,9 @@ lists as "nothing to add".
   App.tsx report TS2322 at once (reverted after); `rename` on `title` in Card.ucf lists App.tsx; `references` on
   `title` in App.tsx lists a location in Card.ucf inside `<react>`.
 - **No `@vue/compiler-sfc`**: a second tsserver on a temp project in `os.tmpdir()` (a copy of `Card.ucf`, a tsconfig
-  with `include: ["*.ucf"]`): `quickinfo` on `title` inside `<react>` shows `string` (plugin loaded, file served);
-  `completionInfo` after `$style.` has no `card` (scss typed loosely); no TS2339 on `$style`. Temp dir removed after.
+  with `include: ["*.ucf"]`): no TS2304 / TS2339 (without the plugin the raw file reads as TSX and `$style` is TS2304),
+  `quickinfo` on `title` inside `<react>` shows `string`; `completionInfo` after `$style.` has no `card` (scss typed
+  loosely). Temp dir removed after. Both cases fail with the try/catch removed (checked).
 
 ## Docs
 
