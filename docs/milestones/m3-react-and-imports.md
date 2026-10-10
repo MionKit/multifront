@@ -120,13 +120,14 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   importerFromId(id: string): Importer // new: module ids and virtual script names to an Importer
   ```
 
-  - `importerFromId` derives `block` (spec 4.1): `X.ucf.react.tsx` (the module id and the virtual script share the name) is inside `<react>`, `X.ucf.svelte.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
+  - `importerFromId` derives `block` (spec 4.1): `X.ucf.react.tsx` (the module id and the virtual script share the name) is inside `<react>`, `X.ucf.svelte.svelte` inside `<svelte>`, a bare `X.ucf` or the same path with any query (a `X.ucf?vue&…` sub-request) inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
   - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.framework`, else `no-target`.
   - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. `target-not-enabled` joins `DiagnosticCode` and `TargetErrorCode` (3.2 already added `framework-attribute-not-literal`). `missing-target-block` and `target-not-built` are already there: M2 (2.8, 2.9) reports them in the editor, and 3.6 reports `target-not-built` in the build.
   - The TypeScript plugin keeps calling the same function (3.8).
   - Fixtures: `fixtures/apps/imports/react-only/` with its `tsconfig.json` (`frameworks: ['react']` in the plugin entry) and `not-enabled.ts` (`framework: 'svelte'`), and its `expected.ts` row (`target-not-enabled`).
 - Deliverable: the one place the target rules live (spec 5: "the editor and the build cannot disagree").
 - Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the plugin entry of its `tsconfig.json`; 3.7's `vite.config.ts` uses the same values), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
+- Status: done
 
 ### 3.4 `react.check()`: block rules
 
