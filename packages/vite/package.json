@@ -33,21 +33,36 @@
     "@multifront/core": "workspace:*"
   },
   "peerDependencies": {
+    "@vitejs/plugin-react": "^6.0.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "@vue/compiler-sfc": "^3.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
     "@vitejs/plugin-vue": {
       "optional": true
     },
     "@vue/compiler-sfc": {
       "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/compiler-sfc": "3.5.42",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "vite": "8.2.2",
     "vue": "3.5.42"
   }
