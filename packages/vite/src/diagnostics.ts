@@ -5,7 +5,7 @@ export function describeDiagnostic({message, code}: Pick<Diagnostic, 'message' |
   return `${message} (${code})`;
 }
 
-/** For `this.error`: the first diagnostic gives the location, the others follow as `file:line:column` lines. */
+/** For `this.error`. */
 export function rollupError(diagnostics: Diagnostic[]): Rolldown.RollupError {
   const [first, ...rest] = diagnostics;
   if (!first) return {message: 'multifront: no diagnostics'};
