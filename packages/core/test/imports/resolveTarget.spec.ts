@@ -1,7 +1,7 @@
 import {existsSync, readdirSync, readFileSync} from 'node:fs';
 import {dirname, join, sep} from 'node:path';
 import {describe, expect, it} from 'vitest';
-import {importerFromId, resolveTarget} from '@multifront/core';
+import {TARGETS, importerFromId, resolveTarget} from '@multifront/core';
 import type {ResolveTargetOptions, Target} from '@multifront/core';
 // Relative paths, not a package dependency: @multifront/e2e depends on core.
 import {EXPECTED_IMPORTS} from '../../../e2e/fixtures/apps/imports/expected.ts';
@@ -44,6 +44,8 @@ function hostId(fileName: string, block: Target | undefined): string {
 }
 
 const CARD = componentPath('Card.ucf');
+// The attribute of a real block import, `with { framework: 'react' }`.
+const BLOCK_ATTRIBUTE = readImports(join(APP, 'src/BlockAttribute.ucf')).imports.find(({line}) => line === 3)!.attribute;
 // Card.ucf's module ids, then the editor's virtual scripts (`Card.ucf.react.tsx` is both).
 const IN_BLOCK: [string, Target][] = [
   ['Card.ucf', 'vue'],
@@ -60,6 +62,21 @@ const IN_BLOCK_MESSAGES: Record<string, string> = {
   'svelte framework-in-block': 'a framework attribute cannot sit inside the <svelte> block; imports there always get svelte',
   'vue target-not-enabled': 'framework "vue" is not enabled; use react, or add vue to the frameworks option',
   'svelte target-not-enabled': 'framework "svelte" is not enabled; use react, or add svelte to the frameworks option',
+};
+// Written by hand: each target left out of the list, then an empty list.
+const NOT_ENABLED: Record<Target, [string, string]> = {
+  vue: [
+    'framework "vue" is not enabled; use react or svelte, or add vue to the frameworks option',
+    'framework "vue" is not enabled; add it to the frameworks option',
+  ],
+  react: [
+    'framework "react" is not enabled; use vue or svelte, or add react to the frameworks option',
+    'framework "react" is not enabled; add it to the frameworks option',
+  ],
+  svelte: [
+    'framework "svelte" is not enabled; use vue or react, or add svelte to the frameworks option',
+    'framework "svelte" is not enabled; add it to the frameworks option',
+  ],
 };
 
 // The plugin entry of the nearest tsconfig.json: the options the TypeScript plugin reads (2.8).
@@ -108,12 +125,30 @@ describe('resolveTarget over the shared imports fixture set', () => {
     expect(errorRows.sort()).toEqual(Object.keys(MESSAGES).sort());
   });
 
+  it('the frameworks list applies after every rule', () => {
+    const rules = new Set<string>();
+    for (const row of EXPECTED_IMPORTS) {
+      if (!('rule' in row)) continue;
+      rules.add(row.rule);
+      const fileName = join(APP, row.file);
+      const found = readImports(fileName).imports.find((entry) => entry.line === row.line)!;
+      const importer = importerFromId(hostId(fileName, found.block));
+      const [without, empty] = NOT_ENABLED[row.expect];
+      const others = TARGETS.filter((target) => target !== row.expect);
+      const choice = resolveTarget(importer, found.attribute, {...row.options, frameworks: others});
+      expect(choice).toEqual({error: {code: 'target-not-enabled', message: without}});
+      const none = resolveTarget(importer, found.attribute, {...row.options, frameworks: []});
+      expect(none).toEqual({error: {code: 'target-not-enabled', message: empty}});
+    }
+    expect([...rules].sort()).toEqual(['attribute', 'block', 'default', 'importer']);
+  });
+
   it.each(IN_BLOCK)('%s is inside its <%s> block', (id, block) => {
     const importer = importerFromId(join(CARD, '..', id));
     expect(importer).toEqual({fileName: CARD, block});
     expect(resolveTarget(importer, undefined)).toEqual({target: block, rule: 'block'});
     const inBlock = {error: {code: 'framework-in-block', message: IN_BLOCK_MESSAGES[`${block} framework-in-block`]}};
-    expect(resolveTarget(importer, 'react')).toEqual(inBlock);
+    expect(resolveTarget(importer, BLOCK_ATTRIBUTE)).toEqual(inBlock);
     const reactOnly = resolveTarget(importer, undefined, {frameworks: ['react']});
     if (block === 'react') expect(reactOnly).toEqual({target: 'react', rule: 'block'});
     else
@@ -128,15 +163,12 @@ describe('resolveTarget with no importer, over the same rows', () => {
   );
   it.each(rows.map((row) => [`${row.file}:${row.line}`, row] as const))('%s', (key, row) => {
     const [found] = readImports(join(APP, row.file)).imports.filter((entry) => entry.line === row.line);
-    const choice = resolveTarget(undefined, found!.attribute, row.options);
-    let expected: object;
-    if (found!.attribute !== undefined) {
-      expected = 'rule' in row ? {target: row.expect, rule: row.rule} : {error: {code: row.expect, message: MESSAGES[key]!}};
-    } else if (row.options.framework) {
-      expected = {target: row.options.framework, rule: 'default'};
-    } else {
-      expected = {error: {code: 'no-target', message: NO_ENTRY_TARGET}};
-    }
-    expect(choice).toEqual(expected);
+    const {attribute} = found!;
+    const {framework} = row.options;
+    const choice = resolveTarget(undefined, attribute, row.options);
+    if (attribute === undefined && framework) return expect(choice).toEqual({target: framework, rule: 'default'});
+    if (attribute === undefined) return expect(choice).toEqual({error: {code: 'no-target', message: NO_ENTRY_TARGET}});
+    if ('rule' in row) expect(choice).toEqual({target: row.expect, rule: row.rule});
+    else expect(choice).toEqual({error: {code: row.expect, message: MESSAGES[key]}});
   });
 });
