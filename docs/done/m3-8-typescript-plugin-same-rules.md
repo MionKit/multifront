@@ -29,15 +29,17 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
 
 ### 1. `packages/language-tools/src/resolve.ts`
 
-- New private `attributeErrors(sourceFile): Diagnostic[]`: `rewriteImportAttributes(sourceFile.text,
-  sourceFile.fileName).errors`, cached in a `WeakMap<ts.SourceFile, Diagnostic[]>` (a new SourceFile per edit: one oxc
-  parse per file version). `[]` for `.ucf` importers: block imports never go through the rewrite (3.2); inside a block
-  the 3.4 `framework-in-block` reading stays.
+- New private `attributeError(literal, sourceFile): Diagnostic | undefined`: the `imports` and `errors` of
+  `rewriteImportAttributes(sourceFile.text, sourceFile.fileName)`, cached in a `WeakMap<ts.SourceFile, …>` (a new
+  SourceFile per edit: one oxc parse per file version). An error belongs to the last `.ucf` import that ends before it
+  (`imports.findLast(({end}) => end <= error.start)?.end === literal.end`; `end` is a plain field, set during
+  resolution), so an `import()` nested in another's options takes only its own error (review). Never called for a
+  `.ucf` importer (`importer.block` set): block imports never go through the rewrite (3.2); inside a block the 3.4
+  `framework-in-block` reading stays.
 - `resolveUcfImport(ts, literal, containingFile, options, sourceFile)`: new required last parameter, the importer as
   TypeScript parsed it (tsserver's `resolveModuleNameLiterals` always passes `containingSourceFile`). Before
-  `resolveTarget`: a rewrite error inside this literal's `import()` call (`literal.end <= error.start`,
-  `error.end <= call.end`; plain `.end` fields only, since during resolution only the parent link is set) returns
-  `{resolvedModule: undefined, error: {code, message, start, end}}`: same code, message and span as the build, the
+  `resolveTarget`: this literal's rewrite error returns `{resolvedModule: undefined, error}` (the core `Diagnostic`
+  as is): same code, message and span as the build, the
   import unresolved as the build fails it. A file with a syntax error gets no rewrite result (its compiler reports it),
   so the current reading stays: typing in a broken file does not flip types.
 - `packages/language-tools/src/types.ts:63` `UcfResolution.error`: `Pick<Diagnostic, 'code' | 'message'> &
@@ -45,7 +47,8 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
 
 ### 2. `packages/language-tools/src/typescriptPlugin.ts`
 
-- `importErrors` (`:29`): passes `sourceFile`; `report` uses `error.start` / `end` when set, else the literal (as now).
+- `importErrors` (`:29`): passes `sourceFile`; `report(literal, error, warning?)` takes the `UcfResolution` error and
+  puts it at `error.start` / `end` when set, else on the literal (as now).
   The "one problem, one error" filter already covers the whole `import()` call, so TS2307 on it stays hidden.
 - `resolveModuleNameLiterals` (`:132`): passes its `sourceFile` argument.
 
@@ -69,6 +72,14 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
 - Orchestrator: the row loop moves into `editor/imports.spec.ts` (one loop over the rows, not two copies); 3.8's Build
   text says it covers `non-literal.ts` there.
 - Orchestrator: `allowJs` in the imports root tsconfig, so the `.js` / `.jsx` react rows are tested as the step asks.
+- Review: the error goes to the last `.ucf` import before it, not to any import whose call holds it (a nested
+  `import()` took its inner import's error); fixture `rewrite-edges/nested-dynamic.js`, its core rewrite snapshot,
+  a `seams.spec.ts` case.
+- Review: the `.ucf` guard is `importer.block`, pinned by `react/errors/AttrNoJsx.ucf` (no JSX, so the block also parses
+  as plain TypeScript; its `react.spec.ts` row: `framework-in-block`) in `seams.spec.ts`.
+- Review: an unsaved syntax error in `non-literal.ts` gives `no-target` (no rewrite error) in `imports.spec.ts`.
+- Review: `tsLocation(source, offset)` lives in `editor/lib/tsserver.ts` beside `offsetAt`; `imports.spec.ts` uses its
+  `Component` type. The rows stay in `editor/imports.spec.ts` (orchestrator: the step's Test line names that file).
 - Found while building: `importer.jsx` beside `importer.tsx` is never in a TypeScript project; renamed
   `jsx-importer.jsx` here (the 3.2 fixture list in the m3 doc says why).
 
@@ -93,12 +104,15 @@ Per row:
   spot in the edited text.
 - Fails without the fix: `non-literal.ts` gives `no-target` today.
 
+- A file that does not parse: an unsaved `const = ;` appended to `non-literal.ts` gives `no-target` at the specifier.
+
 `packages/e2e/editor/bundle.spec.ts`, "plugin pack alone": also opens `no-default/non-literal.ts` and expects the same
 `framework-attribute-not-literal`: the bundled plugin now runs the rewrite through oxc-parser's wasm binding.
 
 `packages/e2e/editor/seams.spec.ts:80`: `resolveUcfImport` on `non-literal.ts` gives `framework-attribute-not-literal`
-with the rewrite's `message` / `start` / `end` and no `resolvedModule` (replaces the `no-target` pin); the other two
-describes pass their `sourceFile`.
+equal to the rewrite's error and no `resolvedModule` (replaces the `no-target` pin);
+`rewrite-edges/nested-dynamic.js`: only the inner `import()` gets the error; `react/errors/AttrNoJsx.ucf`:
+`framework-in-block`. The other describes pass their `sourceFile`.
 
 `tsserver.spec.ts` keeps passing after the move.
 
