@@ -1,7 +1,7 @@
 ---
 type: chore
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.5
@@ -77,7 +77,8 @@ a throw on truncated input. It must replay from one seed.
         - (b) with damage: each non-first copy of a target inside the intact prefix still has its `duplicate-target`.
         - (c) a deleted closing tag that is the only damage, with no `</tag` + `>`/whitespace after its opening tag:
           `unclosed-block` at that block's start.
-   - **Shrinker**: drop actions one at a time, repeated until nothing more drops, while the same rule still fails.
+   - **Shrinker**: drop actions one at a time, repeated until nothing more drops, while the same rule still fails and
+     the file gets no longer (dropping a truncation would lengthen it).
      Then, for rules 1 to 3 only, drop line chunks of the rendered text (halves, then single lines) while the same
      rule still fails on the raw text. The failure shows the shrunk actions and the shrunk text.
    - **Tests in the file**:
@@ -89,8 +90,8 @@ a throw on truncated input. It must replay from one seed.
        (5a), a duplicate inside the intact prefix of a damaged file (5b), 5c's premise. It ignores the env knobs, so a
        short `MULTIFRONT_FUZZ_RUNS` never fakes coverage.
      - `describe('negative controls')`: each runs the same loop over a deliberately broken wrapper around the real
-       `splitBlocks` and expects the named rule among the violations, plus a shrunk input that still fails and is
-       no longer than the original:
+       `splitBlocks`, keeping only the named rule's violations (so that rule alone must catch the bug), and expects
+       that rule plus a shrunk input that still fails it, no longer than the original, and the replay line:
        - throws when the trimmed source does not end with `>` (a throw on truncated input) → `never-throws`
        - `column + 1` on every error → `positions`
        - `contentStart + 1` on every block, content re-sliced (off-by-one) → `structure`
@@ -101,6 +102,8 @@ a throw on truncated input. It must replay from one seed.
    `packages/e2e/fixtures/components/fuzz/<Name>.ucf` with a row in `INVALID_CASES`
    (`packages/core/test/split.spec.ts:81`) or `CHECK_CASES` (`check.spec.ts`), and make the fixture listings
    (`split.spec.ts:159`, `check.spec.ts:44`) cover `fuzz/` too. No `fuzz/` folder when the run is clean.
+   Shipped: the default run plus 100,000 runs over seeds 1 to 5 found no failure, so no `fuzz/` fixture and no
+   splitter change.
 
 ## Tests
 

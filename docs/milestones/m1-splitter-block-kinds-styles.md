@@ -172,18 +172,20 @@ None: this is the first milestone. It builds on what the repo already has:
 
 ### 1.5 Splitter fuzz test (generated real files)
 
-- Build: `packages/core/test/split.fuzz.spec.ts`, built with the fuzzy-testing skill (its seeded runner and shrinker templates, no new library).
-  - Input maker: pick a real fixture from `packages/e2e/fixtures/components/` (seeded), then apply 1 to 4 seeded mutations from a fixed list: shuffle the root blocks; insert whitespace or an HTML comment between blocks; change the quoting and spacing of an opening tag's attributes; move a TSX line from `TsxEdges.ucf` into another fixture's `<react>` block (recombine); duplicate a target block; delete one closing tag; truncate the file at a random offset; insert `'</react>'` into a `<react>` string.
-  - Rules, each proven first by a negative control (break the output on purpose, see it fire):
+- Build: `packages/core/test/split.fuzz.spec.ts`, built with the fuzzy-testing skill (its seeded runner and shrinker templates, no new library), on the shared runner `packages/core/test/fuzz.ts` (`fuzzSettings()`, `createRandom()`, `runFuzz()`, `describeFailure()`).
+  - Input maker: pick a real fixture from `packages/e2e/fixtures/components/` (seeded), then apply 1 to 4 seeded mutations from a fixed list: shuffle the root blocks; insert whitespace or an HTML comment between blocks; change the quoting and spacing of an opening tag's attributes; move a TSX line from `TsxEdges.ucf` into another fixture's `<react>` block (recombine); duplicate a target block; delete one closing tag; truncate the file at a random offset (always applied last); insert `'</react>'` into a `<react>` string. A model of the file (its gaps and blocks, each block intact or not) knows where every block lands.
+  - Rules, each proven by a negative control (a broken wrapper over the real `splitBlocks` output that the rule must catch), kept as permanent tests:
     1. `splitBlocks` and `checkBlocks` never throw.
     2. Every diagnostic has `0 <= start <= end <= source.length`, and its `line` / `column` are the real position of `start`.
     3. With no errors: blocks are sorted and do not overlap; `source.slice(start, contentStart)` is the opening tag, `source.slice(contentEnd, end)` is `</tag>`; the text between blocks is only whitespace and comments. So gaps plus blocks rebuild the exact file.
-    4. A block the mutations did not touch keeps its content byte for byte, and its `<react>` content still parses with the real TypeScript parser with zero syntax errors.
-    5. Known outcomes: a duplicated target gives `duplicate-target`; a deleted closing tag gives at least one error.
-  - Seed and run count from two new env vars, `MULTIFRONT_FUZZ_SEED` (default: a fixed number) and `MULTIFRONT_FUZZ_RUNS` (default 500), added to `REGISTRY` in `scripts/lib/env.mjs` (scope `dev`) and to `.env.sample`.
+    4. The intact blocks before the first damaged one come back field for field, and any other intact block returned at its start keeps its content byte for byte. Their `<react>` content still parses with the real TypeScript parser with zero syntax errors.
+    5. Known outcomes: with no damage (no deleted closing tag, no `'</react>'`, no truncation), the errors are exactly one `duplicate-target` per extra target copy and `checkBlocks` adds nothing; with damage, a duplicated target among the intact blocks still gives `duplicate-target`; a deleted closing tag that is the only damage, with no later `</tag` to close the block, gives `unclosed-block` at that block. A later closing tag of the same name closes the block legally (browser `<script>` rule), so "any deleted closing tag gives an error" would not be sound.
+  - A coverage test checks, on the default seed, that every mutation applies and every rule's case is reached.
+  - Seed and run count from two new env vars, `MULTIFRONT_FUZZ_SEED` (default: `2026`) and `MULTIFRONT_FUZZ_RUNS` (default 500), added to `REGISTRY` in `scripts/lib/env.mjs` (scope `dev`) and to `.env.sample`.
   - Every failure found is shrunk and saved as a new fixture under `packages/e2e/fixtures/components/fuzz/`, with a row in the table test of 1.3 or 1.4.
-- Deliverable: a replayable fuzz run over generated real files; any failure prints its seed.
-- Test: the fuzz spec itself, 500 runs in `pnpm devx test`. It would fail on the splitter bugs it is built to catch (an off-by-one offset, a block cut early, a thrown error on truncated input), as each negative control shows.
+- Deliverable: a replayable fuzz run over generated real files; any failure prints its seed and a replay line (`MULTIFRONT_FUZZ_SEED=… MULTIFRONT_FUZZ_RUNS=… pnpm devx test packages/core/test/split.fuzz.spec.ts`) in the assertion message.
+- Test: the fuzz spec itself, 500 runs in `pnpm devx test`. It would fail on the splitter bugs it is built to catch (an off-by-one offset, a block cut early, a thrown error on truncated input), as each negative control shows. While building it, 100,000 runs over five more seeds found no failure, so `fuzz/` holds no fixture yet.
+- Status: done
 
 ### 1.6 Grammar data per kind
 
