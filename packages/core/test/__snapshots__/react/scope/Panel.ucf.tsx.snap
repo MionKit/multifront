@@ -1,0 +1,8 @@
+import "<fixtures>/components/Panel.ucf?ucf&type=style&index=0&lang.css";
+import "<fixtures>/components/Panel.ucf?ucf&type=style&index=1&lang.css";
+
+  import type { ReactNode } from 'react'
+
+  export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
+    return <section data-v-7182b06b="" className="panel"><h3 data-v-7182b06b="" className="heading">{heading}</h3>{children}</section>
+  }

@@ -1,0 +1,11 @@
+import "<fixtures>/components/react/scope/Namespaced.ucf?ucf&type=style&index=0&lang.css";
+
+  // Build only: React's JSX transform rejects namespace tags, so no app renders this file.
+  export default function Namespaced() {
+    return (
+      <svg data-v-0bd0353d="" className="icon">
+        <svg:x data-v-0bd0353d="" className="named" />
+        <svg:x data-v-0bd0353d=""></svg:x>
+      </svg>
+    )
+  }

@@ -1,0 +1,19 @@
+import "<fixtures>/components/TsxEdges.ucf?ucf&type=style&index=0&lang.css";
+
+  // <style> in a comment is not a block
+  const identity = <T,>(x: T) => x
+
+  export default function TsxEdges({ a, b, c, d }: { a: number; b: number; c: number; d: number }) {
+    const less = a < b
+    const both = a<b && c>d
+    const open = '<react>'
+    const close = '<\/react>'
+    const longer = '</reactive>'
+    return (
+      <>
+        <span data-v-56c9648f="" className="edge">{identity(less)}</span>
+        <span data-v-56c9648f="">{String(both)}</span>
+        <span data-v-56c9648f="">{open + close + longer}</span>
+      </>
+    )
+  }

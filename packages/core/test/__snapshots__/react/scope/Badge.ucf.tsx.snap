@@ -1,0 +1,5 @@
+import "<fixtures>/components/Badge.ucf?ucf&type=style&index=0&lang.css";
+
+  export default function Badge({ label }: { label: string }) {
+    return <span data-v-b06779ae="" className="badge">{label}</span>
+  }

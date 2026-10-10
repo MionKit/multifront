@@ -14,6 +14,7 @@ import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
 import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
+import {stampScope} from '../react/scope.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
 
 // A module name the block cannot name (`module="my-theme"`) gets no import, as the editor declares none.
@@ -107,8 +108,7 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
 }
 
 // Offset in the block content after its directives; `"use client"` must stay first.
-function prologueEnd(block: Block, filename: string): number | undefined {
-  const {program} = parseSync(filename, block.content, {lang: 'tsx', sourceType: 'module'});
+function prologueEnd(program: Program): number | undefined {
   let end: number | undefined;
   for (const statement of program.body) {
     if (statement.type !== 'ExpressionStatement' || !statement.directive) break;
@@ -129,9 +129,14 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
       .filter(({name}) => IDENTIFIER.test(name))
       .map(({name, id}) => `import ${name} from ${JSON.stringify(id)};`),
   ];
-  const prologue = imports.length > 0 ? prologueEnd(block, ctx.filename) : undefined;
-  if (prologue === undefined) text.prependRight(block.contentStart, imports.map((line) => `${line}\n`).join(''));
-  else text.appendLeft(block.contentStart + prologue, imports.map((line) => `\n${line}`).join(''));
+  // Stamping needs a scoped style, so it never runs without the imports.
+  if (imports.length > 0) {
+    const {program} = parseSync(ctx.filename, block.content, {lang: 'tsx', sourceType: 'module'});
+    if (ctx.hasScoped) stampScope(text, program, block.contentStart, ctx.scopeId);
+    const prologue = prologueEnd(program);
+    if (prologue === undefined) text.prependRight(block.contentStart, imports.map((line) => `${line}\n`).join(''));
+    else text.appendLeft(block.contentStart + prologue, imports.map((line) => `\n${line}`).join(''));
+  }
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
   return {ext: '.tsx', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }
