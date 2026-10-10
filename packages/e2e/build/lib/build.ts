@@ -12,10 +12,13 @@ export async function withNodeEnv<Result>(mode: string, run: () => Promise<Resul
   }
 }
 
+// The other loaders resolve `@multifront/vite` to its `dist/`, which tests never build.
+export const APP_CONFIG_LOADER = 'native';
+
 /** Uses the app's own `vite.config.ts` unless `config` sets `configFile: false`. */
 export async function buildApp(root: string, config: InlineConfig = {}) {
   // Vitest sets NODE_ENV=test and Vite keeps it, which would give plugin-vue's dev scope id, not a real build's.
-  const base: InlineConfig = {root, logLevel: 'silent', build: {write: false, minify: false}};
+  const base: InlineConfig = {root, logLevel: 'silent', configLoader: APP_CONFIG_LOADER, build: {write: false, minify: false}};
   const result = await withNodeEnv('production', () => build(mergeConfig(base, config)));
   const bundle = Array.isArray(result) ? result[0]! : result;
   if (!('output' in bundle)) throw new Error('vite.build() returned a watcher');
