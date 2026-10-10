@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.3
@@ -104,6 +104,7 @@ and code.
 
 - Orchestrator: the `frameworks` option row and the `target-not-enabled` error row go into the public docs in this PR.
 - Orchestrator: any query on an `X.ucf` path maps to `<vue>`; the milestone's `importerFromId` bullet says so.
+- Found while building: `orList` (`packages/core/src/diagnostics.ts`) gave `" or react"` for one item; fixed here, pinned by the `react-only` message.
 
 ## Out of scope
 
