@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 
 export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 // Inside the repo, so a copied app still resolves vue, vite and the plugins from the root node_modules.
-const TMP_DIR = join(FIXTURES_DIR, '..', '.tmp');
+export const TMP_DIR = join(FIXTURES_DIR, '..', '.tmp');
 
 export async function copyApp(name: string): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
