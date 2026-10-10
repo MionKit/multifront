@@ -74,7 +74,7 @@ export function resolveUcfImport(
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, error};
 }
 
-/** `framework` and `importers` of our entry in `compilerOptions.plugins`; values that are not a framework are dropped. */
+/** `framework` and `importers` of our entry in `compilerOptions.plugins`. */
 export function entryOptions(compilerOptions: ts.CompilerOptions): ResolveTargetOptions {
   const plugins = (compilerOptions.plugins ?? []) as (ts.PluginImport & {framework?: unknown; importers?: unknown})[];
   const entry = plugins.find(({name}) => name === PLUGIN_NAME);
