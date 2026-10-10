@@ -53,7 +53,7 @@ From **M2** (editor basics):
 - `@multifront/language-tools/typescript-plugin`: serves each kind's `types()` file as `Card.ucf.<target>.<ext>` (M2 ships `Card.ucf.react.tsx`) and resolves `.ucf` imports in `resolveModuleNameLiterals` with `resolveTarget()`.
 - The in-block import rule: a `.ucf` import inside a block resolves to the other file's virtual script for the same framework (M2 built it for `<react>`).
 - `@multifront/language-tools/server`, the language server.
-- `packages/vscode`: the grammar already embeds `source.vue` for `<vue>`, and `contributes.typescriptServerPlugins` registers our TypeScript plugin.
+- `packages/vscode`: the grammar already embeds `text.html.vue` for `<vue>`, and `contributes.typescriptServerPlugins` registers our TypeScript plugin.
 - The `@volar/*` version M2 pins. `@vue/language-core` must be on the same `@volar/language-core`.
 - M2's e2e helpers in `packages/e2e/editor/`: one that starts the real language server over LSP, one that starts a real tsserver with plugins. This document calls them `startLanguageServer()` and `startTsserver()`.
 
@@ -104,7 +104,7 @@ New dependencies, all exact-pinned:
 
 - Build:
   - `packages/core/src/blocks/vue.ts` gains `vueBlock: BlockKind`, with `tag: 'vue'` and `role: 'target'`.
-  - `grammar: {scopeName: 'source.vue'}`, the scope name M2's grammar already embeds, so the generated grammar does not change.
+  - `grammar: {scopeName: 'text.html.vue'}`, the scope name M2's grammar already embeds, so the generated grammar does not change.
   - `check()` adds `vue-empty-block` (no top-level `<template>` or `<script>`). It uses the same raw scan as `splitBlocks`, so core still imports no compiler. Every other Vue error comes from compiler-sfc, already at the right line thanks to the same-length code.
   - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks)}`.
   - `packages/language-tools/src/blocks/vue.ts` gains the editor half, from the spike's chosen path. `editor()` returns the `VueVirtualCode` of the same SFC code as embedded code. `types()` returns its generated script as `Card.ucf.vue.ts`.

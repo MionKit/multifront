@@ -30,7 +30,7 @@ Every root tag, `<style>` included, is a **block kind** with the same five opera
 interface BlockKind {
   tag: 'react' | 'vue' | 'svelte' | 'style';
   role: 'target' | 'shared';         // target = a framework component, shared = used by every target
-  grammar: {scopeName: string};      // VS Code highlighting
+  grammar: {scopeName, languageId, byLang?}; // VS Code highlighting; byLang picked by <style lang>
   check(block, split): Diagnostic[]; // rules for the block, e.g. "react must export default"
   build(block, ctx): VirtualFile;    // the file the bundler compiles
   types(block, ctx): VirtualFile;    // the file TypeScript reads: what the module exports
