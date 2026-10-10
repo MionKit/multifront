@@ -52,12 +52,14 @@ function positionOf(document, needle, shift = 0, from = 0) {
 
 /** Pids of the extension's language servers that are children of this extension host. */
 function serverProcesses(extensionPath) {
-  const server = join(extensionPath, 'dist', 'server.cjs');
+  // Matched on the whole line: a path may hold spaces.
+  const server = ` ${join(extensionPath, 'dist', 'server.cjs')} --node-ipc`;
   return execFileSync('ps', ['-A', '-o', 'pid=,ppid=,args='], {encoding: 'utf8'})
     .split('\n')
-    .map((line) => line.trim().split(/\s+/))
-    .filter(([, ppid, ...args]) => Number(ppid) === process.pid && args.includes(server) && args.includes('--node-ipc'))
-    .map(([pid]) => Number(pid));
+    .filter((line) => line.includes(server))
+    .map((line) => line.trim().split(/\s+/).map(Number))
+    .filter(([, ppid]) => ppid === process.pid)
+    .map(([pid]) => pid);
 }
 
 /** Hover text, every content part joined. */
