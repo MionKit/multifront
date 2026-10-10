@@ -12,6 +12,8 @@ Rules for the JS monorepo under `packages/`. Root [AGENTS.md](../AGENTS.md) stil
 - [vite](vite/): the Vite plugin. Composes `@vitejs/plugin-vue` (peer), never forks or deep-imports it.
   Read "Building on plugin-vue" in [docs/plan.md](../docs/plan.md) first.
 - [e2e](e2e/): private, never built. Cross-package e2e tests + shared fixtures. `tsconfig.json` only, no build half.
+- [vscode](vscode/): the VS Code extension, private, bundled at pack time: `tsconfig.json` only, no build half.
+  Named `multifront-vscode`, outside `@multifront/*`: vsce refuses a scoped extension name.
 - **Published READMEs stay thin**: short description, repo link, status + license lines.
 
 ## TypeScript
