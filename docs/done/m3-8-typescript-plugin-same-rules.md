@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.8
@@ -19,7 +19,7 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
   even resolve to react. The build fails it with `framework-attribute-not-literal`
   (`packages/core/src/imports/rewrite.ts:62`, through the post plugin `packages/vite/src/attributes.ts`).
   `seams.spec.ts:80` pins today's `no-target`.
-- `.js` / `.jsx` importers (`src/Widget.jsx`, `no-default/importer.jsx`, `no-default/plain.js`) are react rows the
+- `.js` / `.jsx` importers (`src/Widget.jsx`, `no-default/importer.jsx`, now `jsx-importer.jsx`, `no-default/plain.js`) are react rows the
   build resolves (3.7), but the imports tsconfigs have no `allowJs`: those files are not in their configured projects
   (tsserver puts them in an inferred project with no plugin entry), so they would match only by luck.
 - Nothing editor-side walks "every row the build resolves to react": the row loop in
@@ -54,6 +54,9 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
 - `packages/e2e/fixtures/apps/imports/tsconfig.json`: `"allowJs": true` (sub-projects extend it), so `.js` / `.jsx`
   importers join their configured project with their own plugin entry, as a real React app with `.jsx` files does.
   No `checkJs`.
+- `no-default/importer.jsx` → `no-default/jsx-importer.jsx` (its `expected.ts` row and core's rewrite snapshot with
+  it): TypeScript leaves a `.jsx` out of a project that has a `.tsx` of the same name, so `importer.jsx` stayed in an
+  inferred project even with `allowJs` (found by the `projectInfo` check).
 
 ### 4. Tests move
 
@@ -66,6 +69,8 @@ entry (`packages/language-tools/src/resolve.ts:53`, `entryOptions` at `:107`): n
 - Orchestrator: the row loop moves into `editor/imports.spec.ts` (one loop over the rows, not two copies); 3.8's Build
   text says it covers `non-literal.ts` there.
 - Orchestrator: `allowJs` in the imports root tsconfig, so the `.js` / `.jsx` react rows are tested as the step asks.
+- Found while building: `importer.jsx` beside `importer.tsx` is never in a TypeScript project; renamed
+  `jsx-importer.jsx` here (the 3.2 fixture list in the m3 doc says why).
 
 ## Tests
 
@@ -102,7 +107,7 @@ describes pass their `sourceFile`.
 - `docs/milestones/m3-react-and-imports.md` 3.8: Build and Test as shipped (rewrite errors through
   `resolveUcfImport`, `allowJs`, the row loop moved into `editor/imports.spec.ts` with `non-literal.ts`, the pack
   case), `- Status: done`. "Hands to later milestones", the `expected.ts` line: M4 and M6 add their editor rows in
-  `editor/imports.spec.ts`.
+  `editor/imports.spec.ts`. The 3.2 fixture list names `jsx-importer.jsx`.
 - `docs/architecture.md:105`: the plugin also reads a non-literal attribute with `rewriteImportAttributes()`, the
   build's function.
 - spec / plan: none (spec 5 already says same rules, one shared function). `publicdocs/07-errors.md` already lists
