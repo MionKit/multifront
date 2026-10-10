@@ -69,7 +69,7 @@ function isFragment(name: JSXElementName, fragments: Set<string>, shadowed: Read
   return fragments.has(`${name.object.name}.${name.property.name}`) && !shadowed.has(name.object.name);
 }
 
-/** Inserts ` data-v-<scopeId>=""` into every JSX opening element but React's Fragment; `offset` is the block's start. */
+/** Stamps every JSX element but React's Fragment; `offset` is the block's start in `text`. */
 export function stampScope(text: MagicString, program: Program, offset: number, scopeId: string): void {
   const fragments = fragmentNames(program);
   const imported = new Set([...fragments].map((name) => name.split('.')[0]!));
