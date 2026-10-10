@@ -21,8 +21,8 @@ function bin(pkg, name = pkg) {
   return join(dir, entry);
 }
 
-function run(entry, args) {
-  const result = spawnSync(process.execPath, [entry, ...args], {stdio: 'inherit', cwd: REPO_ROOT});
+function run(entry, args, {cwd = REPO_ROOT, node = []} = {}) {
+  const result = spawnSync(process.execPath, [...node, entry, ...args], {stdio: 'inherit', cwd});
   if (result.error) throw new CliError(`${CLI}: failed to launch ${entry}: ${result.error.message}`);
   if (result.status !== 0) throw new CliError('');
 }
@@ -94,6 +94,13 @@ const handlers = {
   },
   'docs-images'(args) {
     return renderDocsImages(args);
+  },
+  vsix() {
+    run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
+    const {version} = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'), 'utf8'));
+    // The version goes into the packed manifest only; vsce would otherwise run `npm version` on package.json.
+    const pack = ['package', version, '--no-update-package-json', '--no-dependencies', '--out', `multifront-vscode-${version}.vsix`];
+    run(bin('@vscode/vsce', 'vsce'), pack, {cwd: join(REPO_ROOT, 'packages', 'vscode')});
   },
   env() {
     for (const row of REGISTRY) console.log(`${row.name.padEnd(28)} ${row.scope.padEnd(9)} ${row.desc}`);
