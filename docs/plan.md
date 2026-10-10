@@ -26,6 +26,24 @@ How we build [the spec](spec.md). How the pieces fit: [architecture.md](architec
 Three unknowns can change the design. Each gets a throwaway spike before its milestone starts:
 
 1. **Types by import attribute.** A tsserver plugin whose `resolveModuleNameLiterals` reads `with { framework }` from the import and resolves `./Card.ucf` to a per-target virtual script. If tsserver does not hand us the import node, fall back to the importer's framework and the default target only, and drop per-import overrides from the types (the build still honours them).
+
+   **Answers** (milestone 2.1, run on TypeScript 6.0.3, `@volar/typescript` 2.4.28, Node 26.11.1, VS Code 1.141.0 whose tsserver runs on Electron's Node 24.21.0):
+
+   1. **Yes, the import node is there.** Inside `resolveModuleNameLiterals`, `literal.parent` is the `ImportDeclaration`, the `ExportDeclaration` or the `import()` `CallExpression`, and `with { framework }` reads from it in all three. Only that one parent link is set at that point: pass the source file to `getStart()` / `getText()`. Per-import attributes stay in the types.
+   2. **Expected limit: one resolution per (specifier, mode).** In one file, `./Card.ucf` with `react` then with `vue`: the plugin is asked for both and answers both, but the program keeps the last answer for both imports. Decision: one framework per specifier per file, in types only. The plugin warns on the second import and names the fix: one small re-export file per framework.
+   3. **No.** Volar's tsserver plugin path never serves `getExtraServiceScripts`: it logs `getExtraServiceScripts() is not available in TS plugin.`, and an import resolved to `/abs/Card.ucf.react.tsx` is `TS2307`. Decision: in M2 the `.ucf` file's main service script is the React code, and React imports resolve to `/abs/Card.ucf` itself. Milestone 4 must solve per-target scripts before it adds Vue.
+   4. **Yes, ESM loads, on two conditions.** tsserver loads a plugin with `require()`, so ESM works through `require(esm)` on Node 26 and inside VS Code. But tsserver skips a module that is not a function: the entry must export its factory as `'module.exports'` (`export default` alone is skipped). tsserver also finds the plugin with its own Node10 lookup, which ignores `exports`: `@multifront/language-tools/typescript-plugin` must be a real `typescript-plugin/` folder. An `index.js` there that imports the package's own `./typescript-plugin` export works, and Node applies `--conditions=source` to that import when the package is a workspace link. No bundled `.cjs` needed.
+   5. **Yes.** No diagnostic on `framework` under `module: preserve` or `module: nodenext`, for static imports, `export ... from` and `import()`. Control: `module: es2020` gives TS's own `TS2823` / `TS1324` for any attribute, whatever the key.
+   6. **Yes, hybrid mode works.** With `"languages": ["ucf"]`, VS Code sends `Card.ucf` to tsserver (`updateOpen`), and our plugin serves completion, hover and definition inside `<react>`. Rename and references cross `Card.ucf` and `App.tsx`. An unsaved prop rename in `Card.ucf` is a `TS2322` in `App.tsx` at once, in VS Code and over tsserver's `change` command.
+
+   Cases 2.9 takes over (the spike script ran each one over tsserver's stdio protocol):
+
+   - `main.ts`, `reexport.ts`, `lazy.ts`: the framework of each import kind reaches the resolver;
+   - `mixed.ts`: both imports get the last import's file;
+   - `App.tsx`: `quickinfo` on `<Card` shows `{ title: string }`; `definition` lands in `Card.ucf` inside `<react>`;
+   - no diagnostic on the attribute under `module: preserve` and `module: nodenext`;
+   - `Card.ucf` opened in tsserver: `completionInfo` and `quickinfo` inside `<react>`; `rename` on the prop lists `App.tsx`; `references` from `App.tsx` lists the use in `<react>`;
+   - a `change` renaming the prop in `Card.ucf`, no save: `App.tsx` reports the old prop.
 2. **A `<vue>` block in the editor.** Generate Vue virtual code from the block with `@vue/language-core` and map its offsets back into the `.ucf` file.
 3. **Attributes surviving each compiler.** Check plugin-vue's script compile, the Svelte compiler and Oxc all keep `with { ... }` on imports, so our post rewrite still sees it.
 

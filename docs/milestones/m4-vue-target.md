@@ -50,7 +50,7 @@ From **M1** (splitter, block kinds, styles):
 From **M2** (editor basics):
 
 - `@multifront/language-tools`: the Volar language plugin that loops over `packages/language-tools/src/blocks/index.ts` and calls `editor()` per block.
-- `@multifront/language-tools/typescript-plugin`: serves each kind's `types()` file as `Card.ucf.<target>.<ext>` (M2 ships `Card.ucf.react.tsx`) and resolves `.ucf` imports in `resolveModuleNameLiterals` with `resolveTarget()`.
+- `@multifront/language-tools/typescript-plugin`: resolves `.ucf` imports in `resolveModuleNameLiterals` with `resolveTarget()`. M2 serves the React `types()` script (`Card.ucf.react.tsx`) as the `.ucf` file's own service script, because Volar's tsserver plugin does not serve `getExtraServiceScripts` (spike 1, answer 3). So 4.13 must first find another way to serve `Card.ucf.vue.ts` beside it, a file that is not on disk.
 - The in-block import rule: a `.ucf` import inside a block resolves to the other file's virtual script for the same framework (M2 built it for `<react>`).
 - `@multifront/language-tools/server`, the language server.
 - `packages/vscode`: the grammar already embeds `text.html.vue` for `<vue>`, and `contributes.typescriptServerPlugins` registers our TypeScript plugin.
