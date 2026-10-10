@@ -23,7 +23,7 @@ export function tagNameEnd(source: string, pos: number): number {
   return end;
 }
 
-// Just after the `}` matching the `{` at `pos`, or -1. Braces inside a quoted run do not count.
+// Just after the `}` matching the `{` at `pos`, or -1; braces inside quotes do not count.
 function braceEnd(source: string, pos: number): number {
   let depth = 0;
   for (let index = pos; index < source.length; index++) {
@@ -36,10 +36,7 @@ function braceEnd(source: string, pos: number): number {
   return -1;
 }
 
-/**
- * Reads attributes from just after the tag name. `inner` reads markup inside a block: a quoted value may hold `>` or
- * a line break (`v-if="a > b"`), and a Svelte `{…}` runs to its matching `}`.
- */
+/** `inner` = markup inside a block: quotes may hold `>` or a newline (`v-if="a > b"`); Svelte `{…}` runs to its `}`. */
 export function readOpeningTag(source: string, pos: number, inner = false): OpeningTag {
   const nameEnd = pos;
   const attrs: Block['attrs'] = {};
@@ -103,10 +100,7 @@ export function findClosingTag(source: string, tag: string, from: number): {star
   return undefined;
 }
 
-/**
- * The opening tags at depth 0 of the markup in `text`. Only tags whose name `nests` open a level; comments, the raw
- * text of `<script>` and `<style>`, and at depth 0 the raw text of every tag `rawAtTop` names are skipped.
- */
+/** Opening tags at depth 0; only `nests` tags open a level; `<script>`, `<style>` and top-level `rawAtTop` tags are raw text. */
 export function topLevelTags(
   text: string,
   nests: (name: string) => boolean,

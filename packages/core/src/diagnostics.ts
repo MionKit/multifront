@@ -18,12 +18,10 @@ export function createDiagnostic(
   return {code, severity: 'error', message, filename: file.filename, start, end, ...locate(file.source, start)};
 }
 
-/** `['a', 'b', 'c']` → `'a, b or c'`. */
 export function orList(items: readonly string[]): string {
   return `${items.slice(0, -1).join(', ')} or ${items.at(-1)}`;
 }
 
-/** `style-inside-target` for a `<style>` at the top level of a target block's markup. */
 export function styleInsideTarget(
   block: Block,
   split: SplitResult,
