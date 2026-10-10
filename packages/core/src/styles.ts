@@ -31,7 +31,7 @@ export function moduleName(block: Block): string | undefined {
   return module === true || module === '' ? '$style' : module;
 }
 
-/** Passes `compileStyleAsync` the same options plugin-vue passes. */
+/** Passes `compileStyleAsync` the options plugin-vue passes, plus the preprocessing plugin-vue leaves to Vite. */
 export function compileStyles(blocks: Block[], options: CompileStylesOptions): Promise<CompiledStyle[]> {
   return Promise.all(blocks.map((block) => compileStyle(block, options)));
 }
@@ -49,6 +49,8 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
       scoped,
       source: block.content,
       preprocessLang: PREPROCESS_LANGS.find((lang) => lang === block.attrs.lang),
+      // compiler-sfc asks sass for `indentedSyntax`, which sass's `compileString` ignores.
+      preprocessOptions: block.attrs.lang === 'sass' ? {syntax: 'indented'} : undefined,
       modules: module !== undefined,
       modulesOptions: {generateScopedName: (local: string) => `${local}_${id}_${block.index}`},
       inMap: blockMap(block, options),
