@@ -11,7 +11,7 @@ afterEach(() => {
   for (const dir of temps.splice(0)) rmSync(dir, {recursive: true, force: true});
 });
 
-// A copy of scripts/ beside the real node_modules entries, oxlint swapped for `replacement` (or left out).
+// Temp repo where oxlint is missing, or is `replacement` under oxlint's name.
 function repoWithOxlint(replacement?: string): string {
   const root = mkdtempSync(join(tmpdir(), 'devx-'));
   temps.push(root);
