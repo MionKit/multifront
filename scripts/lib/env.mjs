@@ -19,4 +19,6 @@ export function loadEnv() {
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'browser docs-images renders with, when the Playwright one is not installed'},
+  {name: 'MULTIFRONT_FUZZ_SEED', scope: 'dev', desc: 'base seed of the fuzz tests; default fixed, so every run replays'},
+  {name: 'MULTIFRONT_FUZZ_RUNS', scope: 'dev', desc: 'inputs per fuzz test (default 500)'},
 ];
