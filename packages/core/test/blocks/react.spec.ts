@@ -13,7 +13,7 @@ function check(name: string) {
   return {split, source, diagnostics: react.check(split.targets.react!, split)};
 }
 
-// Written by hand from the fixture files; `text` is the source the diagnostic spans.
+// Written by hand from the fixture files.
 const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' | 'column'> & {text: string})[]}[] = [
   {
     fixture: 'react/errors/AttrInBlock.ucf',
@@ -47,7 +47,6 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
   },
 ];
 
-// Each file holds the form it is named for.
 const DEFAULT_FORMS: {fixture: string; form: string}[] = [
   {fixture: 'react/default-forms/AsDefault.ucf', form: 'export { AsDefault as default }'},
   {fixture: 'react/default-forms/DefaultArrow.ucf', form: 'export default () =>'},

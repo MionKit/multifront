@@ -16,7 +16,7 @@ const ATTR_IN_BLOCK = readComponent('react/errors/AttrInBlock.ucf');
 const ATTR_NO_DEFAULT = readComponent('react/errors/AttrNoDefault.ucf');
 const SYNTAX_ERROR = readComponent('react/errors/SyntaxError.ucf');
 
-// The 1-based lines where checkBlocks reports `code`.
+// 1-based, as tsserver's `start.line` is.
 function linesOf({filename, source}: Component, code: DiagnosticCode): number[] {
   return checkBlocks(splitBlocks(source, filename))
     .filter((diagnostic) => diagnostic.code === code)

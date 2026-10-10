@@ -1,7 +1,7 @@
 import {visitorKeys} from 'oxc-parser';
 import type {Node} from 'oxc-parser';
 
-/** Every node under `root`, parents first; oxc's wasm build, which the editor bundles load, has no `Visitor`. */
+/** Stands in for oxc's `Visitor`, missing from the wasm build the editor bundles load. */
 export function walk(root: Node, enter: (node: Node) => void): void {
   enter(root);
   for (const key of visitorKeys[root.type] ?? []) {
