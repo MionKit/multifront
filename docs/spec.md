@@ -108,6 +108,9 @@ The full picture, with graphics: [architecture.md](architecture.md).
   2. Every component JSX element (capitalized / member expression) in this file also gets `data-v-<id>=""`, so the parent scope reaches the child root, matching Vue.
      Fragments (`<>`, React's `Fragment`) get nothing: React warns on extra Fragment props.
   3. In the default-exported component, every **returned root** JSX element gets `{...__ucfScopeAttrs(props)}`, forwarding incoming `data-v-*` props. Handle multiple returns, conditional (`?:`, `&&`) roots, and unwrap `memo(...)` / `forwardRef(...)`. Fragment roots get no forwarding, plus a dev warning (Vue's multi-root rule).
+     - Roots: every `return` of the component (not of nested functions) and an arrow's expression body, through parentheses, `as` / `satisfies` / `!`, both `?:` branches, the right side of `&&` / `||` / `??`, and one `const x = <jsx>` hop in the same function. `null`, strings, calls and `children` get nothing.
+     - `props` is the first parameter. With none, the build adds `__props` (`(__props, __ref)` inside `forwardRef`, which React checks for zero or two parameters).
+     - The warning is dev only, once per component, named by the file's base name (`<FragmentRoot>`), and only when a parent passed a `data-v-*` prop.
   4. If the component destructures props in its parameter, rewrite to `(__props)` + `const {...} = __props` so the forward has access to all props.
 - `__ucfScopeAttrs` is a helper of a few lines, served by the Vite plugin as a virtual module, so it is bundled once and shipped components get no runtime dependency.
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
