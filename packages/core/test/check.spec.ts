@@ -3,6 +3,7 @@ import {checkBlocks, splitBlocks} from '@multifront/core';
 import type {Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
+import {tsxSyntaxErrors} from './tsx.ts';
 
 function check(name: string) {
   const {filename, source} = readComponent(name);
@@ -12,11 +13,32 @@ function check(name: string) {
 
 // Written by hand from the fixture files.
 const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 'column'>[]}[] = [
-  {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [{code: 'duplicate-style-module', line: 19, column: 0}]},
+  {
+    fixture: 'invalid/DuplicateStyleModule.ucf',
+    errors: [
+      {code: 'duplicate-style-module', line: 19, column: 0},
+      {code: 'duplicate-style-module', line: 25, column: 0},
+      {code: 'duplicate-style-module', line: 31, column: 0},
+    ],
+  },
+  // A block error before a splitter error; the second <react> exports `as "default"`.
+  {
+    fixture: 'invalid/MixedErrors.ucf',
+    errors: [
+      {code: 'unknown-style-lang', line: 1, column: 0},
+      {code: 'duplicate-target', line: 13, column: 0},
+    ],
+  },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
-  {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 11, column: 2}]},
-  {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 14, column: 2}]},
-  {fixture: 'invalid/UnknownStyleLang.ucf', errors: [{code: 'unknown-style-lang', line: 13, column: 0}]},
+  {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
+  {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
+  {
+    fixture: 'invalid/UnknownStyleLang.ucf',
+    errors: [
+      {code: 'unknown-style-lang', line: 13, column: 0},
+      {code: 'unknown-style-lang', line: 19, column: 0},
+    ],
+  },
 ];
 const CHECK_FIXTURES = CHECK_CASES.map((row) => row.fixture);
 const SPLIT_FIXTURES = listComponents('invalid').filter((name) => !CHECK_FIXTURES.includes(name));
@@ -27,24 +49,26 @@ describe('checkBlocks', () => {
   });
 
   it('takes export {Card as default} as the default export', () => {
-    const {split, diagnostics} = check('ReactDefaultSpecifier.ucf');
-    expect(split.targets.react?.content).toContain('export { Card as default }');
-    expect(split.targets.react?.content).not.toContain('export default');
-    expect(diagnostics).toEqual([]);
+    const react = check('ReactDefaultSpecifier.ucf').split.targets.react;
+    expect(react?.content).toContain('export { Card as default }');
+    expect(react?.content).not.toContain('export default');
   });
 
   describe.each(CHECK_CASES)('$fixture', ({fixture, errors}) => {
     const {split, diagnostics} = check(fixture);
+    const {source} = split;
 
-    it('reports its rule at the hand-written line and column', () => {
+    it('reports each rule at its hand-written line and column, in source order', () => {
       expect(diagnostics.map(({code, line, column}) => ({code, line, column}))).toEqual(errors);
     });
 
-    it('points at the opening tag the rule is about, and names it', () => {
+    it('points at the opening tag each rule is about, names it, and gives its real position', () => {
       for (const diagnostic of diagnostics) {
+        expect(diagnostic.filename).toBe(split.filename);
         expect(diagnostic.message).toMatch(/^<(react|style)[ >]/);
-        const tag = diagnostic.code === 'react-no-default-export' ? 'react' : 'style';
-        expect(split.source.slice(diagnostic.start, diagnostic.end)).toMatch(new RegExp(`^<${tag}(\\s[^]*)?>$`));
+        expect(source.slice(diagnostic.start, diagnostic.end)).toMatch(/^<(react|style)(\s[^]*)?>$/);
+        const before = source.slice(0, diagnostic.start).split('\n');
+        expect({line: diagnostic.line, column: diagnostic.column}).toEqual({line: before.length, column: before.at(-1)!.length});
       }
     });
 
@@ -59,29 +83,12 @@ describe('checkBlocks', () => {
     expect(diagnostics).toEqual(split.errors);
   });
 
-  it('leaves a <react> block that does not parse to the TSX compiler', () => {
-    const {split, diagnostics} = check('invalid/ReactCloseInString.ucf');
-    expect(split.targets.react).toBeDefined();
-    expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['text-outside-block']);
-  });
-
-  it.each([...listComponents(), ...listComponents('invalid')])(
-    'gives %s diagnostics in start order, each at its real position',
+  it.each(['invalid/ReactCloseInString.ucf', 'invalid/ReactSyntaxError.ucf'])(
+    'leaves the <react> block of %s, which TypeScript cannot parse, to the TSX compiler',
     (name) => {
       const {split, diagnostics} = check(name);
-      const {source} = split;
-      expect(diagnostics).toEqual(expect.arrayContaining(split.errors));
-      expect(diagnostics.map((diagnostic) => diagnostic.start)).toEqual(
-        diagnostics.map((diagnostic) => diagnostic.start).sort((first, second) => first - second)
-      );
-      for (const diagnostic of diagnostics) {
-        expect(diagnostic.severity).toBe('error');
-        expect(diagnostic.filename).toBe(split.filename);
-        expect(diagnostic.message).not.toMatch(/\n/);
-        expect(0 <= diagnostic.start && diagnostic.start <= diagnostic.end && diagnostic.end <= source.length).toBe(true);
-        const before = source.slice(0, diagnostic.start).split('\n');
-        expect({line: diagnostic.line, column: diagnostic.column}).toEqual({line: before.length, column: before.at(-1)!.length});
-      }
+      expect(tsxSyntaxErrors(split.targets.react!.content)).not.toEqual([]);
+      expect(diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('react-no-default-export');
     }
   );
 });

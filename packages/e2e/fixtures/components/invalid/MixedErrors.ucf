@@ -1,0 +1,19 @@
+<style lang="foo">
+.mixed {
+  color: pink;
+}
+</style>
+
+<react>
+  export default function First() {
+    return <p className="mixed">First</p>
+  }
+</react>
+
+<react>
+  function Second() {
+    return <p className="mixed">Second</p>
+  }
+
+  export { Second as "default" }
+</react>

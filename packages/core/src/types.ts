@@ -37,18 +37,6 @@ export interface BlockKind {
 /** Why an opening tag never ends cleanly; set = the tag counts as unclosed. */
 export type TagBreak = 'eof' | 'open-quote' | 'self-closing';
 
-export interface OpeningTag {
-  attrs: Block['attrs'];
-  end: number; // just after its '>' or '/>'; the name end when it never ends
-  broken?: TagBreak;
-}
-
-export interface FoundTag {
-  name: string;
-  start: number; // offset of its '<'
-  end: number; // just after its '>' or '/>'
-}
-
 export type DiagnosticCode =
   | 'unknown-root-tag'
   | 'unclosed-block'

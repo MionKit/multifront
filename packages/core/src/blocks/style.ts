@@ -1,8 +1,8 @@
-import {createDiagnostic} from '../diagnostics.ts';
+import {createDiagnostic, orList} from '../diagnostics.ts';
 import type {Block, BlockKind, Diagnostic, SplitResult} from '../types.ts';
 
 const STYLE_LANGS: readonly string[] = ['css', 'scss', 'sass', 'less', 'styl', 'stylus', 'postcss'];
-const LANG_LIST = `${STYLE_LANGS.slice(0, -1).join(', ')} or ${STYLE_LANGS.at(-1)}`;
+const LANG_LIST = orList(STYLE_LANGS);
 
 // Vue's parser reads `module=""` as a bare `module`.
 function moduleName(block: Block): string | undefined {

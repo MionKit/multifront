@@ -8,5 +8,25 @@
     "end": 288,
     "line": 19,
     "column": 0
+  },
+  {
+    "code": "duplicate-style-module",
+    "severity": "error",
+    "message": "<style module> injects $style more than once; give each module its own name",
+    "filename": "invalid/DuplicateStyleModule.ucf",
+    "start": 326,
+    "end": 343,
+    "line": 25,
+    "column": 0
+  },
+  {
+    "code": "duplicate-style-module",
+    "severity": "error",
+    "message": "<style module> injects $style more than once; give each module its own name",
+    "filename": "invalid/DuplicateStyleModule.ucf",
+    "start": 382,
+    "end": 405,
+    "line": 31,
+    "column": 0
   }
 ]

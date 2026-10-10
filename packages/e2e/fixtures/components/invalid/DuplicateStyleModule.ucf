@@ -21,3 +21,15 @@
   color: khaki;
 }
 </style>
+
+<style module="">
+.fourth {
+  color: wheat;
+}
+</style>
+
+<style module="$style">
+.fifth {
+  color: beige;
+}
+</style>

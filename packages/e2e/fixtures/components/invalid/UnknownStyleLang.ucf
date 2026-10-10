@@ -15,3 +15,9 @@
   margin: 0;
 }
 </style>
+
+<style lang>
+.lang {
+  padding: 0;
+}
+</style>

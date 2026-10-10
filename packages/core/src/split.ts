@@ -1,16 +1,12 @@
 import {BLOCK_KINDS, getBlockKind} from './blocks/index.ts';
-import {createDiagnostic} from './diagnostics.ts';
+import {createDiagnostic, orList} from './diagnostics.ts';
 import {findClosingTag, isNameStart, isSpace, readOpeningTag, tagNameEnd} from './scan.ts';
 import type {Block, BlockTag, Diagnostic, DiagnosticCode, SplitResult, TagBreak, Target} from './types.ts';
 
 const ROOT_TAGS: ReadonlySet<string> = new Set(BLOCK_KINDS.map((kind) => kind.tag));
 
-function tagList(tags: string[]): string {
-  const names = tags.map((tag) => `<${tag}>`);
-  return `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
-}
-const ROOT_TAG_LIST = tagList(BLOCK_KINDS.map((kind) => kind.tag));
-const TARGET_TAG_LIST = tagList(BLOCK_KINDS.filter((kind) => kind.role === 'target').map((kind) => kind.tag));
+const ROOT_TAG_LIST = orList(BLOCK_KINDS.map((kind) => `<${kind.tag}>`));
+const TARGET_TAG_LIST = orList(BLOCK_KINDS.filter((kind) => kind.role === 'target').map((kind) => `<${kind.tag}>`));
 
 const isRootTag = (name: string): name is BlockTag => ROOT_TAGS.has(name);
 
