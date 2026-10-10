@@ -1,6 +1,6 @@
-import {chromium, type Browser, type Page} from 'playwright';
+import {chromium, type Browser, type ConsoleMessage, type Page} from 'playwright';
 
-type ConsoleEntry = {type: string; text: string};
+type ConsoleEntry = {type: ReturnType<ConsoleMessage['type']> | 'pageerror'; text: string};
 
 /** Playwright's Chromium, or the one `MULTIFRONT_CHROMIUM_PATH` names. */
 export async function launchChromium(): Promise<Browser> {
@@ -10,7 +10,8 @@ export async function launchChromium(): Promise<Browser> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `Chromium did not start: run \`pnpm exec playwright install chromium\` or set MULTIFRONT_CHROMIUM_PATH (see .env.sample).\n${message}`
+      `Chromium did not start: run \`pnpm exec playwright install chromium\` or set MULTIFRONT_CHROMIUM_PATH (see .env.sample).\n${message}`,
+      {cause: err}
     );
   }
 }
