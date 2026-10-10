@@ -1,0 +1,3 @@
+.b {
+  composes: a from './cycle-a.css';
+}
