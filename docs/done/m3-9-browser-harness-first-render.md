@@ -20,25 +20,27 @@ floor job.
 
 ### 1. `packages/e2e/browser/lib/serve.ts`
 
-- `startDev(appDir): Promise<{url: string; server: ViteDevServer; close(): Promise<void>}>`:
-  `createServer({root: appDir, configLoader: APP_CONFIG_LOADER, cacheDir: <mkdtemp under TMP_DIR>, logLevel:
-  'silent', server: {port: 0}})` inside `withNodeEnv('development')`, then `listen()`; `url` =
-  `server.resolvedUrls.local[0]`. `close` waits for `environments.client.waitForRequestsIdle()` before
-  `server.close()` (Vite's close never settles during its first crawl), then removes the cache dir.
-- `buildAndPreview(appDir): Promise<{url: string; outDir: string; close(): Promise<void>}>`: `outDir` = mkdtemp under
+- `startDev(appDir)` returns `{url, server, close}` (types inferred): sets `NODE_ENV=development` until `close`
+  (Vite's dep optimizer hashes it each time it runs), `createServer({root: appDir, configLoader: APP_CONFIG_LOADER,
+  cacheDir: <mkdtemp under TMP_DIR>, logLevel: 'silent', server: {port: 0}})`, then `listen()`; `url` =
+  `server.resolvedUrls.local[0]`. A failed `listen()` closes the server before it rethrows. `close` waits for
+  `environments.client.waitForRequestsIdle()` before `server.close()` (Vite's close never settles during its first
+  crawl), then restores `NODE_ENV` and removes the cache dir.
+- `buildAndPreview(appDir)` returns `{url, outDir, close}`: `outDir` = mkdtemp under
   `TMP_DIR` (never inside the fixture); `buildApp(appDir, {build: {write: true, outDir, emptyOutDir: true}})` (already
   production NODE_ENV + native loader), then `preview({root: appDir, configLoader: APP_CONFIG_LOADER, logLevel:
   'silent', build: {outDir}, preview: {port: 0}})`. `close` closes the preview server and removes `outDir`.
-- Reuses `APP_CONFIG_LOADER`, `withNodeEnv`, `buildApp` (`build/lib/build.ts`) and `TMP_DIR` / `copyApp`
+- Reuses `APP_CONFIG_LOADER`, `buildApp` (`build/lib/build.ts`) and `TMP_DIR` / `copyApp`
   (`fixtures/index.ts`). Tests that edit files (3.15 on) pass a `copyApp(name)` copy as `appDir`.
 
 ### 2. `packages/e2e/browser/lib/chromium.ts`
 
 - `launchChromium(): Promise<Browser>`: `chromium.launch({executablePath: process.env.MULTIFRONT_CHROMIUM_PATH ||
   undefined})`; a failed launch rethrows with one line naming the fix (`pnpm exec playwright install chromium`, or
-  set `MULTIFRONT_CHROMIUM_PATH`).
+  set `MULTIFRONT_CHROMIUM_PATH`), the original error as `cause`.
 - `collectConsole(page): ConsoleEntry[]`: a live list of every `console` message (`{type, text}`) and every
-  `pageerror` (`type: 'pageerror'`). `ConsoleEntry` stays in this file.
+  `pageerror` (`type: 'pageerror'`). `ConsoleEntry` (`type` is Playwright's message type or `'pageerror'`) stays in
+  this file.
 
 ### 3. Fixture fix
 
@@ -56,10 +58,16 @@ floor job.
     '@vitejs/plugin-react': '6.0.0', '@types/react': '19.0.0', '@types/react-dom': '19.0.0'}`.
   - `withOverrides(workspaceYaml, overrides)`: appends an `overrides:` block to the `pnpm-workspace.yaml` text;
     throws when the file already has an `overrides:` key.
+  - `installedVersions(names)`: every copy of those packages in the root's or a workspace package's `node_modules`,
+    as `{name, dir, version}`.
+  - `lowestVersion(name, range)` is exported for its test; `FLOOR_PEERS` stays private (an inherited key such as
+    `toString` is no framework).
 - `scripts/devx.mjs` handler: refuses unless `CI` is set (it rewrites the lockfile); refuses an unknown or missing
   framework, naming the known ones; writes the overrides into `pnpm-workspace.yaml`; runs `pnpm install
   --no-frozen-lockfile`; checks every overridden package found in the root's or a workspace package's `node_modules`
-  is at its floor version (fails otherwise); prints `peer-floor: <name> <version>` per package.
+  is at its floor version, and fails too when an overridden package is installed nowhere; prints
+  `peer-floor: <name> <version> (<dir>)` per installed copy. Both refusals and a bad `pnpm-workspace.yaml` are one
+  `devx:` line.
 - Row in `scripts/lib/registry.mjs`.
 - `scripts/lib/env.mjs` + `.env.sample`: `CI` description adds that `peer-floor` runs only with it set;
   `MULTIFRONT_CHROMIUM_PATH` now covers the browser tests too.
@@ -70,7 +78,9 @@ floor job.
   `~/.cache/ms-playwright` keyed `playwright-${{ runner.os }}-<version>`; `pnpm exec playwright install --with-deps
   chromium`.
 - New `react-floor` job (ubuntu): checkout, pnpm, node 26, `pnpm install --frozen-lockfile`, `pnpm devx peer-floor
-  react`, the same Chromium cache + install, the same `.vscode-test` cache, `pnpm devx test --reporter verbose`.
+  react`, the same `.vscode-test` cache, Playwright version, Chromium cache and install (YAML anchors on the `check`
+  job's steps, so they are written once), `pnpm devx test --reporter verbose`.
+- `GITHUB_OUTPUT` (set by the runner, written by the version step) gets its `REGISTRY` row.
 
 ### 6. Docs
 
@@ -86,14 +96,23 @@ floor job.
   `collectConsole`, `goto(url)`, wait for `all-blocks-react-marker`; AllBlocks renders; the `$style.card` div (the
   marker's parent) has computed `padding` `16px`; the `classes.title` `<p>` ("All blocks") `color`
   `rgb(20, 90, 160)`; `.all-blocks-global` `font-style` `italic`; no `error` and no `pageerror` console entry.
-- `packages/e2e/devx/peer-floor.spec.ts` (area devx, this host and CI), on the real repo files:
-  `floorOverrides('react')` equals the map above; `withOverrides` on the real `pnpm-workspace.yaml` text ends with
-  that `overrides:` block and a second run throws; `devx peer-floor react` without `CI` exits 1 with its message and
-  leaves `pnpm-workspace.yaml` byte for byte; `devx peer-floor angular` with `CI` exits 1 naming `react`, nothing
-  changed.
-- The full reinstall is proven by the `react-floor` job (the command checks the installed versions), and once by hand
-  before the PR on a throwaway `git worktree` (`CI=1 pnpm devx peer-floor react`, then `pnpm devx test`): react,
-  react-dom, @types 19.0.0 and plugin-react 6.0.0 installed, all 37 test files green, the browser test included.
+- `packages/e2e/browser/harness.spec.ts` (area browser): `collectConsole` on a real page catches a `console.warn`,
+  a `console.error` and an uncaught throw, in order; `launchChromium` with `MULTIFRONT_CHROMIUM_PATH` on a missing file
+  rejects with the fix line.
+- `packages/e2e/devx/peer-floor.spec.ts` (area devx, this host, CI and the Windows job), on the real repo files:
+  `floorOverrides('react')` equals the map above; `lowestVersion` reads `>=X.Y.Z` and rejects `||` ranges and a
+  missing range; `withOverrides` on the committed `pnpm-workspace.yaml` (`git show HEAD:`, since the react-floor job
+  has already rewritten the working copy) ends with that `overrides:` block and a second run throws;
+  `installedVersions` finds react in the root and `packages/vite`, and nothing for a missing package; `devx
+  peer-floor` exits 1 with one line and leaves `pnpm-workspace.yaml` byte for byte without `CI`, for `angular`, for
+  the inherited key `toString` and with no framework.
+- The full reinstall is proven by the `react-floor` job (the command checks the installed versions). Run by hand on a
+  throwaway `git worktree` of the final code (`CI=1 pnpm devx peer-floor react`, then `pnpm devx test`): react,
+  react-dom and both @types at 19.0.0, plugin-react 6.0.0; 39 test files, 1505 tests passed, both browser files
+  included.
+- That run found a related bug, fixed here: `startDev` restored Vitest's `NODE_ENV=test` while the dev server lived.
+  Vite's dep optimizer hashes `NODE_ENV` each time it runs, so the optimized deps went outdated and the page got
+  `504 (Outdated Optimize Dep)` (most runs, both React ends). `startDev` now keeps `development` until `close`.
 
 ## Done when
 
