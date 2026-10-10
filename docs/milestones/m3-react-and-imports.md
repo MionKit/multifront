@@ -117,7 +117,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
   - `importerFromId` derives `block` (spec 4.1): `X.ucf?target=react&lang.tsx` is inside `<react>`, `X.ucf?target=svelte&lang.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.react.tsx`, `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
   - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.framework`, else `no-target`.
-  - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode`: `target-not-enabled`, `framework-attribute-not-literal` (3.2), `missing-target-block` and `target-not-built` (3.6).
+  - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode` (`target-not-enabled` also joins `TargetErrorCode`): `target-not-enabled`, `framework-attribute-not-literal` (3.2), `missing-target-block` and `target-not-built` (3.6).
   - The TypeScript plugin keeps calling the same function (3.8).
 - Deliverable: the one place the target rules live (spec 5: "the editor and the build cannot disagree").
 - Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the same values as its `vite.config.ts`), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
@@ -295,7 +295,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 Core (`@multifront/core`):
 
-- `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
+- `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `TargetErrorCode`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
 - `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
