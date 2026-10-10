@@ -26,6 +26,9 @@ importers:
       '@types/vscode':
         specifier: 1.100.0
         version: 1.100.0
+      '@vitejs/plugin-react':
+        specifier: 6.1.1
+        version: 6.1.1(vite@8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(yaml@2.9.0))
       '@vitejs/plugin-vue':
         specifier: 6.0.8
         version: 6.0.8(vite@8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(yaml@2.9.0))(vue@3.5.42(typescript@6.0.3))
@@ -1097,6 +1100,22 @@ packages:
 
   '@ungap/structured-clone@1.4.0':
     resolution: {integrity: sha512-1mEZtMKPM09vDmQt5y7YvmN2+DFTP7Tg0EWXdic8/C6VRnpb33e4ghisCIE3WZjsE2N8mf+QV1Zqh7ZFYLWInQ==}
+
+  '@vitejs/plugin-react@6.1.1':
+    resolution: {integrity: sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
+      babel-plugin-react-compiler: ^1.0.0
+      oxc-transform-react: ^0.145.0
+      vite: ^8.0.0
+    peerDependenciesMeta:
+      '@rolldown/plugin-babel':
+        optional: true
+      babel-plugin-react-compiler:
+        optional: true
+      oxc-transform-react:
+        optional: true
 
   '@vitejs/plugin-vue@6.0.8':
     resolution: {integrity: sha512-0ZjgOg7oO6farnNGup7yvoM/YXZV84OZxHAwtflItNa/6zzQyVb5LNxyea3FEKEX2XlagIKzrlH7wwxkKgtiew==}
@@ -3636,6 +3655,11 @@ snapshots:
       - supports-color
 
   '@ungap/structured-clone@1.4.0': {}
+
+  '@vitejs/plugin-react@6.1.1(vite@8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(yaml@2.9.0))':
+    dependencies:
+      '@rolldown/pluginutils': 1.0.1
+      vite: 8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(yaml@2.9.0)
 
   '@vitejs/plugin-vue@6.0.8(vite@8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(yaml@2.9.0))(vue@3.5.42(typescript@6.0.3))':
     dependencies:
