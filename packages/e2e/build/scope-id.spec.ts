@@ -24,7 +24,13 @@ describe('scopeId, against plugin-vue with no componentIdGenerator', () => {
 
   it('gives the id of the dev server', async () => {
     const code = await withNodeEnv('development', async () => {
-      const server = await createServer({root, logLevel: 'silent', server: {middlewareMode: true, ws: false}});
+      // No dep optimizer: when it finishes before transformRequest under load, the request never resolves.
+      const server = await createServer({
+        root,
+        logLevel: 'silent',
+        server: {middlewareMode: true, ws: false},
+        optimizeDeps: {noDiscovery: true},
+      });
       try {
         return (await server.transformRequest(`/${FILE}`))?.code;
       } finally {
