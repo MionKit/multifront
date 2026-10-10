@@ -1,0 +1,7 @@
+<react>
+  function DefaultIdentifier() {
+    return <p>export default identifier</p>
+  }
+
+  export default DefaultIdentifier
+</react>

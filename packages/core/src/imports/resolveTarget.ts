@@ -19,6 +19,11 @@ const BLOCK_SUFFIXES: readonly (readonly [string, Target])[] = [
   ['.svelte.ts', 'svelte'],
 ];
 
+/** Shared with `react.check`, which reports the attribute inside the block. */
+export function frameworkInBlockMessage(block: Target): string {
+  return `a framework attribute cannot sit inside the <${block}> block; imports there always get ${block}`;
+}
+
 function fail(code: TargetErrorCode, message: string): TargetChoice {
   return {error: {code, message}};
 }
@@ -39,10 +44,7 @@ function pickTarget(importer: Importer | undefined, attribute: string | undefine
   const block = importer?.block;
   if (block) {
     if (attribute === undefined) return {target: block, rule: 'block'};
-    return fail(
-      'framework-in-block',
-      `a framework attribute cannot sit inside the <${block}> block; imports there always get ${block}`
-    );
+    return fail('framework-in-block', frameworkInBlockMessage(block));
   }
   if (attribute !== undefined) {
     if (isTarget(attribute)) return {target: attribute, rule: 'attribute'};

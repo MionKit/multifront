@@ -1,0 +1,7 @@
+<react>
+  function AsDefault() {
+    return <p>export as default</p>
+  }
+
+  export { AsDefault as default }
+</react>

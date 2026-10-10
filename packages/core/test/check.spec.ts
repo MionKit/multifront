@@ -45,7 +45,9 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   },
 ];
 const CHECK_FIXTURES = CHECK_CASES.map((row) => row.fixture);
-const SPLIT_FIXTURES = listComponents('invalid').filter((name) => !CHECK_FIXTURES.includes(name));
+// <react> blocks TypeScript cannot parse either: the splitter cut one early, the other lacks a brace.
+const SYNTAX_FIXTURES = ['invalid/ReactCloseInString.ucf', 'invalid/ReactSyntaxError.ucf'];
+const SPLIT_FIXTURES = listComponents('invalid').filter((name) => ![...CHECK_FIXTURES, ...SYNTAX_FIXTURES].includes(name));
 
 describe('checkBlocks', () => {
   it.each(listComponents())('reports nothing for %s', (name) => {
@@ -87,12 +89,17 @@ describe('checkBlocks', () => {
     expect(diagnostics).toEqual(split.errors);
   });
 
-  it.each(['invalid/ReactCloseInString.ucf', 'invalid/ReactSyntaxError.ucf'])(
-    'leaves the <react> block of %s, which TypeScript cannot parse, to the TSX compiler',
-    (name) => {
-      const {split, diagnostics} = check(name);
-      expect(tsxSyntaxErrors(split.targets.react!.content)).not.toEqual([]);
-      expect(diagnostics.map((diagnostic) => diagnostic.code)).not.toContain('react-no-default-export');
+  it.each(SYNTAX_FIXTURES)('adds only react-syntax-error, inside the block, for %s', (name) => {
+    const {split, diagnostics} = check(name);
+    const react = split.targets.react!;
+    expect(tsxSyntaxErrors(react.content)).not.toEqual([]);
+    expect(diagnostics.filter((diagnostic) => split.errors.includes(diagnostic))).toEqual(split.errors);
+    const added = diagnostics.filter((diagnostic) => !split.errors.includes(diagnostic));
+    expect(added.length).toBeGreaterThan(0);
+    for (const {code, start, end} of added) {
+      expect(code).toBe('react-syntax-error');
+      expect(start).toBeGreaterThanOrEqual(react.contentStart);
+      expect(end).toBeLessThanOrEqual(react.contentEnd);
     }
-  );
+  });
 });

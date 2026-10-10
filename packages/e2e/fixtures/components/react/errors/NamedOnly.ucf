@@ -1,0 +1,8 @@
+<react>
+  export function NamedOnly() {
+    return <p>Named exports only</p>
+  }
+
+  export const label = 'named'
+  export { NamedOnly as Other }
+</react>

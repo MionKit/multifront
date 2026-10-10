@@ -1,0 +1,7 @@
+<react>
+  import { memo } from 'react'
+
+  export default memo(function DefaultMemo() {
+    return <p>export default memo</p>
+  })
+</react>
