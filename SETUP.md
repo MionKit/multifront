@@ -41,10 +41,13 @@ pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
 pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
+pnpm devx vsix          # pack the VS Code extension into packages/vscode/multifront-vscode-<version>.vsix
 pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
 ```
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
+
+Try the extension: `pnpm devx vsix`, then `code --install-extension packages/vscode/multifront-vscode-<version>.vsix`.
 
 Fuzz tests run on a fixed seed. A failure prints the line that replays it; a longer run on another seed: `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/core/test/split.fuzz.spec.ts`.
 
