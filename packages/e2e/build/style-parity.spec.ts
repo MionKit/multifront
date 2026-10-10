@@ -5,16 +5,12 @@ import vue from '@vitejs/plugin-vue';
 import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BuildContext, SplitResult, VueCompiler} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, listComponents, readComponent} from '../fixtures/index.ts';
+import {copyApp, hasClass, listComponents, readComponent} from '../fixtures/index.ts';
 import {buildApp} from './lib/build.ts';
 
 // The compiler plugin-vue itself resolves from the app root.
 const compiler = createRequire(import.meta.url)('vue/compiler-sfc') as VueCompiler;
 const styleKind = getBlockKind('style');
-
-function hasClass(css: string, name: string): boolean {
-  return new RegExp(`\\.${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
-}
 
 /** Both builds get the same plugins, so their CSS passes the same Vite steps; only the entry differs. */
 async function buildCss(root: string, entry: string, ctx: BuildContext): Promise<string> {
@@ -70,6 +66,8 @@ describe.each(listComponents())('%s, our CSS against plugin-vue after a real Vit
   });
 
   it('maps each module class of the block source to a class of our CSS', () => {
+    const moduleBlocks = split.styles.filter((block) => 'module' in block.attrs);
+    expect(Object.values(ctx.modules).map((module) => module.index)).toEqual(moduleBlocks.map((block) => block.index));
     for (const {index, classes} of Object.values(ctx.modules)) {
       const block = split.styles[index]!;
       const css = styleKind.build!(block, ctx).code;
