@@ -44,23 +44,21 @@ export function scriptsOf(fileName: string, source: string): Script[] {
 
 type FoundError = Pick<Diagnostic, 'code' | 'message' | 'line'>; // line in the whole file
 
-/** 1-based line of `offset` in `source`. */
 export function lineAt(source: string, offset: number): number {
   return source.slice(0, offset).split('\n').length;
 }
 
-/** A script of a `.ucf`, `.vue` or `.svelte` file names its language in a `lang.<x>` query, like a Vite sub-request. */
+/** Names the script's language in a `lang.<x>` query, like a Vite sub-request. */
 export function scriptName(fileName: string, script: Script): string {
   return /\.(ucf|vue|svelte)$/.test(fileName) ? `${fileName}?lang.${script.lang}` : fileName;
 }
 
-/** Every `.ucf` import of the file and the rewrite's errors, as `rewriteImportAttributes` finds them. */
 export function readImports(fileName: string): {imports: FoundImport[]; errors: FoundError[]} {
   const source = readFileSync(fileName, 'utf8');
   const imports: FoundImport[] = [];
   const errors: FoundError[] = [];
   for (const script of scriptsOf(fileName, source)) {
-    // The rewrite returns a script that does not parse untouched: a broken fixture must not pass for one without imports.
+    // The rewrite returns an unparsable script untouched, so a broken fixture would pass as one without imports.
     const [parseError] = parseSync(`script.${script.lang}`, script.code, {sourceType: 'module'}).errors;
     if (parseError) throw new Error(`${fileName}: ${parseError.message}`);
     const result = rewriteImportAttributes(script.code, scriptName(fileName, script));
