@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.2
@@ -79,7 +79,8 @@ interface UcfImport {
 
 ### 3. Tests reading the set
 
-- `readImports.ts`: its Visitor gives way to `rewriteImportAttributes(script.code, …).imports`; `scriptsOf` stays.
+- `readImports.ts`: its Visitor gives way to `rewriteImportAttributes(script.code, …)`; it returns `{imports, errors}`.
+  `scriptsOf` stays, and a script of a `.ucf` / `.vue` / `.svelte` file goes in as `<file>?lang.<x>`.
 - `resolveTarget.spec.ts`: the `framework-attribute-not-literal` row checks the rewrite's errors; new messages.
 - `packages/e2e/editor/tsserver.spec.ts`: `ROWS` leaves out `no-default/non-literal.ts` until 3.8.
 
@@ -92,9 +93,11 @@ go through the rewrite) and every `rewrite-edges/` file:
 - the output parses with zero errors; no `framework` key in any attribute list or `import()` `with` object;
 - each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute (oracle: `expected.ts`
   rows);
-- a second run changes nothing (`map: null`, no errors);
-- every Identifier in the output maps back through `map` (trace-mapping) to the same name in the input;
-- a JSON file snapshot of `{code, imports, errors}` per file;
+- a second run changes nothing (`map: null`, the same errors; rewritten specifiers no longer end in `.ucf`, so it
+  finds no import to move);
+- every statement's first keyword and every Identifier in the output map back through `map` (trace-mapping) to the
+  same text in the input;
+- a JSON file snapshot of `{code, imports, errors}` per file, under `packages/core/test/__snapshots__/rewrite/`;
 - hand-written: `non-literal.ts` gives `framework-attribute-not-literal` at its line and column,
   `not-literal-options.js` its four errors, `strings-and-comments.ts` comes back unchanged.
 

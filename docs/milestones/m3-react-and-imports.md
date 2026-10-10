@@ -85,7 +85,8 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   interface UcfImport {kind: 'static' | 'reexport' | 'dynamic'; specifier: string; framework?: string; start: number; end: number}
   ```
 
-  - Parses with oxc-parser. Touches only imports whose specifier is a string literal with a `.ucf` path: `import`, `export ... from`, `export * from`, and `import()` with a literal first argument.
+  - Parses with oxc-parser (language from the path, else a `lang.<x>` query, else ts). Touches only imports whose specifier is a string literal ending in `.ucf`: `import`, `export ... from`, `export * from`, and `import()` with a literal first argument (a template literal without expressions counts, as in the TypeScript plugin). A file that does not parse comes back untouched: its own compiler reports the syntax error.
+  - `start` / `end` of a `UcfImport` are the specifier literal's, quotes included. `framework` is the raw value, unchecked (`resolveTarget` judges it); the rewritten specifiers no longer end in `.ucf`, so a second run finds no import.
   - Moves `framework` into the specifier and removes it. Other keys in `with` stay. An empty `with {}` or `import()` options argument is removed whole.
 
     ```ts
@@ -96,16 +97,18 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
     const C = await import('./Card.ucf?framework=svelte');
     ```
 
-  - A value that is not a string literal is the error `framework-attribute-not-literal`, with its line and column.
-  - MagicString edits, so the map is exact.
+  - A value that is not a string literal is the error `framework-attribute-not-literal`, with its line and column. It joins `DiagnosticCode` here. A static `with {framework: x}` is already a syntax error, so it is the `import()` form: a non-literal value, or options (or their `with`) that are not an object literal or hold a spread or a computed key. That import is left as it is.
+  - MagicString edits, so the map is exact; `null` when nothing changed.
   - Adds `magic-string` to core `dependencies`, exact-pinned (newest past the 30 day age); `oxc-parser` is already there (M1).
-  - Fixtures: M1's `fixtures/components/Card.ucf` (all three target blocks, a `<style module>`) is the imported file. M2's shared imports set `packages/e2e/fixtures/apps/imports/` gains three sub-projects, each with its own `vite.config.ts` and `tsconfig.json`:
-    - `no-default/` (no `framework`): `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `none.ts`, `non-literal.ts`, `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` inside a string and a comment).
-    - `default-react/` (`framework: 'react'`): `default.ts`, `importer-over-default.tsx`, `attribute-over-default.ts` (`framework: 'svelte'`).
-    - `react-only/` (`frameworks: ['react']`): `not-enabled.ts` (`framework: 'svelte'`).
-    - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect, rule?}`, `rule` on every target row), the one table the build and the editor both satisfy.
+  - Fixtures: M1's `fixtures/components/Card.ucf` (all three target blocks, a `<style module>`) is the imported file. M2's shared imports set `packages/e2e/fixtures/apps/imports/` keeps its layout (each sub-project has its own `tsconfig.json`; the `vite.config.ts` files come with 3.7, `react-only/` with 3.3):
+    - `src/` is the default-react project (the root `tsconfig.json`, `framework: 'react'`), already with `default.ts`, `App.tsx` (importer over the default) and `lazy.ts` (`framework: 'svelte'` over the default).
+    - `no-default/` (no `framework`; M2's `bare.ts` is the case with no rule) gains `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `non-literal.ts` (`import()` with `{with: {framework}}`), `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` imports inside comments, a string and a template literal).
+    - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect, rule?}`, `rule` on every target row), the one table the build and the editor both satisfy. An error row can also expect `framework-attribute-not-literal`.
+    - `packages/e2e/fixtures/apps/rewrite-edges/`: the forms no build may see (unknown attribute keys), as `.js` so the formatter keeps them as written: `other-keys.js`, `dynamic-options.js`, `comments.js`, `not-literal-options.js`.
+  - The test helper `packages/core/test/imports/readImports.ts` reads every fixture's imports through `rewriteImportAttributes`.
 - Deliverable: the one function every host uses to read and remove the attribute, and the importer fixture table.
-- Test: `packages/core/test/imports/rewrite.spec.ts`. Every importer file goes through `rewriteImportAttributes`. Checks: no `framework` key left, each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute, the output parses with oxc-parser, a second run changes nothing, `non-literal.ts` gives `framework-attribute-not-literal` at the right line and column, and `strings-and-comments.ts` comes back unchanged.
+- Test: `packages/core/test/imports/rewrite.spec.ts`. Every importer file of `imports/` (the scripts of `.vue` and `.svelte` files; not `.ucf` files, whose block imports never go through the rewrite) and of `rewrite-edges/` goes through `rewriteImportAttributes`. Checks: no `framework` key left and every other key kept, each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute (the `expected.ts` rows), the output parses with oxc-parser, a second run changes nothing, every statement and identifier maps back to the same text, a JSON snapshot per file, `non-literal.ts` and `not-literal-options.js` give `framework-attribute-not-literal` at the right line and column, and `strings-and-comments.ts` comes back unchanged. `resolveTarget.spec.ts` and the tsserver test run the new rows too; tsserver leaves out `non-literal.ts` until 3.8.
+- Status: done
 
 ### 3.3 `resolveTarget()` in core: the full rules
 
@@ -119,10 +122,11 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
   - `importerFromId` derives `block` (spec 4.1): `X.ucf.react.tsx` (the module id and the virtual script share the name) is inside `<react>`, `X.ucf.svelte.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
   - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.framework`, else `no-target`.
-  - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode` (`target-not-enabled` also joins `TargetErrorCode`): `target-not-enabled` and `framework-attribute-not-literal` (3.2). `missing-target-block` and `target-not-built` are already there: M2 (2.8, 2.9) reports them in the editor, and 3.6 reports `target-not-built` in the build.
+  - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. `target-not-enabled` joins `DiagnosticCode` and `TargetErrorCode` (3.2 already added `framework-attribute-not-literal`). `missing-target-block` and `target-not-built` are already there: M2 (2.8, 2.9) reports them in the editor, and 3.6 reports `target-not-built` in the build.
   - The TypeScript plugin keeps calling the same function (3.8).
+  - Fixtures: `fixtures/apps/imports/react-only/` with its `tsconfig.json` (`frameworks: ['react']` in the plugin entry) and `not-enabled.ts` (`framework: 'svelte'`), and its `expected.ts` row (`target-not-enabled`).
 - Deliverable: the one place the target rules live (spec 5: "the editor and the build cannot disagree").
-- Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the same values as its `vite.config.ts`), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
+- Test: `packages/core/test/imports/resolveTarget.spec.ts`, extended from M2's. For every row of `expected.ts`: the attribute from `rewriteImportAttributes(...).imports`, the options of its sub-project (the plugin entry of its `tsconfig.json`; 3.7's `vite.config.ts` uses the same values), the real file path through `importerFromId`. Plus the in-block importers: the module ids of `Card.ucf` for each target, and its virtual script names.
 
 ### 3.4 `react.check()`: block rules
 
@@ -166,7 +170,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.7 Post plugin: the attribute moves into the id
 
 - Build: `packages/vite/src/attributes.ts`, the plugin `multifront:attributes`, `enforce: 'post'`, returned second by `multifront()`. Its `transform` has a code filter `/\.ucf/` and runs on JS-like ids (`.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.svelte`, with or without a query). It calls `rewriteImportAttributes` and reports errors with `this.error`. It runs before Vite's import analysis in dev and before Rolldown reads the imports in a build, so we never depend on Rolldown forwarding attributes.
-  - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it.
+  - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it. Each sub-project gets its `vite.config.ts` (`react()` and `multifront()` with the same options as its `tsconfig.json` plugin entry): the root (for `src/`), `no-default/`, `custom-importers/`, `react-only/`.
 - Deliverable: spec 4.4 for `.ts`, `.tsx`, `.js`, `.jsx` importers, in dev, build and SSR.
 - Test: `packages/e2e/build/imports.spec.ts` (area: build). For every importer file:
   - **Dev:** a real dev server with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer: each `.ucf` import is now the expected id (`/Card.ucf.react.tsx`, the bare `/Card.ucf` for vue, `/Card.ucf.svelte.svelte`), and no `with` or `framework` is left.
@@ -178,6 +182,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.8 The TypeScript plugin uses the same rules
 
 - Build: `@multifront/language-tools/typescript-plugin` calls `resolveTarget` from core with the same `framework` and `importers` options, read from its tsconfig plugin entry. No copy of the rules stays in language-tools.
+  - It also reports `framework-attribute-not-literal` where `rewriteImportAttributes` does (3.2), with the same message, and `packages/e2e/editor/tsserver.spec.ts` stops leaving out the `no-default/non-literal.ts` row.
 - Deliverable: one import, one answer, in the build and in the editor.
 - Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/imports/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf` (its React script). Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared too (spike 1 kept per-import attributes in the types), except `mixed.ts`: types give both its imports the last one's framework, while the build follows each attribute.
 
