@@ -22,11 +22,15 @@ describe('readMultifrontOptions', () => {
     expect(readMultifrontOptions(ts, join(OPTIONS, 'extends-only', 'tsconfig.json'))).toEqual({framework: 'react'});
   });
 
-  it('drops values that are not a framework', () => {
+  it('drops values that are not a framework, and repeated ones', () => {
     expect(readMultifrontOptions(ts, join(OPTIONS, 'invalid-values', 'tsconfig.json'))).toEqual({
       frameworks: ['react'],
       importers: {'.ts': 'vue'},
     });
+  });
+
+  it('a frameworks list with no valid value is dropped, not an empty list', () => {
+    expect(readMultifrontOptions(ts, join(OPTIONS, 'no-valid-frameworks', 'tsconfig.json'))).toEqual({framework: 'react'});
   });
 
   it('a tsconfig.json without our entry gives no options', () => {

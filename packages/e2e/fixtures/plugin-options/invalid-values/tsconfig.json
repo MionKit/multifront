@@ -3,7 +3,7 @@
     "plugins": [
       {
         "name": "@multifront/language-tools/typescript-plugin",
-        "frameworks": ["react", "angular", 1],
+        "frameworks": ["react", "angular", 1, "react"],
         "framework": "angular",
         "importers": {".ts": "vue", ".tsx": 1}
       }

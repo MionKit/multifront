@@ -1,0 +1,5 @@
+{
+  "compilerOptions": {
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "frameworks": ["React", "vue2"], "framework": "react"}]
+  }
+}
