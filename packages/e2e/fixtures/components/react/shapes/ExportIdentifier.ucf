@@ -1,0 +1,11 @@
+<react>
+  import { memo as m } from 'react'
+
+  function Inner(props: { branch?: string }) {
+    return <div className="shape"><span className="inner">identifier {props.branch}</span></div>
+  }
+
+  const ExportIdentifier = m(Inner)
+
+  export default ExportIdentifier
+</react>

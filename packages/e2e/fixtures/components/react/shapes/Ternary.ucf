@@ -1,0 +1,11 @@
+<react>
+  import type { ReactElement } from 'react'
+
+  export default function Ternary(props: { branch?: string }) {
+    return (props.branch === 'a' ? (
+      <div className="shape"><span className="inner">a</span></div>
+    ) : (
+      <p className="shape"><span className="inner">b</span></p>
+    )) as ReactElement
+  }
+</react>

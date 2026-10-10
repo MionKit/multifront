@@ -3,12 +3,12 @@ import {createRequire} from 'node:module';
 import {sep} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {Visitor, parseSync} from 'oxc-parser';
-import type {JSXAttributeItem, JSXElementName, JSXOpeningElement, Program} from 'oxc-parser';
+import type {CallExpression, JSXAttributeItem, JSXElementName, JSXOpeningElement, Program} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
-import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
+import {SCOPE_HELPER_ID, checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {FIXTURES_DIR, componentPath, readComponent} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
 import {withoutInjected} from '../blocks/injected.ts';
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
@@ -28,6 +28,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'react/scope/FragmentImports.ucf', unstamped: ['R.Fragment', 'Quoted', 'Fragment', 'React.Fragment']},
   {fixture: 'react/scope/Namespaced.ucf'},
   {fixture: 'react/scope/Stamped.ucf', unstamped: ['Fragment', 'Fragment', 'Frag', 'React.Fragment']},
+  {fixture: 'react/shapes/MultiReturn.ucf'},
   {fixture: 'scoped-modules/ScopedModuleEdges.ucf'},
 ];
 const CASES = [...SCOPED.map((row) => ({...row, scoped: true})), {fixture: 'react/AllBlocks.ucf', scoped: false}];
@@ -78,6 +79,11 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
     item.name.name === stamp &&
     item.value?.type === 'Literal' &&
     item.value.value === '';
+  const isForward = (item: JSXAttributeItem | undefined) =>
+    item?.type === 'JSXSpreadAttribute' &&
+    item.argument.type === 'CallExpression' &&
+    item.argument.callee.type === 'Identifier' &&
+    item.argument.callee.name === '__ucfScopeAttrs';
   const {program, errors} = parse(file.code);
   const input = openingElements(parse(block.content).program);
   const output = openingElements(program);
@@ -93,8 +99,8 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
     await expect(code).toMatchFileSnapshot(`../__snapshots__/react/scope/${fixture}.tsx.snap`);
   });
 
-  it('only inserts: without the stamps and the imports, the code is the block content', () => {
-    expect(withoutInjected(file.code.replaceAll(` ${stamp}=""`, ''), program)).toBe(block.content);
+  it('only inserts: without the stamps, the forwarding and the imports, the code is the block content', () => {
+    expect(withoutInjected(file.code, program).replaceAll(` ${stamp}=""`, '')).toBe(block.content);
   });
 
   it(`stamps every opening element once, ${scoped ? "but React's fragments" : 'none without a scoped style'}`, () => {
@@ -104,14 +110,115 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
     expect(bare).toEqual(scoped ? unstamped : input.map(({name}) => nameText(name)));
   });
 
-  it('keeps every mapping: the stamp comes first, and the text after it maps back to the end of the element name', () => {
+  it('keeps every mapping: the stamp comes first, and the text after the inserts maps back to the end of the element name', () => {
     const map = new TraceMap(file.map!);
     output.forEach(({attributes}, index) => {
       if (!attributes.some(isStamp)) return;
       expect(isStamp(attributes[0]!)).toBe(true);
+      // A root's forwarding spread is inserted right after its stamp.
+      const last = isForward(attributes[1]) ? attributes[1]! : attributes[0]!;
       const after = input[index]!.typeArguments ?? input[index]!.name;
-      const original = originalPositionFor(map, lineColumn(file.code, attributes[0]!.end));
+      const original = originalPositionFor(map, lineColumn(file.code, last.end));
       expect({line: original.line, column: original.column}).toEqual(lineColumn(source, block.contentStart + after.end));
     });
+  });
+});
+
+// Hand-read from the fixtures: `roots` are the opening elements that get the spread, in source order;
+// `fragments` the fragment roots; `signature` the parameters the build adds.
+const SHAPES: {fixture: string; props: string; roots: string[]; fragments?: number; signature?: string}[] = [
+  {fixture: 'AndRoot.ucf', props: 'props', roots: ['p', 'section', 'div']},
+  {fixture: 'ArrowExpression.ucf', props: 'props', roots: ['div']},
+  {fixture: 'ComponentRoot.ucf', props: 'props', roots: ['ArrowExpression']},
+  {fixture: 'ConstRoot.ucf', props: 'props', roots: ['article']},
+  {fixture: 'ExportIdentifier.ucf', props: 'props', roots: ['div']},
+  {fixture: 'ForwardRef.ucf', props: 'props', roots: ['div']},
+  {fixture: 'FragmentRoot.ucf', props: 'props', roots: [], fragments: 2},
+  {fixture: 'Memo.ucf', props: 'props', roots: ['div']},
+  {fixture: 'MemoForwardRef.ucf', props: '__props', roots: ['div'], signature: '<HTMLDivElement>((__props, __ref) =>'},
+  {fixture: 'MultiReturn.ucf', props: 'props', roots: ['section', 'div']},
+  {fixture: 'NestedTernary.ucf', props: 'props', roots: ['div', 'p', 'section']},
+  {fixture: 'NoParams.ucf', props: '__props', roots: ['div'], signature: 'function NoParams /* () */ (__props) {'},
+  {fixture: 'NullRoot.ucf', props: 'props', roots: []},
+  {fixture: 'Ternary.ucf', props: 'props', roots: ['div', 'p']},
+];
+
+it('has a row for every shapes/ fixture', () => {
+  expect(listComponents('react/shapes')).toEqual(SHAPES.map(({fixture}) => `react/shapes/${fixture}`));
+});
+
+function calls(program: Program, name: string): CallExpression[] {
+  const found: CallExpression[] = [];
+  new Visitor({
+    CallExpression: (node) => {
+      if (node.callee.type === 'Identifier' && node.callee.name === name) found.push(node);
+    },
+  }).visit(program);
+  return found;
+}
+
+function argumentText(code: string, call: CallExpression): string[] {
+  return call.arguments.map(({start, end}) => code.slice(start, end));
+}
+
+describe.each(SHAPES)('react.build forwarding of shapes/$fixture', async ({fixture, props, roots, fragments = 0, signature}) => {
+  const {filename, source} = readComponent(`react/shapes/${fixture}`);
+  const split = splitBlocks(source, filename);
+  const block = split.targets.react!;
+  const builds = await Promise.all(
+    [false, true].map(async (production) => {
+      const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
+      const {code} = getBlockKind('react').build!(block, ctx);
+      return {code, ctx, program: parse(code).program};
+    })
+  );
+  const [dev, production] = builds as [(typeof builds)[0], (typeof builds)[0]];
+  const forwarded = ({program}: {program: Program}) =>
+    openingElements(program)
+      .filter(({attributes}) =>
+        attributes.some((item) => item.type === 'JSXSpreadAttribute' && item.argument.type === 'CallExpression')
+      )
+      .map(({name}) => nameText(name));
+  const helperImport = ({program}: {program: Program}) =>
+    program.body.flatMap((node) =>
+      node.type === 'ImportDeclaration' && node.source.value === SCOPE_HELPER_ID
+        ? node.specifiers.map(({local}) => local.name)
+        : []
+    );
+
+  it('is a valid fixture whose builds parse', () => {
+    expect(checkBlocks(split)).toEqual([]);
+    for (const {code} of builds) expect(parse(code).errors).toEqual([]);
+  });
+
+  it('matches the dev code snapshot', async () => {
+    const code = dev.code.replaceAll(FIXTURES_DIR, '<fixtures>');
+    await expect(code).toMatchFileSnapshot(`../__snapshots__/react/scope/react/shapes/${fixture}.tsx.snap`);
+  });
+
+  it('only inserts: without the stamps, the forwarding and the imports, the code is the block content', () => {
+    for (const {code, ctx, program} of builds)
+      expect(withoutInjected(code, program).replaceAll(` data-v-${ctx.scopeId}=""`, '')).toBe(block.content);
+  });
+
+  it('forwards the first parameter on every JSX element root, and nowhere else', () => {
+    for (const build of builds) {
+      expect(forwarded(build)).toEqual(roots);
+      const spreads = calls(build.program, '__ucfScopeAttrs');
+      expect(spreads.map((call) => argumentText(build.code, call))).toEqual(roots.map(() => [props]));
+      if (signature) expect(build.code).toContain(signature);
+    }
+  });
+
+  it('warns on each fragment root in dev only, naming the component by its file', () => {
+    const warnings = calls(dev.program, '__ucfWarnFragment').map((call) => argumentText(dev.code, call));
+    expect(warnings).toEqual(Array.from({length: fragments}, () => [props, JSON.stringify(fixture.replace('.ucf', ''))]));
+    expect(production.code).not.toContain('__ucfWarnFragment');
+  });
+
+  it('imports exactly the helpers it calls', () => {
+    const attrs = roots.length > 0 ? ['__ucfScopeAttrs'] : [];
+    expect(helperImport(dev)).toEqual([...attrs, ...(fragments > 0 ? ['__ucfWarnFragment'] : [])]);
+    expect(helperImport(production)).toEqual(attrs);
   });
 });

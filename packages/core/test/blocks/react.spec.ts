@@ -142,7 +142,7 @@ const BUILD_CASES: {
     css: [0, 1, 2, 3, 4],
     modules: {$style: 4, classes: 1},
     tokens: [
-      {text: 'DuplicateStyleModule()', line: 2, column: 26},
+      {text: 'DuplicateStyleModule(', line: 2, column: 26},
       {text: '$style.first', line: 3, column: 28},
       {text: 'classes.second', line: 3, column: 44},
     ],
@@ -152,7 +152,7 @@ const BUILD_CASES: {
     css: [0, 1, 2],
     modules: {$style: 0, classes: 1},
     tokens: [
-      {text: 'AllBlocks()', line: 14, column: 26},
+      {text: 'AllBlocks(', line: 14, column: 26},
       {text: '$style.card', line: 16, column: 22},
       {text: 'all-blocks-react-marker', line: 18, column: 41},
     ],

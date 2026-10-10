@@ -1,0 +1,7 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import { forwardRef } from 'react'
+
+  export default forwardRef<HTMLDivElement, { branch?: string }>(function ForwardRef(props, ref) {
+    return <div {...__ucfScopeAttrs(props)} ref={ref} className="shape"><span className="inner">forwardRef {props.branch}</span></div>
+  })

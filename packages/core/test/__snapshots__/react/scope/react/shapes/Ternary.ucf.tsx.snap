@@ -1,0 +1,11 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { ReactElement } from 'react'
+
+  export default function Ternary(props: { branch?: string }) {
+    return (props.branch === 'a' ? (
+      <div {...__ucfScopeAttrs(props)} className="shape"><span className="inner">a</span></div>
+    ) : (
+      <p {...__ucfScopeAttrs(props)} className="shape"><span className="inner">b</span></p>
+    )) as ReactElement
+  }

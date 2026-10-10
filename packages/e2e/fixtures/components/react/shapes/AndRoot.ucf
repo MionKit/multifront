@@ -1,0 +1,9 @@
+<react>
+  type Props = { branch?: string; fallback?: string }
+
+  export default function AndRoot(props: Props) {
+    if (props.branch === 'or') return props.fallback || <p className="shape"><span className="inner">or</span></p>
+    if (props.branch === 'nullish') return props.fallback ?? <section className="shape"><span className="inner">nullish</span></section>
+    return props.branch === 'and' && <div className="shape"><span className="inner">and</span></div>
+  }
+</react>

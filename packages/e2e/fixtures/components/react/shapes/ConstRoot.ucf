@@ -1,0 +1,8 @@
+<react>
+  export default function ConstRoot(props: { branch?: string }) {
+    const root = (
+      <article className="shape"><span className="inner">const {props.branch}</span></article>
+    )
+    return root
+  }
+</react>

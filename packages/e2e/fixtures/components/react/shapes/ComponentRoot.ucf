@@ -1,0 +1,7 @@
+<react>
+  import ArrowExpression from './ArrowExpression.ucf'
+
+  export default function ComponentRoot(props: { branch?: string }) {
+    return <ArrowExpression branch={props.branch} />
+  }
+</react>

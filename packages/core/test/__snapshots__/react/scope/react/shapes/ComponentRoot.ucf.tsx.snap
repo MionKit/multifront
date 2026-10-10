@@ -1,0 +1,7 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import ArrowExpression from './ArrowExpression.ucf'
+
+  export default function ComponentRoot(props: { branch?: string }) {
+    return <ArrowExpression {...__ucfScopeAttrs(props)} branch={props.branch} />
+  }

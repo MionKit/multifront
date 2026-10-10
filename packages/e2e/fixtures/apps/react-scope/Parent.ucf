@@ -1,0 +1,59 @@
+<react>
+  import { useEffect, useRef } from 'react'
+  import AndRoot from '../../components/react/shapes/AndRoot.ucf'
+  import ArrowExpression from '../../components/react/shapes/ArrowExpression.ucf'
+  import ComponentRoot from '../../components/react/shapes/ComponentRoot.ucf'
+  import ConstRoot from '../../components/react/shapes/ConstRoot.ucf'
+  import ExportIdentifier from '../../components/react/shapes/ExportIdentifier.ucf'
+  import ForwardRef from '../../components/react/shapes/ForwardRef.ucf'
+  import FragmentRoot from '../../components/react/shapes/FragmentRoot.ucf'
+  import Memo from '../../components/react/shapes/Memo.ucf'
+  import MemoForwardRef from '../../components/react/shapes/MemoForwardRef.ucf'
+  import MultiReturn from '../../components/react/shapes/MultiReturn.ucf'
+  import NestedTernary from '../../components/react/shapes/NestedTernary.ucf'
+  import NoParams from '../../components/react/shapes/NoParams.ucf'
+  import NullRoot from '../../components/react/shapes/NullRoot.ucf'
+  import Ternary from '../../components/react/shapes/Ternary.ucf'
+
+  // Each shape once per branch; `data-case` names the shape and branch the test reads.
+  export default function Parent() {
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+      ref.current?.setAttribute('data-ref', 'forward-ref')
+    }, [])
+    return (
+      <main className="parent">
+        <div data-case="MultiReturn:early"><MultiReturn branch="early" /></div>
+        <div data-case="MultiReturn:last"><MultiReturn branch="last" /></div>
+        <div data-case="Ternary:a"><Ternary branch="a" /></div>
+        <div data-case="Ternary:b"><Ternary branch="b" /></div>
+        <div data-case="NestedTernary:a"><NestedTernary branch="a" /></div>
+        <div data-case="NestedTernary:b"><NestedTernary branch="b" /></div>
+        <div data-case="NestedTernary:c"><NestedTernary branch="c" /></div>
+        <div data-case="AndRoot:or"><AndRoot branch="or" /></div>
+        <div data-case="AndRoot:nullish"><AndRoot branch="nullish" /></div>
+        <div data-case="AndRoot:and"><AndRoot branch="and" /></div>
+        <div data-case="Memo:only"><Memo branch="only" /></div>
+        <div data-case="ForwardRef:only"><ForwardRef branch="only" ref={ref} /></div>
+        <div data-case="MemoForwardRef:only"><MemoForwardRef /></div>
+        <div data-case="ExportIdentifier:only"><ExportIdentifier branch="only" /></div>
+        <div data-case="ArrowExpression:only"><ArrowExpression branch="only" /></div>
+        <div data-case="NoParams:only"><NoParams /></div>
+        <div data-case="ConstRoot:only"><ConstRoot branch="only" /></div>
+        <div data-case="ComponentRoot:only"><ComponentRoot branch="only" /></div>
+        <div data-case="FragmentRoot:short"><FragmentRoot branch="short" /></div>
+        <div data-case="FragmentRoot:named"><FragmentRoot branch="named" /></div>
+        <div data-case="NullRoot:null"><NullRoot branch="null" /></div>
+        <div data-case="NullRoot:string"><NullRoot branch="string" /></div>
+        <div data-case="NullRoot:call"><NullRoot branch="call" /></div>
+        <div data-case="NullRoot:children"><NullRoot branch="children">child text</NullRoot></div>
+      </main>
+    )
+  }
+</react>
+
+<style scoped>
+.shape {
+  color: rgb(200, 40, 80);
+}
+</style>

@@ -1,0 +1,8 @@
+<react>
+  import * as React from 'react'
+
+  // No parameter: the build adds two, as React checks a forwardRef render function takes zero or two.
+  export default React.memo(React.forwardRef<HTMLDivElement>(() => (
+    <div className="shape"><span className="inner">memo forwardRef</span></div>
+  )))
+</react>

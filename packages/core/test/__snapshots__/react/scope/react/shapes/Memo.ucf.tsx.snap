@@ -1,0 +1,7 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import { memo } from 'react'
+
+  export default memo(function Memo(props: { branch?: string }) {
+    return <div {...__ucfScopeAttrs(props)} className="shape"><span className="inner">memo {props.branch}</span></div>
+  })
