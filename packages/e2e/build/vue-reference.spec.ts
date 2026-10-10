@@ -18,14 +18,14 @@ function rulesFor(css: string, selector: string): string[] {
 
 describe('vue-reference app, built by plugin-vue alone', () => {
   it('stamps one scope id on the component and on its scoped CSS', async () => {
-    const {chunks, cssAssets} = await buildApp(root);
+    const {chunks, css: sheets} = await buildApp(root);
     expect(chunks).toHaveLength(1);
-    expect(cssAssets).toHaveLength(1);
+    expect(sheets).toHaveLength(1);
 
     const scopeId = exportedScopeId(chunks[0]!.code);
     expect(scopeId).toMatch(/^data-v-[0-9a-f]{8}$/);
 
-    const {css} = cssAssets[0]!;
+    const css = sheets[0]!;
     expect(new Set(css.match(/data-v-[0-9a-f]+/g))).toEqual(new Set([scopeId]));
     expect(rulesFor(css, '.title')).toEqual([`.title[${scopeId}]`]);
     expect(rulesFor(css, '.box')).toEqual([`.box[${scopeId}]`]);

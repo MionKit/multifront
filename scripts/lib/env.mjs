@@ -18,6 +18,7 @@ export function loadEnv() {
 // scope: secret = credential, dev = knob with a default, internal = set by the scripts (never in .env).
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env'},
+  {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'browser docs-images renders with, when the Playwright one is not installed'},
   {name: 'MULTIFRONT_FUZZ_SEED', scope: 'dev', desc: 'base seed of the fuzz tests; default fixed, so every run replays'},
   {name: 'MULTIFRONT_FUZZ_RUNS', scope: 'dev', desc: 'inputs per fuzz test (default 500)'},
