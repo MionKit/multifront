@@ -1,0 +1,17 @@
+<react>
+  // Build only: React's JSX transform rejects namespace tags, so no app renders this file.
+  export default function Namespaced() {
+    return (
+      <svg className="icon">
+        <svg:x className="named" />
+        <svg:x></svg:x>
+      </svg>
+    )
+  }
+</react>
+
+<style scoped>
+.named {
+  fill: rgb(1, 2, 3);
+}
+</style>

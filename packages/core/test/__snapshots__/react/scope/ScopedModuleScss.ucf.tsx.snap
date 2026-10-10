@@ -1,0 +1,6 @@
+import "<fixtures>/components/ScopedModuleScss.ucf?ucf&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/ScopedModuleScss.ucf?ucf&type=style&index=0&module&lang.js";
+
+  export default function Meter({ value }: { value: number }) {
+    return <div data-v-978cb452="" className={$style.meter}><span data-v-978cb452="" className={$style.bar}>{value}</span></div>
+  }

@@ -1,12 +1,12 @@
 import {createRequire} from 'node:module';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {parseSync} from 'oxc-parser';
-import type {ImportDeclaration, Node} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
 import {checkBlocks, classMapId, createBuildContext, getBlockKind, splitBlocks, styleId} from '@multifront/core';
 import type {Diagnostic, VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
+import {isInjected, withoutInjected} from './injected.ts';
 
 const react = getBlockKind('react');
 const IN_BLOCK = 'framework-in-block';
@@ -192,11 +192,6 @@ const BUILD_CASES: {
   },
 ];
 
-// Style and class map ids both carry `?ucf&type=style&`.
-function isInjected(node: Node): node is ImportDeclaration {
-  return node.type === 'ImportDeclaration' && /[?]ucf&type=style&/.test(node.source.value);
-}
-
 async function build(name: string) {
   const {filename, source} = readComponent(name);
   const split = splitBlocks(source, filename);
@@ -236,12 +231,7 @@ describe('react.build', () => {
     });
 
     it('adds nothing else: without its imports the code is the block content', () => {
-      let rest = file.code;
-      for (const {start, end} of [...injected].reverse()) {
-        const newlineAfter = rest[end] === '\n';
-        rest = rest.slice(0, newlineAfter ? start : start - 1) + rest.slice(newlineAfter ? end + 1 : end);
-      }
-      expect(rest).toBe(block.content);
+      expect(withoutInjected(file.code, program)).toBe(block.content);
       for (const text of foreign ?? []) {
         expect(source).toContain(text);
         expect(file.code).not.toContain(text);
