@@ -46,7 +46,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 - The `BlockKind` contract and the registry in core ([architecture.md](architecture.md)), with `<style>` as the first full kind. Every later milestone fills in one row.
 - `splitBlocks(source, filename)` in core: a hand-written scanner for top-level `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Content is raw text up to the first matching closing tag.
-- Errors carry `{code, message, line, column}`: `duplicate-target`, `unknown-root-tag`, `unclosed-block`, `missing-target`, `react-no-default-export`, `style-inside-target`.
+- Errors carry `{code, message, line, column}`. The splitter: `duplicate-target`, `unknown-root-tag`, `unclosed-block`, `missing-target`, `text-outside-block`. `checkBlocks(split)` adds each kind's `check`: `react-no-default-export`, `style-inside-target`, `unknown-style-lang`, `duplicate-style-module`.
 - `compileStyles(blocks, {id, filename})`: `compileStyleAsync` once per `<style>`, returns CSS, map and the CSS-module class map.
 - `scopeId(relativePath, source, production)`: the plugin-vue scheme above.
 - Tests: splitter fixtures (`<>`, `<T,>`, `a < b`, `</react>` inside a string, duplicates, unclosed) and style snapshots (scoped, module, named module, scss).

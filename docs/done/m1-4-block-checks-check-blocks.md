@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.4
@@ -20,11 +20,11 @@ M3 (build errors) and M7 (`mf-tsc`) need one function that returns every milesto
 
 1. **Shared scanner, `packages/core/src/scan.ts`** (new). Moves `isSpace`, `isNameStart`, `tagNameEnd`,
    `readOpeningTag`, `findClosingTag` out of `split.ts:13-94` unchanged in behaviour, so kinds can reuse them without
-   an import cycle (`split.ts` imports `blocks/index.ts`, which imports every kind). Their types (`OpeningTag`, the
-   `broken` reason) move to `types.ts` (shared between files), not exported from `index.ts`.
+   an import cycle (`split.ts` imports `blocks/index.ts`, which imports every kind). Their types (`OpeningTag`,
+   `TagBreak`, and the new `FoundTag`) live in `types.ts` (shared between files), not exported from `index.ts`.
    - `readOpeningTag(source, pos, inner = false)`: `inner` keeps a quoted value whose text holds `>` or a line break
-     (`v-if="a > b"`, multi-line attributes) and reads an unquoted `{…}` value to its matching `}` (Svelte
-     `onclick={() => x > 1}`). The root splitter keeps today's strict rule, so 1.2 / 1.3 snapshots do not move.
+     (`v-if="a > b"`, multi-line attributes) and reads an unquoted `{…}` value, or a `{…}` attribute (Svelte
+     shorthand and spread), to its matching `}` (Svelte `onclick={() => x > 1}`). The root splitter keeps today's strict rule, so 1.2 / 1.3 snapshots do not move.
    - `topLevelTags(text, nests: (name: string) => boolean): {name, start, end}[]`: every opening tag at depth 0 of
      `text` (the "one level down" scanner). Skips `<!-- … -->`, and the raw text of `<script>` and `<style>` to their
      closing tag (`findClosingTag`). An opening tag whose name `nests` and that does not self-close adds one depth; a
@@ -71,7 +71,8 @@ M3 (build errors) and M7 (`mf-tsc`) need one function that returns every milesto
     - `invalid/DuplicateStyleModule.ucf`: `<react>`, `<style module>`, `<style module="classes">`, `<style module>`
       → one error at the third block.
 11. **Milestone doc**: `- Status: done` last line of 1.4; step text and "Hands to later milestones" edited only where
-    the shipped names differ; the 1.4 Build line for `blocks/svelte.ts` names the depth rule.
+    the shipped names differ; the 1.4 Build line for `blocks/svelte.ts` names the depth rule and `topLevelTags`; the
+   `oxc-parser` pin (`0.149.0`) is named in the step and the hand-off table.
 
 ## Tests
 
@@ -81,7 +82,7 @@ through the lockfile). No new infra.
 - `packages/core/test/check.spec.ts` (new), fixtures through the same relative path as `split.spec.ts`:
   - every name in `listComponents()` (now 7, `ReactDefaultSpecifier.ucf` included) → `checkBlocks(split)` is `[]`;
   - hand-written table `{fixture, errors: [{code, line, column}]}` for the five new invalid fixtures, exact match;
-  - every 1.3 invalid fixture → `checkBlocks(split)` equals `split.errors` (no check code on top; proves the merge,
+  - every other invalid fixture (the 1.3 ones) → `checkBlocks(split)` equals `split.errors` (no check code on top; proves the merge,
     and that the early-cut, unparsable `<react>` of `ReactCloseInString.ucf` gets no `react-no-default-export`);
   - every result over every fixture is sorted by `start`, each diagnostic has a one-line message naming its tag, a
     range inside the file, and `line` / `column` equal to the real position of `start`;
@@ -113,6 +114,8 @@ None here: step 1.5's fuzz rules already run `checkBlocks` over generated files 
 - The new invalid fixtures join `INVALID_CASES` in `split.spec.ts` with `errors: []` (orchestrator: my pick).
 - The move into `scan.ts` / `diagnostics.ts` stays behaviour-neutral: the 1.2 / 1.3 snapshots do not change
   (orchestrator).
+- Built: negative controls run by hand (each rule broken on purpose: the vue / svelte depth rule, the raw-text skip,
+  the default specifier lookup, the bare `module` name); each made `check.spec.ts` fail.
 
 ## Out of scope
 
