@@ -11,6 +11,7 @@ describe('splitBlocks on valid fixtures', () => {
       'Badge.ucf',
       'Button.ucf',
       'Card.ucf',
+      'ComposesFrom.ucf',
       'Hello.ucf',
       'Panel.ucf',
       'ReactDefaultSpecifier.ucf',
@@ -98,6 +99,8 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'style'],
   },
+  {fixture: 'invalid/ComposesBrokenFile.ucf', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ComposesMissingFile.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/CssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/DuplicateReact.ucf',

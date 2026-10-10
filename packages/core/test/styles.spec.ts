@@ -1,20 +1,13 @@
+import {execFileSync} from 'node:child_process';
 import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 import {TraceMap, eachMapping} from '@jridgewell/trace-mapping';
 import {describe, expect, it} from 'vitest';
-import {compileStyles, scopeId, splitBlocks, styleId} from '@multifront/core';
-import type {CompiledStyle, VueCompiler} from '@multifront/core';
+import {styleId} from '@multifront/core';
+import type {CompiledStyle} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {hasClass, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
-
-const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
-
-async function compile(name: string) {
-  const {filename, source} = readComponent(name);
-  const split = splitBlocks(source, filename);
-  const id = scopeId(name, source, true);
-  const styles = await compileStyles(split.styles, {id, filename, source, compiler, production: true});
-  return {filename, source, split, id, styles};
-}
+import {compile} from './styles.child.ts';
 
 function offsetOf(source: string, line: number, column: number): number {
   return source.split('\n', line - 1).join('\n').length + (line > 1 ? 1 : 0) + column;
@@ -32,6 +25,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
     {scoped: false, module: 'classes'},
   ],
   'Card.ucf': [{scoped: false, module: '$style'}],
+  'ComposesFrom.ucf': [{scoped: false, module: '$style'}],
   'Hello.ucf': [],
   'Panel.ucf': [
     {scoped: true, module: undefined},
@@ -39,6 +33,11 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   ],
   'ReactDefaultSpecifier.ucf': [{scoped: false, module: '$style'}],
   'TsxEdges.ucf': [{scoped: true, module: undefined}],
+};
+
+// Written by hand: the classes each local class composes, in the order postcss-modules lists them.
+const COMPOSED: Record<string, Record<string, string[]>> = {
+  'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base']},
 };
 
 describe('compileStyles on valid fixtures', () => {
@@ -72,9 +71,10 @@ describe('compileStyles on valid fixtures', () => {
         }
         expect(Object.keys(style.classes!).length).toBeGreaterThan(0);
         for (const [local, generated] of Object.entries(style.classes!)) {
-          expect(generated).toBe(`${local}_${id}_${style.index}`);
+          const names = [local, ...(COMPOSED[name]?.[local] ?? [])];
+          expect(generated).toBe(names.map((className) => `${className}_${id}_${style.index}`).join(' '));
           expect(hasClass(block.content, local)).toBe(true);
-          expect(hasClass(style.code, generated)).toBe(true);
+          for (const className of generated.split(' ')) expect(hasClass(style.code, className)).toBe(true);
         }
       }
     });
@@ -84,7 +84,9 @@ describe('compileStyles on valid fixtures', () => {
         expect(style.map!.sources).toEqual([filename]);
         expect(style.map!.sourcesContent).toEqual([source]);
         const plainCss = block.attrs.lang === undefined || block.attrs.lang === 'css';
-        const locals = new Map(Object.entries(style.classes ?? {}).map(([local, generated]) => [`.${generated}`, `.${local}`]));
+        const locals = new Map(
+          Object.entries(style.classes ?? {}).map(([local, generated]) => [`.${generated.split(' ')[0]}`, `.${local}`])
+        );
         const generatedLines = style.code.split('\n');
         let segments = 0;
         eachMapping(new TraceMap(style.map!), (mapping) => {
@@ -115,6 +117,16 @@ const ERROR_CASES = [
     text: '<style lang="scss">',
     tag: '<style lang="scss">',
   },
+  // Each error is in a composed file and has no offsets into the block.
+  {fixture: 'invalid/ComposesBrokenFile.ucf', line: 7, column: 0, rule: '<style module>', text: '<style module>', tag: '<style>'},
+  {
+    fixture: 'invalid/ComposesMissingFile.ucf',
+    line: 7,
+    column: 0,
+    rule: '<style module>',
+    text: '<style module>',
+    tag: '<style>',
+  },
   {
     fixture: 'invalid/MissingPreprocessor.ucf',
     line: 7,
@@ -131,9 +143,12 @@ describe('compileStyles on blocks that do not compile', () => {
     expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
   });
 
-  describe.each(ERROR_CASES)('$fixture', async ({fixture, line, column, rule, text, tag}) => {
-    const {filename, source, styles} = await compile(fixture);
-    const [style] = styles as [CompiledStyle];
+  describe.each(ERROR_CASES)('$fixture', ({fixture, line, column, rule, text, tag}) => {
+    const {filename, source} = readComponent(fixture);
+    // A broken `composes … from` file once crashed or hung the whole process.
+    const script = fileURLToPath(new URL('styles.child.ts', import.meta.url));
+    const output = execFileSync(process.execPath, [script, fixture], {encoding: 'utf8', timeout: 30_000});
+    const [style] = JSON.parse(output) as [CompiledStyle];
 
     it('reports one style-compile-error at the hand-written line, column and range', () => {
       expect(style.errors.map(({code, line, column}) => ({code, line, column}))).toEqual([

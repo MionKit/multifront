@@ -1,0 +1,22 @@
+[
+  {
+    "type": "react",
+    "attrs": {},
+    "start": 0,
+    "end": 157,
+    "contentStart": 7,
+    "contentEnd": 149,
+    "index": 0
+  },
+  {
+    "type": "style",
+    "attrs": {
+      "module": true
+    },
+    "start": 159,
+    "end": 299,
+    "contentStart": 173,
+    "contentEnd": 291,
+    "index": 0
+  }
+]

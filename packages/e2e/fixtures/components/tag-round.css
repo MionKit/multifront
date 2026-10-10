@@ -1,0 +1,4 @@
+.round {
+  composes: base from './tag-base.css';
+  border-radius: 1rem;
+}

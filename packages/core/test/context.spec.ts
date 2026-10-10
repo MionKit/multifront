@@ -20,6 +20,7 @@ const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, numb
   'Badge.ucf': {hasScoped: true, modules: {}},
   'Button.ucf': {hasScoped: true, modules: {classes: 1}},
   'Card.ucf': {hasScoped: false, modules: {$style: 0}},
+  'ComposesFrom.ucf': {hasScoped: false, modules: {$style: 0}},
   'Hello.ucf': {hasScoped: false, modules: {}},
   'Panel.ucf': {hasScoped: true, modules: {}},
   'ReactDefaultSpecifier.ucf': {hasScoped: false, modules: {$style: 0}},
