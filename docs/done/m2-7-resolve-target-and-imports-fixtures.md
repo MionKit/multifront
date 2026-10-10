@@ -40,8 +40,8 @@ Found while planning:
 
 - New `packages/core/src/targets.ts`: `TARGETS` and `isTarget` moved from `src/index.ts:31-35`; `index.ts` re-exports
   both (public API unchanged). Own `refactor(core)` commit.
-- `packages/core/src/types.ts`: `DiagnosticCode` gains `'framework-in-block' | 'unknown-framework' | 'no-target'`. New
-  types:
+- `packages/core/src/types.ts`: new `TargetErrorCode = 'framework-in-block' | 'unknown-framework' | 'no-target'`,
+  joined into `DiagnosticCode`. New types:
 
   ```ts
   export interface Importer {
@@ -53,7 +53,7 @@ Found while planning:
     importers?: Record<string, Target>; // extension → framework, over DEFAULT_IMPORTERS
   }
   export type TargetRule = 'block' | 'attribute' | 'importer' | 'default';
-  export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: DiagnosticCode; message: string}};
+  export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: TargetErrorCode; message: string}};
   ```
 
 - New `packages/core/src/imports/resolveTarget.ts`:
@@ -69,10 +69,11 @@ Found while planning:
        `{...DEFAULT_IMPORTERS, ...options.importers}` → `rule: 'importer'`.
     4. `options.framework` → `rule: 'default'`.
     5. else `no-target`, naming the three ways with the merged map's extensions:
-       `no framework for this .ucf import; add with {framework: 'react'} (or vue, svelte), import it from a .vue, .svelte, .jsx or .tsx file, or set the framework option`.
+       `no framework for this .ucf import; add with {framework: 'react'} (or vue, svelte), import it from a .vue, .svelte, .jsx or .tsx file, or set the framework option`
+       (with no `importers` option).
   - No file reads, no position: the caller adds it. A non-literal attribute is the caller's to detect (M3).
 - `packages/core/src/index.ts`: export `resolveTarget`, `DEFAULT_IMPORTERS` and the types `Importer`,
-  `ResolveTargetOptions`, `TargetRule`, `TargetChoice`.
+  `ResolveTargetOptions`, `TargetRule`, `TargetChoice`, `TargetErrorCode`.
 
 ### 2. Shared imports fixture set, `packages/e2e/fixtures/apps/imports/`
 
@@ -85,27 +86,29 @@ Every importer imports `../../../components/Card.ucf` unless noted.
   `src/reexport.ts` (`export {default as VueCard} from ... with {framework: 'vue'}`), `src/lazy.ts`
   (`await import(..., {with: {framework: 'svelte'}})`), `src/bad.ts` (`framework: 'angular'`), `src/Page.vue`
   (`<script setup lang="ts">`, bare), `src/mixed.ts` (same specifier, `vue` then `react`: TypeScript keeps the last,
-  so 2.9 checks real React types for both).
+  so 2.9 checks real React types for both), `src/Widget.jsx` and `src/Gallery.svelte` (bare → react / svelte,
+  `importer`).
 - So every rule and the order are proven:
   - `src/default.ts`: bare in a `.ts` → react, rule `default`.
   - `src/attribute-over-importer.tsx`: `svelte` in a `.tsx` → svelte, rule `attribute`.
   - `src/Showcase.ucf`: `<react>` with a bare import → react, rule `block`.
-  - `src/BlockAttribute.ucf`: `<react>` importing `../../../components/Badge.ucf` with `{framework: 'vue'}` →
-    `framework-in-block`.
+  - `src/BlockAttribute.ucf`: `<react>` importing `../../../components/Badge.ucf` with `{framework: 'vue'}` and Card
+    with `{framework: 'react'}` → both `framework-in-block` (the block's own framework too).
   - `custom-importers/tsconfig.json` (`"importers": {".ts": "svelte", ".tsx": "vue"}`, no framework) with
     `widget.ts` (bare → svelte, `importer`) and `view.tsx` (bare → vue, `importer`: the option beats the built-in
     `.tsx`).
-- `no-default/tsconfig.json` (no `framework`) with `bare.ts` → `no-target`.
+- `no-default/tsconfig.json` (no `framework`, `"importers": {".mts": "vue"}`) with `bare.ts` → `no-target`, whose
+  message lists `.mts` from the merged map.
 - The two sub-project `tsconfig.json` files extend the root one and replace only `plugins` (`include: ["."]`).
 - `expected.ts`:
 
   ```ts
-  export type ExpectedImport = {
+  type ExpectedImport = {
     file: string; // from this folder, '/' separators
     specifier: string;
     line: number; // 1-based, in the whole file
     options: ResolveTargetOptions; // the plugin entry of the file's tsconfig.json
-  } & ({expect: Target; rule: TargetRule} | {expect: DiagnosticCode});
+  } & ({expect: Target; rule: TargetRule} | {expect: TargetErrorCode});
   export const EXPECTED_IMPORTS: ExpectedImport[];
   ```
 
@@ -117,23 +120,25 @@ Package test `packages/core/test/imports/resolveTarget.spec.ts`, vitest project 
 this host and in CI's `check` job. No new infra.
 
 - Helper `packages/core/test/imports/readImports.ts`, `readImports(fileName)`: every import of a `.ucf` path in a real
-  file as `{specifier, attribute, line, block?}`. `.ts` / `.tsx`: oxc-parser on the file. `.vue`: `@vue/compiler-sfc`
+  file as `{specifier, attribute, line, block?}`, collected with oxc-parser's typed `Visitor`. `.ts` / `.tsx` / `.jsx`:
+  oxc-parser on the file. `.svelte`: the `<script>` content (svelte/compiler comes in M6). `.vue`: `@vue/compiler-sfc`
   `parse`, then oxc-parser on `<script>` / `<script setup>`, offsets shifted. `.ucf`: `splitBlocks`, oxc-parser (`tsx`)
   on each `react` block shifted by `contentStart`, `block: 'react'`. Static imports, `export ... from`, `import()`
-  with a literal first argument. M3's `rewriteImportAttributes` replaces it.
+  with a literal first argument. A splitter, SFC or parse error throws. M3's `rewriteImportAttributes` replaces it.
 - `it.each` over `EXPECTED_IMPORTS`: exactly one import at `specifier` + `line` in the real file;
-  `resolveTarget({fileName, block}, attribute, row.options)` gives `{target, rule}`, or `{error: {code, message}}` with
+  the plugin entry of the nearest `tsconfig.json` equals `row.options`;
+  `resolveTarget({fileName, block}, attribute, <those options>)` gives `{target, rule}`, or `{error: {code, message}}` with
   the exact hand-written message.
 - Every error row has a hand-written message, and every message a row.
 - Every `.ucf` import in any file of the app has a row.
-- Each row's `options` equals `framework` / `importers` of the plugin entry in the nearest `tsconfig.json`.
-- `DEFAULT_IMPORTERS` equals the four spec entries and is frozen.
+- `TARGETS` / `isTarget` keep their test, renamed `test/targets.spec.ts` to mirror `src/targets.ts`.
 
 ## Docs
 
 - `docs/milestones/m2-editor-basics.md` 2.7: test path, row shape with `rule`, the added fixtures, `- Status: done`;
   hand-off lines for the fixture set and the fixtures.
-- `docs/milestones/m3-react-and-imports.md`: line 298 names (`Importer`, `TargetChoice`, `TargetRule`), line 104 row
+- `docs/milestones/m3-react-and-imports.md`: line 298 names (`Importer`, `TargetChoice`, `TargetRule`,
+  `TargetErrorCode`), 3.3 (`target-not-enabled` joins `TargetErrorCode`), line 104 row
   shape, line 99 (core already has `oxc-parser`; 3.2 adds `magic-string` only).
 - spec, plan, architecture: none (`architecture.md` "Build" already places the rules in `resolveTarget()` in core).
 
@@ -156,11 +161,13 @@ row" is the coverage.
   `custom-importers/`: every rule and the order covered (orchestrator).
 - `mixed.ts` imports `vue` first, then `react`, so 2.9 sees real React types for both (orchestrator).
 - Test path `packages/core/test/imports/resolveTarget.spec.ts`, mirroring `src/` (orchestrator).
+- Review: `TargetErrorCode` narrows the error arm; `.jsx`, `.svelte`, own-framework-in-block and merged-map rows
+  replace the literal `DEFAULT_IMPORTERS` test (no test without a real file).
 
 ## Done when
 
-- `resolveTarget`, `DEFAULT_IMPORTERS` and the four types exported from `@multifront/core`; three codes in
-  `DiagnosticCode`.
+- `resolveTarget`, `DEFAULT_IMPORTERS` and the five types exported from `@multifront/core`; three codes in
+  `TargetErrorCode`, part of `DiagnosticCode`.
 - Fixture set and `expected.ts` as above; react and @types/react pinned at the root.
 - `packages/core/test/imports/resolveTarget.spec.ts` passes; `pnpm devx check` passes.
 - Milestone doc 2.7 matches what shipped and ends with `- Status: done`; M3 names fixed.
