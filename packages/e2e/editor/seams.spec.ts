@@ -1,9 +1,11 @@
 // Milestone 2 QA: 2.8's resolver as a public function, the way M7's mf-tsc calls it: no open buffers.
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {splitBlocks} from '@multifront/core';
 import {resolveUcfImport} from '@multifront/language-tools';
 import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
-import {componentPath, readComponent} from '../fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, readComponent} from '../fixtures/index.ts';
 
 describe('resolveUcfImport with no open buffer', () => {
   const {filename, source} = readComponent('editor/ImportErrors.ucf');
@@ -67,6 +69,30 @@ describe('resolveUcfImport on the attributes of a <react> block', () => {
       ["'../../Hello.ucf'", 'framework-in-block'],
       ["'../../Card.ucf'", 'framework-in-block'],
       ['`../../Badge.ucf`', 'framework-in-block'],
+      ["'../../Button.ucf'", 'framework-in-block'],
+      ["'../../Card.ucf'", undefined],
+      ["'../../Card.ucf'", undefined],
+      ["'../../Card.ucf'", undefined],
     ]);
+  });
+});
+
+describe('resolveUcfImport on a non-literal framework attribute outside a block', () => {
+  const filename = join(FIXTURES_DIR, 'apps', 'imports', 'no-default', 'non-literal.ts');
+  const sourceFile = ts.createSourceFile(filename, readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true);
+
+  it('reads as no attribute: a .ts importer with no default framework is no-target', () => {
+    let literal: ts.StringLiteralLike | undefined;
+    const visit = (node: ts.Node): void => {
+      if (ts.isStringLiteralLike(node) && node.text.endsWith('.ucf')) literal = node;
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    const resolution = resolveUcfImport(ts, literal!, filename, {
+      compilerOptions: {module: ts.ModuleKind.Preserve, moduleResolution: ts.ModuleResolutionKind.Bundler},
+      host: ts.sys,
+      getSplit: () => undefined,
+    });
+    expect(resolution.error?.code).toBe('no-target');
   });
 });

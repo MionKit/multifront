@@ -1,13 +1,5 @@
 {
-  // The project tsserver opens these components in; the global plugin serves it, so no plugin entry.
-  "compilerOptions": {
-    "target": "es2022",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true
-  },
+  // The project tsserver opens these components in, with the subfolders.
+  "extends": "../editor/tsconfig.json",
   "include": ["**/*.ucf"]
 }
