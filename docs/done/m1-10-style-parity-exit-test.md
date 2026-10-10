@@ -18,8 +18,8 @@ plugin-vue ships for Vue, after the same Vite CSS steps. Core has every piece (`
 
 Facts this plan rests on (current `main`, checked by running the pipeline once over every valid fixture):
 
-- Vite drops a scoped style module when nothing renders its component: plugin-vue tags scoped blocks with
-  `meta.vite.cssScopeTo`, and Vite's css-post skips them unless the component's default export is rendered
+- Vite drops a scoped style module when nothing uses its component: plugin-vue tags scoped blocks with
+  `meta.vite.cssScopeTo`, and Vite's css-post skips them unless the bundle keeps the component's default export
   (`node_modules/vite/dist/node/chunks/node.js:22745-22747`). App builds also drop entry exports. So
   `import './X.vue'` or `export {default} from './X.vue'` emit only the global block; the Vue entry must use the
   component: `import Component from './X.vue'; console.log(Component);`.
@@ -81,12 +81,12 @@ the scope id not reaching plugin-vue (its default id hashes `src/<Name>.vue`), a
 ## Docs
 
 - Milestone doc 1.10 Build line and exit test items 3 and 4 stay as written; they gain the `''` join rule and the
-  "the Vue entry renders the component" point (`cssScopeTo`). `- Status: done` as the step's last line.
+  "the Vue entry uses the component" point (`cssScopeTo`). `- Status: done` as the step's last line.
 - Milestone 1 risk 2: the exit test compares `Panel.ucf`'s scoped SCSS through both preprocessor paths and finds no
   difference; `css.preprocessorOptions` still do not reach ours.
-- Milestone 3 "Risks and open questions": one entry: plugin-vue's scoped CSS is dropped when its component is never
-  rendered (`cssScopeTo`, Vite `node.js:22745-22747`); our shared style modules carry no such tag, so React and
-  Svelte builds would ship scoped CSS of unrendered components.
+- Milestone 3 "Risks and open questions": one entry: plugin-vue's scoped CSS is dropped when its component's default export is not
+  kept in the bundle (`cssScopeTo`, Vite `node.js:22745-22747`); our shared style modules carry no such tag, so React and
+  Svelte builds would ship scoped CSS of unused components.
 - No `spec.md`, `plan.md`, `architecture.md` or `publicdocs/` change: a test only, no behaviour or structure change.
 
 ## Fuzzing
@@ -110,8 +110,8 @@ None: step 1.10's Test line names none (orchestrator).
 - One `src/<Name>.ours.css`, blocks joined with `''` as Vite joins a chunk's CSS (orchestrator: the milestone doc
   names one file).
 - No fuzz test (orchestrator).
-- The unrendered scoped CSS note goes to milestone 3's risks, not milestone 1's (orchestrator).
-- `buildApp(root, config)` with `mergeConfig`; the Vue entry renders the component; risk 2 outcome line (orchestrator).
+- The unused-component scoped CSS note goes to milestone 3's risks, not milestone 1's (orchestrator).
+- `buildApp(root, config)` with `mergeConfig`; the Vue entry uses the component; risk 2 outcome line (orchestrator).
 
 ## Done when
 
