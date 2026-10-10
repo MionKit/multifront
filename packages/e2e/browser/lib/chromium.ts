@@ -2,7 +2,6 @@ import {chromium, type Browser, type ConsoleMessage, type Page} from 'playwright
 
 type ConsoleEntry = {type: ReturnType<ConsoleMessage['type']> | 'pageerror'; text: string};
 
-/** Playwright's Chromium, or the one `MULTIFRONT_CHROMIUM_PATH` names. */
 export async function launchChromium(): Promise<Browser> {
   const executablePath = process.env.MULTIFRONT_CHROMIUM_PATH || undefined;
   try {
@@ -16,7 +15,7 @@ export async function launchChromium(): Promise<Browser> {
   }
 }
 
-/** Live list of every console message and uncaught page error (`type: 'pageerror'`). */
+/** Live list: keeps filling after it returns. */
 export function collectConsole(page: Page): ConsoleEntry[] {
   const entries: ConsoleEntry[] = [];
   page.on('console', (message) => void entries.push({type: message.type(), text: message.text()}));
