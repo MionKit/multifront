@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.3
@@ -34,6 +34,7 @@ Found while planning (the real `@vscode/vsce` tried on a scratch copy of `packag
 - **`generateGrammar()` runs in plain Node** under `node --conditions=source` (Node 26 strips the types, core loads from
   source). devx itself runs without that condition, so the grammar writer is a child process.
 - **No `--cwd` in vsce.** It reads `package.json` from its working directory, so devx's `run()` gains a `cwd` option.
+- **`LICENSE` is renamed in the package.** vsce packs it as `extension/LICENSE.txt`; `vsce ls` lists it as `LICENSE`.
 
 ## Plan
 
@@ -76,7 +77,8 @@ Found while planning (the real `@vscode/vsce` tried on a scratch copy of `packag
    - Root `.gitignore`: `*.vsix`.
    - Root devDependency `@vscode/vsce` `3.9.2`, exact pin.
 6. **Docs**: `SETUP.md` command list gets `pnpm devx vsix` plus one line on installing the `.vsix`. Milestone doc:
-   `- Status: done` on 2.3, step text and Hands table updated if anything shipped differently.
+   `- Status: done` on 2.3, and the 2.3 Build text now says what keeps pnpm's links out (the `files` list, not a
+   bundle: nothing is bundled before 2.10), the exact vsce call, and why `engines`, `repository` and `LICENSE` are there.
    `docs/milestones/m7-full-editor-support.md` 7.13 Build: `engines.vscode`, `repository` and `license` already come
    from M2, as does the version from `version.json` at pack time; M7 keeps `publisher`, `displayName`, the Marketplace
    `icon` and `categories`.
@@ -90,7 +92,8 @@ Found while planning (the real `@vscode/vsce` tried on a scratch copy of `packag
 One `beforeAll` runs the real devx (`process.execPath scripts/devx.mjs vsix`, as `packages/e2e/devx/launch.spec.ts`
 does), expects exit 0, then the real `vsce ls --no-dependencies` in `packages/vscode`, split into a set of paths.
 
-- **Packed file**: `packages/vscode/multifront-vscode-<version.json version>.vsix` exists and is not empty.
+- **Packed file**: `packages/vscode/multifront-vscode-<version.json version>.vsix` exists, is not empty, and was
+  written by this run (its mtime is not older than the test start: an old gitignored `.vsix` would pass otherwise).
 - **Content**: the list holds `package.json`, `icons/ucf.svg`, `language-configuration.json`, `LICENSE`,
   `syntaxes/vendor/sources.json` and `syntaxes/vendor/<name>/LICENSE` per key of `sources.json`; its `dist/syntaxes/*`
   entries equal exactly the `generateGrammar()` paths.
