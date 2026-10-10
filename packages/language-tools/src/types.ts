@@ -1,0 +1,31 @@
+import type {Block, BlockTag, SplitResult, VirtualFile} from '@multifront/core';
+import type {CodeMapping} from '@volar/language-core';
+
+/** The editor half of a block kind; the registry in `blocks/` holds one per core `BlockKind`, same tags, same order. */
+export interface EditorBlockKind {
+  tag: BlockTag;
+  types?(block: Block, ctx: EditorContext): EditorFile; // what an importer sees: Card.ucf.<target><ext>
+  editor?(block: Block, ctx: EditorContext): EditorFile[]; // embedded codes for the language services
+}
+
+/** A v3 source map has no exact spans and no per-span feature flags, so editor files carry Volar mappings. */
+export interface EditorFile extends VirtualFile {
+  mappings: CodeMapping[]; // Volar offsets with feature flags; `map` stays undefined
+}
+
+/** One per `.ucf` file; shared rows fill it before the target rows read it. */
+export interface EditorContext {
+  split: SplitResult;
+  modules: Record<string, EditorStyleModule>; // '$style' or the module name
+}
+
+export interface EditorStyleModule {
+  name: string; // '$style' or the module="name" value
+  index: number; // the <style> block it comes from
+  classes: StyleClass[];
+}
+
+export interface StyleClass {
+  name: string;
+  offset?: number; // offset of `.name` in the .ucf file, when written there
+}

@@ -8,6 +8,7 @@ export default defineConfig({
     projects: [
       'packages/core/vitest.config.ts',
       'packages/e2e/vitest.config.ts',
+      'packages/language-tools/vitest.config.ts',
       'packages/vite/vitest.config.ts',
       'packages/vscode/vitest.config.ts',
     ],
