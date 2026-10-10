@@ -1,0 +1,5 @@
+import "<fixtures>/components/invalid/CssSyntaxError.ucf?ucf&type=style&index=0&lang.css";
+
+  export default function Note({ text }: { text: string }) {
+    return <p data-v-77c02d35="" className="note">{text}</p>
+  }

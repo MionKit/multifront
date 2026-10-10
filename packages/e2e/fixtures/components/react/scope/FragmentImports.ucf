@@ -1,0 +1,40 @@
+<react>
+  // Build only: './other' does not exist. Each way an import binds React's Fragment, or does not.
+  import { default as R, 'Fragment' as Quoted, type Fragment as SpecFrag } from 'react'
+  import type { Fragment as TypeFrag } from 'react'
+  import * as React from 'react'
+  import { Fragment } from 'react'
+  import Card, { Fragment as Other } from './other'
+
+  function ShadowedByConst() {
+    const Fragment = Card
+    return <Fragment className="const-shadow" />
+  }
+
+  function ShadowedByParam(React: { Fragment: typeof Card }) {
+    return <React.Fragment className="param-shadow" />
+  }
+
+  export default function FragmentImports() {
+    return (
+      <div>
+        <R.Fragment><span>default as</span></R.Fragment>
+        <Quoted><span>quoted</span></Quoted>
+        <SpecFrag />
+        <TypeFrag />
+        <Other />
+        <Fragment><span>not shadowed here</span></Fragment>
+        <React.Fragment><span>nor here</span></React.Fragment>
+        <ShadowedByConst />
+        <ShadowedByParam Fragment={Card} />
+        {[Card].map((Fragment) => <Fragment key="arrow-shadow" />)}
+      </div>
+    )
+  }
+</react>
+
+<style scoped>
+.const-shadow {
+  color: rgb(1, 2, 3);
+}
+</style>

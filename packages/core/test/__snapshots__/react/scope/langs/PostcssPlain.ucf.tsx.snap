@@ -1,0 +1,5 @@
+import "<fixtures>/components/langs/PostcssPlain.ucf?ucf&type=style&index=0&lang.css";
+
+  export default function PostcssPlain({ label }: { label: string }) {
+    return <em data-v-d5ef5441="" className="note">{label}</em>
+  }
