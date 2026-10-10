@@ -30,7 +30,7 @@ const VALUE_NOT_LITERAL = "the framework attribute must be a string literal: wit
 const OPTIONS_NOT_LITERAL =
   'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
 
-/** The path's extension, else a `lang.<ext>` query (`C.vue?vue&type=script&lang.ts`), else ts (`.ts`, `.mts`, `.cts` too). */
+/** A `lang.<ext>` query looks like `C.vue?vue&type=script&lang.ts`; `.ts`, `.mts`, `.cts` fall through to ts. */
 function langOf(filename: string): Lang {
   const queryAt = filename.indexOf('?');
   const path = queryAt < 0 ? filename : filename.slice(0, queryAt);
@@ -40,7 +40,7 @@ function langOf(filename: string): Lang {
   return (fromQuery && LANGS[`.${fromQuery[1]}`]) ?? 'ts';
 }
 
-/** A string literal, or a template literal without expressions (the TS plugin reads both the same way). */
+/** The TS plugin reads a template literal without expressions as a string too. */
 function literalValue(node: Expression): string | undefined {
   if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : undefined;
   if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0]!.value.cooked ?? undefined;
@@ -52,7 +52,7 @@ function keyName(key: ObjectProperty['key'] | ImportAttribute['key']): string | 
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
 }
 
-// A spread or a computed key could hold the framework: such an object cannot be read statically.
+// A spread or computed key could hold the framework, unreadable statically.
 function isPlainObject(node: Expression): node is PlainObject {
   return node.type === 'ObjectExpression' && node.properties.every((prop) => prop.type === 'Property' && !prop.computed);
 }

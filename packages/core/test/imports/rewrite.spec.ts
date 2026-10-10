@@ -12,7 +12,7 @@ import {lineAt, scriptName, scriptsOf} from './readImports.ts';
 import type {Script} from './readImports.ts';
 
 const APPS = join(FIXTURES_DIR, 'apps');
-// Every other test parses its input: this one is the rewrite's own input that does not.
+// The one fixture that does not parse; the shared tests parse every input.
 const SYNTAX_ERROR = 'syntax-error.mjs';
 // The value every unknown-framework row of expected.ts uses.
 const UNKNOWN_FRAMEWORK = 'angular';
@@ -54,7 +54,7 @@ function keyName(key: ImportAttribute['key'] | ObjectExpression['properties'][nu
   return node.type === 'Literal' && typeof node.value === 'string' ? node.value : undefined;
 }
 
-// Also with a query: the rewritten specifiers are no `.ucf` imports to the rewrite itself.
+// Accepts a query too, unlike the rewrite, so it finds the rewritten specifiers.
 function ucfSpecifier(node: Expression | null): string | undefined {
   let value: string | undefined;
   if (node?.type === 'Literal' && typeof node.value === 'string') value = node.value;
@@ -96,7 +96,6 @@ function ucfImports(code: string, lang: Script['lang']): Found[] {
   return found;
 }
 
-/** What the attribute must turn into, from the rows of expected.ts. */
 function expectedFramework(file: string, line: number): string | undefined {
   const row = EXPECTED_IMPORTS.find((entry) => entry.file === file && entry.line === line);
   if (!row) throw new Error(`no expected.ts row for ${file}:${line}`);
