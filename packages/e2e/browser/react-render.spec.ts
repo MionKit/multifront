@@ -1,8 +1,8 @@
 import {join} from 'node:path';
-import type {Browser, Locator} from 'playwright';
+import type {Browser} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
-import {collectConsole, launchChromium} from './lib/chromium.ts';
+import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
@@ -16,13 +16,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
 });
-
-function computed(locator: Locator, property: string): Promise<string> {
-  return locator.evaluate(
-    (element, name) => element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(name),
-    property
-  );
-}
 
 describe.each([
   ['dev', startDev],

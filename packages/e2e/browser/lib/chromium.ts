@@ -1,4 +1,4 @@
-import {chromium, type Browser, type ConsoleMessage, type Page} from 'playwright';
+import {chromium, type Browser, type ConsoleMessage, type Locator, type Page} from 'playwright';
 
 type ConsoleEntry = {type: ReturnType<ConsoleMessage['type']> | 'pageerror'; text: string};
 
@@ -21,4 +21,11 @@ export function collectConsole(page: Page): ConsoleEntry[] {
   page.on('console', (message) => void entries.push({type: message.type(), text: message.text()}));
   page.on('pageerror', (err) => void entries.push({type: 'pageerror', text: err.message}));
   return entries;
+}
+
+export function computed(locator: Locator, property: string): Promise<string> {
+  return locator.evaluate(
+    (element, name) => element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(name),
+    property
+  );
 }

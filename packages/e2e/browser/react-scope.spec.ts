@@ -4,7 +4,7 @@ import type {Browser, Locator, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {scopeId} from '@multifront/core';
 import {FIXTURES_DIR, componentPath} from '../fixtures/index.ts';
-import {collectConsole, launchChromium} from './lib/chromium.ts';
+import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-scope');
@@ -75,13 +75,7 @@ describe.each([
       for (const element of elements) expect(element).toEqual({tag: element.tag, scope: [attribute]});
 
       for (const [selector, property, value] of SCOPED_RULES) {
-        const found = await page
-          .locator(selector)
-          .first()
-          .evaluate(
-            (element, name) => element.ownerDocument.defaultView!.getComputedStyle(element).getPropertyValue(name),
-            property
-          );
+        const found = await computed(page.locator(selector).first(), property);
         expect({selector, value: found}).toEqual({selector, value});
       }
 
