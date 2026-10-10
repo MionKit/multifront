@@ -53,14 +53,15 @@ Found while planning:
 ### 3. `packages/language-tools/src/typescriptPlugin.ts`
 
 - Compiler: `loadVueCompiler(info.project.getCurrentDirectory())` in try/catch; on failure
-  `info.project.projectService.logger.info('multifront: <message>; $style reads plain CSS modules only')` and no
-  compiler.
+  `info.project.projectService.logger.info('multifront: no Vue compiler, $style reads plain CSS modules only (<reason>)')`
+  and no compiler.
 - `importErrors`: walks literals in source order (as now), keeps each resolution's `target`. A literal whose specifier
   text had an earlier import with another `target` gets `{code: 'mixed-frameworks', category: Warning, source:
   'multifront'}` at the specifier: `<specifier> is imported as vue and as react in this file; TypeScript keeps one
   resolution per specifier, so every import of it here gets the last one's types. Import each framework from its own
   small re-export file`. Each import's own resolver error is still reported. Category: Error for resolver errors,
-  Warning for `mixed-frameworks`. The "one problem, one error" filter covers the warning's import too.
+  Warning for `mixed-frameworks`. The "one problem, one error" filter counts errors only: a warning hides none of
+  TypeScript's own errors on its import (review).
 
 ### 4. Fixture
 
@@ -72,7 +73,8 @@ Found while planning:
 
 - `blockImports.spec.ts` drops its `.ts and .tsx importers` describe (App.tsx definition, reexport.ts) and stops
   opening those files: both now live in `tsserver.spec.ts` (reexport.ts now expects `target-not-built`). `locate()`
-  moves into `editor/lib/tsserver.ts` as an export, with its reverse `offsetAt(source, location)`, used by both specs.
+  moves into `editor/lib/tsserver.ts` as an export, with its reverse `offsetAt(source, location)`, `open(server, files)`,
+  `inBlock(component, tag, span)` and the `TsDefinitions` type, used by both specs.
 
 ## Decisions
 
@@ -109,10 +111,15 @@ lists as "nothing to add".
 - **One program**: an unsaved `updateOpen` on Card.ucf renaming `title` to `heading` in the `<react>` signature makes
   App.tsx report TS2322 at once (reverted after); `rename` on `title` in Card.ucf lists App.tsx; `references` on
   `title` in App.tsx lists a location in Card.ucf inside `<react>`.
+- **Review additions** (unsaved edits, reverted after): `mixed.ts` gains `import {Nope}` from Card.ucf as react and
+  `./Gone.ucf` as vue then react: the `Nope` line keeps TypeScript's own error beside the warning, `Gone` as vue is
+  TS2307, `Gone` as react TS2307 plus the warning (a `target` from an import TypeScript cannot find still counts);
+  `lazy.ts` pointed at `imports/VueOnly.ucf` (svelte) gives one `missing-target-block`, not `target-not-built`.
 - **No `@vue/compiler-sfc`**: a second tsserver on a temp project in `os.tmpdir()` (a copy of `Card.ucf`, a tsconfig
   with `include: ["*.ucf"]`): no TS2304 / TS2339 (without the plugin the raw file reads as TSX and `$style` is TS2304),
   `quickinfo` on `title` inside `<react>` shows `string`; `completionInfo` after `$style.` has no `card` (scss typed
-  loosely). Temp dir removed after. Both cases fail with the try/catch removed (checked).
+  loosely). Its plugin entry has `framework: 'svelte'`, and a bare `default.ts` there gives `target-not-built` naming
+  "the default framework". Temp dir removed after. The first two cases fail with the try/catch removed (checked).
 
 ## Docs
 
