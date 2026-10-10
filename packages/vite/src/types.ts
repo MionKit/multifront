@@ -6,9 +6,3 @@ export interface MultifrontOptions {
   /** The framework a bare `import Card from './Card.ucf'` resolves to. */
   framework?: Target;
 }
-
-/** The part of @vue/compiler-sfc this package uses. */
-export interface VueCompiler {
-  compileStyleAsync: (...args: never[]) => Promise<unknown>;
-  parse: (...args: never[]) => unknown;
-}

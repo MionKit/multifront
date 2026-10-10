@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module';
 import type {Plugin} from 'vite';
-import type {VueCompiler} from './types.ts';
+import type {VueCompiler} from '@multifront/core';
 
 const VUE_PLUGIN_NAME = 'vite:vue';
 const require = createRequire(import.meta.url);

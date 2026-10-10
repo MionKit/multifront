@@ -1,4 +1,5 @@
 import {createDiagnostic, orList} from '../diagnostics.ts';
+import {moduleName} from '../styles.ts';
 import type {Block, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
 
 // The one list of style langs; `css` falls to the default grammar.
@@ -12,13 +13,6 @@ const BY_LANG: Record<string, GrammarScope> = {
 };
 const STYLE_LANGS: readonly string[] = ['css', ...Object.keys(BY_LANG)];
 const LANG_LIST = orList(STYLE_LANGS);
-
-// Vue's parser reads `module=""` as a bare `module`.
-function moduleName(block: Block): string | undefined {
-  const {module} = block.attrs;
-  if (module === undefined) return undefined;
-  return module === true || module === '' ? '$style' : module;
-}
 
 function check(block: Block, split: SplitResult): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
