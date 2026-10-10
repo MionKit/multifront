@@ -5,6 +5,7 @@ import type {BlockKind} from '../types.ts';
 export const vueKind: BlockKind = {
   tag: 'vue',
   role: 'target',
+  grammar: {scopeName: 'text.html.vue', languageId: 'vue'}, // the official Vue extension's scope name
   check: (block, split) =>
     styleInsideTarget(
       block,

@@ -1,6 +1,17 @@
 import type {Target} from './types.ts';
 
-export type {Block, BlockKind, BlockRole, BlockTag, Diagnostic, DiagnosticCode, SplitResult, Target} from './types.ts';
+export type {
+  Block,
+  BlockGrammar,
+  BlockKind,
+  BlockRole,
+  BlockTag,
+  Diagnostic,
+  DiagnosticCode,
+  GrammarScope,
+  SplitResult,
+  Target,
+} from './types.ts';
 export {BLOCK_KINDS, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {splitBlocks} from './split.ts';
 

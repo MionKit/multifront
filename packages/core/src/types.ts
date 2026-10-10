@@ -27,10 +27,21 @@ export interface SplitResult {
   errors: Diagnostic[]; // splitter errors only
 }
 
+/** The TextMate grammar that highlights a block's content, and its VS Code language. */
+export interface GrammarScope {
+  scopeName: string; // root scope, e.g. 'source.tsx'
+  languageId: string; // e.g. 'typescriptreact'
+}
+
+export interface BlockGrammar extends GrammarScope {
+  byLang?: Record<string, GrammarScope>; // picked by the block's lang attribute
+}
+
 /** One root tag and what it can do; the registry in `blocks/` holds one per tag. */
 export interface BlockKind {
   tag: BlockTag;
   role: BlockRole;
+  grammar: BlockGrammar;
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
 }
 
