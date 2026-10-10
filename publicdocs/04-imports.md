@@ -38,7 +38,7 @@ export {default as VueCard} from '../../../components/Card.ucf' with {framework:
 export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
 ```
 
-> **Note:** The editor has types for React components only. An import that picks vue or svelte shows the error `target-not-built`.
+> **Note:** The editor and the build handle React components only for now. An import that picks vue or svelte gives the error `target-not-built`.
 
 > **Tip:** In one file, TypeScript gives every import of the same path the type of the last one. To use a component as two frameworks, import each from its own small file that re-exports it.
 

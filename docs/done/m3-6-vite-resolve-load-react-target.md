@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.6
@@ -34,7 +34,8 @@ target row.
   word for word from `packages/language-tools/src/resolve.ts:84-86` with its `importPath` helper
   (`"../Card.ucf has no <react> block; App.tsx imports it as react"`). language-tools calls it, so build and editor
   print the same text (its tsserver tests pin the text, unchanged).
-- `index.ts` exports `buildTarget`, `DiagnosticsError`, `missingTargetBlockMessage`.
+- `index.ts` exports `buildTarget`, `DiagnosticsError`, `missingTargetBlockMessage` and `importPath` (language-tools'
+  `target-not-built` message still uses it, so it moved instead of being copied).
 
 ### 2. `packages/vite/src/cache.ts`
 
@@ -99,7 +100,8 @@ target row.
 - `packages/e2e/vitest.config.ts`: `test.execArgv: ['--conditions=source']` (root `vitest.config.ts` if vitest takes
   it only there). No third-party package in the store has a `source` condition; e2e child processes use `spawn`,
   which does not inherit execArgv.
-- `packages/e2e/build/lib/build.ts` `buildApp`: base config gains `configLoader: 'native'`.
+- `packages/e2e/build/lib/build.ts`: `APP_CONFIG_LOADER = 'native'`, used by `buildApp`'s base config and by the dev
+  scan test's `createServer`.
 - `docs/milestones/README.md` "Test infrastructure": row "Fixture configs from source | M3 (3.6) | native config
   loader + `--conditions=source` in the e2e worker".
 
@@ -148,7 +150,8 @@ All on this host and the CI `check` job (`pnpm devx test`). No Chromium. New inf
   milestones" rows for `cache.ts` and `buildTarget`; `- Status: done` last line of 3.6.
 - `docs/milestones/m5-library-build.md:67`: "throws `DiagnosticsError` on the file's errors".
 - `docs/milestones/README.md`: infra row (section 6).
-- `publicdocs/07-errors.md`: the `target-not-built` row now covers the build too.
+- `publicdocs/07-errors.md` (the `target-not-built` row) and `publicdocs/04-imports.md` (the note): the build, not
+  only the editor, handles React components only so far.
 - `docs/spec.md`, `docs/architecture.md`, `docs/plan.md`: none.
 
 ## Fuzzing
