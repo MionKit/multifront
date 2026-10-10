@@ -4,9 +4,6 @@ import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import type {TypeScript, UcfImportOptions, UcfVirtualCode} from './types.ts';
 
-// "Cannot find module": our own error at the same import says why.
-const CANNOT_FIND_MODULE = new Set([2307, 2792]);
-
 const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
 
 function ucfLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLiteralLike[] {
@@ -14,9 +11,7 @@ function ucfLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLitera
   const visit = (node: ts.Node): void => {
     let specifier: ts.Node | undefined;
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) specifier = node.moduleSpecifier;
-    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-      specifier = node.arguments[0];
-    }
+    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) specifier = node.arguments[0];
     if (specifier && ts.isStringLiteralLike(specifier) && isUcfSpecifier(specifier)) literals.push(specifier);
     ts.forEachChild(node, visit);
   };
@@ -24,12 +19,17 @@ function ucfLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLitera
   return literals;
 }
 
-function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ts.Diagnostic[] {
-  const diagnostics: ts.Diagnostic[] = [];
+interface ImportError {
+  diagnostic: ts.Diagnostic;
+  node: ts.Node; // the import statement or `import()` call: TypeScript's own errors there are the same problem
+}
+
+function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ImportError[] {
+  const errors: ImportError[] = [];
   for (const literal of ucfLiterals(ts, sourceFile)) {
     const {error} = resolveUcfImport(ts, literal, sourceFile.fileName, options);
     if (!error) continue;
-    diagnostics.push({
+    const diagnostic: ts.Diagnostic = {
       file: sourceFile,
       start: literal.getStart(sourceFile),
       length: literal.getWidth(sourceFile),
@@ -38,9 +38,10 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
       code: error.code as unknown as number,
       source: 'multifront',
       messageText: error.message,
-    });
+    };
+    errors.push({diagnostic, node: literal.parent});
   }
-  return diagnostics;
+  return errors;
 }
 
 /** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
@@ -74,12 +75,10 @@ export default createLanguageServicePlugin((ts, info) => {
       const sourceFile = program?.getSourceFile(fileName);
       if (!program || !sourceFile) return diagnostics;
       const errors = importErrors(ts, sourceFile, importOptions(program.getCompilerOptions()));
-      if (errors.length === 0) return diagnostics;
-      const taken = new Set(errors.map(({start}) => start));
-      const kept = diagnostics.filter(
-        ({file, start, code}) => !(file === sourceFile && taken.has(start) && CANNOT_FIND_MODULE.has(code))
-      );
-      return [...kept, ...errors];
+      // "Cannot find module", "no default export": one problem, one error.
+      const covered = (start = -1) => errors.some(({node}) => start >= node.getStart(sourceFile) && start < node.end);
+      const kept = diagnostics.filter(({file, start}) => file !== sourceFile || !covered(start));
+      return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
     },
   };
 
