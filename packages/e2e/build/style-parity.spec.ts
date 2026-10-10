@@ -42,7 +42,7 @@ describe.each(listComponents())('%s, our CSS against plugin-vue after a real Vit
     await writeFile(join(root, 'src', `${base}.vue`), vueSource.join('\n'));
     // Joined as Vite joins the CSS modules of a chunk.
     await writeFile(join(root, 'src', `${base}.ours.css`), plain.map((block) => styleKind.build!(block, ctx).code).join(''));
-    // Vite drops a scoped block's CSS (cssScopeTo) unless the component is rendered.
+    // Vite drops a scoped block's CSS (cssScopeTo) unless the bundle keeps the component's default export.
     await writeFile(join(root, 'src', 'vue-entry.ts'), `import Component from './${base}.vue';\nconsole.log(Component);\n`);
     await writeFile(join(root, 'src', 'ours-entry.ts'), `import './${base}.ours.css';\n`);
 
