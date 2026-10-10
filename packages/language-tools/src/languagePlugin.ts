@@ -2,7 +2,7 @@
 // oxlint-disable-next-line typescript/triple-slash-reference
 /// <reference types="@volar/typescript" preserve="true" />
 import {isTarget, splitBlocks} from '@multifront/core';
-import type {Block, VirtualFile} from '@multifront/core';
+import type {Block, Target, VirtualFile} from '@multifront/core';
 import type {IScriptSnapshot, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
@@ -18,6 +18,9 @@ const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.vue': 'vue',
   '.svelte': 'svelte',
 };
+
+/** The target whose script tsserver serves as the `.ucf` file's own: Volar's tsserver plugin serves no extra scripts. */
+export const MAIN_SCRIPT_TARGET: Target = 'react';
 
 function stringSnapshot(text: string): IScriptSnapshot {
   return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
@@ -49,9 +52,8 @@ export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePl
       languageId === 'ucf' ? createRootCode(fileName, snapshot, options) : undefined,
     typescript: {
       extraFileExtensions: [{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
-      // Volar's tsserver plugin serves no extra scripts, so the React code is the file's own script.
       getServiceScript(root): TypeScriptServiceScript | undefined {
-        const code = root.embeddedCodes?.find(({id}) => id === 'react');
+        const code = root.embeddedCodes?.find(({id}) => id === MAIN_SCRIPT_TARGET);
         return code && {code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX};
       },
     },
