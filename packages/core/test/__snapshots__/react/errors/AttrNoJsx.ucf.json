@@ -1,0 +1,12 @@
+[
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrNoJsx.ucf",
+    "start": 136,
+    "end": 145,
+    "line": 5,
+    "column": 61
+  }
+]
