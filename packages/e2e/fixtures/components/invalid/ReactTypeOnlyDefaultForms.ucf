@@ -1,0 +1,17 @@
+<react>
+  function ReactTypeOnlyDefaultForms() {
+    return <p>Two type-only default exports</p>
+  }
+
+  export { type ReactTypeOnlyDefaultForms as default }
+
+  export default interface Props {
+    label: string
+  }
+</react>
+
+<style scoped>
+p {
+  color: olive;
+}
+</style>
