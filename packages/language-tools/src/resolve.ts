@@ -101,7 +101,7 @@ export function entryOptions(compilerOptions: ts.CompilerOptions): ResolveTarget
   const plugins = (compilerOptions.plugins ?? []) as (ts.PluginImport & Partial<Record<keyof ResolveTargetOptions, unknown>>)[];
   const entry = plugins.find(({name}) => name === PLUGIN_NAME);
   const options: ResolveTargetOptions = {};
-  // A list with no valid value is dropped like any other invalid value, so it never turns every framework off.
+  // A list with no valid value is dropped, so it never turns every framework off.
   const frameworks = Array.isArray(entry?.frameworks)
     ? entry.frameworks.filter((value) => typeof value === 'string' && isTarget(value))
     : [];
