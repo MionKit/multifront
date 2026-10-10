@@ -65,7 +65,8 @@ function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefi
   try {
     return loadVueCompiler(info.project.getCurrentDirectory());
   } catch (err) {
-    info.project.projectService.logger.info(`${(err as Error).message}; $style reads plain CSS modules only`);
+    const reason = err instanceof Error ? err.message : String(err);
+    info.project.projectService.logger.info(`multifront: no Vue compiler, $style reads plain CSS modules only (${reason})`);
     return undefined;
   }
 }
@@ -101,8 +102,12 @@ export default createLanguageServicePlugin((ts, info) => {
       const sourceFile = program?.getSourceFile(fileName);
       if (!program || !sourceFile) return diagnostics;
       const errors = importErrors(ts, sourceFile, importOptions(program.getCompilerOptions()));
-      // "Cannot find module", "no default export": one problem, one error.
-      const covered = (start = -1) => errors.some(({node}) => start >= node.getStart(sourceFile) && start < node.end);
+      // "Cannot find module", "no default export": one problem, one error. A warning hides nothing.
+      const covered = (start = -1) =>
+        errors.some(
+          ({diagnostic, node}) =>
+            diagnostic.category === ts.DiagnosticCategory.Error && start >= node.getStart(sourceFile) && start < node.end
+        );
       const kept = diagnostics.filter(({file, start}) => file !== sourceFile || !covered(start));
       return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
     },

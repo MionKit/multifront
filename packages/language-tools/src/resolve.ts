@@ -72,17 +72,21 @@ export function resolveUcfImport(
   const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, ucfHost(options.host));
   if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule, target};
   const fileName = resolvedModule.resolvedFileName.slice(0, -UCF_DECLARATION.length) + '.ucf';
-  const path = importPath(containingFile, fileName);
   const split = options.getSplit(fileName);
   let error: UcfResolution['error'];
   if (split && !split.targets[target]) {
-    const message = `${path} has no <${target}> block; ${basename(containingFile)} imports it as ${target}`;
+    const message = `${importPath(containingFile, fileName)} has no <${target}> block; ${basename(containingFile)} imports it as ${target}`;
     error = {code: 'missing-target-block', message};
   }
   // tsserver serves only the main target's script; vue and svelte get theirs in M4 and M6.
   if (target !== MAIN_SCRIPT_TARGET) {
-    const message = `${path} is imported as ${target} (by ${RULE_REASON[rule]}); multifront has no ${target} types yet`;
-    return {resolvedModule: undefined, target, error: error ?? {code: 'target-not-built', message}};
+    const path = importPath(containingFile, fileName);
+    const reason = RULE_REASON[rule];
+    error ??= {
+      code: 'target-not-built',
+      message: `${path} is imported as ${target} (by ${reason}); multifront has no ${target} types yet`,
+    };
+    return {resolvedModule: undefined, target, error};
   }
   // Resolved even without the block, so adding it in an unsaved edit needs no new resolution.
   const {isExternalLibraryImport} = resolvedModule;
