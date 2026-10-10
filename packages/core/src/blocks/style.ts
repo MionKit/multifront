@@ -1,5 +1,5 @@
 import {createDiagnostic, orList} from '../diagnostics.ts';
-import type {Block, BlockKind, Diagnostic, SplitResult} from '../types.ts';
+import type {Block, BlockGrammar, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
 
 const STYLE_LANGS: readonly string[] = ['css', 'scss', 'sass', 'less', 'styl', 'stylus', 'postcss'];
 const LANG_LIST = orList(STYLE_LANGS);
@@ -26,4 +26,20 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return diagnostics;
 }
 
-export const styleKind: BlockKind = {tag: 'style', role: 'shared', check};
+const stylus: GrammarScope = {scopeName: 'source.stylus', languageId: 'stylus'};
+
+// `css` has no entry: the default covers it.
+const grammar: BlockGrammar = {
+  scopeName: 'source.css',
+  languageId: 'css',
+  byLang: {
+    scss: {scopeName: 'source.css.scss', languageId: 'scss'},
+    sass: {scopeName: 'source.sass', languageId: 'sass'},
+    less: {scopeName: 'source.css.less', languageId: 'less'},
+    styl: stylus,
+    stylus,
+    postcss: {scopeName: 'source.css.postcss', languageId: 'postcss'},
+  },
+};
+
+export const styleKind: BlockKind = {tag: 'style', role: 'shared', grammar, check};

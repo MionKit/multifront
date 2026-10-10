@@ -9,5 +9,6 @@ const VOID_ELEMENTS: ReadonlySet<string> = new Set(
 export const svelteKind: BlockKind = {
   tag: 'svelte',
   role: 'target',
+  grammar: {scopeName: 'source.svelte', languageId: 'svelte'},
   check: (block, split) => styleInsideTarget(block, split, (name) => !VOID_ELEMENTS.has(name)),
 };

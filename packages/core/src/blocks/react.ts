@@ -18,4 +18,9 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return [createDiagnostic(split, 'react-no-default-export', block.start, block.contentStart, message)];
 }
 
-export const reactKind: BlockKind = {tag: 'react', role: 'target', check};
+export const reactKind: BlockKind = {
+  tag: 'react',
+  role: 'target',
+  grammar: {scopeName: 'source.tsx', languageId: 'typescriptreact'},
+  check,
+};
