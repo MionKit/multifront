@@ -218,7 +218,8 @@ None: this is the first milestone. It builds on what the repo already has:
 
 - Build:
   - `VueCompiler` moves to `packages/core/src/types.ts`, typed from the real package: `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' | 'parse' | 'MagicString'>` (type-only import). `@multifront/vite` drops its own copy and re-exports core's (`export type {VueCompiler} from '@multifront/core'`), so `getVueCompiler()` returns a value core accepts.
-  - `@multifront/core` gets `peerDependencies: {"@vue/compiler-sfc": "^3.5.0"}` (optional, like vite's) and the devDependency `"@vue/compiler-sfc": "3.5.42"` that satisfies it (the allowed exception). Root devDependency: `@jridgewell/trace-mapping` (exact-pinned, to read maps in tests); `sass` is already one (1.1).
+  - `@multifront/core` gets `peerDependencies: {"@vue/compiler-sfc": "^3.5.0"}` (optional, like vite's), the devDependency `"@vue/compiler-sfc": "3.5.42"` that satisfies it (the allowed exception), and the dependency `"@jridgewell/sourcemap-codec": "1.6.0"` (exact-pinned, for the map filter below). Root devDependency: `@jridgewell/trace-mapping` `0.3.31` (exact-pinned, to read maps in tests); `sass` is already one (1.1).
+  - `packages/core/src/ids.ts`: `styleId(filename, index)` (shape in 1.9), because `CompiledStyle.id` needs it. 1.9 adds `classMapId` beside it.
   - `packages/core/src/styles.ts`:
 
     ```ts
@@ -232,7 +233,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
     export interface CompiledStyle {
       index: number;                          // the block's index among the <style> blocks
-      id: string;                             // module id, see styleId() in 1.9
+      id: string;                             // module id, styleId(filename, index)
       code: string;                           // plain CSS
       map: SourceMap | undefined;             // back to the .ucf file
       scoped: boolean;
@@ -242,16 +243,21 @@ None: this is the first milestone. It builds on what the repo already has:
     }
     ```
 
-  - One `compileStyleAsync` call per block, with the same options plugin-vue passes (`filename`, `id: 'data-v-' + id`, `isProd: production`, `scoped`, `source`) plus `preprocessLang` from `lang` (none for `css` and `postcss`), `modules` when the block has `module`, and `map`: an input map from `compiler.MagicString` over the `.ucf` source, so the output map points into the `.ucf` file, not the block.
+    `CompiledStyle` lives in `types.ts` (`context.ts` shares it in 1.9).
+  - One `compileStyleAsync` call per block, with the same options plugin-vue passes (`filename`, `id: 'data-v-' + id`, `isProd: production`, `scoped`, `source`) plus `preprocessLang` from `lang` (none for `css` and `postcss`), `modules` when the block has `module`, and `inMap` (`map` is deprecated): an input map from `compiler.MagicString` over the `.ucf` source, so the output map points into the `.ucf` file, not the block.
+  - The output map keeps only segments whose source is the `.ucf` file. After a preprocessor, PostCSS keeps the segments it cannot follow through the input map (the closing `}` lines sass does not map) under a second source name, pointing at the preprocessor's output.
+  - Compile errors become `style-compile-error`: a sass error at its span, a PostCSS syntax error at its offset (only when nothing preprocessed the block), anything else at the opening tag. Message: `<style lang="scss"> does not compile: <reason>`, one line.
   - CSS module class names are deterministic: `modulesOptions.generateScopedName` is `<local>_<scopeId>_<index>` (for example `card_1a2b3c4d_0`).
   - `SourceMap` type in `types.ts`: `{version: number; file?: string; sourceRoot?: string; sources: string[]; sourcesContent?: (string | null)[]; names: string[]; mappings: string}`.
-  - Fixture `invalid/ScssSyntaxError.ucf` (a missing `}` in a `lang="scss"` block).
+  - Fixtures `invalid/ScssSyntaxError.ucf` (a missing `}` in a `lang="scss"` block: `.tag-#{$size {`) and `invalid/CssSyntaxError.ucf` (a plain CSS rule left open).
 - Deliverable: every `<style>` block compiles once into CSS, a map into the `.ucf` file and, for modules, a class map.
 - Test: `packages/core/test/styles.spec.ts`, with the real `@vue/compiler-sfc` and the real `sass`:
-  - style snapshots per fixture block as file snapshots, `test/__snapshots__/styles/<Name>.ucf.<index>.css`: scoped (`Badge.ucf`), module (`Card.ucf`), named module (`Button.ucf`), scss (`Card.ucf`, `Panel.ucf`), global (`Panel.ucf`);
+  - a file snapshot of every style block of every valid fixture, `test/__snapshots__/styles/<Name>.ucf.<index>.css`, among them scoped (`Badge.ucf`), module (`Card.ucf`), named module (`Button.ucf`), scss (`Card.ucf`, `Panel.ucf`), global (`Panel.ucf`);
   - every key of a class map is a class selector in the block source, and every value is a class selector in the CSS;
   - maps: for plain CSS blocks, every mapped segment (read with `@jridgewell/trace-mapping`) points at the same text in the `.ucf` file; for SCSS blocks, every segment lands inside the block's content range;
-  - `ScssSyntaxError.ucf` gives one `style-compile-error` at the `.ucf` line and column of the broken rule.
+  - `ScssSyntaxError.ucf` and `CssSyntaxError.ucf` each give one `style-compile-error` at the `.ucf` line and column of the broken rule.
+  - `packages/vite/test/vueCompiler.spec.ts`: `compileStyles` takes the compiler `getVueCompiler()` returns.
+- Status: done
 
 ### 1.9 Build context, the `<style>` kind's `build`, `$style` class maps
 
@@ -306,7 +312,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
     `createBuildContext` computes `scopeId(relativePath, source, production)`, then calls `fillContext` of every `shared` kind in registry order. It does not run checks: hosts call `checkBlocks` first.
   - `blocks/style.ts`: `fillContext` calls `compileStyles(split.styles, …)` and fills `ctx.styles`, `ctx.modules` and `ctx.hasScoped`. `build(block, ctx)` returns `{ext: '.css', code, map}` from `ctx.styles[block.index]`.
-  - `packages/core/src/ids.ts`, the style module ids of spec 4.3:
+  - `packages/core/src/ids.ts`, the style module ids of spec 4.3 (`styleId` is there since 1.8; this step adds `classMapId`):
 
     ```ts
     export function styleId(filename: string, index: number): string;    // `${filename}?ucf&type=style&index=${index}&lang.css`
@@ -347,10 +353,10 @@ None: this is the first milestone. It builds on what the repo already has:
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2) | M2 to M7 |
 | Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |
-| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ScssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
+| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ScssSyntaxError`, `CssSyntaxError` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
-| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki` 4.4.3, `@jridgewell/trace-mapping` (exact pins) | M2 to M7 |
+| Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki` 4.4.3, `@jridgewell/trace-mapping` 0.3.31 (exact pins) | M2 to M7 |
 | Commands | `pnpm devx test` runs the `e2e` project; one area: `pnpm devx test packages/e2e/build` | everyone |
 
 ## Exit test

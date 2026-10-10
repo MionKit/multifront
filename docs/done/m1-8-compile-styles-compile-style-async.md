@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 1
 step: 1.8
@@ -121,6 +121,12 @@ None: the step names no fuzz test (orchestrator decision).
 - `createBuildContext`, `fillContext` and `build` on the style kind, `classMapId` (1.9). The exit test (1.10).
 - `less` and `stylus` fixtures (risk 8). Vite's `css.preprocessorOptions` reaching ours (risk 2).
 - Any Vite plugin hook (M3).
+
+## Found while building
+
+- `packages/e2e/build/scope-id.spec.ts` (1.7) timed out about one full run in eight once this step's tests added
+  load: when Vite's dep optimizer finished before `server.transformRequest()`, the request never resolved. The dev
+  server there now runs with `optimizeDeps: {noDiscovery: true}` (no optimizer); 30 full runs green after, own commit.
 
 ## Decisions
 
