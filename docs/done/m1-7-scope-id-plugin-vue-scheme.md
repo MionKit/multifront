@@ -33,13 +33,19 @@ raw file text.
      `tsconfig.base.json` already has `types: ["node"]`, root `engines.node >= 26` has `crypto.hash`.
 2. **`packages/core/src/index.ts`**: `export {scopeId} from './scopeId.ts';`.
 3. **`packages/e2e/build/lib/build.ts`** (new, area helper per milestones README "Test helpers live in
-   `<area>/lib/`"): `buildApp(root)` runs the production `vite.build()` that `vue-reference.spec.ts` runs today
-   (`NODE_ENV=production` around it, `logLevel: 'silent'`, `build: {write: false, minify: false}`) and returns
-   `{chunks, cssAssets}` (CSS sources decoded to string). Beside it, `exportedScopeId(code)` reads the `__scopeId`
-   value out of a component module (dev or build), the regex `vue-reference.spec.ts` had inline.
-   `vue-reference.spec.ts` switches to both, its checks unchanged.
-   1.10 reuses it. Not run by Vitest (`include` is `build/**/*.spec.ts`), checked by `packages/e2e/tsconfig.json`
-   (`include` has `build`).
+   `<area>/lib/`"):
+   - `withNodeEnv(mode, run)`: runs `run` with `NODE_ENV` set to `mode`, then restores it (deletes it when it was
+     unset). plugin-vue picks its dev or production scope id from it, and Vitest only sets `test` when the shell
+     has none, so each test pins its own mode.
+   - `buildApp(root)`: the production `vite.build()` that `vue-reference.spec.ts` ran inline (inside
+     `withNodeEnv('production')`, `logLevel: 'silent'`, `build: {write: false, minify: false}`). Returns
+     `{chunks, css}`, `css` being each CSS asset's source as a string.
+   - `exportedScopeId(code)`: the `__scopeId` value of a component module (dev or build), the regex
+     `vue-reference.spec.ts` had inline.
+   - `vue-reference.spec.ts` switches to `buildApp` and `exportedScopeId`, its checks unchanged.
+   - Not collected by Vitest (its `include` only matches `*.spec.ts`), checked by `packages/e2e/tsconfig.json`
+     (`include` has `build`).
+   - `NODE_ENV` gets a `REGISTRY` row in `scripts/lib/env.mjs` (scope `internal`): the helpers read and set it.
 4. **Milestone doc**: step 1.7 gets `- Status: done`. Step text and "Hands to later milestones" already match.
 5. **`docs/spec.md`** 3.3 Scope id: "relative to the package root" becomes "relative to the Vite root".
 
@@ -48,12 +54,12 @@ raw file text.
 `packages/e2e/build/scope-id.spec.ts` (area **Build**), real plugin-vue with no `componentIdGenerator`, on a fresh
 `copyApp('vue-reference')` (cleanup returned from `beforeAll`). Expected values read `src/Reference.vue` from the copy.
 
-- **production**: `buildApp(root)`; the single `__scopeId` `data-v-<hex>` in the JS chunk, and every `data-v-` in the
-  CSS asset, equal `'data-v-' + scopeId('src/Reference.vue', source, true)`.
-- **development**: `createServer({root, logLevel: 'silent', server: {middlewareMode: true, ws: false}})` (app's own
-  `vite.config.ts`), `server.transformRequest('/src/Reference.vue')`; the `__scopeId` value equals
-  `'data-v-' + scopeId('src/Reference.vue', source, false)`. Server closed in `finally`. Vitest's `NODE_ENV=test`
-  gives plugin-vue `isProduction: false`, the dev path.
+- **production**: `buildApp(root)`; the `__scopeId` value in the JS chunk equals
+  `'data-v-' + scopeId('src/Reference.vue', source, true)`. That the CSS carries the same id, in one chunk and one
+  CSS asset, is already pinned by `vue-reference.spec.ts` on the same build.
+- **development**: inside `withNodeEnv('development')`, `createServer({root, logLevel: 'silent', server:
+  {middlewareMode: true, ws: false}})` (app's own `vite.config.ts`), `server.transformRequest('/src/Reference.vue')`;
+  the `__scopeId` value equals `'data-v-' + scopeId('src/Reference.vue', source, false)`. Server closed in `finally`.
 - Also: the dev and production ids differ, so the test cannot pass if `production` were ignored.
 - Fails without `scopeId` (import error), or with any drift from plugin-vue's scheme (wrong hash, length, input
   order, ignored `production`).
@@ -80,6 +86,11 @@ already pin the input shape, which is where drift could come from.
 - One shared `build/lib/build.ts` for the production build, `vue-reference.spec.ts` moved onto it with its checks
   unchanged (orchestrator, decision rule 1).
 - No fuzz test (orchestrator agreed).
+- Review: `scopeId` does not validate `relativePath` (no throw on a leading `/` or `./`). plugin-vue hashes whatever
+  path it has, and the inputs come from core's own `createBuildContext` (1.9) or from plugin-vue's
+  `componentIdGenerator` (M4); a guard could only make the two drift.
+- Review: the production test stays in `scope-id.spec.ts` on the shared `buildApp`, as step 1.7 and the orchestrator
+  asked, instead of one more assertion in `vue-reference.spec.ts`.
 
 ## Out of scope
 
