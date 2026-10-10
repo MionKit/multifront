@@ -1,0 +1,12 @@
+{
+  // A consumer of the built package: no `source` condition, so the import resolves to dist/*.d.ts.
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "files": ["index.ts"]
+}
