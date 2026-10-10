@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.8
@@ -110,12 +110,13 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
 - `packages/e2e/fixtures/components/imports/VueOnly.ucf`: `<vue>` only. New shared folder.
 - `editor/tsconfig.json`: the imports app's compiler options (`jsx: react-jsx`, `module: preserve`,
   `moduleResolution: bundler`, `strict`, `noEmit`, `skipLibCheck`), `include: ["*.ucf"]`, no plugin entry (the global
-  plugin serves it), so tsserver opens these files in a configured project, as a user's project would.
+  plugin serves it), so tsserver opens these files in a configured project, as a user's project would. Without it
+  they land in an inferred project with no `jsx` option, and `Profile.ucf` gets TS7026 errors.
 - New snapshots `editor/__snapshots__/virtualCode/editor/{Profile,ImportErrors}.ucf.react.tsx` (2.4's loop), committed.
 
 ### 5. Test helper `packages/e2e/editor/lib/tsserver.ts`
 
-`startTsserver({cwd, plugins}): Promise<Tsserver>` with `request(command, args)`, `diagnostics(file)` (syntactic +
+`startTsserver({cwd, plugins}): Tsserver` with `request(command, args)`, `diagnostics(file)` (syntactic +
 semantic sync commands) and `stop()`. Spawns `process.execPath --conditions=source <typescript 6.0.3>/lib/tsserver.js
 --globalPlugins <plugins> --pluginProbeLocations packages/e2e --disableAutomaticTypingAcquisition`: the plugin is found
 as installed in `packages/e2e/node_modules`, as `lsp.ts` does for the server. Content-Length protocol, responses
