@@ -23,7 +23,7 @@ function tokenAt({tokens}: Tokenized, offset: number): ScopedToken {
   return token;
 }
 
-// The token of the first `needle` inside the `tag` block; `skip` moves past a prefix of the needle.
+// `skip` moves past a prefix of the needle.
 function tokenIn(file: Tokenized, tag: BlockTag, needle: string, skip = 0): ScopedToken {
   const block = file.blocks.find((candidate) => candidate.type === tag)!;
   const at = file.source.indexOf(needle, block.contentStart);
