@@ -4,5 +4,7 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["build", "browser", "editor", "consumer", "devx", "fixtures/index.ts", "*.config.ts"]
+  "include": ["build", "browser", "editor", "consumer", "devx", "fixtures/index.ts", "*.config.ts"],
+  // File snapshots keep the generated code as is: a .tsx one is not a source file of this package.
+  "exclude": ["**/__snapshots__"]
 }
