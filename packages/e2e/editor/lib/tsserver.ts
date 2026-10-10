@@ -29,7 +29,7 @@ const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver
 const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const HEADER = 'Content-Length: ';
 
-/** 1-based line and offset of `needle` (plus `shift` characters) in `source`, as tsserver counts. */
+/** tsserver's 1-based location of `needle` in `source`, `shift` characters past its start. */
 export function locate(source: string, needle: string, shift = 0): TsLocation {
   const index = source.indexOf(needle);
   if (index < 0) throw new Error(`${needle} not found`);
@@ -37,13 +37,11 @@ export function locate(source: string, needle: string, shift = 0): TsLocation {
   return {line: before.length, offset: before.at(-1)!.length + 1};
 }
 
-/** The offset in `source` of a tsserver location. */
 export function offsetAt(source: string, {line, offset}: TsLocation): number {
   const lines = source.split('\n').slice(0, line - 1);
   return lines.reduce((sum, text) => sum + text.length + 1, 0) + offset - 1;
 }
 
-/** A span tsserver returned starts inside the content of `component`'s first `<tag>` block. */
 export function inBlock({filename, source}: Component, tag: BlockTag, {file, start}: {file: string; start: TsLocation}): boolean {
   const block = splitBlocks(source, filename).blocks.find(({type}) => type === tag);
   const offset = offsetAt(source, start);

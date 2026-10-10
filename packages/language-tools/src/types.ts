@@ -61,6 +61,6 @@ export interface UcfImportOptions extends ResolveTargetOptions {
 
 /** Plus the error the plugin reports at the import. */
 export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocations {
-  target?: Target; // the framework this import picked; undefined when `resolveTarget` gave an error
+  target?: Target; // undefined when `resolveTarget` gave an error
   error?: Pick<Diagnostic, 'code' | 'message'>;
 }

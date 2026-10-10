@@ -41,7 +41,7 @@ const MIXED = readApp('src/mixed.ts');
 const onLine = (diagnostics: TsDiagnostic[], line: number) => diagnostics.filter(({start}) => start.line === line);
 const codesOnLine = (diagnostics: TsDiagnostic[], line: number) => onLine(diagnostics, line).map(({code}) => code);
 
-/** An unsaved edit, as an editor sends it; resolves to the edit that puts the text back. */
+/** An unsaved edit; resolves to its undo. */
 async function edit(server: Tsserver, {filename, source}: Component, needle: string, newText: string) {
   const start = locate(source, needle);
   const end = locate(source, needle, needle.length);
@@ -51,7 +51,6 @@ async function edit(server: Tsserver, {filename, source}: Component, needle: str
   return () => change(needle, locate(source.replace(needle, newText), newText, newText.length));
 }
 
-/** An unsaved edit makes App.tsx's `<Card` line a TS2322; putting the text back clears it. */
 async function expectCardPropError(server: Tsserver, component: Component, needle: string, newText: string) {
   const revert = await edit(server, component, needle, newText);
   try {
