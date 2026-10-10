@@ -1,7 +1,7 @@
 import {rm} from 'node:fs/promises';
-import {build, type Rolldown} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp} from '../fixtures/index.ts';
+import {buildApp, exportedScopeId} from './lib/build.ts';
 
 let root: string;
 
@@ -18,29 +18,14 @@ function rulesFor(css: string, selector: string): string[] {
 
 describe('vue-reference app, built by plugin-vue alone', () => {
   it('stamps one scope id on the component and on its scoped CSS', async () => {
-    // Vitest sets NODE_ENV=test and Vite keeps it, which would give plugin-vue's dev scope id, not a real build's.
-    const nodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-    let result: Awaited<ReturnType<typeof build>>;
-    try {
-      result = await build({root, logLevel: 'silent', build: {write: false, minify: false}});
-    } finally {
-      process.env.NODE_ENV = nodeEnv;
-    }
-    const bundle = Array.isArray(result) ? result[0]! : result;
-    if (!('output' in bundle)) throw new Error('vite.build() returned a watcher');
-    const chunks = bundle.output.filter((file): file is Rolldown.OutputChunk => file.type === 'chunk');
-    const cssAssets = bundle.output.filter(
-      (file): file is Rolldown.OutputAsset => file.type === 'asset' && file.fileName.endsWith('.css')
-    );
+    const {chunks, cssAssets} = await buildApp(root);
     expect(chunks).toHaveLength(1);
     expect(cssAssets).toHaveLength(1);
 
-    const scopeId = /\[\s*["']__scopeId["']\s*,\s*["'](data-v-[0-9a-f]+)["']\s*\]/.exec(chunks[0]!.code)?.[1];
+    const scopeId = exportedScopeId(chunks[0]!.code);
     expect(scopeId).toMatch(/^data-v-[0-9a-f]{8}$/);
 
-    const asset = cssAssets[0]!;
-    const css = typeof asset.source === 'string' ? asset.source : new TextDecoder().decode(asset.source);
+    const {css} = cssAssets[0]!;
     expect(new Set(css.match(/data-v-[0-9a-f]+/g))).toEqual(new Set([scopeId]));
     expect(rulesFor(css, '.title')).toEqual([`.title[${scopeId}]`]);
     expect(rulesFor(css, '.box')).toEqual([`.box[${scopeId}]`]);

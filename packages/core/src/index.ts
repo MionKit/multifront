@@ -13,6 +13,7 @@ export type {
   Target,
 } from './types.ts';
 export {BLOCK_KINDS, checkBlocks, getBlockKind} from './blocks/index.ts';
+export {scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
 
 /** Every target, in the order a library build emits them. */
