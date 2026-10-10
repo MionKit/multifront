@@ -5,6 +5,15 @@ export function describeDiagnostic({message, code}: Pick<Diagnostic, 'message' |
   return `${message} (${code})`;
 }
 
+/** A `resolveTarget` error on one `.ucf` import; no importer is a build entry. */
+export function importErrorMessage(
+  specifier: string,
+  importerFile: string | undefined,
+  error: Pick<Diagnostic, 'message' | 'code'>
+): string {
+  return `${specifier} (imported by ${importerFile ?? 'a build entry'}): ${describeDiagnostic(error)}`;
+}
+
 /** For `this.error`. */
 export function rollupError(diagnostics: Diagnostic[]): Rolldown.RollupError {
   const [first, ...rest] = diagnostics;

@@ -11,7 +11,8 @@ import {
 } from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
-import {describeDiagnostic, rollupError} from './diagnostics.ts';
+import {attributesPlugin} from './attributes.ts';
+import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions} from './types.ts';
 import {getVueCompiler} from './vueCompiler.ts';
 
@@ -104,9 +105,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const choice = resolveTarget(from, query.get('framework') ?? undefined, options);
         // The scan never sees the attribute; the real pipeline reports what it cannot place.
         if (scan && ('error' in choice || choice.target !== 'react')) return {id: file, external: true};
-        if ('error' in choice) {
-          this.error(`${path} (imported by ${from?.fileName ?? 'a build entry'}): ${describeDiagnostic(choice.error)}`);
-        }
+        if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, choice.error));
         const {target} = choice;
         if (!(await cache.splitUcf(file)).targets[target]) {
           if (scan) return {id: file, external: true};
@@ -149,5 +148,5 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     },
     api,
   };
-  return [pre];
+  return [pre, attributesPlugin(options)];
 }

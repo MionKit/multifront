@@ -2,7 +2,7 @@ import {topLevelTags} from './scan.ts';
 import type {Block, Diagnostic, DiagnosticCode, SplitResult} from './types.ts';
 
 // Lines break on '\n' only, like Rollup's locator; columns are 0-based UTF-16 offsets.
-function locate(source: string, offset: number): Pick<Diagnostic, 'line' | 'column'> {
+export function locate(source: string, offset: number): Pick<Diagnostic, 'line' | 'column'> {
   const lines = source.slice(0, offset).split('\n');
   return {line: lines.length, column: lines.at(-1)!.length};
 }

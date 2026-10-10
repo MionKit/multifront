@@ -25,7 +25,7 @@ export type {
 } from './types.ts';
 export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {createBuildContext} from './context.ts';
-export {DiagnosticsError} from './diagnostics.ts';
+export {DiagnosticsError, locate} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
 export {
   DEFAULT_IMPORTERS,
