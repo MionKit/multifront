@@ -1,4 +1,4 @@
-// peer-floor: pins the bottom of @multifront/vite's peer ranges for one framework, so CI tests the oldest supported versions.
+// Pins the bottom of @multifront/vite's peer ranges for one framework, so CI tests the oldest supported versions.
 import {existsSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {REPO_ROOT} from './env.mjs';
@@ -32,7 +32,6 @@ export function withOverrides(workspaceYaml, overrides) {
   return `${workspaceYaml.replace(/\n*$/, '\n')}\noverrides:\n${lines.join('\n')}\n`;
 }
 
-// Every copy pnpm linked into the root or a workspace package, with the version it holds.
 export function installedVersions(names) {
   const dirs = ['', ...listPackages().map((pkg) => pkg.dir)];
   const found = [];

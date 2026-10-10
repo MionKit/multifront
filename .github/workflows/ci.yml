@@ -67,7 +67,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Rewrites pnpm-workspace.yaml and the lockfile of this throwaway checkout, and prints the installed floor.
       - run: pnpm devx peer-floor react
-      # The same caches and Chromium as the check job.
       - *vscode-cache
       - *playwright-version
       - *playwright-cache

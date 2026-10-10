@@ -15,12 +15,11 @@ function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
   return url;
 }
 
-/** A real dev server of the app on a free port. Edit only a `copyApp()` copy. */
+/** Edit only a `copyApp()` copy, never the fixture itself. */
 export async function startDev(appDir: string) {
   // Own cache per server: apps in one package share `node_modules/.vite` otherwise.
   const cacheDir = await tempDir('dev-cache-');
-  // Vite's dep optimizer hashes NODE_ENV whenever it runs: a change while the server lives (Vitest's `test` back)
-  // marks the optimized deps outdated, and the page gets 504s.
+  // Held until close: the dep optimizer hashes NODE_ENV, so `test` back mid-server marks deps outdated and pages 504.
   const savedNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
   const restore = async () => {
@@ -53,7 +52,6 @@ export async function startDev(appDir: string) {
   }
 }
 
-/** A production build of the app, served by `vite preview` on a free port. */
 export async function buildAndPreview(appDir: string) {
   const outDir = await tempDir('preview-');
   const removeOut = () => rm(outDir, {recursive: true, force: true});
