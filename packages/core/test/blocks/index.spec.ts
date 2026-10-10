@@ -1,4 +1,3 @@
-import {createRequire} from 'node:module';
 import {describe, expect, it} from 'vitest';
 import {
   BLOCK_KINDS,
@@ -8,13 +7,14 @@ import {
   checkBlocks,
   createBuildContext,
   getBlockKind,
+  loadVueCompiler,
   splitBlocks,
 } from '@multifront/core';
-import type {Diagnostic, Target, VueCompiler} from '@multifront/core';
+import type {Diagnostic, Target} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, readComponent} from '../../../e2e/fixtures/index.ts';
 
-const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
+const compiler = loadVueCompiler(import.meta.dirname);
 
 async function load(name: string) {
   const {filename, source} = readComponent(name);

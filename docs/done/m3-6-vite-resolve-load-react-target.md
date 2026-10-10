@@ -39,9 +39,9 @@ target row.
 
 ### 2. `packages/vite/src/cache.ts`
 
-- `createUcfCache(contextOptions: () => BuildContextOptions): UcfCache`,
-  `UcfCache = {splitUcf(file): Promise<SplitResult>; loadUcf(file): Promise<UcfEntry>}`, `UcfEntry = {split, ctx}`
-  (both in `packages/vite/src/types.ts`).
+- `createUcfCache(contextOptions: () => BuildContextOptions)` returns
+  `{splitUcf(file): Promise<SplitResult>; loadUcf(file): Promise<UcfEntry>}`, `UcfEntry = {split, ctx}` (in
+  `cache.ts`, its only user; the return type is inferred).
 - Each call reads the file; same content reuses the split and, for `loadUcf`, one `createBuildContext` promise; new
   content = new split, no context. `splitUcf` serves `resolveId` (no style compile there). Options are read lazily:
   the compiler is borrowed only after plugin-vue's `buildStart`. 3.15 updates it from `hotUpdate`.
@@ -50,7 +50,8 @@ target row.
 
 - Returns `[pre]` (3.7 appends `multifront:attributes`). The pre plugin keeps name `multifront`, `enforce: 'pre'`,
   `api.vueCompiler`, the `framework`-not-enabled throw; `frameworks` defaults to all three.
-- `MultifrontOptions` (`types.ts`) gains `importers?: Record<string, Target>`; all three go to `resolveTarget`.
+- `MultifrontOptions` (`types.ts`) = core's `ResolveTargetOptions` (`frameworks`, `framework`, `importers`), passed
+  to `resolveTarget` as is.
 - Context options: `root = config.root`, `production = config.isProduction`, `compiler = api.vueCompiler`.
 - `config` hook: `{optimizeDeps: {rolldownOptions: {plugins: [scanPlugin]}}}`; `scanPlugin` (`multifront:scan`)
   `load` with filter `/\.ucf\.react\.tsx$/` reads the `.ucf` and returns `{code: <react> block content, moduleType:
@@ -61,7 +62,11 @@ target row.
   - path ends in `.ucf` and the query is empty or only `framework`: `this.resolve(path, importer, {...options,
     skipSelf: true})`; unresolved → `null`; external → as is. Then `resolveTarget(importer ? importerFromId(importer) :
     undefined, query.get('framework') ?? undefined, options)`, then `splitUcf(file)` must have that block. Returns
-    `file + '.react.tsx'`, bare `file` (vue), `file + '.svelte.svelte'`;
+    `file + '.react.tsx'`, bare `file` (vue), `file + '.svelte.svelte'`. With no importer, the missing-block message
+    is `<file> has no <target> block`. An own target id that is unresolved or external gives `null`;
+  - dev only: a bare `.ucf` URL with no importer, or Vite's default importer (the root `index.html`), is the Vue
+    id, returned as the file. Vite resolves the file `load` watches from the module itself: an in-block importer
+    resolving its own file gets the real file, so the edge points at the `.ucf` file;
   - any other query (`?ucf&type=style…`, `?raw`): `undefined`, so Vite resolves path + query itself (our style and
     class map ids pass through this way);
   - errors: `this.error` with message and code; a `resolveTarget` error prefixed with the specifier and the importer;
@@ -91,14 +96,13 @@ target row.
 ### 5. Existing tests for the array
 
 - `packages/vite/test/vueCompiler.spec.ts:37`: `probe([...multifront(), vue()])`.
-- `packages/e2e/build/build-context.spec.ts:24`: `const [mf] = multifront()`.
+- `packages/e2e/build/build-context.spec.ts:24`: `const mf = multifront()[0]!`.
 
 ### 6. Test infra: fixture `vite.config.ts` loads `@multifront/vite` from source
 
 - Vite's `bundle` and `runner` config loaders resolve `@multifront/vite` to `dist/` (stale, missing in CI where tests
   run before `pnpm devx build`). Only `configLoader: 'native'` under Node `--conditions=source` loads `src/`.
-- `packages/e2e/vitest.config.ts`: `test.execArgv: ['--conditions=source']` (root `vitest.config.ts` if vitest takes
-  it only there). No third-party package in the store has a `source` condition; e2e child processes use `spawn`,
+- `packages/e2e/vitest.config.ts`: `test.execArgv: ['--conditions=source']`. No third-party package in the store has a `source` condition; e2e child processes use `spawn`,
   which does not inherit execArgv.
 - `packages/e2e/build/lib/build.ts`: `APP_CONFIG_LOADER = 'native'`, used by `buildApp`'s base config and by the dev
   scan test's `createServer`.
@@ -107,8 +111,8 @@ target row.
 
 ### 7. Fixtures
 
-- `packages/e2e/fixtures/components/imports/Icon.ucf`: `<react>` (`<svg>` with `className={$style.icon}`, text
-  `icon-react-marker`), `<style module>` `.icon`.
+- `packages/e2e/fixtures/components/imports/Icon.ucf`: `<react>` (`<svg>` with `className={$style.icon}`,
+  `aria-label` `icon-react-marker`), `<style module>` `.icon`.
 - `imports/UsesIcon.ucf`: `<react>` `import Icon from './Icon.ucf'` (no attribute), renders
   `<span className="uses-icon"><Icon /> uses-icon-react-marker</span>`; global `<style>` `.uses-icon`. M4, M6 add
   their blocks.
@@ -116,7 +120,10 @@ target row.
   multifront()]})`; `src/main.tsx` (`StrictMode` from `react`, `createRoot` from `react-dom/client`, AllBlocks
   `../../../components/react/AllBlocks.ucf` and UsesIcon rendered into `#app`); `src/errors/missing-block.tsx`
   (imports `imports/VueOnly.ucf`), `src/errors/no-default.tsx` (imports `react/errors/NoDefault.ucf`),
-  `src/errors/vue-pick.ts` (imports `react/AllBlocks.ucf?framework=vue`: the form 3.7's rewrite emits).
+  `src/errors/vue-pick.ts` (imports `react/AllBlocks.ucf?framework=vue`: the form 3.7's rewrite emits),
+  `svelte-pick.ts`, `unknown-pick.ts` (`?framework=angular`), `style-lang.tsx` (`invalid/UnknownStyleLang.ucf`),
+  `style-syntax.tsx` (`invalid/CssSyntaxError.ucf`), `two-syntax-errors.tsx` (`react/errors/TwoSyntaxErrors.ucf`);
+  `src/plain.ts` (a `.ts` importer, no rule picks a framework for it).
 
 ## Tests
 
@@ -134,9 +141,22 @@ All on this host and the CI `check` job (`pnpm devx test`). No Chromium. New inf
   - error entries (`build.rolldownOptions.input`), each rejected: `missing-block.tsx` → `missing-target-block`, the
     message names `VueOnly.ucf` and `missing-block.tsx`; `no-default.tsx` → `react-no-default-export` and
     `NoDefault.ucf:<line>:<column>` (from `react.check` on the fixture); `vue-pick.ts` → `target-not-built`, `vue`.
+  - more error entries: `TwoSyntaxErrors` gives the first error with its `loc` and the second as a
+    `file:line:column` line; the style entries give `unknown-style-lang` / `style-compile-error` at one of their
+    places; the svelte pick `target-not-built`; `unknown-pick.ts` `unknown-framework`, naming the import and its
+    importer.
+  - the class map: every generated class of every module style is in the bundle.
+  - options: `src/plain.ts` fails with `no-target`, and builds with `importers: {'.ts': 'react'}`; `AllBlocks.ucf` as
+    an entry fails (`imported by a build entry`) and builds with `framework: 'react'`; `VueOnly.ucf` as an entry
+    names the file alone; the same plugin instance builds a changed `.ucf` (in `.tmp`) again with the new text.
   - dev scan: `createServer` on `react-basic` (native loader, `cacheDir` in a temp dir under `.tmp`, middleware mode,
-    a capturing `customLogger`); after `depsOptimizer.scanProcessing`: no error logged and `metadata.discovered` has
-    `react-dom/client` (without the scan plugin the scan logs "Failed to scan for dependencies" and skips pre-bundling).
+    a capturing `customLogger`, `optimizeDeps.entries` over every entry but `two-syntax-errors.tsx`); after
+    `depsOptimizer.scanProcessing`: no error logged (every non-react pick and error is external) and
+    `metadata.discovered` has `react-dom/client` (without the scan plugin the scan logs "Failed to scan for
+    dependencies" and skips pre-bundling). The React module's URL from `main.tsx` serves it, with an edge to the real
+    `.ucf` file; `/@fs/<AllBlocks.ucf>` gives `target-not-built`. `afterAll` waits for `waitForRequestsIdle()` before
+    `close()`: Vite's close never settles during its first crawl, with or without multifront (seen on a plain React
+    app); 3.9's `startDev` close needs the same.
 - `packages/core/test/blocks/index.spec.ts`, `describe('buildTarget')`: `react/AllBlocks.ucf` react = `react.build`;
   `react/errors/NoDefault.ucf` throws `DiagnosticsError` with `react-no-default-export` at its line and column;
   `imports/VueOnly.ucf` react → `missing-target-block`; AllBlocks vue and svelte → `target-not-built`.
@@ -173,6 +193,8 @@ Orchestrator's answers to the plan:
 - `react-dom` becomes a root devDependency in 3.6, not 3.7: test tools are root devDependencies, the fixture needs it now.
 - The vue-pick error entry writes `?framework=vue`: the exact form 3.7's rewrite emits; 3.7 covers the attribute form.
 - `createUcfCache` returns `{splitUcf, loadUcf}`; the hand-off row names the factory.
+- Review (automatic): every finding fixed, except `buildTarget(ctx, target)` (the README's shared names fix
+  `buildTarget(split, ctx, target)`) and `loadUcf` returning `BuildContext` (the hand-off names `UcfEntry`).
 - Also: the `missing-target-block` message lives in core, shared with language-tools; in scan mode non-react picks and
   errors are external, with no error; fixture configs load from source through the native loader.
 
