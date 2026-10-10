@@ -29,7 +29,7 @@ export function readComponent(name: string): {filename: string; source: string} 
   return {filename, source: readFileSync(filename, 'utf8')};
 }
 
-/** The `.ucf` names directly in `components/` (or one subfolder of it), sorted, with the folder prefix. */
+/** Not recursive; names keep the `folder/` prefix. */
 export function listComponents(folder?: string): string[] {
   const prefix = folder ? `${folder}/` : '';
   return readdirSync(componentPath(prefix), {withFileTypes: true})

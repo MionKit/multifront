@@ -4,7 +4,6 @@ import {TARGETS, getBlockKind, splitBlocks} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 
-// Syntax errors only, from the real TypeScript parser reading the block as a .tsx file.
 function tsxSyntaxErrors(code: string): string[] {
   const file = ts.createSourceFile('Block.tsx', code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
   const host = ts.createCompilerHost({});
