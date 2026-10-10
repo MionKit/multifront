@@ -19,7 +19,7 @@ interface Loaded {
 
 const loaded: Loaded[] = [];
 
-// What a later host does in a hook: split, check, then build the context with the compiler multifront borrowed.
+// What a later host does in a hook, with the compiler multifront borrowed.
 beforeAll(async () => {
   const mf = multifront();
   const probe: Plugin = {
