@@ -6,12 +6,12 @@ import type * as ts from 'typescript';
 export type TsDiagnostic = ts.server.protocol.Diagnostic;
 
 export interface Tsserver {
-  request<T = unknown>(command: string, args?: object): Promise<T>;
+  request<Body = unknown>(command: string, args?: object): Promise<Body>;
   diagnostics(file: string): Promise<TsDiagnostic[]>; // syntactic, then semantic
   stop(): Promise<void>;
 }
 
-export interface TsserverOptions {
+interface TsserverOptions {
   cwd: string;
   plugins: string[]; // global plugins, found as installed in packages/e2e/node_modules
 }
@@ -48,13 +48,17 @@ export function startTsserver({cwd, plugins}: TsserverOptions): Tsserver {
       else waiting?.reject(new Error(`tsserver ${response.command}: ${response.message}`));
     }
   });
+  const running = (): boolean => child.exitCode === null && child.signalCode === null;
   const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  // A crash closes stdin: the write fails there, and every waiting request is rejected below.
+  child.stdin.on('error', () => {});
   void exited.then(() => {
     for (const waiting of pending.values()) waiting.reject(new Error('tsserver exited'));
   });
 
-  const request = <T>(command: string, args?: object): Promise<T> =>
-    new Promise<T>((resolve, reject) => {
+  const request = <Body>(command: string, args?: object): Promise<Body> =>
+    new Promise<Body>((resolve, reject) => {
+      if (!running()) return reject(new Error('tsserver exited'));
       seq += 1;
       pending.set(seq, {resolve: resolve as (body: unknown) => void, reject});
       child.stdin.write(`${JSON.stringify({seq, type: 'request', command, arguments: args})}\n`);
@@ -68,7 +72,7 @@ export function startTsserver({cwd, plugins}: TsserverOptions): Tsserver {
       return [...syntactic, ...semantic];
     },
     async stop() {
-      child.stdin.write(`${JSON.stringify({seq: ++seq, type: 'request', command: 'exit'})}\n`);
+      if (running()) child.stdin.write(`${JSON.stringify({seq: ++seq, type: 'request', command: 'exit'})}\n`);
       const timeout = setTimeout(() => child.kill(), 5000);
       await exited;
       clearTimeout(timeout);
