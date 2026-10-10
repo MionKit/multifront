@@ -27,6 +27,7 @@ These sit on the path of a `.ucf` import. [Imports](04-imports.md) says how an i
 | `framework-in-block` | Remove the `framework` attribute: an import in `<react>` always gets react. |
 | `missing-target-block` | Add the block the import picks to the imported file, or pick a framework the file has. |
 | `unknown-framework` | Use `vue`, `react` or `svelte` as the `framework` value. |
+| `target-not-enabled` | Pick one of the frameworks the message names, or add this one to the `frameworks` option. |
 | `no-target` | Add `with {framework: 'react'}`, import from a `.tsx` file, or set the `framework` option. |
 | `target-not-built` | The import picks vue or svelte, and the editor has types for React components only. The message names the rule that picked it. |
 | `mixed-frameworks` | A warning: one file imports the same path as two frameworks. Import each from its own small file that re-exports it. |
