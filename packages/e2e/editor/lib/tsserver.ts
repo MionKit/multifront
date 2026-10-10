@@ -1,5 +1,6 @@
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
+import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {splitBlocks} from '@multifront/core';
 import type {BlockTag} from '@multifront/core';
@@ -22,11 +23,18 @@ export interface Tsserver {
 
 interface TsserverOptions {
   cwd: string;
-  plugins: string[]; // global plugins, found as installed in packages/e2e/node_modules
+  plugins: string[]; // global plugins
+  probeLocations?: string[]; // where tsserver looks for plugins first; default: packages/e2e, as installed there
+  source?: boolean; // run workspace packages from source; default true
+  isolated?: boolean; // no workspace package resolves next to tsserver.js, so only the probe locations give plugins
+  logFile?: string;
 }
 
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
 const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
+// The root link: with symlinks kept, tsserver's own `../../..` plugin lookup is the root node_modules, which holds
+// no workspace package (the real path's `.pnpm/node_modules` holds them all).
+const ROOT_TSSERVER = join(E2E_DIR, '..', '..', 'node_modules', 'typescript', 'lib', 'tsserver.js');
 const HEADER = 'Content-Length: ';
 
 /** tsserver's 1-based location of `needle` in `source`, `shift` characters past its start. */
@@ -52,10 +60,16 @@ export function open(server: Tsserver, files: Component[]): Promise<unknown> {
   return server.request('updateOpen', {openFiles: files.map(({filename, source}) => ({file: filename, fileContent: source}))});
 }
 
-/** The real tsserver over its stdio protocol; plugins run from source, as the workspace links them. */
-export function startTsserver({cwd, plugins}: TsserverOptions): Tsserver {
-  const args = ['--conditions=source', TSSERVER, '--disableAutomaticTypingAcquisition'];
-  if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','), '--pluginProbeLocations', E2E_DIR);
+/** The real tsserver over its stdio protocol; plugins run from source by default, as the workspace links them. */
+export function startTsserver(options: TsserverOptions): Tsserver {
+  const {cwd, plugins, probeLocations = [E2E_DIR], source = true, isolated = false, logFile} = options;
+  const args = [
+    ...(source ? ['--conditions=source'] : []),
+    ...(isolated ? ['--preserve-symlinks', '--preserve-symlinks-main', ROOT_TSSERVER] : [TSSERVER]),
+    '--disableAutomaticTypingAcquisition',
+  ];
+  if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','), '--pluginProbeLocations', probeLocations.join(','));
+  if (logFile) args.push('--logVerbosity', 'normal', '--logFile', logFile);
   const child = spawn(process.execPath, args, {cwd, stdio: ['pipe', 'pipe', 'inherit']});
   const pending = new Map<number, {resolve(body: unknown): void; reject(err: Error): void}>();
   let seq = 0;
