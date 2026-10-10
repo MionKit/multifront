@@ -66,5 +66,6 @@ Add the multifront entry to `compilerOptions.plugins` in `tsconfig.json`. The VS
 
 | Option | Does | Example |
 | --- | --- | --- |
+| `frameworks` | Limits imports to these frameworks, all three by default; picking another is the error `target-not-enabled` | `["react"]` |
 | `framework` | Picks the framework when no other rule does, as for a bare import in a `.ts` file | `"react"` |
 | `importers` | Picks a framework by the importing file's extension, over the defaults of rule 2 | `{".ts": "svelte", ".tsx": "vue"}` |
