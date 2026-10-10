@@ -71,8 +71,7 @@ function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefi
   }
 }
 
-/** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
-export default createLanguageServicePlugin((ts, info) => {
+const volarPlugin = createLanguageServicePlugin((ts, info) => {
   const host = info.languageServiceHost;
   // tsserver's host is a Project instance: its methods need their `this`.
   const resolutionHost: ts.ModuleResolutionHost = {
@@ -136,3 +135,30 @@ export default createLanguageServicePlugin((ts, info) => {
     },
   };
 });
+
+// Symbol.for: one key for every copy of this module, so the VS Code extension's pack and a project's own install agree.
+const SERVED = Symbol.for('multifront.typescript-plugin');
+
+/**
+ * tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2.
+ * The first copy loaded in a project serves it; tsserver loads the project's own entry before global plugins.
+ */
+const plugin: ts.server.PluginModuleFactory = (modules) => {
+  const volar = volarPlugin(modules);
+  return {
+    ...volar,
+    create(info) {
+      const project = info.project as ts.server.Project & {[SERVED]?: true};
+      if (project[SERVED]) {
+        info.project.projectService.logger.info(
+          'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside'
+        );
+        return info.languageService;
+      }
+      project[SERVED] = true;
+      return volar.create(info);
+    },
+  };
+};
+
+export default plugin;
