@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.10
@@ -35,7 +35,7 @@ step: 2.10
 4. `packages/vscode/package.json`: `main: ./dist/extension.cjs`, `activationEvents: ["onLanguage:ucf"]`, `contributes.typescriptServerPlugins: [{name: "multifront-typescript-plugin-pack", enableForWorkspaceTypeScriptVersions: true, languages: ["ucf"]}]`; `files` gets `dist` (replacing `dist/syntaxes`) and `node_modules/multifront-typescript-plugin-pack`; `dependencies` (bundled, exact pins): `@multifront/language-tools` `workspace:*`, `@volar/vscode` 2.4.28, `vscode-languageclient` 9.0.1, `@oxc-parser/binding-wasm32-wasi` 0.149.0.
 5. Root devDependency `@types/vscode` 1.100.0 (exact, matches `engines.vscode`). `pnpm-workspace.yaml`: `peerDependencyRules.allowedVersions` for `@napi-rs/wasm-runtime>@emnapi/core` and `>@emnapi/runtime` = `2.0.0-alpha.3`, with a one-line reason.
 6. `scripts/lib/bundle-vscode.mjs` (new): Vite `build()` (library mode, Rolldown) once per entry: CJS, SSR build (Node built-ins external, every dependency bundled), `source` condition, no minify, `checks.eval: false` (Volar's `eval('require')`), aliases `oxc-parser` → `oxc-parser/src-js/wasm.js` and `@oxc-parser/binding-wasm32-wasi` → resolved from `packages/vscode`. Outputs `dist/extension.cjs` (`vscode`, `typescript` external), `dist/server.cjs`, `dist/typescript-plugin.cjs` (`module.exports = factory`, `typescript` external), copies `dist/parser.wasm32-wasi.wasm`, rewrites `node_modules/multifront-typescript-plugin-pack/{package.json,index.js}`. Fails if the wasm binding version differs from the `oxc-parser` core resolves.
-7. `scripts/devx.mjs` `vsix()`: delete `packages/vscode/dist`, write grammars, bundle, copy `LICENSE`, stage (every `files` entry plus a `package.json` with the pack as only dependency) in a temp folder, `vsce package <version> --no-update-package-json --out packages/vscode/multifront-vscode-<version>.vsix` there, delete the stage. Registry summary and SETUP.md line updated.
+7. `scripts/devx.mjs` `vsix()`: delete `packages/vscode/dist`, write grammars, bundle, copy `LICENSE`, stage (every `files` entry plus a `package.json` with the pack as only dependency) in a temp folder, `vsce package <version> --no-update-package-json --out packages/vscode/multifront-vscode-<version>.vsix` there, delete the stage. Registry summary and SETUP.md updated (SETUP.md also says the command uses the `npm` CLI that ships with Node).
 
 ## Tests
 
@@ -46,7 +46,7 @@ All run on this host and in CI's `check` job (`pnpm devx test`, ubuntu). They ne
   2. Pack alone: tsserver from the repo-root `typescript` link with symlinks preserved (no workspace package resolves next to it), `--globalPlugins multifront-typescript-plugin-pack`, `--pluginProbeLocations <unzipped>/extension`, no `source` condition, on `fixtures/apps/imports/`: the 2.9 `App.tsx` cases again (quickinfo shows `{ title: string; }`, definition lands in Card's `<react>`, a wrong prop is TS2322); the tsserver log shows the project entry failed to load and the pack loaded.
   3. Guard: same, with the project entry also loadable (2.9 setup: `--conditions=source`, probe `packages/e2e` first): the `App.tsx` cases pass, `mixed.ts` has exactly `target-not-built` on its vue line and one `mixed-frameworks` warning on its react line, and the log has the step-aside line. Fails without change 1.
 - Shared cases: the 2.6 server cases and the 2.9 `App.tsx` cases move to `packages/e2e/editor/lib/cases.ts`, called by `server.spec.ts` / `tsserver.spec.ts` and `bundle.spec.ts`. `lib/lsp.ts`: `startLanguageServer(workspace, {server?, initializationOptions?})`. `lib/tsserver.ts`: `startTsserver` gains `source?`, `probeLocations?`, `isolated?`, `logFile?`. `lib/vsix.ts` (new): the temp repo copy, `readZip`, unzip, taken out of `vsix.spec.ts`.
-- `vsix.spec.ts`: expected entries add the four `dist/` files and the pack's `index.js` + `package.json`; the in-folder `vsce ls --no-dependencies` call goes (it cannot list what ships; the zip is checked); the packed manifest has `main`, `activationEvents` and the `typescriptServerPlugins` row; still no vsce warning.
+- `vsix.spec.ts`: a stale file planted in the pack folder must not ship; expected entries add the four `dist/` files and the pack's `index.js` + `package.json`; the in-folder `vsce ls --no-dependencies` call goes (it cannot list what ships; the zip is checked); the packed manifest has `main`, `activationEvents` and the `typescriptServerPlugins` row; still no vsce warning.
 
 ## Docs
 
