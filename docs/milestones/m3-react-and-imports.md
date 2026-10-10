@@ -96,12 +96,12 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
   - A value that is not a string literal is the error `framework-attribute-not-literal`, with its line and column.
   - MagicString edits, so the map is exact.
-  - Adds `oxc-parser` and `magic-string` to core `dependencies`, exact-pinned (newest past the 30 day age).
+  - Adds `magic-string` to core `dependencies`, exact-pinned (newest past the 30 day age); `oxc-parser` is already there (M1).
   - Fixtures: M1's `fixtures/components/Card.ucf` (all three target blocks, a `<style module>`) is the imported file. M2's shared imports set `packages/e2e/fixtures/apps/imports/` gains three sub-projects, each with its own `vite.config.ts` and `tsconfig.json`:
     - `no-default/` (no `framework`): `attribute.ts`, `attribute-over-importer.tsx` (`framework: 'vue'` in a `.tsx`), `reexport.ts`, `export-all.ts`, `dynamic.ts`, `importer.tsx`, `importer.jsx`, `none.ts`, `non-literal.ts`, `unknown.ts` (`framework: 'angular'`), `strings-and-comments.ts` (`.ucf` inside a string and a comment).
     - `default-react/` (`framework: 'react'`): `default.ts`, `importer-over-default.tsx`, `attribute-over-default.ts` (`framework: 'svelte'`).
     - `react-only/` (`frameworks: ['react']`): `not-enabled.ts` (`framework: 'svelte'`).
-    - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect}`), the one table the build and the editor both satisfy.
+    - Every import gets a row in M2's `expected.ts` (`{file, specifier, line, options, expect, rule?}`, `rule` on every target row), the one table the build and the editor both satisfy.
 - Deliverable: the one function every host uses to read and remove the attribute, and the importer fixture table.
 - Test: `packages/core/test/imports/rewrite.spec.ts`. Every importer file goes through `rewriteImportAttributes`. Checks: no `framework` key left, each `.ucf` specifier carries `?framework=<value>` exactly when the source had the attribute, the output parses with oxc-parser, a second run changes nothing, `non-literal.ts` gives `framework-attribute-not-literal` at the right line and column, and `strings-and-comments.ts` comes back unchanged.
 
@@ -295,7 +295,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 Core (`@multifront/core`):
 
-- `resolveTarget(importer, attribute, options): TargetResult`, `ResolveTargetOptions`, `TargetResult`, `TargetErrorCode`, `DEFAULT_IMPORTERS`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
+- `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
 - `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
