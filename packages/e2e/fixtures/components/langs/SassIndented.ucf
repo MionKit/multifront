@@ -1,0 +1,13 @@
+<react>
+  export default function SassIndented({ label }: { label: string }) {
+    return <span className="tag">{label}</span>
+  }
+</react>
+
+<style scoped lang="sass">
+$pad: 0.25rem
+
+.tag
+  padding: $pad
+  border: 1px solid currentColor
+</style>
