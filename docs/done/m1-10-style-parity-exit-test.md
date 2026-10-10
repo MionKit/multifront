@@ -23,7 +23,7 @@ Facts this plan rests on (current `main`, checked by running the pipeline once o
   (`node_modules/vite/dist/node/chunks/node.js:22745-22747`). App builds also drop entry exports. So
   `import './X.vue'` or `export {default} from './X.vue'` emit only the global block; the Vue entry must use the
   component: `import Component from './X.vue'; console.log(Component);`.
-- Vite joins the CSS of a chunk's modules with `''` (`node.js:22748`, `chunkCSS = (chunkCSS || "") + styles.get(id)`).
+- Vite joins the CSS of a chunk's modules with `''` (`node.js:22749`, `chunkCSS = (chunkCSS || "") + styles.get(id)`).
   Our SCSS output has no trailing newline, so joining the blocks of `<Name>.ours.css` with `'\n'` differs from
   plugin-vue by one newline on `Panel.ucf`; joined with `''`, as Vite does, it matches.
 - A fixture with no non-module block (`Card`, `ReactDefaultSpecifier`, `Hello`) emits no CSS asset from the Vue build;
@@ -55,15 +55,18 @@ Facts this plan rests on (current `main`, checked by running the pipeline once o
      {componentIdGenerator: () => ctx.scopeId}})], build: {cssMinify: false, rolldownOptions: {input}}})`, a fresh
      plugin-vue each; only the entry differs, so both pass the same Vite CSS steps.
    - Tests:
-     - **reports nothing**: `checkBlocks(split)` is `[]` (it includes `split.errors`), and every
+     - **`reports nothing`**: `checkBlocks(split)` is `[]` (it includes `split.errors`), and every
        `ctx.styles[i].errors` is `[]`.
-     - **same CSS as plugin-vue**: the joined text of the emitted CSS assets is equal. Non-vacuity: with a non-module
+     - **`emits the CSS plugin-vue emits for the same non-module blocks`**: the joined text of the emitted CSS assets is equal. Non-vacuity: with a non-module
        block, the CSS is not empty, and with `ctx.hasScoped` it contains `[data-v-${ctx.scopeId}]`; without one,
        both are `''`.
-     - **module class maps**: for every `ctx.modules[name]`, a non-empty class map whose every key is a class
+     - **`maps each module class of the block source to a class of our CSS`**: `ctx.modules` holds one entry per
+       module block, by index; for every `ctx.modules[name]`, a non-empty class map whose every key is a class
        selector in the block source and every value a class selector in our CSS of that block
        (`build(block, ctx).code`).
 3. No core change: the pipeline already matches.
+4. **`packages/e2e/fixtures/index.ts`**: `hasClass(css, name)`, moved from `packages/core/test/styles.spec.ts`, so both
+   specs share one copy (review).
 
 ## Tests
 
@@ -96,6 +99,12 @@ None: step 1.10's Test line names none (orchestrator).
 - CSS module class-name parity for the Vue target (risk 1, milestone 4).
 - `less` / `stylus` fixtures (risk 8); the `composes … from` crash (its own todo).
 
+## Found while building
+
+- Review: the module class map test asserted nothing when `ctx.modules` was empty; it now pins `ctx.modules` to one
+  entry per module block first. `hasClass` was a copy of core's test helper: now shared from the fixture helpers.
+- Review, declined: dropping the module class map test as a repeat of core's tests. Exit test item 6 asks for it.
+
 ## Decisions
 
 - One `src/<Name>.ours.css`, blocks joined with `''` as Vite joins a chunk's CSS (orchestrator: the milestone doc
@@ -106,6 +115,7 @@ None: step 1.10's Test line names none (orchestrator).
 
 ## Done when
 
+- `hasClass` shared from `packages/e2e/fixtures/index.ts` by core's style tests and the exit test.
 - `packages/e2e/build/style-parity.spec.ts` passes over every name in `listComponents()`: our CSS equals
   plugin-vue's after Vite on every fixture, and every module class map checks out.
 - `pnpm devx check` green; milestone 1 doc (1.10, exit test, risk 2) and milestone 3 risks match what shipped; step
