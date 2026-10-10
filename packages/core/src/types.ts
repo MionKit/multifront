@@ -70,9 +70,10 @@ export type DiagnosticCode =
   | 'unknown-style-lang'
   | 'duplicate-style-module'
   | 'style-compile-error'
-  | 'framework-in-block'
-  | 'unknown-framework'
-  | 'no-target';
+  | TargetErrorCode;
+
+/** The errors `resolveTarget` can return. */
+export type TargetErrorCode = 'framework-in-block' | 'unknown-framework' | 'no-target';
 
 export interface Diagnostic {
   code: DiagnosticCode;
@@ -150,4 +151,4 @@ export interface ResolveTargetOptions {
 /** Which rule of spec 4.1 / 4.2 picked the target. */
 export type TargetRule = 'block' | 'attribute' | 'importer' | 'default';
 
-export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: DiagnosticCode; message: string}};
+export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: TargetErrorCode; message: string}};
