@@ -1,0 +1,7 @@
+<react>
+  import Card from '../../../components/Card.ucf'
+
+  export default function Showcase() {
+    return <Card title="Hello" />
+  }
+</react>

@@ -1,0 +1,7 @@
+<react>
+  import Badge from '../../../components/Badge.ucf' with { framework: 'vue' }
+
+  export default function BlockAttribute() {
+    return <Badge label="New" />
+  }
+</react>
