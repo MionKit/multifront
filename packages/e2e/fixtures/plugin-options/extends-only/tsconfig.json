@@ -1,0 +1,4 @@
+{
+  // No plugins of its own: the entry comes from the parent.
+  "extends": "../../apps/imports/tsconfig.json"
+}
