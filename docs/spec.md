@@ -86,7 +86,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - CSS module class names are `<local>_<scopeId>_<index>` (`card_1a2b3c4d_0`): the same on every machine.
 - **Scope id:** a hash of the file path relative to the Vite root plus content (same scheme as plugin-vue), emitted as `data-v-<hash>`. It must be deterministic across builds and machines for SSR hydration.
 - The resulting CSS is served as a virtual module (`Card.ucf?ucf&type=style&index=0&lang.css`) so Vite handles CSS, HMR and extraction.
-- The CSS-module class map is served as a virtual JS module and imported as `$style` by non-Vue targets.
+- The CSS-module class map is served as a virtual JS module (`Card.ucf?ucf&type=style&index=0&module&lang.js`) and imported as `$style` by non-Vue targets.
 
 ### 3.4 Vue target
 
@@ -197,6 +197,7 @@ So in a one-framework app, a plain `import Card from './Card.ucf'` just works. T
 | react | `/abs/Card.ucf?target=react&lang.tsx` | plugin-react only picks up `.tsx` ids |
 | svelte | `/abs/Card.ucf?target=svelte&lang.svelte` | plugin-svelte only picks up `.svelte` ids |
 | styles | `/abs/Card.ucf?ucf&type=style&index=N&lang.css` | shared by every target |
+| style class maps | `/abs/Card.ucf?ucf&type=style&index=N&module&lang.js` | shared by React and Svelte; Vue uses plugin-vue's own (3.4) |
 
 - Never a `vue` query: plugin-vue treats any id with one as its own sub-request (`Card.vue?vue&type=style`).
 

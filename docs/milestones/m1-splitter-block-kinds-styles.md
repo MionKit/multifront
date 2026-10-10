@@ -282,7 +282,7 @@ None: this is the first milestone. It builds on what the repo already has:
     ```
 
     `types` and `editor` are not here: they are the language-tools half of each kind (milestone 2), so `@vue/language-core` and `svelte2tsx` never reach a build.
-  - `packages/core/src/context.ts`:
+  - `packages/core/src/context.ts` holds `createBuildContext`. Its types sit in `types.ts` beside `VirtualFile`, because `BlockKind` names them (AGENTS.md: shared types live in `types.ts`):
 
     ```ts
     export interface BuildContextOptions { root: string; compiler: VueCompiler; production: boolean }
@@ -312,6 +312,8 @@ None: this is the first milestone. It builds on what the repo already has:
 
     `createBuildContext` computes `scopeId(relativePath, source, production)`, then calls `fillContext` of every `shared` kind in registry order. It does not run checks: hosts call `checkBlocks` first.
   - `blocks/style.ts`: `fillContext` calls `compileStyles(split.styles, …)` and fills `ctx.styles`, `ctx.modules` and `ctx.hasScoped`. `build(block, ctx)` returns `{ext: '.css', code, map}` from `ctx.styles[block.index]`.
+    - Two blocks injecting the same name (already a `duplicate-style-module` error): the last one wins, as in plugin-vue 6.0.8, whose `genStyleCode` merges names block by block with `Object.assign(cssModulesMap ||= {}, nameMap)` (`dist/index.mjs:1518`).
+    - A module block that does not compile keeps its `ctx.modules` entry with `classes: {}`, so `$style` still resolves and the one error shown is its `style-compile-error` in `ctx.styles[index].errors`.
   - `packages/core/src/ids.ts`, the style module ids of spec 4.3 (`styleId` is there since 1.8; this step adds `classMapId`):
 
     ```ts
@@ -323,7 +325,8 @@ None: this is the first milestone. It builds on what the repo already has:
   - Exports from core: `createBuildContext`, `compileStyles`, `scopeId`, `checkBlocks`, `styleId`, `classMapId`, and the types `BlockKind`, `BlockGrammar`, `GrammarScope`, `VirtualFile`, `SourceMap`, `BuildContext`, `BuildContextOptions`, `CompiledStyle`, `StyleModule`, `VueCompiler`, `Diagnostic`, `DiagnosticCode`.
   - Update the `BlockKind` snippet in `docs/architecture.md` to this shape (`fillContext`, `index`, the core and language-tools halves).
 - Deliverable: one call gives every later target everything the shared styles provide.
-- Test: `packages/core/test/context.spec.ts`. For every valid fixture: `createBuildContext` with the real compiler; `ctx.scopeId` equals `scopeId()` of the same inputs; `ctx.styles[i].id === styleId(filename, i)`; `Card.ucf` has `ctx.modules.$style` with a `card` class; `Button.ucf` has `ctx.modules.classes` and no `$style`; `Hello.ucf` has no styles and `hasScoped === false`; the style kind's `build` returns the same CSS as `ctx.styles[i].code` with `ext: '.css'`.
+- Test: `packages/core/test/context.spec.ts`. For every valid fixture: `createBuildContext` with the real compiler; `ctx.scopeId` equals `scopeId()` of the same inputs; `ctx.styles[i].id === styleId(filename, i)`; `Card.ucf` has `ctx.modules.$style` with a `card` class; `Button.ucf` has `ctx.modules.classes` and no `$style`; `Hello.ucf` has no styles and `hasScoped === false`; the style kind's `build` returns the same CSS as `ctx.styles[i].code` with `ext: '.css'`. Also: `ctx.styles` equals a direct `compileStyles()` call, `production: false` reaches `scopeId()`, `invalid/ScssSyntaxError.ucf` keeps an empty `$style`, `invalid/DuplicateStyleModule.ucf` gives `$style` to its last block. `packages/core/test/blocks/index.spec.ts` pins that only the style kind has `fillContext` and `build`.
+- Status: done
 
 ### 1.10 Style parity with plugin-vue (the exit test)
 
@@ -342,10 +345,10 @@ None: this is the first milestone. It builds on what the repo already has:
 | `BlockKind`, `BLOCK_KINDS`, `getBlockKind(tag)` | `packages/core/src/blocks/index.ts`, order `style, vue, react, svelte` | M2 (grammar generation, the language-tools registry with the same tags), M3, M4, M6 (fill `build`) |
 | Empty `build` slots | `blocks/react.ts` (M3), `blocks/vue.ts` (M4), `blocks/svelte.ts` (M6). Once M6 lands, `build` may become required | M3, M4, M6 |
 | `BlockGrammar`, `GrammarScope` | `kind.grammar` with `scopeName`, `languageId`, `byLang` (1.6) | M2 (TextMate grammar and `embeddedLanguages` of `packages/vscode`) |
-| `VirtualFile`, `SourceMap` | types in 1.8 and 1.9 | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M6 |
+| `VirtualFile`, `SourceMap` | types in 1.8 and 1.9, `packages/core/src/types.ts` | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M6 |
 | `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.ucf` source | M3, M6 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.ucf` path and `.ucf` source, ignoring the SFC code plugin-vue passes) |
 | `compileStyles(blocks, options): Promise<CompiledStyle[]>` | `@multifront/core`, 1.8 | through `createBuildContext` in M3, M5, M6; M2 may call it for `$style` class names |
-| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `split`, `source`, `production`, `scopeId`, `hasScoped`, `styles`, `modules`) | M3 (React build), M5 (CSS files), M6 (Svelte build) |
+| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `filename`, `split`, `relativePath`, `source`, `production`, `compiler`, `scopeId`, `hasScoped`, `styles`, `modules` of `StyleModule`); types in `types.ts` | M3 (React build), M5 (CSS files), M6 (Svelte build) |
 | `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M6 |
 | `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |

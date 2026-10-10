@@ -27,24 +27,31 @@ We add the same layer **one level higher**: a `.ucf` file is a file of component
 Every root tag, `<style>` included, is a **block kind** with the same five operations:
 
 ```ts
+// Core half: packages/core/src/blocks/index.ts, BLOCK_KINDS
 interface BlockKind {
   tag: 'react' | 'vue' | 'svelte' | 'style';
   role: 'target' | 'shared';         // target = a framework component, shared = used by every target
   grammar: {scopeName, languageId, byLang?}; // VS Code highlighting; byLang picked by <style lang>
   check(block, split): Diagnostic[]; // rules for the block, e.g. "react must export default"
-  build(block, ctx): VirtualFile;    // the file the bundler compiles
-  types(block, ctx): VirtualFile;    // the file TypeScript reads: what the module exports
-  editor(block, ctx): VirtualFile[]; // embedded codes for tsserver (TypeScript) and our language server (the rest)
+  fillContext?(blocks, ctx): Promise<void>; // shared kinds only: fill ctx before any build
+  build?(block, ctx): VirtualFile;   // the file the bundler compiles
+}
+
+// Language-tools half: packages/language-tools/src/blocks/index.ts, same tags, same order
+interface EditorBlockKind {
+  tag: 'react' | 'vue' | 'svelte' | 'style';
+  types?(block, ctx): EditorFile;    // the file TypeScript reads: what the module exports
+  editor?(block, ctx): EditorFile[]; // embedded codes for tsserver (TypeScript) and our language server (the rest)
 }
 
 interface VirtualFile {
   ext: '.tsx' | '.vue' | '.svelte' | '.css' | '.scss' | '.ts';
   code: string;
-  map: SourceMap; // back to the block in the .ucf file
+  map: SourceMap | undefined; // back to the block in the .ucf file
 }
 ```
 
-- **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. The chosen target reads `ctx`.
+- **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. `createBuildContext()` in core calls each shared kind's `fillContext`, in registry order. The chosen target reads `ctx`.
 - **Lint and format need no operation of their own.** oxlint and oxfmt run on each block's own text, named with the ending of its `build` file (`.tsx`, `.vue`, `.svelte`) or its style `lang`. They never see generated code, so nothing generated is ever written back into a `.ucf` file.
 - **One rule for the Vue row:** it takes the raw `<style>` blocks into its SFC code, so plugin-vue compiles them itself. React and Svelte use the compiled CSS from `ctx`.
 
