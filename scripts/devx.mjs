@@ -8,6 +8,7 @@ import {join, relative} from 'node:path';
 import {agentDocs} from './lib/agent-docs.mjs';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
 import {CLI, COMMANDS, renderHelp} from './lib/registry.mjs';
+import {floorOverrides, installedVersions, withOverrides} from './lib/peer-floor.mjs';
 import {listPackages} from './lib/workspace.mjs';
 import {renderDocsImages} from './docs-images.mjs';
 
@@ -122,6 +123,29 @@ const handlers = {
     } finally {
       rmSync(stage, {recursive: true, force: true});
     }
+  },
+  'peer-floor'([framework]) {
+    if (!process.env.CI) throw new CliError(`${CLI}: peer-floor rewrites pnpm-workspace.yaml and the lockfile, so it runs only in CI (CI set), on a throwaway checkout`);
+    let overrides;
+    try {
+      overrides = floorOverrides(framework);
+    } catch (error) {
+      throw new CliError(`${CLI}: ${error.message}`);
+    }
+    const workspace = join(REPO_ROOT, 'pnpm-workspace.yaml');
+    writeFileSync(workspace, withOverrides(readFileSync(workspace, 'utf8'), overrides));
+    // pnpm is not a package in node_modules: CI puts it on PATH.
+    const install = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], {stdio: 'inherit', cwd: REPO_ROOT});
+    if (install.error) throw new CliError(`${CLI}: failed to launch pnpm: ${install.error.message}`);
+    if (install.status !== 0) throw new CliError('');
+    const installed = installedVersions(Object.keys(overrides));
+    const wrong = installed.filter((copy) => copy.version !== overrides[copy.name]);
+    const missing = Object.keys(overrides).filter((name) => !installed.some((copy) => copy.name === name));
+    if (wrong.length || missing.length) {
+      const lines = [...wrong.map((copy) => `${copy.dir}: ${copy.name} ${copy.version}, expected ${overrides[copy.name]}`), ...missing.map((name) => `${name} is not installed`)];
+      throw new CliError(`${CLI}: peer-floor did not install the floor:\n  ${lines.join('\n  ')}`);
+    }
+    for (const copy of installed) console.log(`peer-floor: ${copy.name} ${copy.version} (${copy.dir})`);
   },
   env() {
     for (const row of REGISTRY) console.log(`${row.name.padEnd(28)} ${row.scope.padEnd(9)} ${row.desc}`);

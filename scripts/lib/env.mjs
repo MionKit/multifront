@@ -17,12 +17,12 @@ export function loadEnv() {
 // Every env var a script, test or CI step reads. Project-owned names start with MULTIFRONT_.
 // scope: secret = credential, dev = knob with a default, internal = set by the scripts or a tool they run (never in .env).
 export const REGISTRY = [
-  {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env'},
+  {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env, and peer-floor runs only with it set'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite'},
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
-  {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'browser docs-images renders with, when the Playwright one is not installed'},
+  {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
   {name: 'MULTIFRONT_FUZZ_SEED', scope: 'dev', desc: 'base seed of the fuzz tests; default fixed, so every run replays'},
   {name: 'MULTIFRONT_FUZZ_RUNS', scope: 'dev', desc: 'inputs per fuzz test (default 500)'},
 ];
