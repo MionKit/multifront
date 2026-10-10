@@ -1,4 +1,4 @@
-import type {Block, BlockTag, SplitResult, VirtualFile} from '@multifront/core';
+import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile} from '@multifront/core';
 import type {CodeMapping} from '@volar/language-core';
 
 /** The editor half of a block kind; the registry in `blocks/` holds one per core `BlockKind`, same tags, same order. */
@@ -19,9 +19,7 @@ export interface EditorContext {
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
 }
 
-export interface EditorStyleModule {
-  name: string; // '$style' or the module="name" value
-  index: number; // the <style> block it comes from
+export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
   classes: StyleClass[];
 }
 
