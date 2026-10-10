@@ -47,6 +47,8 @@ pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; 
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
 
+The editor exit test (`packages/e2e/editor/vscode/`) runs a real VS Code. Its first run downloads the pinned build into `.vscode-test/` (about 360 MB). On Linux with no display it starts its own Xvfb, so install `xvfb` on a headless machine.
+
 Try the extension: `pnpm devx vsix`, then `code --install-extension packages/vscode/multifront-vscode-<version>.vsix`. The command uses the `npm` CLI that ships with Node: vsce lists the plugin pack with `npm list`.
 
 Fuzz tests run on a fixed seed. A failure prints the line that replays it; a longer run on another seed: `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/core/test/split.fuzz.spec.ts`.
