@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.5
@@ -71,9 +71,10 @@ Found while planning (compiler-sfc 3.5.42, probed in a scratch script):
    `{sourceOffsets: [offset], generatedOffsets: [key start, inside any quotes], lengths: [name.length],
    data: {navigation: true}}`. `editor(block, ctx)` returns `[types(block, ctx)]`, so the `react` embedded code is the
    types script and `$style` is typed inside the block too.
-7. **Shared context helper** (`src/context.ts`, new): `createEditorContext(split, options)` and the 2.4 `blocksOf` /
-   `codeId` move here; one loop over `EDITOR_BLOCK_KINDS` (shared first) returns each block's files.
-   `languagePlugin.ts` uses it; `createUcfLanguagePlugin(options: EditorOptions = {})` (the first option, as 2.4 said).
+7. **Shared context helper** (`src/context.ts`, new): `createEditorContext(split, options)`, the 2.4 `blocksOf`, and
+   `editorFiles(ctx, sharedOnly?)`, the one loop over `EDITOR_BLOCK_KINDS` (shared first) that returns each block's
+   files. `languagePlugin.ts` uses it (`codeId` stays there); `createUcfLanguagePlugin(options: EditorOptions = {})`
+   (the first option, as 2.4 said).
 8. **`getTypesScript(filename, source, target, options?: EditorOptions): EditorFile | undefined`**
    (`src/typesScript.ts`, new): splits, runs the shared rows to fill `ctx`, returns that target's `types()` on
    `split.targets[target]`, or `undefined` (no block, or no `types()` yet: vue, svelte). Exported from `src/index.ts`
@@ -110,11 +111,13 @@ All on this host and in CI's `check` job (`pnpm devx test`): Node, the pnpm inst
   generated slice" and "whole block through the mapper" checks stay as they are.
 - **`packages/core/test/vueCompiler.spec.ts`** (new, mirrors `src/vueCompiler.ts`): `loadVueCompiler(repo root)` is the
   module `vue/compiler-sfc` resolves to, and its sync `compileStyle` preprocesses `Card.ucf`'s scss block; from a fresh
-  `mkdtemp(tmpdir())` it throws "could not find @vue/compiler-sfc".
+  `mkdtemp(tmpdir())` it throws "could not find @vue/compiler-sfc". That case runs in a plain Node child
+  (`test/vueCompiler.child.ts`) with no `NODE_PATH`: pnpm's bin shims put the store's hoisted `node_modules` there,
+  so inside vitest any folder finds Vue.
 - `packages/vite/test/vueCompiler.spec.ts` stays: its fallback case now runs through `loadVueCompiler`.
 - `builtTypes.spec.ts` stays: the built `.d.ts` must still typecheck with the new exports.
-- Each new check is confirmed to fail without its behaviour (a dropped `:global` rule, a missing keyframes key, an
-  offset off by one, no `declare` line, a wrong mapping flag).
+- Each new check is confirmed to fail without its behaviour (a dropped bare `:global` rule, no keyframes key, no
+  `@value` key, an offset off by one, an extra mapping flag).
 
 ## Docs
 

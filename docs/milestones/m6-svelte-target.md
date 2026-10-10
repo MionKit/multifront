@@ -28,7 +28,7 @@ From milestone 1:
 From milestone 2:
 
 - `@multifront/language-tools` with the Volar language plugin, `packages/language-tools/src/blocks/index.ts`, `./typescript-plugin` and `./server`.
-- How M2 types `$style` in `Card.ucf.react.tsx`: unmapped `declare const` lines built from `ctx.modules`. The Svelte types script does the same with `__ucfStyle`.
+- How M2 types `$style` in `Card.ucf.react.tsx`: unmapped `declare const` lines built from `ctx.modules` (exact keys, or the loose `{readonly [name: string]: string}` for a module with `classes: undefined`), with a navigation-only mapping from each key to `StyleClass.offset`. The Svelte types script does the same with `__ucfStyle`.
 - The Svelte grammar already embedded by `packages/vscode` (highlighting in `<svelte>` needs nothing new).
 - The editor test harness in `packages/e2e/editor/`: a real tsserver with our plugin, and an LSP client for our language server.
 
