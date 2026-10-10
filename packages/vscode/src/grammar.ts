@@ -58,7 +58,6 @@ function grammarFile(grammar: TmGrammar, injectTo?: string[]): GrammarFile {
   return {scopeName: grammar.scopeName, path: `${grammar.scopeName}.tmLanguage.json`, grammar, ...(injectTo && {injectTo})};
 }
 
-// Deep copy with every `include` passed through `rename`.
 function renameIncludes<Tree>(node: Tree, rename: (include: string) => string): Tree {
   if (Array.isArray(node)) return node.map((item: unknown) => renameIncludes(item, rename)) as Tree;
   if (node === null || typeof node !== 'object') return node;
@@ -69,8 +68,7 @@ function renameIncludes<Tree>(node: Tree, rename: (include: string) => string): 
   return Object.fromEntries(entries) as Tree;
 }
 
-// Each `,` alternative of an injection selector, narrowed to inside the `embedded` block: the upstream root scope
-// is never on the stack there, so where an alternative names it, the block scope takes its place.
+// Inside the `embedded` block the upstream root scope is never on the stack, so `embedded` replaces it.
 function insideBlock(selector: string, upstream: string, embedded: string): string {
   const alternatives: string[] = [];
   let depth = 0;
@@ -118,9 +116,8 @@ function langRule(name: string, lang: string, contentName: string, include: stri
   };
 }
 
-// The splitter's tag rules: a name ends at a space, `/` or `>`; a self-closing tag opens nothing; the first `</tag`
-// then a space or `>` closes the block. Attributes may span lines; a `lang` rule is listed before ATTRIBUTE, so at
-// the same `lang` it wins, and ATTRIBUTE swallows a quoted value that only contains `lang=`.
+// Splitter rules: a name ends at space, `/` or `>`; `<tag/>` opens nothing; the first `</tag` + space or `>` closes.
+// `lang` rules precede ATTRIBUTE so they win at a `lang`; ATTRIBUTE swallows a quoted value holding `lang=`.
 function blockRule(tag: string, embedded: string, include: string, byLang: Record<string, GrammarScope>): TmRule {
   const name = escapeRegExp(tag);
   const langs = Object.entries(byLang).map(([lang, scope]) =>
@@ -135,8 +132,8 @@ function blockRule(tag: string, embedded: string, include: string, byLang: Recor
   };
 }
 
-// Serves a pinned copy as `scope`, so it never clashes with the official extension. VS Code reads injections from
-// the document's root grammar only, so its own injections move to `rootInjections`, narrowed to its block.
+// Renamed to `scope` so the pinned copy never clashes with the official extension.
+// VS Code reads injections from the root grammar only, so the copy's own move to `rootInjections`, narrowed to its block.
 function serveVendored(
   copy: VendoredGrammar,
   upstream: string,
