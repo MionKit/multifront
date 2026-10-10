@@ -1,6 +1,6 @@
 <react>
   export default function Tag({ label }: { label: string }) {
-    return <span className={`${$style.tag} ${$style.chip}`}>{label}</span>
+    return <span className={`${$style.tag} ${$style.chip} ${$style.pill}`}>{label}</span>
   }
 </react>
 
@@ -11,6 +11,11 @@
 }
 
 .chip {
-  composes: round from './tag-round.css';
+  composes: round from '@multifront/e2e/fixtures/components/tag-round.css';
+  composes: base from './tag-base.css';
+}
+
+.pill {
+  composes: base from 'tag-base.css';
 }
 </style>

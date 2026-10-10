@@ -102,6 +102,7 @@ const INVALID_CASES: InvalidCase[] = [
   {fixture: 'invalid/ComposesBrokenFile.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/ComposesCycle.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/ComposesMissingFile.ucf', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ComposesMissingPackage.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/CssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/DuplicateReact.ucf',
