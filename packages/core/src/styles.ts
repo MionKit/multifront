@@ -79,6 +79,8 @@ function modulesOptions(block: Block, scoped: boolean, {id, filename: root, comp
   const imports = new Map<string, string[]>();
   const tokens = new Map<string, Promise<Record<string, string>>>();
   const codes = new Map<string, string>();
+  const reaches = (from: string, to: string): boolean =>
+    from === to || (imports.get(from) ?? []).some((next) => reaches(next, to));
 
   async function compile(filename: string): Promise<Record<string, string>> {
     const composedOptions = {generateScopedName, Loader: loader(false)};
@@ -107,6 +109,7 @@ function modulesOptions(block: Block, scoped: boolean, {id, filename: root, comp
     return class ComposesLoader {
       async fetch(file: string, importer: string): Promise<Record<string, string>> {
         const filename = resolve(dirname(importer), file);
+        if (reaches(filename, importer)) throw new Error(`composes cycle: ${importer} composes from ${filename}`);
         // Recorded before any await: postcss-modules fetches in source order, all at once.
         imports.set(importer, [...(imports.get(importer) ?? []), filename]);
         if (!tokens.has(filename)) tokens.set(filename, compile(filename));

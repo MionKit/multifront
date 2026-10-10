@@ -118,6 +118,15 @@ const ERROR_CASES = [
     tag: '<style lang="scss">',
   },
   // Each error is in a composed file and has no offsets into the block.
+  {
+    fixture: 'invalid/ComposesCycle.ucf',
+    line: 7,
+    column: 0,
+    rule: '<style module>',
+    text: '<style module>',
+    tag: '<style>',
+    reason: /composes cycle: \S+\/cycle-b\.css composes from \S+\/cycle-a\.css$/,
+  },
   {fixture: 'invalid/ComposesBrokenFile.ucf', line: 7, column: 0, rule: '<style module>', text: '<style module>', tag: '<style>'},
   {
     fixture: 'invalid/ComposesMissingFile.ucf',
@@ -143,7 +152,7 @@ describe('compileStyles on blocks that do not compile', () => {
     expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
   });
 
-  describe.each(ERROR_CASES)('$fixture', ({fixture, line, column, rule, text, tag}) => {
+  describe.each(ERROR_CASES)('$fixture', ({fixture, line, column, rule, text, tag, reason}) => {
     const {filename, source} = readComponent(fixture);
     // A broken `composes … from` file once crashed or hung the whole process.
     const script = fileURLToPath(new URL('styles.child.ts', import.meta.url));
@@ -164,6 +173,7 @@ describe('compileStyles on blocks that do not compile', () => {
     it('names the tag in a one-line message and returns no CSS, map or class map', () => {
       expect(style.errors[0]!.message.startsWith(`${tag} does not compile: `)).toBe(true);
       expect(style.errors[0]!.message).not.toMatch(/\n/);
+      if (reason) expect(style.errors[0]!.message).toMatch(reason);
       expect(style.code).toBe('');
       expect(style.map).toBeUndefined();
       expect(style.classes).toBeUndefined();
