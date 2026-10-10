@@ -17,6 +17,7 @@ export type {
   StyleModule,
   Target,
   TargetChoice,
+  TargetErrorCode,
   TargetRule,
   VirtualFile,
   VueCompiler,

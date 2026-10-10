@@ -1,7 +1,7 @@
 import {extname} from 'node:path';
 import {orList} from '../diagnostics.ts';
 import {TARGETS, isTarget} from '../targets.ts';
-import type {DiagnosticCode, Importer, ResolveTargetOptions, Target, TargetChoice} from '../types.ts';
+import type {Importer, ResolveTargetOptions, Target, TargetChoice, TargetErrorCode} from '../types.ts';
 
 /** Importer extension → framework, before the project's `importers` option (spec 4.2, rule 2). */
 export const DEFAULT_IMPORTERS: Readonly<Record<string, Target>> = Object.freeze({
@@ -11,7 +11,7 @@ export const DEFAULT_IMPORTERS: Readonly<Record<string, Target>> = Object.freeze
   '.tsx': 'react',
 });
 
-function fail(code: DiagnosticCode, message: string): TargetChoice {
+function fail(code: TargetErrorCode, message: string): TargetChoice {
   return {error: {code, message}};
 }
 
