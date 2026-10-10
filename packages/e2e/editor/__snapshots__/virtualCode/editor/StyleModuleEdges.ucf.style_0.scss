@@ -1,9 +1,13 @@
 
-// .ghost in a line comment is not a class
-/* nor .ghost in a block comment */
+// .wide in a line comment is no jump target
+/* nor .wide in a block comment */
 .card {
   &__body {
     padding: 1rem;
+  }
+
+  &::before {
+    content: ".wide {";
   }
 
   &-title,
@@ -24,4 +28,12 @@
   .wide {
     width: 100%;
   }
+}
+
+.dot\.ted {
+  color: red;
+}
+
+.dot.ted {
+  color: blue;
 }

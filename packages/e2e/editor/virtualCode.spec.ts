@@ -63,6 +63,17 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
     ]);
   });
 
+  it('reads plain CSS modules with no options, and types the others loosely', () => {
+    const bare = createLanguage([createUcfLanguagePlugin()], new Map(), () => {});
+    const reactText = (name: string) => {
+      const {filename, source} = readComponent(name);
+      const script = bare.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!;
+      return textOf(script.generated!.embeddedCodes.get('react')!);
+    };
+    expect(reactText('Button.ucf')).toContain('declare const classes: {readonly primary: string};');
+    expect(reactText('Card.ucf')).toContain('declare const $style: {readonly [name: string]: string};');
+  });
+
   describe.each(NAMES)('%s', (name) => {
     const {script, source, split, root, byId, embedded} = load(name);
 

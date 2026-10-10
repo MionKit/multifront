@@ -18,9 +18,8 @@ export interface EditorOptions {
 }
 
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */
-export interface EditorContext {
+export interface EditorContext extends EditorOptions {
   split: SplitResult;
-  compiler: VueCompiler | undefined;
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
 }
 

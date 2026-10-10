@@ -1,4 +1,4 @@
-<!-- CSS module keys the editor must find as the build does: nesting, :global, keyframes, @value, comments. -->
+<!-- CSS module keys the editor must find as the build does: nesting, :global, keyframes, @value, :export, sass. -->
 
 <react>
   export default function StyleModuleEdges({ label }: { label: string }) {
@@ -11,11 +11,15 @@
 </react>
 
 <style module lang="scss">
-// .ghost in a line comment is not a class
-/* nor .ghost in a block comment */
+// .wide in a line comment is no jump target
+/* nor .wide in a block comment */
 .card {
   &__body {
     padding: 1rem;
+  }
+
+  &::before {
+    content: ".wide {";
   }
 
   &-title,
@@ -37,12 +41,34 @@
     width: 100%;
   }
 }
+
+.dot\.ted {
+  color: red;
+}
+
+.dot.ted {
+  color: blue;
+}
 </style>
 
 <style module="theme">
 @value accent: rebeccapurple;
+@value gap 1rem;
+@value (x, y as z) from './values.css';
 
 @keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@-webkit-keyframes slide {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes :local(pop) {
   from {
     opacity: 0;
   }
@@ -61,5 +87,24 @@
 .fade-in {
   animation: fade 1s;
   color: accent;
+}
+
+:export {
+  primary: red;
+}
+</style>
+
+<style module="rows" lang="sass">
+.row
+  display: flex
+  &__cell
+    padding: 0
+.row-end
+  margin: 0
+</style>
+
+<style module="my-theme">
+.unreachable {
+  color: red;
 }
 </style>
