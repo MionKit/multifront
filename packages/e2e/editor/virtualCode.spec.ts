@@ -119,7 +119,7 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
           lengths: [block.content.length],
           data: ALL_ON,
         });
-        // The react code's `$style` keys jump to their class names: navigation only.
+        // The react code's `$style` keys, jumping to their class names.
         for (const mapping of classKeys) expect(mapping.data).toEqual({navigation: true});
         if (id !== 'react') expect(classKeys).toEqual([]);
         for (let offset = block.contentStart; offset < block.contentEnd; offset++) {

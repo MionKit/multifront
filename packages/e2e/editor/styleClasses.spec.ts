@@ -9,7 +9,7 @@ const compiler = loadVueCompiler(FIXTURES_DIR);
 const NAMES = [...listComponents(), 'editor/StyleModuleEdges.ucf'];
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
-// Each `declare const <module>: {...}` line, read by the real TypeScript parser: module name → its keys.
+// Module name → its keys, from each `declare const <module>: {...}` line.
 function declaredModules(script: EditorFile): Record<string, string[]> {
   const file = ts.createSourceFile('types.tsx', script.code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const modules: Record<string, string[]> = {};

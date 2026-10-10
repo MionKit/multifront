@@ -4,7 +4,7 @@ import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
 import {createEditorContext, editorFiles} from './context.ts';
 import type {EditorFile, EditorOptions} from './types.ts';
 
-/** `Card.ucf.<target><ext>` without a language server; undefined with no such block or no `types()` for it yet. */
+/** `Card.ucf.<target><ext>` without a language server. */
 export function getTypesScript(
   filename: string,
   source: string,
@@ -12,6 +12,7 @@ export function getTypesScript(
   options: EditorOptions = {}
 ): EditorFile | undefined {
   const ctx = createEditorContext(splitBlocks(source, filename), options);
+  // Only for what the shared rows fill into ctx (the modules `types()` reads); their codes are not needed.
   editorFiles(ctx, true);
   const block = ctx.split.targets[target];
   const kind = EDITOR_BLOCK_KINDS.find(({tag}) => tag === target);
