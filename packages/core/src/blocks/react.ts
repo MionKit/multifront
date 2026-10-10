@@ -3,7 +3,7 @@ import type {Program} from 'oxc-parser';
 import {createDiagnostic} from '../diagnostics.ts';
 import type {Block, BlockKind, Diagnostic, SplitResult} from '../types.ts';
 
-// Names the block binds only as types: interfaces, type aliases, type imports. A same-name value wins.
+// Names the block binds only as types; a same-name value wins.
 function typeOnlyNames(program: Program): Set<string> {
   const types = new Set<string>();
   const values = new Set<string>();

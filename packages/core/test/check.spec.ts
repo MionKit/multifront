@@ -30,9 +30,9 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
     ],
   },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
-  // `export type` exports no value: the module has no runtime default export.
+  // `export type` exports no value, so no runtime default.
   {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0}]},
-  // `export {type X as default}` and `export default interface` export no value either.
+  // `export {type X as default}`, `export default interface` and type-only names export no value either.
   {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0}]},
   {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
   {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
