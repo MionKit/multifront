@@ -1,6 +1,6 @@
 import {extname} from 'node:path';
 import MagicString from 'magic-string';
-import {Visitor, parseSync} from 'oxc-parser';
+import {parseSync} from 'oxc-parser';
 import type {
   ExportAllDeclaration,
   ExportNamedDeclaration,
@@ -13,6 +13,7 @@ import type {
   ParserOptions,
   Span,
 } from 'oxc-parser';
+import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
 import type {Diagnostic, SourceMap, UcfImport} from '../types.ts';
 
@@ -138,12 +139,11 @@ export function rewriteImportAttributes(
     text.remove(entry.end, node.end - 1);
   };
 
-  new Visitor({
-    ImportDeclaration: fromStatic('static'),
-    ExportNamedDeclaration: fromStatic('reexport'),
-    ExportAllDeclaration: fromStatic('reexport'),
-    ImportExpression: fromDynamic,
-  }).visit(program);
+  walk(program, (node) => {
+    if (node.type === 'ImportDeclaration') fromStatic('static')(node);
+    else if (node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') fromStatic('reexport')(node);
+    else if (node.type === 'ImportExpression') fromDynamic(node);
+  });
 
   if (!text.hasChanged()) return unchanged;
   const map = text.generateMap({source: filename, hires: true, includeContent: true});
