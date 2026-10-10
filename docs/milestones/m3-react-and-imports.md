@@ -207,11 +207,13 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - `startDev(appDir): Promise<{url, server, close}>`, `buildAndPreview(appDir): Promise<{url, outDir, close}>`.
   - `launchChromium()`: uses `MULTIFRONT_CHROMIUM_PATH` when set. Its description in `scripts/lib/env.mjs` and `.env.sample` now covers the tests.
   - `collectConsole(page)`: every console message and page error.
-  - CI: `pnpm exec playwright install --with-deps chromium` before `pnpm devx check` in `.github/workflows/ci.yml`.
-  - `pnpm devx peer-floor <framework>`: reads the lowest version of each of that framework's peer ranges in `@multifront/vite` (for react: `react`, `react-dom`, `@vitejs/plugin-react`, plus the matching `@types/react` and `@types/react-dom`), writes them as pnpm `overrides`, and reinstalls. It changes the lockfile, so it runs in CI only, on a throwaway checkout.
+  - CI: `pnpm exec playwright install --with-deps chromium` before the Test step in `.github/workflows/ci.yml` (CI splits `pnpm devx check` into steps), with `~/.cache/ms-playwright` cached by Playwright version.
+  - `pnpm devx peer-floor <framework>`: reads the lowest version of each of that framework's peer ranges in `@multifront/vite` (for react: `react`, `react-dom`, `@vitejs/plugin-react`, plus the matching `@types/react` and `@types/react-dom`), writes them as pnpm `overrides` in `pnpm-workspace.yaml`, reinstalls, and checks every installed copy is at the floor. It changes the lockfile, so it runs in CI only (it refuses without `CI` set), on a throwaway checkout. The frameworks it knows are the rows of `FLOOR_PEERS` in `scripts/lib/peer-floor.mjs`: M4 and M6 add one each.
   - CI: a `react-floor` job: install, `pnpm devx peer-floor react`, Chromium, `pnpm devx test`. Every React test of this and later steps runs on both ends of the range, with no list to keep.
 - Deliverable: Playwright against real served and built apps, and every React test on the oldest and the newest supported React, for this and every later milestone.
-- Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: AllBlocks renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors.
+- Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: AllBlocks renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors. `react-basic`'s `index.html` names an empty icon, so the browser's favicon request is no 404.
+  - Plus `packages/e2e/devx/peer-floor.spec.ts`: the react floor read from the real manifest, the overrides block, and the refusals.
+- Status: done
 
 ### 3.10 Scope transform: stamping
 
