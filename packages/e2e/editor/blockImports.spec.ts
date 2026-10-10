@@ -32,7 +32,6 @@ function locate(source: string, needle: string, shift = 0): Location {
   return {line: before.length, offset: before.at(-1)!.length + 1};
 }
 
-/** The definition lands inside Card.ucf's `<react>` content, from the real splitter. */
 function expectInCardReact(definitions: Definitions): void {
   expect(definitions.map(({file}) => file)).toEqual([CARD.filename]);
   const react = splitBlocks(CARD.source, CARD.filename).targets.react!;

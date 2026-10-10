@@ -51,14 +51,14 @@ export interface StyleClass {
 /** The `typescript` module a host hands us; CommonJS typings of it carry no `default`. */
 export type TypeScript = Omit<typeof ts, 'default'>;
 
-/** What `resolveUcfImport` needs from its program: the tsserver plugin, or a `tsc` host. */
+/** `resolveUcfImport` input, from the tsserver plugin or a `tsc` host. */
 export interface UcfImportOptions extends ResolveTargetOptions {
   compilerOptions: ts.CompilerOptions;
   host: ts.ModuleResolutionHost;
   getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one
 }
 
-/** What TypeScript reads, plus the error the plugin reports at the import. */
+/** Plus the error the plugin reports at the import. */
 export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocations {
   error?: Pick<Diagnostic, 'code' | 'message'>;
 }

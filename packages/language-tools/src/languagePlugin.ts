@@ -19,7 +19,7 @@ const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.svelte': 'svelte',
 };
 
-/** The target whose script tsserver serves as the `.ucf` file's own: Volar's tsserver plugin serves no extra scripts. */
+/** Target served as the `.ucf` file's own script: Volar's tsserver plugin serves no extra scripts. */
 export const MAIN_SCRIPT_TARGET = 'react' satisfies Target;
 
 // Without one, tsserver reads the raw `.ucf` text as TSX; one per root, so Volar's mapping cache holds.
