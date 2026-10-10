@@ -10,6 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "@multifront/core": "workspace:*",
-    "@multifront/vite": "workspace:*"
+    "@multifront/vite": "workspace:*",
+    "multifront-vscode": "workspace:*"
   }
 }
