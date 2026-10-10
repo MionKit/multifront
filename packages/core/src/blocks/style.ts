@@ -1,7 +1,7 @@
 import {createDiagnostic, orList} from '../diagnostics.ts';
 import type {Block, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
 
-// The one list of style langs beside `css`, which the default grammar covers.
+// The one list of style langs; `css` falls to the default grammar.
 const BY_LANG: Record<string, GrammarScope> = {
   scss: {scopeName: 'source.css.scss', languageId: 'scss'},
   sass: {scopeName: 'source.sass', languageId: 'sass'},

@@ -7,7 +7,7 @@ describe('block kinds', () => {
     expect(BLOCK_KINDS.map((kind) => kind.role)).toEqual(['shared', 'target', 'target', 'target']);
   });
 
-  // Pins the values tests cannot tell apart: languageIds, and langs no fixture uses.
+  // Pins what other tests miss: languageIds and langs no fixture uses.
   it('names the grammar of each kind and style lang', () => {
     const stylus = {scopeName: 'source.stylus', languageId: 'stylus'};
     expect(Object.fromEntries(BLOCK_KINDS.map((kind) => [kind.tag, kind.grammar]))).toEqual({
