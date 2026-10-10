@@ -16,6 +16,9 @@ import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
 
+// A module name the block cannot name (`module="my-theme"`) gets no import, as the editor declares none.
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+
 // Names the block binds only as types; a same-name value wins.
 function typeOnlyNames(program: Program): Set<string> {
   const types = new Set<string>();
@@ -103,13 +106,6 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return [createDiagnostic(split, 'react-no-default-export', block.start, block.contentStart, message), ...diagnostics];
 }
 
-// One side-effect import per <style>, then one per class map; ids quoted as JSON so any path stays a valid string.
-function styleImports(ctx: BuildContext): string[] {
-  const css = ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`);
-  const modules = Object.values(ctx.modules).map(({name, id}) => `import ${name} from ${JSON.stringify(id)};`);
-  return [...css, ...modules];
-}
-
 // End of the directive prologue in the block content, or undefined without one; `"use client"` must stay first.
 function prologueEnd(block: Block, filename: string): number | undefined {
   const {program} = parseSync(filename, block.content, {lang: 'tsx', sourceType: 'module'});
@@ -126,8 +122,14 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
-  const imports = styleImports(ctx);
-  const prologue = prologueEnd(block, ctx.filename);
+  // Ids quoted as JSON, so any path stays a valid string.
+  const imports = [
+    ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
+    ...Object.values(ctx.modules)
+      .filter(({name}) => IDENTIFIER.test(name))
+      .map(({name, id}) => `import ${name} from ${JSON.stringify(id)};`),
+  ];
+  const prologue = imports.length > 0 ? prologueEnd(block, ctx.filename) : undefined;
   if (prologue === undefined) text.prependRight(block.contentStart, imports.map((line) => `${line}\n`).join(''));
   else text.appendLeft(block.contentStart + prologue, imports.map((line) => `\n${line}`).join(''));
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});

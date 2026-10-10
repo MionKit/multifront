@@ -105,14 +105,37 @@ describe('react.check', () => {
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
 // By hand from the fixture files: `css` = the <style> indexes, `modules` = injection name → the block it keeps,
-// `tokens` = text in the <react> block at its .ucf line (1-based) and column (0-based, UTF-16).
+// `tokens` = text in the <react> block at its .ucf line (1-based) and column (0-based, UTF-16),
+// `directives` = the prologue that stays first, `foreign` = text of the other target blocks.
 const BUILD_CASES: {
   fixture: string;
   css: number[];
   modules: Record<string, number>;
   tokens: {text: string; line: number; column: number}[];
+  directives?: string[];
   foreign?: string[];
 }[] = [
+  {
+    fixture: 'Hello.ucf',
+    css: [],
+    modules: {},
+    tokens: [
+      {text: 'Hello(', line: 2, column: 26},
+      {text: '{ name: string }', line: 2, column: 42},
+      {text: '{name}!', line: 3, column: 21},
+    ],
+  },
+  {
+    // `module="my-theme"` is no identifier: its CSS is imported, its class map is not.
+    fixture: 'editor/StyleModuleEdges.ucf',
+    css: [0, 1, 2, 3],
+    modules: {$style: 0, theme: 1, rows: 2},
+    tokens: [
+      {text: 'StyleModuleEdges(', line: 4, column: 26},
+      {text: '$style.card}', line: 6, column: 29},
+      {text: "theme['fade-in']", line: 7, column: 25},
+    ],
+  },
   {
     fixture: 'invalid/DuplicateStyleModule.ucf',
     css: [0, 1, 2, 3, 4],
@@ -135,6 +158,17 @@ const BUILD_CASES: {
     foreign: ['all-blocks-vue-marker', 'all-blocks-svelte-marker', '<script', ':class=', 'class={'],
   },
   {
+    fixture: 'react/Directives.ucf',
+    css: [0],
+    modules: {$style: 0},
+    tokens: [
+      {text: "'use client'", line: 2, column: 2},
+      {text: "'use strict'", line: 3, column: 2},
+      {text: '$style.note', line: 6, column: 25},
+    ],
+    directives: ['use client', 'use strict'],
+  },
+  {
     fixture: 'react/Unicode.ucf',
     css: [0],
     modules: {$style: 0},
@@ -153,6 +187,7 @@ const BUILD_CASES: {
       {text: 'useState(0)', line: 7, column: 30},
       {text: '$style.button', line: 9, column: 25},
     ],
+    directives: ['use client'],
   },
 ];
 
@@ -175,7 +210,7 @@ describe('react.build', () => {
     expect(listComponents('react')).toEqual(rows);
   });
 
-  describe.each(BUILD_CASES)('$fixture', async ({fixture, css, modules, tokens, foreign}) => {
+  describe.each(BUILD_CASES)('$fixture', async ({fixture, css, modules, tokens, directives = [], foreign}) => {
     const {filename, source, split, block, diagnostics, file} = await build(fixture);
     const {program, errors} = parseSync('Block.tsx', file.code, {lang: 'tsx', sourceType: 'module'});
     const injected = program.body.filter(isInjected);
@@ -188,7 +223,7 @@ describe('react.build', () => {
 
     it('matches the code snapshot', async () => {
       const code = file.code.replaceAll(FIXTURES_DIR, '<fixtures>');
-      await expect(code).toMatchFileSnapshot(`../__snapshots__/react/build/${fixture.split('/').pop()}.tsx.snap`);
+      await expect(code).toMatchFileSnapshot(`../__snapshots__/react/build/${fixture}.tsx.snap`);
     });
 
     it('imports each <style> CSS module in order, then one class map per injection name', () => {
@@ -213,6 +248,12 @@ describe('react.build', () => {
       expect(split.blocks.some((other) => other.type === 'vue' || other.type === 'svelte')).toBe(foreign !== undefined);
     });
 
+    it('keeps the directive prologue first, before every injected import', () => {
+      const prologue = program.body.slice(0, directives.length);
+      expect(prologue.map((node) => (node.type === 'ExpressionStatement' ? node.directive : node.type))).toEqual(directives);
+      for (const node of injected) expect(node.start).toBeGreaterThan(prologue.at(-1)?.end ?? -1);
+    });
+
     it('maps each marked token back to its line and column in the .ucf file', () => {
       expect(file.map!.sources).toEqual([filename]);
       expect(file.map!.sourcesContent).toEqual([source]);
@@ -230,14 +271,13 @@ describe('react.build', () => {
           column,
         });
       }
+      for (const {
+        start,
+        source: {value},
+      } of injected) {
+        const before = file.code.slice(0, start).split('\n');
+        expect(originalPositionFor(map, {line: before.length, column: before.at(-1)!.length}).source, value).toBeNull();
+      }
     });
-  });
-
-  it("keeps UseClient.ucf's 'use client' directive first, before every injected import", async () => {
-    const {file} = await build('react/UseClient.ucf');
-    const {program} = parseSync('Block.tsx', file.code, {lang: 'tsx', sourceType: 'module'});
-    const [first, ...rest] = program.body;
-    expect(first).toMatchObject({type: 'ExpressionStatement', directive: 'use client'});
-    expect(rest.filter(isInjected)).toHaveLength(2);
   });
 });
