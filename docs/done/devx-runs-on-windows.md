@@ -39,7 +39,10 @@ Delegated session, automatic mode: the delegation stood in for plan approval.
 - `scripts/devx.mjs`: `bin(pkg, name)` reads the tool's entry from `node_modules/<pkg>/package.json` `bin`;
   `run` spawns `process.execPath` with that entry. No `.bin` shim, no shell, same path on every OS.
   All five tools (tsc, oxlint, oxfmt, vitest, commitlint) ship JS entries, so this covers every devx command.
-- CI `windows` job: test step is now `pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts`.
-  That job is the end-to-end test: devx launching vitest on `windows-latest`.
+  A tool missing from `node_modules` fails with `devx: <pkg> is not installed, run pnpm install`, not a stack trace.
+- CI `windows` job: runs `pnpm devx format --check`, `pnpm devx lint`, then
+  `pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts`.
+  That job is the end-to-end test: devx launching oxfmt, oxlint, tsc and vitest on `windows-latest`.
+  No Vitest spec for `scripts/`: one would run on Linux only and prove what the `check` job already proves.
 - `docs/milestones/README.md` Windows paths row: names `pnpm devx test`, drops "devx does not run on Windows yet".
 - `SETUP.md` unchanged: it gains no Windows note.
