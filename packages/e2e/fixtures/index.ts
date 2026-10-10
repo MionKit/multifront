@@ -1,6 +1,6 @@
 import {readdirSync, readFileSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rm} from 'node:fs/promises';
-import {dirname, join} from 'node:path';
+import {dirname, join, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
@@ -17,6 +17,14 @@ export async function copyApp(name: string): Promise<string> {
     throw err;
   }
   return root;
+}
+
+/** The files of a fixture app matching `pattern`, '/' separators, sorted; `expected.ts` and `vite.config.ts` are no importers. */
+export function filesOf(app: string, pattern: RegExp): string[] {
+  return readdirSync(join(FIXTURES_DIR, 'apps', app), {recursive: true, encoding: 'utf8'})
+    .map((path) => path.split(sep).join('/'))
+    .filter((file) => pattern.test(file) && file !== 'expected.ts' && !file.endsWith('vite.config.ts'))
+    .sort();
 }
 
 /** `'Card.ucf'` or `'invalid/DuplicateReact.ucf'` → its absolute path. */

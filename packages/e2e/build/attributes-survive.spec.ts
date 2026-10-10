@@ -3,7 +3,7 @@ import {basename} from 'node:path';
 import {createServer, parseAst, Visitor, type ESTree, type Plugin, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp} from '../fixtures/index.ts';
-import {withNodeEnv} from './lib/build.ts';
+import {keyName, withNodeEnv} from './lib/build.ts';
 
 // Spec 4.4's post rewrite needs `with { framework }` still on the import when post plugins run.
 const IMPORTERS = ['plain.ts', 'component.tsx'];
@@ -40,11 +40,6 @@ afterAll(async () => {
   await server?.close();
   if (root) await rm(root, {recursive: true, force: true});
 });
-
-function keyName(key: ESTree.ImportAttributeKey | ESTree.PropertyKey): string | undefined {
-  if (key.type === 'Identifier') return key.name;
-  return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
-}
 
 function property(object: ESTree.Expression | null | undefined, name: string): ESTree.Expression | undefined {
   if (object?.type !== 'ObjectExpression') return undefined;

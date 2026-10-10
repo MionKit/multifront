@@ -1,5 +1,5 @@
-import {readdirSync, readFileSync} from 'node:fs';
-import {join, sep} from 'node:path';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {Visitor, parseSync} from 'oxc-parser';
 import type {Expression, ImportAttribute, ObjectExpression} from 'oxc-parser';
@@ -7,7 +7,7 @@ import {describe, expect, it} from 'vitest';
 import {rewriteImportAttributes} from '@multifront/core';
 // Relative paths, not a package dependency: @multifront/e2e depends on core.
 import {EXPECTED_IMPORTS} from '../../../e2e/fixtures/apps/imports/expected.ts';
-import {FIXTURES_DIR} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, filesOf} from '../../../e2e/fixtures/index.ts';
 import {lineAt, scriptName, scriptsOf} from './readImports.ts';
 import type {Script} from './readImports.ts';
 
@@ -26,16 +26,9 @@ interface Input {
   script: Script;
 }
 
-function filesOf(app: string, pattern: RegExp): string[] {
-  return readdirSync(join(APPS, app), {recursive: true, encoding: 'utf8'})
-    .map((path) => path.split(sep).join('/'))
-    .filter((file) => pattern.test(file) && file !== 'expected.ts')
-    .sort();
-}
-
 // `.ucf` importers are left out: block imports never go through the rewrite (an attribute there is framework-in-block).
 const INPUTS: Input[] = [
-  ...filesOf('imports', /\.(ts|tsx|jsx|vue|svelte)$/).map((file) => `imports/${file}`),
+  ...filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte)$/).map((file) => `imports/${file}`),
   ...filesOf('rewrite-edges', /\.m?js$/)
     .filter((file) => file !== SYNTAX_ERROR)
     .map((file) => `rewrite-edges/${file}`),
