@@ -330,9 +330,10 @@ None: this is the first milestone. It builds on what the repo already has:
 
 ### 1.10 Style parity with plugin-vue (the exit test)
 
-- Build: `packages/e2e/build/style-parity.spec.ts`, the exit test below. It generates real files from the fixtures and runs real Vite with the real plugin-vue.
+- Build: `packages/e2e/build/style-parity.spec.ts`, the exit test below. It generates real files from the fixtures and runs real Vite with the real plugin-vue. `buildApp(root, config?)` in `packages/e2e/build/lib/build.ts` merges an inline Vite config over its base (Vite's `mergeConfig`), so both builds pass `configFile: false`, the plugin list and their entry.
 - Deliverable: proof that the CSS milestones 3 and 6 will ship for React and Svelte is the CSS plugin-vue ships for Vue.
 - Test: see the exit test.
+- Status: done
 
 ## Hands to later milestones
 
@@ -368,18 +369,18 @@ None: this is the first milestone. It builds on what the repo already has:
 
 1. `splitBlocks` and `checkBlocks` report nothing.
 2. `createBuildContext(split, {root, compiler: require('vue/compiler-sfc'), production: true})`, where `root` is a fresh `copyApp('vue-reference')` and the fixture is copied to `src/<Name>.ucf` in it.
-3. Into the same copy, write `src/<Name>.vue`: `<template><div /></template>` plus the fixture's non-module `<style>` blocks, copied verbatim (`source.slice(block.start, block.end)`). Write `src/<Name>.ours.css`: our compiled CSS of the same blocks, from each style kind `build()`.
+3. Into the same copy, write `src/<Name>.vue`: `<template><div /></template>` plus the fixture's non-module `<style>` blocks, copied verbatim (`source.slice(block.start, block.end)`). Write `src/<Name>.ours.css`: our compiled CSS of the same blocks, from each style kind `build()`, joined with `''` as Vite joins the CSS modules of a chunk (`chunkCSS + styles.get(id)`).
 4. Two real `vite.build()` runs of that copy (`cssMinify: false`, `write: false`):
-   - one whose entry imports only `<Name>.vue`, with plugin-vue's `features.componentIdGenerator` returning `ctx.scopeId`;
+   - one whose entry imports only `<Name>.vue` and renders it (`console.log(Component)`), with plugin-vue's `features.componentIdGenerator` returning `ctx.scopeId`. Vite drops a scoped block's CSS when its component is never rendered (plugin-vue tags it `meta.vite.cssScopeTo`), and app builds drop entry exports;
    - one whose entry imports only `<Name>.ours.css`.
-5. The two emitted CSS assets are equal. Both passed the same Vite CSS steps, so any difference is ours.
+5. The two emitted CSS assets are equal. Both passed the same Vite CSS steps, so any difference is ours. With no non-module block, plugin-vue emits no CSS asset and ours an empty one: compared as the joined text of every CSS asset, both are `''`.
 6. For module blocks (plugin-vue hands those to Vite's own CSS modules, so names differ by design): every key of `ctx.modules[name].classes` is a class selector in the block source, and every value is a class selector in our CSS.
 7. `pnpm devx check` is green.
 
 ## Risks and open questions
 
 1. **CSS module class names differ between targets.** Ours are `<local>_<scopeId>_<index>`. For the Vue target, plugin-vue sends module blocks to Vite's CSS modules, which name classes its own way. Rendering is the same, names are not. Milestone 4 can decide whether to set Vite's `css.modules.generateScopedName` to match.
-2. **SCSS through two preprocessors.** plugin-vue lets Vite's CSS step run `sass` first; we run it through `compileStyleAsync`'s `preprocessLang`. Output can differ, and Vite's `css.preprocessorOptions` (`additionalData`, load paths) do not reach ours. The exit test shows any difference. Fallback if it does: serve `lang.scss` ids and scope after Vite's preprocessing, which changes spec 4.3.
+2. **SCSS through two preprocessors.** plugin-vue lets Vite's CSS step run `sass` first; we run it through `compileStyleAsync`'s `preprocessLang`. Output can differ, and Vite's `css.preprocessorOptions` (`additionalData`, load paths) do not reach ours. The exit test shows any difference: it finds none on `Panel.ucf`'s scoped SCSS. Fallback if a later fixture differs: serve `lang.scss` ids and scope after Vite's preprocessing, which changes spec 4.3.
 3. **`</react>` inside a TSX string** closes the block (spec 10, documented). The error message gives the fix (`'<\/react>'`).
 4. **`style-inside-target` uses our scanner**, not Vue's or Svelte's parser. Exotic templates might fool it. Known misses, all in Svelte: a `<style` inside a `{…}` text expression is reported; a `<style>` inside a `{#…}` logic block is reported (Svelte leaves it in the markup); an omitted end tag (`<ul><li>a<li>b</ul>`) leaves the depth off by one, so a later top-level `<style>` is missed. If they matter, the check can use `compiler.parse` instead, once `check` gets the compiler, or carry HTML's table of omitted end tags.
 5. **Test tools at the root.** AGENTS.md keeps devDependencies at the root, so plugin-vue, vue, sass and shiki go there even though only e2e and core tests use them. If the reviewer prefers, a private package could carry its own; the rule does not say.
