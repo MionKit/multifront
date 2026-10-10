@@ -1,5 +1,5 @@
-import {basename, dirname, isAbsolute, relative, sep} from 'node:path';
-import {isTarget, resolveTarget, splitBlocks} from '@multifront/core';
+import {dirname} from 'node:path';
+import {importPath, isTarget, missingTargetBlockMessage, resolveTarget, splitBlocks} from '@multifront/core';
 import type {Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
@@ -41,12 +41,6 @@ function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expre
   return value;
 }
 
-/** `fileName` as the importer would write it. */
-function importPath(containingFile: string, fileName: string): string {
-  const path = relative(dirname(containingFile), fileName).split(sep).join('/');
-  return isAbsolute(path) || /^\.\.?\//.test(path) ? path : `./${path}`;
-}
-
 function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
   return {
     ...host,
@@ -82,8 +76,7 @@ export function resolveUcfImport(
   if (source !== undefined) split = splitBlocks(source, fileName);
   let error: UcfResolution['error'];
   if (split && !split.targets[target]) {
-    const message = `${importPath(containingFile, fileName)} has no <${target}> block; ${basename(containingFile)} imports it as ${target}`;
-    error = {code: 'missing-target-block', message};
+    error = {code: 'missing-target-block', message: missingTargetBlockMessage(containingFile, fileName, target)};
   }
   // tsserver serves only the main target's script; vue and svelte get theirs in M4 and M6.
   if (target !== MAIN_SCRIPT_TARGET) {

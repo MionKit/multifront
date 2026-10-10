@@ -1,4 +1,5 @@
-import type {BlockKind, BlockTag, Diagnostic, SplitResult} from '../types.ts';
+import {DiagnosticsError, createDiagnostic} from '../diagnostics.ts';
+import type {BlockKind, BlockTag, BuildContext, Diagnostic, SplitResult, Target, VirtualFile} from '../types.ts';
 import {reactKind} from './react.ts';
 import {styleKind} from './style.ts';
 import {svelteKind} from './svelte.ts';
@@ -17,4 +18,23 @@ export function getBlockKind(tag: BlockTag): BlockKind {
 export function checkBlocks(split: SplitResult): Diagnostic[] {
   const blockErrors = split.blocks.flatMap((block) => getBlockKind(block.type).check(block, split));
   return [...split.errors, ...blockErrors].sort((first, second) => first.start - second.start);
+}
+
+/** The file one target becomes; throws `DiagnosticsError` on the splitter's and that block's errors. */
+export function buildTarget(split: SplitResult, ctx: BuildContext, target: Target): VirtualFile {
+  const block = split.targets[target];
+  if (!block) {
+    throw new DiagnosticsError([
+      createDiagnostic(split, 'missing-target-block', 0, 0, `${split.filename} has no <${target}> block`),
+    ]);
+  }
+  const kind = getBlockKind(target);
+  if (!kind.build) {
+    const message = `multifront does not build <${target}> blocks yet`;
+    throw new DiagnosticsError([createDiagnostic(split, 'target-not-built', block.start, block.contentStart, message)]);
+  }
+  // Style errors belong to the style modules, other targets' to their own builds: one problem, one error.
+  const errors = [...split.errors, ...kind.check(block, split)].sort((first, second) => first.start - second.start);
+  if (errors.length > 0) throw new DiagnosticsError(errors);
+  return kind.build(block, ctx);
 }

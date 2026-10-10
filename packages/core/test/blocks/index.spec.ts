@@ -1,5 +1,37 @@
+import {createRequire} from 'node:module';
 import {describe, expect, it} from 'vitest';
-import {BLOCK_KINDS, TARGETS, getBlockKind} from '@multifront/core';
+import {
+  BLOCK_KINDS,
+  DiagnosticsError,
+  TARGETS,
+  buildTarget,
+  checkBlocks,
+  createBuildContext,
+  getBlockKind,
+  splitBlocks,
+} from '@multifront/core';
+import type {Diagnostic, Target, VueCompiler} from '@multifront/core';
+// A relative path, not a package dependency: @multifront/e2e depends on core.
+import {FIXTURES_DIR, readComponent} from '../../../e2e/fixtures/index.ts';
+
+const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
+
+async function load(name: string) {
+  const {filename, source} = readComponent(name);
+  const split = splitBlocks(source, filename);
+  return {split, ctx: await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: true})};
+}
+
+async function buildErrors(name: string, target: Target): Promise<Pick<Diagnostic, 'code' | 'line' | 'column'>[]> {
+  const {split, ctx} = await load(name);
+  try {
+    buildTarget(split, ctx, target);
+  } catch (err) {
+    expect(err).toBeInstanceOf(DiagnosticsError);
+    return (err as DiagnosticsError).diagnostics.map(({code, line, column}) => ({code, line, column}));
+  }
+  throw new Error(`${name} built as ${target}`);
+}
 
 describe('block kinds', () => {
   it('lists the shared kind first, then the targets in TARGETS order', () => {
@@ -31,5 +63,32 @@ describe('block kinds', () => {
 
   it('finds each kind by its tag', () => {
     for (const kind of BLOCK_KINDS) expect(getBlockKind(kind.tag)).toBe(kind);
+  });
+});
+
+describe('buildTarget', () => {
+  it('builds the react row as react.build does', async () => {
+    const {split, ctx} = await load('react/AllBlocks.ucf');
+    expect(buildTarget(split, ctx, 'react')).toEqual(getBlockKind('react').build!(split.targets.react!, ctx));
+  });
+
+  it("throws the react row's check errors at their place", async () => {
+    const {split} = await load('react/errors/NoDefault.ucf');
+    const [expected] = checkBlocks(split);
+    expect(await buildErrors('react/errors/NoDefault.ucf', 'react')).toEqual([
+      {code: 'react-no-default-export', line: expected!.line, column: expected!.column},
+    ]);
+  });
+
+  it('throws missing-target-block for a file without the block', async () => {
+    expect(await buildErrors('imports/VueOnly.ucf', 'react')).toEqual([{code: 'missing-target-block', line: 1, column: 0}]);
+  });
+
+  it.each(['vue', 'svelte'] as const)('throws target-not-built for %s on its opening tag', async (target) => {
+    const {source} = readComponent('react/AllBlocks.ucf');
+    const before = source.slice(0, source.indexOf(`<${target}>`)).split('\n');
+    expect(await buildErrors('react/AllBlocks.ucf', target)).toEqual([
+      {code: 'target-not-built', line: before.length, column: before.at(-1)!.length},
+    ]);
   });
 });

@@ -23,10 +23,17 @@ export type {
   VirtualFile,
   VueCompiler,
 } from './types.ts';
-export {BLOCK_KINDS, checkBlocks, getBlockKind} from './blocks/index.ts';
+export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {createBuildContext} from './context.ts';
+export {DiagnosticsError} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
-export {DEFAULT_IMPORTERS, importerFromId, resolveTarget} from './imports/resolveTarget.ts';
+export {
+  DEFAULT_IMPORTERS,
+  importPath,
+  importerFromId,
+  missingTargetBlockMessage,
+  resolveTarget,
+} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
 export {scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';

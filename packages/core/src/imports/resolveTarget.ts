@@ -1,4 +1,4 @@
-import {extname} from 'node:path';
+import {basename, dirname, extname, isAbsolute, relative, sep} from 'node:path';
 import {orList} from '../diagnostics.ts';
 import {TARGETS, isTarget} from '../targets.ts';
 import type {Importer, ResolveTargetOptions, Target, TargetChoice, TargetErrorCode} from '../types.ts';
@@ -22,6 +22,17 @@ const BLOCK_SUFFIXES: readonly (readonly [string, Target])[] = [
 /** Shared with `react.check`. */
 export function frameworkInBlockMessage(block: Target): string {
   return `a framework attribute cannot sit inside the <${block}> block; imports there always get ${block}`;
+}
+
+/** `fileName` as the importer would write it. */
+export function importPath(importerFile: string, fileName: string): string {
+  const path = relative(dirname(importerFile), fileName).split(sep).join('/');
+  return isAbsolute(path) || /^\.\.?\//.test(path) ? path : `./${path}`;
+}
+
+/** Shared by the build and the editor, so both name the two files the same way. */
+export function missingTargetBlockMessage(importerFile: string, ucfFile: string, target: Target): string {
+  return `${importPath(importerFile, ucfFile)} has no <${target}> block; ${basename(importerFile)} imports it as ${target}`;
 }
 
 function fail(code: TargetErrorCode, message: string): TargetChoice {
