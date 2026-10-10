@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-10
 ---
 
@@ -17,8 +17,8 @@ A block with both `module` and `scoped` that uses `composes` (from a file or a l
 ```
 
 `compileStyleAsync({scoped: true, modules: true})` runs Vue's scoped plugin before postcss-modules, so the selector
-already carries `[data-v-…]` when postcss-modules checks it. plugin-vue + Vite compile the same block fine: plugin-vue
-scopes it, then Vite's CSS modules run on the result, and composed files come out scoped too
+already carries `[data-v-…]` when postcss-modules checks it. plugin-vue + Vite compile the same block fine: Vite's CSS
+modules run first, then plugin-vue scopes the result, and composed files come out scoped too
 (`.base_<id>_0[data-v-<id>]`, seen with Vite 8.2 + plugin-vue). Our CSS must match theirs.
 
 ## Direction
@@ -26,8 +26,8 @@ scopes it, then Vite's CSS modules run on the result, and composed files come ou
 - Reproduce on the current `@vue/compiler-sfc`; check whether the plugin order is configurable there first.
 - Otherwise options to weigh: run CSS modules on the class selectors before the scoped rewrite, or compile a scoped
   module block in two passes the way plugin-vue + Vite do. The implementer plans the details.
-- The composes loader in `src/styles.ts` already passes `scoped` to each composed file's compile; today that path is
-  unreachable because the block fails first.
+- The composes loader in `src/styles.ts` passed `scoped` to each composed file's compile, unreachable because the
+  block failed first. Dropped: see the plan below.
 - Test: a `<style module scoped>` block with `composes … from` in a valid fixture, so the style-parity e2e test
   (`packages/e2e/build/style-parity.spec.ts`) compares it with plugin-vue + Vite, plus its CSS snapshot.
 
@@ -54,8 +54,10 @@ scopes it, then Vite's CSS modules run on the result, and composed files come ou
 - New valid fixture `ComposesScoped.ucf`: one `<style module scoped>` block at index 0, composing a local class,
   `./tag-base.css` and `./tag-round.css` (which composes `./tag-base.css`). A new file, not a second block in
   `ComposesFrom.ucf`: the style-parity test names composed classes as if they come from block 0.
-- Tests: style-parity picks the fixture up; core `styles.spec.ts` gets `STYLE_BLOCKS` + `COMPOSED` rows and a CSS
-  snapshot; `split.spec.ts` and `context.spec.ts` get their rows; new split and editor snapshots committed.
+- Second fixture `ScopedModuleScss.ucf` (review): a `<style module scoped lang="scss">` block with nesting and
+  `composes`, so the preprocess, modules, scoped chain and its map run too.
+- Tests: style-parity picks the fixtures up; core `styles.spec.ts` gets `STYLE_BLOCKS` + `COMPOSED` rows and a CSS
+  snapshot each; `split.spec.ts` and `context.spec.ts` get their rows; new split and editor snapshots committed.
 - Docs: m1 step 1.8's "one `compileStyleAsync` call per block" bullet and `docs/plan.md` section 1's
   `compileStyles` line say a scoped module block takes two passes.
 - No fuzzing: a fix.
