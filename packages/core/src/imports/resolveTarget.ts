@@ -25,8 +25,8 @@ function fail(code: TargetErrorCode, message: string): TargetChoice {
 
 /** The importer a module id or virtual script name stands for, with the `.ucf` block it is (spec 4.1). */
 export function importerFromId(id: string): Importer {
-  const query = id.indexOf('?');
-  const path = query === -1 ? id : id.slice(0, query);
+  const queryStart = id.indexOf('?');
+  const path = queryStart === -1 ? id : id.slice(0, queryStart);
   // The Vue block keeps the real path (spec 4.3); our style and class map ids import no `.ucf` file.
   if (path.endsWith('.ucf')) return {fileName: path, block: 'vue'};
   for (const [suffix, block] of BLOCK_SUFFIXES) {
