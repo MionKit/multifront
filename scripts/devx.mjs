@@ -103,7 +103,7 @@ const handlers = {
     run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
     // vsce reads a license only from the extension folder, and prompts without one.
     copyFileSync(join(REPO_ROOT, 'LICENSE'), join(extension, 'LICENSE'));
-    // The version goes into the packed manifest only; vsce would otherwise run `npm version` on package.json.
+    // vsce would otherwise run `npm version` on package.json.
     run(bin('@vscode/vsce', 'vsce'), ['package', version, '--no-update-package-json', '--no-dependencies'], {cwd: extension});
   },
   env() {

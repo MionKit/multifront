@@ -15,7 +15,7 @@ const REPO_ROOT = join(import.meta.dirname, '..', '..', '..');
 const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
 const VSCE = join(REPO_ROOT, 'node_modules', '@vscode', 'vsce', 'vsce');
 
-// vsce's own reader, untyped: it keys every entry by its lowercased path.
+// Untyped; keys every entry by its lowercased path.
 const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js') as {
   readZip: (path: string, filter: (name: string) => boolean) => Promise<Map<string, Buffer>>;
 };
@@ -39,7 +39,7 @@ function spawn(args: string[], cwd: string): SpawnSyncReturns<string> {
   return spawnSync(process.execPath, args, {cwd, encoding: 'utf8', env: {...process.env, CI: '1'}});
 }
 
-// stdout and stderr together: vsce warns on stderr, or on stdout as `::warning::` under GitHub Actions.
+// vsce warns on stderr, or on stdout as `::warning::` under GitHub Actions.
 function succeed(args: string[], cwd: string): string {
   const result = spawn(args, cwd);
   const output = `${result.stdout}\n${result.stderr}`;
@@ -55,7 +55,6 @@ function devx(root: string, ...args: string[]): string[] {
 const zipPath = (path: string): string =>
   `extension/${path.replace(/^\.\//, '').replace(/^LICENSE$/, 'LICENSE.txt')}`.toLowerCase();
 
-// The content scope of every block and every `lang` grammar, mapped to the VS Code language it holds.
 function registryLanguages(): Record<string, string> {
   const languages: Record<string, string> = {};
   for (const {tag, grammar} of BLOCK_KINDS) {
@@ -133,7 +132,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
   });
 
   it('Card.ucf gets the same scopes from the packed grammar files as from generateGrammar()', async () => {
-    // Read through the packed manifest, as VS Code does: root grammar first, injections by `injectTo`.
+    // As VS Code loads them: root grammar first, injections by `injectTo`.
     const files: GrammarFile[] = packedJson<Manifest>('package.json').contributes.grammars.map(({scopeName, path, injectTo}) => ({
       scopeName,
       path,
@@ -153,7 +152,6 @@ describe('pnpm devx vsix takes the version from version.json', () => {
     for (const dir of temps.splice(0)) rmSync(dir, {recursive: true, force: true});
   });
 
-  // Temp repo with the real scripts, extension and installs, and its own version.json.
   function repoWithVersion(versionJson: string): string {
     const root = mkdtempSync(join(tmpdir(), 'vsix-'));
     temps.push(root);
