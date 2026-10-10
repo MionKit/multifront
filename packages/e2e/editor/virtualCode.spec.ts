@@ -1,4 +1,4 @@
-import {BLOCK_KINDS, splitBlocks} from '@multifront/core';
+import {BLOCK_KINDS, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS} from '@multifront/language-tools';
 import {createLanguage} from '@volar/language-core';
@@ -9,7 +9,7 @@ import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
-const plugin = createUcfLanguagePlugin();
+const plugin = createUcfLanguagePlugin({compiler: loadVueCompiler(FIXTURES_DIR)});
 // Volar's own registry: it picks the language, creates the codes, keeps them by id.
 const language = createLanguage([plugin], new Map(), () => {});
 const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs'), ...listComponents('editor')];
@@ -101,7 +101,16 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
         const code = byId.get(id)!;
         const text = textOf(code);
         const mapper = language.maps.get(code, script);
-        for (const mapping of code.mappings) expect(mapping.data).toEqual(ALL_ON);
+        const [content, ...classKeys] = code.mappings;
+        expect(content).toEqual({
+          sourceOffsets: [block.contentStart],
+          generatedOffsets: [0],
+          lengths: [block.content.length],
+          data: ALL_ON,
+        });
+        // The react code's `$style` keys jump to their class names: navigation only.
+        for (const mapping of classKeys) expect(mapping.data).toEqual({navigation: true});
+        if (id !== 'react') expect(classKeys).toEqual([]);
         for (let offset = block.contentStart; offset < block.contentEnd; offset++) {
           const [generated] = mapper.toGeneratedLocation(offset).next().value ?? [];
           expect(generated === undefined ? undefined : text[generated], `${id} at ${offset}`).toBe(source[offset]);
