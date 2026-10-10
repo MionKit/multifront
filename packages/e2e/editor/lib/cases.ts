@@ -1,17 +1,15 @@
 import {checkBlocks, splitBlocks} from '@multifront/core';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import type * as ts from 'typescript';
 import {describe, expect, it} from 'vitest';
+import {EXPECTED_IMPORTS} from '../../fixtures/apps/imports/expected.ts';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../../fixtures/index.ts';
 import type {LanguageServer} from './lsp.ts';
 import {inBlock, locate} from './tsserver.ts';
-import type {TsDefinitions, TsDiagnostic, TsLocation, Tsserver} from './tsserver.ts';
+import type {Component, TsDefinitions, TsDiagnostic, TsLocation, TsQuickInfo, Tsserver} from './tsserver.ts';
 
 type Document = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
 type Range = Parameters<LanguageServer['sendInlayHintRequest']>[1];
-type QuickInfo = ts.server.protocol.QuickInfoResponseBody;
-export type Component = ReturnType<typeof readComponent>;
 
 const SEVERITY = {error: 1, warning: 2} as const;
 
@@ -23,7 +21,11 @@ export function readApp(file: string): Component {
   return {filename, source: readFileSync(filename, 'utf8')};
 }
 
+export const PLUGIN = '@multifront/language-tools/typescript-plugin';
 export const APP = readApp('src/App.tsx');
+export const MIXED = readApp('src/mixed.ts');
+// The vue import, then the react one.
+export const MIXED_LINES = EXPECTED_IMPORTS.filter(({file}) => file === 'src/mixed.ts').map(({line}) => line) as [number, number];
 
 export const onLine = (diagnostics: TsDiagnostic[], line: number) => diagnostics.filter(({start}) => start.line === line);
 export const codesOnLine = (diagnostics: TsDiagnostic[], line: number) => onLine(diagnostics, line).map(({code}) => code);
@@ -52,7 +54,7 @@ export async function expectCardPropError(server: Tsserver, component: Component
 export function appTsxCases(getServer: () => Tsserver): void {
   describe('App.tsx', () => {
     it('quickinfo on <Card shows its props', async () => {
-      const info = await getServer().request<QuickInfo>('quickinfo', {file: APP.filename, ...locate(APP.source, '<Card', 1)});
+      const info = await getServer().request<TsQuickInfo>('quickinfo', {file: APP.filename, ...locate(APP.source, '<Card', 1)});
       expect(info.displayString.replace(/\s+/g, ' ')).toContain('{ title: string; }');
     });
 

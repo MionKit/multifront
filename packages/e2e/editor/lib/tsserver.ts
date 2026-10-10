@@ -9,8 +9,9 @@ import type * as ts from 'typescript';
 export type TsDiagnostic = ts.server.protocol.Diagnostic;
 export type TsLocation = ts.server.protocol.Location;
 export type TsDefinitions = ts.server.protocol.FileSpanWithContext[];
+export type TsQuickInfo = ts.server.protocol.QuickInfoResponseBody;
 
-interface Component {
+export interface Component {
   filename: string;
   source: string;
 }
@@ -25,13 +26,13 @@ interface TsserverOptions {
   cwd: string;
   plugins: string[]; // global plugins
   probeLocations?: string[]; // where tsserver looks for plugins first; default: packages/e2e, as installed there
-  source?: boolean; // run workspace packages from source; default true
-  isolated?: boolean; // no workspace package resolves next to tsserver.js, so only the probe locations give plugins
+  // Not from source, and no workspace package resolves next to tsserver.js: only the probe locations give plugins.
+  isolated?: boolean;
   logFile?: string;
 }
 
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
-const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
+export const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
 // The root link: with symlinks kept, tsserver's own `../../..` plugin lookup is the root node_modules, which holds
 // no workspace package (the real path's `.pnpm/node_modules` holds them all).
 const ROOT_TSSERVER = join(E2E_DIR, '..', '..', 'node_modules', 'typescript', 'lib', 'tsserver.js');
@@ -60,12 +61,11 @@ export function open(server: Tsserver, files: Component[]): Promise<unknown> {
   return server.request('updateOpen', {openFiles: files.map(({filename, source}) => ({file: filename, fileContent: source}))});
 }
 
-/** The real tsserver over its stdio protocol; plugins run from source by default, as the workspace links them. */
+/** The real tsserver over its stdio protocol; plugins run from source unless isolated, as the workspace links them. */
 export function startTsserver(options: TsserverOptions): Tsserver {
-  const {cwd, plugins, probeLocations = [E2E_DIR], source = true, isolated = false, logFile} = options;
+  const {cwd, plugins, probeLocations = [E2E_DIR], isolated = false, logFile} = options;
   const args = [
-    ...(source ? ['--conditions=source'] : []),
-    ...(isolated ? ['--preserve-symlinks', '--preserve-symlinks-main', ROOT_TSSERVER] : [TSSERVER]),
+    ...(isolated ? ['--preserve-symlinks', '--preserve-symlinks-main', ROOT_TSSERVER] : ['--conditions=source', TSSERVER]),
     '--disableAutomaticTypingAcquisition',
   ];
   if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','), '--pluginProbeLocations', probeLocations.join(','));

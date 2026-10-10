@@ -6,15 +6,25 @@ import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {readComponent} from '../fixtures/index.ts';
-import {APP, APP_DIR, appTsxCases, CARD, codesOnLine, edit, expectCardPropError, onLine, readApp} from './lib/cases.ts';
-import type {Component} from './lib/cases.ts';
+import {
+  APP,
+  APP_DIR,
+  appTsxCases,
+  CARD,
+  codesOnLine,
+  edit,
+  expectCardPropError,
+  MIXED,
+  MIXED_LINES,
+  onLine,
+  PLUGIN,
+  readApp,
+} from './lib/cases.ts';
 import {inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
-import type {TsDefinitions, Tsserver} from './lib/tsserver.ts';
+import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
-type QuickInfo = ts.server.protocol.QuickInfoResponseBody;
 type Completions = ts.server.protocol.CompletionInfo;
 
-const PLUGIN = '@multifront/language-tools/typescript-plugin';
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
 // The rows TypeScript itself reads; .vue, .svelte and .jsx importers come with M4 and M6.
 const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.tsx?$/.test(file) && file !== 'src/mixed.ts');
@@ -27,8 +37,6 @@ const RULE_REASON: Record<TargetRule, string> = {
 const CARD_SPECIFIER = '../../../components/Card.ucf';
 const STYLE_ACCESS = 'className={$style.';
 const REACT_SIGNATURE = 'Card({ title }: { title: string })';
-
-const MIXED = readApp('src/mixed.ts');
 
 describe('the TypeScript plugin in tsserver, on the imports app', () => {
   let server: Tsserver;
@@ -67,7 +75,7 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
 
   describe('mixed.ts: one specifier imported as vue, then as react', () => {
     it.each(['VueCard', 'ReactCard'])('%s gets the React types of the last import', async (name) => {
-      const info = await server.request<QuickInfo>('quickinfo', {
+      const info = await server.request<TsQuickInfo>('quickinfo', {
         file: MIXED.filename,
         ...locate(MIXED.source, `import ${name}`, 7),
       });
@@ -76,9 +84,9 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
 
     it('the second import has the warning naming the fix; the first only its own error', async () => {
       const diagnostics = await server.diagnostics(MIXED.filename);
-      const [vue, react] = EXPECTED_IMPORTS.filter(({file}) => file === 'src/mixed.ts').map(({line}) => line);
-      expect(codesOnLine(diagnostics, vue!)).toEqual(['target-not-built']);
-      const [warning, ...rest] = onLine(diagnostics, react!);
+      const [vue, react] = MIXED_LINES;
+      expect(codesOnLine(diagnostics, vue)).toEqual(['target-not-built']);
+      const [warning, ...rest] = onLine(diagnostics, react);
       expect(rest).toEqual([]);
       const start = locate(MIXED.source, `'${CARD_SPECIFIER}' with {framework: 'react'}`);
       expect(warning).toMatchObject({code: 'mixed-frameworks', source: 'multifront', category: 'warning', start});
@@ -134,7 +142,10 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
     });
 
     it('hover on title shows string', async () => {
-      const info = await server.request<QuickInfo>('quickinfo', {file: CARD.filename, ...locate(CARD.source, '<h2>{title}', 5)});
+      const info = await server.request<TsQuickInfo>('quickinfo', {
+        file: CARD.filename,
+        ...locate(CARD.source, '<h2>{title}', 5),
+      });
       expect(info.displayString).toContain('title: string');
     });
 
@@ -207,7 +218,7 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
     const codes = (await server.diagnostics(card.filename)).map(({code}) => code);
     expect(codes).not.toContain(2304); // "Cannot find name '$style'": the raw file read as TSX
     expect(codes).not.toContain(2339);
-    const info = await server.request<QuickInfo>('quickinfo', {file: card.filename, ...locate(card.source, '<h2>{title}', 5)});
+    const info = await server.request<TsQuickInfo>('quickinfo', {file: card.filename, ...locate(card.source, '<h2>{title}', 5)});
     expect(info.displayString).toContain('title: string');
   });
 

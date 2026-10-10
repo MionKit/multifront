@@ -1,6 +1,6 @@
 import {spawnSync} from 'node:child_process';
 import type {SpawnSyncReturns} from 'node:child_process';
-import {mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {cpSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {BLOCK_KINDS} from '@multifront/core';
 import {generateGrammar} from 'multifront-vscode/grammar';
@@ -80,6 +80,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     rmSync(vsixPath, {force: true});
     for (const dir of ['dist/syntaxes', PACK]) mkdirSync(join(EXTENSION_DIR, dir), {recursive: true});
     writeFileSync(join(EXTENSION_DIR, 'dist', 'syntaxes', 'source.ucf.removed.tmLanguage.json'), '{}');
+    writeFileSync(join(EXTENSION_DIR, 'dist', 'removed.cjs'), '');
     writeFileSync(join(EXTENSION_DIR, PACK, 'removed.js'), '');
     output = succeed(devx(REPO_ROOT, 'vsix'), REPO_ROOT);
     packed = await readZip(vsixPath, () => true);
@@ -165,19 +166,46 @@ describe('pnpm devx vsix takes the version from version.json', () => {
     return root;
   }
 
-  it('packs the version into the .vsix manifest only, never into package.json', {timeout: 120_000}, async () => {
-    const root = repoWithVersion('{"version": "1.2.3"}');
-    succeed(devx(root, 'vsix'), root);
-    const extension = join(root, 'packages', 'vscode');
-    const packed = await readZip(join(extension, 'multifront-vscode-1.2.3.vsix'), (name) => name === 'extension/package.json');
-    expect(JSON.parse(packed.get('extension/package.json')!.toString('utf8'))).toHaveProperty('version', '1.2.3');
-    expect(readJson<Manifest>(join(extension, 'package.json')).version).toBe('0.0.0');
-  });
+  it(
+    'packs the version into the .vsix manifest and the plugin pack only, never into package.json',
+    {timeout: 120_000},
+    async () => {
+      const root = repoWithVersion('{"version": "1.2.3"}');
+      succeed(devx(root, 'vsix'), root);
+      const extension = join(root, 'packages', 'vscode');
+      const manifests = ['extension/package.json', `extension/${PACK}/package.json`];
+      const packed = await readZip(join(extension, 'multifront-vscode-1.2.3.vsix'), (name) => manifests.includes(name));
+      for (const name of manifests) expect(JSON.parse(packed.get(name)!.toString('utf8'))).toHaveProperty('version', '1.2.3');
+      expect(readJson<Manifest>(join(extension, 'package.json')).version).toBe('0.0.0');
+    }
+  );
 
   it.each(['{}', '{"version": "../1.2.3"}'])('refuses version.json %s', (versionJson) => {
     const root = repoWithVersion(versionJson);
     const result = spawn(devx(root, 'vsix'), root);
     expect(result.status).toBe(1);
     expect(result.stderr.trim()).toBe('devx: version.json has no valid version');
+  });
+});
+
+describe('pnpm devx vsix bundles only with the wasm build of the oxc-parser core uses', () => {
+  let root: string | undefined;
+
+  afterEach(() => {
+    if (root) rmSync(root, {recursive: true, force: true});
+  });
+
+  it('refuses a wasm binding of another version', () => {
+    root = tempRepo();
+    // The real binding package, copied in place of its link, with the version a stale install would have.
+    const binding = join(root, 'packages', 'vscode', 'node_modules', '@oxc-parser', 'binding-wasm32-wasi');
+    const real = realpathSync(binding);
+    rmSync(binding);
+    cpSync(real, binding, {recursive: true});
+    const manifest = readJson<Record<string, unknown>>(join(binding, 'package.json'));
+    writeFileSync(join(binding, 'package.json'), JSON.stringify({...manifest, version: '0.0.1'}));
+    const result = spawn(devx(root, 'vsix'), root);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/oxc-parser (\S+) needs @oxc-parser\/binding-wasm32-wasi \1, found 0\.0\.1/);
   });
 });

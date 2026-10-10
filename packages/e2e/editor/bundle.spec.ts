@@ -4,19 +4,26 @@ import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
-import {APP, APP_DIR, appTsxCases, CARD, codesOnLine, onLine, readApp} from './lib/cases.ts';
-import {languageServerCases} from './lib/cases.ts';
+import {
+  APP,
+  APP_DIR,
+  appTsxCases,
+  CARD,
+  codesOnLine,
+  languageServerCases,
+  MIXED,
+  MIXED_LINES,
+  onLine,
+  PLUGIN,
+} from './lib/cases.ts';
 import {startLanguageServer} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
-import {open, startTsserver} from './lib/tsserver.ts';
+import {E2E_DIR, open, startTsserver} from './lib/tsserver.ts';
 import type {Tsserver} from './lib/tsserver.ts';
 import {tempRepo, unzipVsix} from './lib/vsix.ts';
 
-const PROJECT_PLUGIN = '@multifront/language-tools/typescript-plugin';
 const PACK = 'multifront-typescript-plugin-pack';
-const E2E_DIR = join(import.meta.dirname, '..');
 // What the extension passes the server as its tsdk: a TypeScript lib folder.
 const TSDK = dirname(createRequire(import.meta.url).resolve('typescript'));
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
@@ -66,7 +73,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
   beforeAll(async () => {
     logFile = join(temp, 'pack-alone.log');
     // Isolated: the project's own entry is found nowhere, so the pack is the one plugin.
-    server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], source: false, isolated: true, logFile});
+    server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], isolated: true, logFile});
     await open(server, [APP, CARD]);
   });
 
@@ -76,7 +83,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
 
   it("the project's own plugin entry is not found; the pack loads", () => {
     const log = readFileSync(logFile, 'utf8');
-    expect(log).toContain(`Failed to load module '${PROJECT_PLUGIN}'`);
+    expect(log).toContain(`Failed to load module '${PLUGIN}'`);
     const loading = log.indexOf(`Loading global plugin ${PACK}`);
     expect(loading).toBeGreaterThan(-1);
     expect(log.indexOf('Plugin validation succeeded', loading)).toBeGreaterThan(loading);
@@ -87,7 +94,6 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
 });
 
 describe("tsserver with the plugin pack and the project's own plugin: the first copy serves, the pack steps aside", () => {
-  const MIXED = readApp('src/mixed.ts');
   let server: Tsserver;
   let logFile: string;
 
@@ -104,16 +110,18 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
 
   it('the pack logs that it steps aside', () => {
     const log = readFileSync(logFile, 'utf8');
-    expect(log).toContain(`Loading global plugin ${PACK}`);
-    expect(log).toContain(STEPS_ASIDE);
+    const loading = log.indexOf(`Loading global plugin ${PACK}`);
+    expect(loading).toBeGreaterThan(-1);
+    // After the pack loads: the project's own entry loaded first, so the pack is the copy that steps aside.
+    expect(log.indexOf(STEPS_ASIDE, loading)).toBeGreaterThan(loading);
   });
 
   appTsxCases(() => server);
 
   it('mixed.ts: one target-not-built on the vue import, one mixed-frameworks warning on the react one', async () => {
     const diagnostics = await server.diagnostics(MIXED.filename);
-    const [vue, react] = EXPECTED_IMPORTS.filter(({file}) => file === 'src/mixed.ts').map(({line}) => line);
-    expect(codesOnLine(diagnostics, vue!)).toEqual(['target-not-built']);
-    expect(onLine(diagnostics, react!)).toMatchObject([{code: 'mixed-frameworks', category: 'warning'}]);
+    const [vue, react] = MIXED_LINES;
+    expect(codesOnLine(diagnostics, vue)).toEqual(['target-not-built']);
+    expect(onLine(diagnostics, react)).toMatchObject([{code: 'mixed-frameworks', category: 'warning'}]);
   });
 });
