@@ -27,7 +27,7 @@ export interface SplitResult {
   errors: Diagnostic[]; // splitter errors only
 }
 
-/** The TextMate grammar that highlights a block's content, and its VS Code language. */
+/** TextMate grammar for a block's content, plus its VS Code language. */
 export interface GrammarScope {
   scopeName: string; // root scope, e.g. 'source.tsx'
   languageId: string; // e.g. 'typescriptreact'

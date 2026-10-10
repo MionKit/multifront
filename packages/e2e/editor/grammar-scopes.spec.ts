@@ -26,7 +26,6 @@ function pickGrammar(block: Block): GrammarScope {
   return typeof lang === 'string' && grammar.byLang && Object.hasOwn(grammar.byLang, lang) ? grammar.byLang[lang]! : grammar;
 }
 
-// The non-whitespace text that got nothing deeper than the grammar's root scope.
 function rootOnlyText(content: string, scopeName: string): string[] {
   const grammar = highlighter.getLanguage(grammarsByScope.get(scopeName)!.name);
   const rootOnly: string[] = [];
@@ -61,7 +60,7 @@ describe('grammar data of the block kinds, against the real shiki grammars', () 
     }
   });
 
-  // Proves the plain-text check is not empty: the CSS grammar cannot read SCSS.
+  // Proves the root-only check can fail: the CSS grammar cannot read SCSS.
   it('catches a wrong pick: the SCSS block of Panel.ucf through source.css leaves plain text', () => {
     const scss = blocksOf('Panel.ucf').find((block) => block.attrs.lang === 'scss')!;
     expect(pickGrammar(scss).scopeName).toBe('source.css.scss');
