@@ -45,6 +45,15 @@ export interface BlockKind {
   role: BlockRole;
   grammar: BlockGrammar;
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
+  fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
+  build?(block: Block, ctx: BuildContext): VirtualFile; // style now; react in M3, vue in M4, svelte in M6
+}
+
+/** One file a block becomes, for the bundler or an editor service. */
+export interface VirtualFile {
+  ext: '.tsx' | '.vue' | '.svelte' | '.css' | '.scss' | '.ts';
+  code: string;
+  map: SourceMap | undefined; // back to the block in the .ucf file
 }
 
 /** Why an opening tag never ends cleanly; set = the tag counts as unclosed. */
@@ -95,4 +104,31 @@ export interface CompiledStyle {
   module: string | undefined; // injection name: '$style' or the module="name" value
   classes: Record<string, string> | undefined; // CSS module class map, local → generated
   errors: Diagnostic[]; // 'style-compile-error', positioned in the .ucf file
+}
+
+export interface BuildContextOptions {
+  root: string; // the Vite root: scope ids hash the path relative to it
+  compiler: VueCompiler;
+  production: boolean;
+}
+
+/** What the shared kinds fill for the target builds; one per `.ucf` file. */
+export interface BuildContext {
+  filename: string; // absolute .ucf path
+  split: SplitResult; // every block; the vue build (M4) needs all of them
+  relativePath: string; // from options.root, '/' separators: the scopeId input
+  source: string;
+  production: boolean;
+  compiler: VueCompiler;
+  scopeId: string; // 8 hex chars; the attribute is `data-v-${scopeId}`
+  hasScoped: boolean; // some <style scoped> exists: target builds stamp attributes only then
+  styles: CompiledStyle[]; // one per <style> block, in source order
+  modules: Record<string, StyleModule>; // '$style' and named modules, by injection name
+}
+
+export interface StyleModule {
+  name: string; // '$style' or the module="name" value
+  index: number; // the <style> block it comes from
+  id: string; // class map module id, from classMapId()
+  classes: Record<string, string>; // local → generated class name
 }

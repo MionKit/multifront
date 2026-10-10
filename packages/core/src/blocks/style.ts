@@ -1,6 +1,7 @@
 import {createDiagnostic, orList} from '../diagnostics.ts';
-import {moduleName} from '../styles.ts';
-import type {Block, BlockKind, Diagnostic, GrammarScope, SplitResult} from '../types.ts';
+import {classMapId} from '../ids.ts';
+import {compileStyles, moduleName} from '../styles.ts';
+import type {Block, BlockKind, BuildContext, Diagnostic, GrammarScope, SplitResult, VirtualFile} from '../types.ts';
 
 // The one list of style langs; `css` falls to the default grammar.
 const BY_LANG: Record<string, GrammarScope> = {
@@ -29,9 +30,27 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return diagnostics;
 }
 
+async function fillContext(blocks: Block[], ctx: BuildContext): Promise<void> {
+  const {scopeId: id, filename, source, compiler, production} = ctx;
+  ctx.styles = await compileStyles(blocks, {id, filename, source, compiler, production});
+  ctx.hasScoped = ctx.styles.some((style) => style.scoped);
+  for (const {module: name, index, classes} of ctx.styles) {
+    if (name === undefined) continue;
+    // A later block with the same name wins, as in plugin-vue. A block that failed keeps `{}`, so `$style` resolves.
+    ctx.modules[name] = {name, index, id: classMapId(filename, index), classes: classes ?? {}};
+  }
+}
+
+function build(block: Block, ctx: BuildContext): VirtualFile {
+  const {code, map} = ctx.styles[block.index]!;
+  return {ext: '.css', code, map};
+}
+
 export const styleKind: BlockKind = {
   tag: 'style',
   role: 'shared',
   grammar: {scopeName: 'source.css', languageId: 'css', byLang: BY_LANG},
   check,
+  fillContext,
+  build,
 };
