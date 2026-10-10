@@ -13,7 +13,9 @@ When it is done:
 - A demo app proves it: Fast Refresh keeps state, a style edit only reloads CSS, a parent scoped style reaches a child root.
 - We record a clear go or no-go. On no-go, React falls back to CSS modules only (see "Exit test").
 
-No runtime package: the forwarding helper is a virtual module served by the Vite plugin.
+- React's version is the user's: `react`, `react-dom` and `@vitejs/plugin-react` are optional peer ranges, and CI tests the bottom and the top of each range.
+
+No runtime package: the forwarding helper is a virtual module served by the Vite plugin. We never compile React ourselves: we hand plain `.tsx` to the user's plugin-react.
 
 ## Needs from earlier milestones
 
@@ -146,7 +148,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - `multifront(options)` now returns `Plugin[]` (the pre plugin `multifront`; 3.7 adds the post plugin). `MultifrontOptions` gains `importers?: Record<string, Target>`. `targets` keeps the spec default: all three.
   - `cache.ts`: `loadUcf(file): Promise<UcfEntry>`, `UcfEntry = {split, ctx}`. Splits once per file content and runs the shared kinds (`createBuildContext`).
   - Core: `buildTarget(split, ctx, target): VirtualFile`, the host function that runs that target row's `check` and `build`. The Vite `load` hook and M5's library build both call it.
-  - `@vitejs/plugin-react` becomes an optional peer of `@multifront/vite`, with the pinned devDependency that satisfies it (like plugin-vue). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
+  - `@vitejs/plugin-react`, `react` and `react-dom` become optional peers of `@multifront/vite`, with the pinned devDependencies that satisfy them (like plugin-vue). Ranges: `react` and `react-dom` `^19.0.0` (spec 8: `ref` is a prop); plugin-react from the lowest version that passes spike check 1 (6.1 expected). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
   - `resolveId` for a specifier whose path ends in `.ucf`: read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids (style, class map, target ids) pass through. During the dependency scan, follow the spike's verdict.
   - `load`: the react id runs `react.check` (errors through `this.error` with `loc: {file, line, column}`) then `react.build`. A style id returns its CSS and map. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
   - `vueCompiler.spec.ts` is updated for the array.
@@ -169,7 +171,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - **Build:** a build of every react row: no attribute in the output.
   - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML has the card; the SSR-transformed code has no attribute.
   - Error rows fail with their code and location.
-  - Adds `react`, `react-dom`, `@types/react`, `@types/react-dom`, `@vitejs/plugin-react` as exact-pinned root devDependencies.
+  - Adds `react`, `react-dom`, `@types/react`, `@types/react-dom`, `@vitejs/plugin-react` as exact-pinned root devDependencies, the same versions as `@multifront/vite`'s (3.6).
 
 ### 3.8 The TypeScript plugin uses the same rules
 
@@ -185,12 +187,15 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - `launchChromium()`: uses `MULTIFRONT_CHROMIUM_PATH` when set. Its description in `scripts/lib/env.mjs` and `.env.sample` now covers the tests.
   - `collectConsole(page)`: every console message and page error.
   - CI: `pnpm exec playwright install --with-deps chromium` before `pnpm devx check` in `.github/workflows/ci.yml`.
-- Deliverable: Playwright against real served and built apps, for this and every later milestone.
+  - `pnpm devx peer-floor <framework>`: reads the lowest version of each of that framework's peer ranges in `@multifront/vite` (for react: `react`, `react-dom`, `@vitejs/plugin-react`, plus the matching `@types/react` and `@types/react-dom`), writes them as pnpm `overrides`, and reinstalls. It changes the lockfile, so it runs in CI only, on a throwaway checkout.
+  - CI: a `react-floor` job: install, `pnpm devx peer-floor react`, Chromium, `pnpm devx test`. Every React test of this and later steps runs on both ends of the range, with no list to keep.
+- Deliverable: Playwright against real served and built apps, and every React test on the oldest and the newest supported React, for this and every later milestone.
 - Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: AllBlocks renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors.
 
 ### 3.10 Scope transform: stamping
 
 - Build: `packages/core/src/react/scope.ts`, called by `react.build` when `ctx.hasScoped`. Inserts only.
+  - `packages/core/src/react/reactApis.ts`: the one file that names React APIs (the module `'react'`, `Fragment`, the wrappers `memo` and `forwardRef`). The scope code reads them from there, so a new React version edits this file only.
   - Every JSX opening element in the block gets ` data-v-<scopeId>=""` right after its name: host elements (lowercase, dashed custom elements, namespaced `svg:x`) and component elements (capitalized or member expression, like `<Foo.Bar>`).
   - Never on fragments: `<>`, `<Fragment>` and `<X.Fragment>` where `Fragment` or `X` comes from `'react'` (aliases followed through the imports). React warns on extra Fragment props.
   - Fixtures: `packages/e2e/fixtures/components/react/scope/Stamped.ucf` (hosts, svg, `my-el`, `<Foo.Bar>`, both fragment forms, a `.map()` list, a generic `<T,>` and `a < b` in TSX, a scoped style). `packages/e2e/fixtures/apps/react-scope/` renders it.
@@ -211,7 +216,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
     // dev only: __ucfWarnFragment(props, name) warns once per component when a data-v-* prop came in
     ```
 
-  - In `scope.ts`, find the default-exported component: follow an identifier to its module-level declaration; unwrap `memo`, `forwardRef`, `React.memo`, `React.forwardRef`, nested in any order; function or arrow, block or expression body.
+  - In `scope.ts`, find the default-exported component: follow an identifier to its module-level declaration; unwrap the wrappers of `reactApis.ts` (`memo`, `forwardRef`, `React.memo`, `React.forwardRef`), nested in any order; function or arrow, block or expression body.
   - Collect every `return` of that function (not of nested functions) and the expression body. Unwrap parentheses, TS `as` / `satisfies` / `!`, both branches of `?:`, the right side of `&&` / `||` / `??`, and one hop of `const x = <jsx>` in the same function.
   - Each JSX element root gets `{...__ucfScopeAttrs(<props>)}` right after its name. A component root forwards too, so the chain continues down, as in Vue.
   - A fragment root gets no forwarding. In dev it becomes `(__ucfWarnFragment(<props>, "Name"), <>...</>)`, Vue's multi-root warning. Nothing in production.
@@ -293,6 +298,7 @@ Core (`@multifront/core`):
 - `resolveTarget(importer, attribute, options): TargetResult`, `ResolveTargetOptions`, `TargetResult`, `TargetErrorCode`, `DEFAULT_IMPORTERS`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
+- `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
 - `SCOPE_HELPER_ID` (`'virtual:multifront/scope-attrs'`) and `scopeHelperCode(dev)`. Milestone 5 bundles it once per library build.
 - The stamping rule: ` data-v-<scopeId>=""` on every host and component element, never on fragments; forwarding on every component, scoped style or not. Milestone 6 mirrors it in Svelte markup.
 - Diagnostic codes: `react-no-default-export`, `react-syntax-error`, `framework-in-block`, `framework-attribute-not-literal`, `unknown-framework`, `target-not-enabled`, `no-target`, `missing-target-block`, `target-not-built`. Milestone 7 shows them in the editor. Milestone 4 removes vue from `target-not-built`; milestone 6 deletes that code.
@@ -307,6 +313,7 @@ Vite (`@multifront/vite`):
 Tests and fixtures (`packages/e2e`):
 
 - `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, and Chromium in CI. Milestones 4, 5, 6.
+- `pnpm devx peer-floor <framework>` and the `react-floor` CI job: milestone 4 adds `vue-floor`, milestone 6 `svelte-floor`.
 - `fixtures/apps/demo/`: milestone 4 renders the Vue Card beside the React one, and adds visual parity.
 - `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows.
 - `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
@@ -327,7 +334,7 @@ Tests and fixtures (`packages/e2e`):
 
 **Go when all of these hold on CI (Linux, Chromium):**
 
-1. The exit test passes, and passes 20 times in a row locally (no flake).
+1. The exit test passes in the `check` and `react-floor` jobs, and 20 times in a row locally (no flake).
 2. Every `shapes/` fixture renders in dev and preview with its own `data-v-<id>` on every host element and the parent's `data-v-<id>` on its root DOM element (except `FragmentRoot` and `NullRoot`), with no React warning except the expected fragment one.
 3. The fuzz long run (10,000 files, 10 seeds) finds no failure, with no change to the transform after it.
 4. A style-only edit requests no `?target=react` module, and the state stays.

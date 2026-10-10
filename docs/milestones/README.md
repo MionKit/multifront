@@ -49,6 +49,7 @@ Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only b
 | Editor: tsserver, LSP, vsix | M2 | nothing: child processes and `pnpm devx vsix` inside the test |
 | Editor: real VS Code | M2 (2.11) | `xvfb-run` on Linux, a cached `.vscode-test/` download |
 | Browser | M3 (3.9) | `pnpm exec playwright install --with-deps chromium` in CI, the browser folder cached by Playwright version |
+| Oldest supported framework | M3 (3.9) | `pnpm devx peer-floor <framework>` and one CI job per framework (`react-floor` first) running `pnpm devx test` on the bottom of the peer range |
 | Consumer | M5 | a job that builds and packs once and hands the tarballs to the consumer jobs, a shared pnpm store; later a local registry for packed packages that depend on each other |
 
 The reference for all of it is [MionKit/mion](https://github.com/MionKit/mion)'s `.github/workflows/`: the same tooling, already solving most of this (packed tarballs through a local verdaccio registry, fuzz soak runs with a printed seed, jobs that pass artifacts). Copy its pattern before inventing one. Neither repo runs a browser or VS Code in CI yet: those two are new.

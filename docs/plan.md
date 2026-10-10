@@ -56,6 +56,15 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 3. **No virtual `.vue` path.** On a cache miss (a dev server restart, SSR) plugin-vue reads the SFC from disk with `fs.readFileSync`, which fails for a file that does not exist. So the Vue target keeps the real `Card.ucf` path as the module id: we add `/\.ucf$/` to plugin-vue's `include` (its `api.include` setter, from our `configResolved`) and turn the `.ucf` source into SFC code in our pre `transform`. This is the pattern unplugin-vue-markdown uses with `.md` files. A test must cover the restart and SSR cache misses.
 4. **One scope id for all targets.** plugin-vue hashes `sha256(relativePath + (production ? source : ''))`, first 8 hex chars. It also takes `features.componentIdGenerator`, so we set our own generator there and use the same one for React and Svelte. Same `data-v-*` everywhere, by construction.
 
+## Framework versions
+
+- Our packages share one version (`version.json`), our own semver. It never copies a framework's number: one plugin serves three frameworks, and our fixes need numbers of their own. plugin-vue and plugin-react do the same.
+- We never ship or run a framework compiler of our own. Vue: we borrow plugin-vue's. React: we hand plain `.tsx` to the user's plugin-react. So the user's versions are always the ones in use.
+- Each framework and its Vite plugin is an optional peer range of `@multifront/vite`. React: `^19.0.0`. Vue and Svelte ranges come with their milestones.
+- The framework API names our transforms look for live in one file per framework (`packages/core/src/react/reactApis.ts`). A new framework version edits that file only.
+- CI tests each range at both ends: the pinned devDependencies (top) and `pnpm devx peer-floor <framework>` (bottom).
+- A new framework major joins the range in a minor release of ours. Dropping one is a major release of ours.
+
 ## Milestones
 
 Each milestone has a detailed document with ordered steps, deliverables and tests in [milestones/](milestones/README.md). Where it and the summary below differ, the milestone document wins.
@@ -85,6 +94,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 - Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots. The forwarding helper is a virtual module served by the Vite plugin, not a package.
 - Tests: snapshot per JSX shape; a block importing another `.ucf` gets its own framework, and an attribute inside a block is an error; every outside rule and its order; no attribute left in dev, build or SSR output.
 - Exit check: demo app renders the React Card; Fast Refresh keeps state; a style edit only reloads CSS; a parent scoped style reaches a child root.
+- `react`, `react-dom` and plugin-react as optional peers; every React test also runs at the bottom of their range (`react-floor` CI job).
 - If the scope transform is not reliable, fall back to CSS modules only for React and revisit.
 
 ### 4. Vue target
@@ -115,7 +125,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 - HMR: style-only edits update only style modules; a target edit invalidates only that target.
 - Visual parity test (Playwright) and SSR hydration test, once two targets exist.
-- CI matrix over the supported `@vue/compiler-sfc` range.
+- CI tests each framework peer range at both ends (see "Framework versions").
 
 ## Open questions
 
