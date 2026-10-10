@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import type * as ts from 'typescript';
 
 export type TsDiagnostic = ts.server.protocol.Diagnostic;
+export type TsLocation = ts.server.protocol.Location;
 
 export interface Tsserver {
   request<Body = unknown>(command: string, args?: object): Promise<Body>;
@@ -19,6 +20,20 @@ interface TsserverOptions {
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
 const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const HEADER = 'Content-Length: ';
+
+/** 1-based line and offset of `needle` (plus `shift` characters) in `source`, as tsserver counts. */
+export function locate(source: string, needle: string, shift = 0): TsLocation {
+  const index = source.indexOf(needle);
+  if (index < 0) throw new Error(`${needle} not found`);
+  const before = source.slice(0, index + shift).split('\n');
+  return {line: before.length, offset: before.at(-1)!.length + 1};
+}
+
+/** The offset in `source` of a tsserver location. */
+export function offsetAt(source: string, {line, offset}: TsLocation): number {
+  const lines = source.split('\n').slice(0, line - 1);
+  return lines.reduce((sum, text) => sum + text.length + 1, 0) + offset - 1;
+}
 
 /** The real tsserver over its stdio protocol; plugins run from source, as the workspace links them. */
 export function startTsserver({cwd, plugins}: TsserverOptions): Tsserver {
