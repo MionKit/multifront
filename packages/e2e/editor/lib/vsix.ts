@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process';
-import {cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
+import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
@@ -10,6 +10,15 @@ export const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
 // Untyped; keys every entry by its lowercased path.
 export const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js') as {
   readZip: (path: string, filter: (name: string) => boolean) => Promise<Map<string, Buffer>>;
+};
+
+// jszip, which @vscode/test-electron brings: unlike readZip it keeps names as packed (grammars are `*.tmLanguage.json`).
+interface ZipEntry {
+  dir: boolean;
+  async(type: 'nodebuffer'): Promise<Buffer>;
+}
+const JSZip = createRequire(createRequire(import.meta.url).resolve('@vscode/test-electron'))('jszip') as {
+  loadAsync(data: Buffer): Promise<{files: Record<string, ZipEntry>}>;
 };
 
 /** A copy of what `pnpm devx vsix` reads, so tests pack without racing over packages/vscode/dist; caller deletes it. */
@@ -46,9 +55,10 @@ export async function packVsix(dir: string): Promise<string> {
 
 /** Writes the `.vsix` entries under `dir`, as VS Code installs them (`dir/extension/...`). */
 async function unzipVsix(vsixPath: string, dir: string): Promise<void> {
-  // readZip lowercases names; every shipped path is lowercase except LICENSE.txt, which no test reads.
-  for (const [name, content] of await readZip(vsixPath, () => true)) {
+  const {files} = await JSZip.loadAsync(readFileSync(vsixPath));
+  for (const [name, entry] of Object.entries(files)) {
+    if (entry.dir) continue;
     mkdirSync(dirname(join(dir, name)), {recursive: true});
-    writeFileSync(join(dir, name), content);
+    writeFileSync(join(dir, name), await entry.async('nodebuffer'));
   }
 }
