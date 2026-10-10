@@ -34,7 +34,7 @@ async function probe(plugins: Plugin[]): Promise<string> {
 
 describe('getVueCompiler', () => {
   it('borrows the compiler plugin-vue resolved', async () => {
-    expect(await probe([multifront(), vue()])).toContain('"same"');
+    expect(await probe([...multifront(), vue()])).toContain('"same"');
   });
 
   it('resolves the compiler itself when plugin-vue is absent', () => {

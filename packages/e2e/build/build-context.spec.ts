@@ -21,7 +21,7 @@ const loaded: Loaded[] = [];
 
 // What a later host does in a hook, with the compiler multifront borrowed.
 beforeAll(async () => {
-  const mf = multifront();
+  const mf = multifront()[0]!;
   const probe: Plugin = {
     name: 'probe',
     resolveId: (id) => (id.endsWith(PROBE_ID) ? `\0${PROBE_ID}` : undefined),

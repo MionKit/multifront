@@ -1,0 +1,18 @@
+<react>
+  import Icon from './Icon.ucf'
+
+  export default function UsesIcon() {
+    return (
+      <span className="uses-icon">
+        <Icon /> uses-icon-react-marker
+      </span>
+    )
+  }
+</react>
+
+<style>
+.uses-icon {
+  display: inline-flex;
+  gap: 4px;
+}
+</style>
