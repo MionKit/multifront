@@ -24,11 +24,11 @@ import type {Tsserver} from './lib/tsserver.ts';
 import {tempRepo, unzipVsix} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
-// What the extension passes the server as its tsdk: a TypeScript lib folder.
+// Stands in for the extension's tsdk: a TypeScript lib folder.
 const TSDK = dirname(createRequire(import.meta.url).resolve('typescript'));
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
 
-// Packed in a temp copy, then unzipped: every check runs on what the .vsix ships, not on packages/vscode/dist.
+// Every check runs on what the .vsix ships, not on packages/vscode/dist.
 let temp: string;
 let extension: string;
 
@@ -72,7 +72,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
 
   beforeAll(async () => {
     logFile = join(temp, 'pack-alone.log');
-    // Isolated: the project's own entry is found nowhere, so the pack is the one plugin.
+    // Isolated hides the project's own entry: the pack is the only plugin.
     server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], isolated: true, logFile});
     await open(server, [APP, CARD]);
   });
@@ -99,7 +99,7 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
 
   beforeAll(async () => {
     logFile = join(temp, 'both.log');
-    // The project's entry runs from source, found in packages/e2e first; the pack is a global plugin.
+    // The project's own entry, found first in packages/e2e, runs from source.
     server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [E2E_DIR, extension], logFile});
     await open(server, [APP, CARD, MIXED]);
   });
@@ -112,7 +112,7 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
     const log = readFileSync(logFile, 'utf8');
     const loading = log.indexOf(`Loading global plugin ${PACK}`);
     expect(loading).toBeGreaterThan(-1);
-    // After the pack loads: the project's own entry loaded first, so the pack is the copy that steps aside.
+    // The project's own entry loaded first, so the pack steps aside.
     expect(log.indexOf(STEPS_ASIDE, loading)).toBeGreaterThan(loading);
   });
 

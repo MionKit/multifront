@@ -5,7 +5,7 @@ import type {LanguageClientOptions, ServerOptions} from 'vscode-languageclient/n
 
 let client: LanguageClient | undefined;
 
-/** Starts our language server on `.ucf` files; tsserver loads our TypeScript plugin from the plugin pack on its own. */
+/** tsserver loads our TypeScript plugin from the plugin pack on its own. */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   // VS Code's built-in TypeScript, or the workspace one when the user picked it.
   const tsdk = (await getTsdk(context))?.tsdk;
