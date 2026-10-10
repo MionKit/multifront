@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.11
@@ -31,15 +31,17 @@ Facts from a throwaway probe (VS Code 1.141.0 tarball, the `.vsix` from `main` u
 - **Display: the harness starts its own `Xvfb -displayfd` on Linux with no `DISPLAY`**, so `pnpm devx test` and `check` run on headless hosts and in CI with no wrapper. Missing Xvfb fails with "install xvfb".
 - **Development extension = the unzipped `.vsix`** from `pnpm devx vsix` run in a temp repo copy, as `bundle.spec.ts` does: it tests what ships and never races `vsix.spec.ts` over `packages/vscode/dist`.
 
+- **Found while building, fixed here (own commits):** the unzip lowercased every entry name (vsce's `readZip`), so VS Code found no `*.tmLanguage.json` grammar; it now unzips with vsce's `yauzl`, names as packed. VS Code's TypeScript extension activates on JS and TS files only, so a lone `.ucf` file got no tsserver features: `activate` now activates `vscode.typescript-language-features` first (the exit test opens `Card.ucf` first, and 4 checks fail without it).
+
 ### Changes
 
 1. Root `package.json`: devDependency `@vscode/test-electron` `3.1.0` (exact), plus `pnpm-lock.yaml`. `.gitignore`: `.vscode-test/`.
 2. `packages/e2e/editor/lib/vsix.ts`: new `packVsix(dir): Promise<string>`: `tempRepo()`, the real `devx.mjs vsix`, `unzipVsix` into `dir`, temp repo removed, returns `<dir>/extension`. `bundle.spec.ts`'s `beforeAll` calls it instead of its inline copy.
 3. `packages/e2e/editor/lib/vscode.ts` (new): `VSCODE_VERSION = '1.137.0'`, `CheckResult {name, error?}`, `runInVsCode({extension, workspace, suite}): Promise<CheckResult[]>`: temp `user-data`, `extensions` and `results.json`; a display; `runTests({version, cachePath: <repo>/.vscode-test, extensionDevelopmentPath: extension, extensionTestsPath: suite, launchArgs: [workspace, --user-data-dir, --extensions-dir], extensionTestsEnv: {MULTIFRONT_VSCODE_RESULTS, DISPLAY}, stdout/stderr captured})`. A failed run throws with the captured output tail. Returns the parsed results; cleans up and stops Xvfb.
-4. `packages/e2e/editor/vscode/harness.cjs` (new, runs inside VS Code): `runChecks(checks)` runs each `{name, run}` in order, records `{name}` or `{name, error}`, writes JSON to `MULTIFRONT_VSCODE_RESULTS`, never throws. Helpers: `until(probe, ms)`, `show(path)`, `serverProcesses(extensionPath)` (`ps -A -o pid=,ppid=,args=`: children of the extension host running `<ext>/dist/server.cjs`). Later milestones write their own suite with it.
+4. `packages/e2e/editor/vscode/harness.cjs` (new, runs inside VS Code): `runChecks(checks)` runs each `{name, run}` in order, records `{name}` or `{name, error}`, writes JSON to `MULTIFRONT_VSCODE_RESULTS`, never throws. Helpers: `until(probe, what)`, `show(path)` (a non-preview tab: VS Code checks only documents open in a tab, and a preview tab is replaced by the next), `positionOf`, `hoverText`, `codeOf`, `serverProcesses(extensionPath)` (`ps -A -o pid=,ppid=,args=`: children of the extension host running `<ext>/dist/server.cjs`). Later milestones write their own suite with it.
 5. `packages/e2e/editor/vscode/suite.cjs` (new): `exports.checks` (`vscode` required inside each `run`, so the spec reads the names outside VS Code) and `exports.run`. Workspace `fixtures/apps/imports/`, components read from `../../components`, extension found by `packageJSON.name === 'multifront-vscode'` (no publisher until M7). Checks, in order:
    - activate: showing `Card.ucf` activates the extension, which forks `dist/server.cjs` over IPC.
-   - exit 1: `Card.ucf` has language id `ucf`; `captureSyntaxTokens`: `export` in `<react>` is `keyword.control.export.tsx`, `padding` in `<style module lang="scss">` is in `meta.embedded.block.style.scss` and `source.css.scss`, `{{` in `<vue>` is `punctuation.definition.interpolation.begin.html.vue`, `let` in `<svelte>` is in `meta.script.svelte` and `storage.type.ts`, each inside its block's content scope.
+   - exit 1: `Card.ucf` has language id `ucf`; `captureSyntaxTokens`: `export` in `<react>` is `keyword.control.export.tsx`, `padding` in `<style module lang="scss">` is `support.type.property-name.css` in `meta.embedded.block.style.scss` and the SCSS grammar's `meta.property-list.scss`, `{{` in `<vue>` is `punctuation.definition.interpolation.begin.html.vue`, `let` in `<svelte>` is in `meta.script.svelte` and `storage.type.ts`, each inside its block's content scope.
    - exit 2: completion after `$style.` in `<react>` lists `card`; definition on `$style.card` lands on `card` in `.card`; hover on `<Card` in `editor/Profile.ucf` shows `title: string`.
    - exit 3 (also: the server answers over IPC): hover on `padding` in `Panel.ucf`'s `<style>` has its CSS docs (`the padding area`).
    - exit 4: `editor/TypeError.ucf` has `2322` on the `label:` line; `invalid/DuplicateReact.ucf` has `duplicate-target` from `multifront`.

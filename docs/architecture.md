@@ -83,7 +83,7 @@ A host is a program that runs the operations. Each one does the same three steps
 | Language server | `@multifront/language-tools` | `check`, `editor` (CSS, template HTML) |
 | TypeScript plugin (in VS Code's tsserver), `mf-tsc` | `@multifront/language-tools` | `types`, `editor` (TypeScript codes) |
 | `mf-lint`, `mf-fmt` | `@multifront/language-tools` | the block text, named by `build`'s ending |
-| VS Code extension | `packages/vscode` | `grammar`, at packaging time; starts the language server, bundles it and the TypeScript plugin |
+| VS Code extension | `packages/vscode` | `grammar`, at packaging time; starts the language server and VS Code's TypeScript extension, bundles the server and the TypeScript plugin |
 
 ## Build
 

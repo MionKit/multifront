@@ -171,7 +171,7 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 - Deliverable: `pnpm devx vsix` makes an installable `.vsix` that works with no repo `node_modules` next to it.
 - Test: area Editor, `packages/e2e/editor/vscode/vsix.spec.ts`.
   1. Runs the real `pnpm devx vsix`, unzips the `.vsix` into a temp folder outside the repo, and starts the server from the unzipped files over stdio. It answers completion, diagnostics and formatting on a copy of `lint-format/` (so nothing it needs was left out of the bundle).
-  2. Starts a real VS Code (pinned version, downloaded by `@vscode/test-electron`, under `xvfb-run` on Linux), installs the `.vsix` into a fresh extensions folder, opens a copy of `types-every-target/` and checks with VS Code's own commands: `.ucf` files get the `ucf` language id, `vscode.languages.getDiagnostics` holds the oxlint and TypeScript findings, `vscode.executeFormatDocumentProvider` returns the `mf-fmt` result, and a `.tsx` importer's hover shows the React props (the TypeScript plugin loaded).
+  2. Starts a real VS Code with M2's harness (`runInVsCode()` in `editor/lib/vscode.ts`: the pinned version, its own Xvfb on a headless Linux), installs the `.vsix` into a fresh extensions folder, opens a copy of `types-every-target/` and checks with VS Code's own commands: `.ucf` files get the `ucf` language id, `vscode.languages.getDiagnostics` holds the oxlint and TypeScript findings, `vscode.executeFormatDocumentProvider` returns the `mf-fmt` result, and a `.tsx` importer's hover shows the React props (the TypeScript plugin loaded).
 
 ### 7.14 Publish to the VS Code Marketplace and Open VSX
 
@@ -214,7 +214,7 @@ Risks:
 - **Linting a block alone.** Block files sit in a temp folder, so rules that follow imports (`import/no-cycle`) do not see across files, and type-aware linting (`--type-aware`, tsgolint) is not supported. Upstream support (7.9) would fix both.
 - **`runTsc` patches TypeScript's JS.** Same approach as `vue-tsc`, through `@volar/typescript`. The native TypeScript port (TypeScript 7) has no such JS to patch. `vue-tsc` faces the same problem; we follow Volar's answer when it comes.
 - **`svelte2tsx` output shape.** Prop completions (7.5) map into the props object `svelte2tsx` generates. Its shape can change between versions; it is pinned, and the 7.5 test catches a change.
-- **Packaging.** `vsce` and pnpm workspaces clash on dependencies, hence `--no-dependencies` and a full bundle. The TypeScript plugin folder under the extension's `node_modules` must survive packing; the 7.13 test checks the unzipped file. Real VS Code tests need a display (`xvfb-run`) and a pinned VS Code download in CI.
+- **Packaging.** `vsce` and pnpm workspaces clash on dependencies, hence `--no-dependencies` and a full bundle. The TypeScript plugin folder under the extension's `node_modules` must survive packing; the 7.13 test checks the unzipped file. Real VS Code tests need a display (M2's harness starts Xvfb) and a pinned VS Code download, cached in CI.
 - **Store accounts.** Marketplace tokens expire (Azure DevOps PATs); Open VSX needs the namespace claimed and the Eclipse publisher agreement signed. A maintainer does this once by hand.
 - **Other extensions.** Vue's and Svelte's extensions do not claim `.ucf`, and the default formatter is set only for `[ucf]`. The oxc VS Code extension ignores `.ucf` today; if upstream support lands it would lint `.ucf` too and show findings twice.
 
