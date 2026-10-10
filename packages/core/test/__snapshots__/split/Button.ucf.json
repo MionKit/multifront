@@ -2,50 +2,50 @@
   {
     "type": "vue",
     "attrs": {},
-    "index": 0,
     "start": 0,
     "end": 186,
     "contentStart": 5,
-    "contentEnd": 180
+    "contentEnd": 180,
+    "index": 0
   },
   {
     "type": "react",
     "attrs": {},
-    "index": 0,
     "start": 188,
     "end": 349,
     "contentStart": 195,
-    "contentEnd": 341
+    "contentEnd": 341,
+    "index": 0
   },
   {
     "type": "svelte",
     "attrs": {},
-    "index": 0,
     "start": 351,
     "end": 510,
     "contentStart": 359,
-    "contentEnd": 501
+    "contentEnd": 501,
+    "index": 0
   },
   {
     "type": "style",
     "attrs": {
       "scoped": true
     },
-    "index": 0,
     "start": 512,
     "end": 609,
     "contentStart": 526,
-    "contentEnd": 601
+    "contentEnd": 601,
+    "index": 0
   },
   {
     "type": "style",
     "attrs": {
       "module": "classes"
     },
-    "index": 1,
     "start": 611,
     "end": 702,
     "contentStart": 635,
-    "contentEnd": 694
+    "contentEnd": 694,
+    "index": 1
   }
 ]

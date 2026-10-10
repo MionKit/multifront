@@ -7,17 +7,18 @@
     const both = a<b && c>d
     const open = '<react>'
     const close = '<\/react>'
+    const longer = '</reactive>'
     return (
       <>
         <span className="edge">{identity(less)}</span>
         <span>{String(both)}</span>
-        <span>{open + close}</span>
+        <span>{open + close + longer}</span>
       </>
     )
   }
 </react>
 
-<!-- the styles of the edge cases -->
+<!-- a <style> in a comment is not a block -->
 
 <style scoped>
 .edge {

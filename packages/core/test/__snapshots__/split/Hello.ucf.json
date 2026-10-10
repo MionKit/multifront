@@ -2,10 +2,10 @@
   {
     "type": "react",
     "attrs": {},
-    "index": 0,
     "start": 0,
-    "end": 115,
+    "end": 116,
     "contentStart": 7,
-    "contentEnd": 107
+    "contentEnd": 107,
+    "index": 0
   }
 ]
