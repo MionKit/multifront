@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.7
@@ -96,6 +96,7 @@ Every importer imports `../../../components/Card.ucf` unless noted.
     `widget.ts` (bare → svelte, `importer`) and `view.tsx` (bare → vue, `importer`: the option beats the built-in
     `.tsx`).
 - `no-default/tsconfig.json` (no `framework`) with `bare.ts` → `no-target`.
+- The two sub-project `tsconfig.json` files extend the root one and replace only `plugins` (`include: ["."]`).
 - `expected.ts`:
 
   ```ts
@@ -123,6 +124,7 @@ this host and in CI's `check` job. No new infra.
 - `it.each` over `EXPECTED_IMPORTS`: exactly one import at `specifier` + `line` in the real file;
   `resolveTarget({fileName, block}, attribute, row.options)` gives `{target, rule}`, or `{error: {code, message}}` with
   the exact hand-written message.
+- Every error row has a hand-written message, and every message a row.
 - Every `.ucf` import in any file of the app has a row.
 - Each row's `options` equals `framework` / `importers` of the plugin entry in the nearest `tsconfig.json`.
 - `DEFAULT_IMPORTERS` equals the four spec entries and is frozen.
