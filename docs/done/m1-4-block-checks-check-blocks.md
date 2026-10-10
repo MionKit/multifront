@@ -20,59 +20,73 @@ M3 (build errors) and M7 (`mf-tsc`) need one function that returns every milesto
 
 1. **Shared scanner, `packages/core/src/scan.ts`** (new). Moves `isSpace`, `isNameStart`, `tagNameEnd`,
    `readOpeningTag`, `findClosingTag` out of `split.ts:13-94` unchanged in behaviour, so kinds can reuse them without
-   an import cycle (`split.ts` imports `blocks/index.ts`, which imports every kind). Their types (`OpeningTag`,
-   `TagBreak`, and the new `FoundTag`) live in `types.ts` (shared between files), not exported from `index.ts`.
+   an import cycle (`split.ts` imports `blocks/index.ts`, which imports every kind). `TagBreak` (used by `split.ts`
+   too) lives in `types.ts`, not exported from `index.ts`; `OpeningTag` and the new `FoundTag` stay private to
+   `scan.ts`.
    - `readOpeningTag(source, pos, inner = false)`: `inner` keeps a quoted value whose text holds `>` or a line break
      (`v-if="a > b"`, multi-line attributes) and reads an unquoted `{…}` value, or a `{…}` attribute (Svelte
-     shorthand and spread), to its matching `}` (Svelte `onclick={() => x > 1}`). The root splitter keeps today's strict rule, so 1.2 / 1.3 snapshots do not move.
-   - `topLevelTags(text, nests: (name: string) => boolean): {name, start, end}[]`: every opening tag at depth 0 of
-     `text` (the "one level down" scanner). Skips `<!-- … -->`, and the raw text of `<script>` and `<style>` to their
-     closing tag (`findClosingTag`). An opening tag whose name `nests` and that does not self-close adds one depth; a
-     `</name` whose name `nests` removes one (never below 0). Stops at an opening tag that never ends.
-2. **Locations, `packages/core/src/diagnostics.ts`** (new): `locate` moves from `split.ts:97`; new
+     shorthand and spread), to its matching `}` (Svelte `onclick={() => x > 1}`); braces inside a quoted run
+     (`value={'{'}`) do not count. The root splitter keeps today's strict rule, so 1.2 / 1.3 snapshots do not move.
+   - `topLevelTags(text, nests, rawAtTop?)`: every opening tag at depth 0 of `text` (the "one level down" scanner).
+     Skips `<!-- … -->`, the raw text of `<script>` and `<style>` to their closing tag (`findClosingTag`), and at
+     depth 0 the raw text of every tag `rawAtTop` names. An opening tag whose name `nests` and that does not
+     self-close adds one depth; a `</name` whose name `nests` removes one (never below 0). Stops at an opening tag
+     that never ends.
+2. **`packages/core/src/diagnostics.ts`** (new): `locate` moves from `split.ts:97`; new
    `createDiagnostic(file: Pick<SplitResult, 'filename' | 'source'>, code, start, end, message): Diagnostic`
-   (`severity: 'error'`). `splitBlocks`' `report` (`split.ts:114`) calls it; checks call it with `split`.
+   (`severity: 'error'`); `orList(items)` (`'a, b or c'`, used by the splitter messages and the lang message); and
+   `styleInsideTarget(block, split, nests, rawAtTop?)`, the shared vue / svelte check. `splitBlocks`' `report`
+   calls `createDiagnostic`; checks call it with `split`.
 3. **`BlockKind.check(block: Block, split: SplitResult): Diagnostic[]`** in `types.ts`, required on every kind.
 4. **`blocks/react.ts`**, `react-no-default-export`: `parseSync(filename, block.content, {lang: 'tsx',
    sourceType: 'module'})` from `oxc-parser`. Parse errors → `[]` (the TSX compiler and TypeScript report those
    better). Else looks in `program.body` for an `ExportDefaultDeclaration`, or an `ExportNamedDeclaration` with a
-   specifier exported as `default` (identifier or string), which covers `export {Card as default}` and
-   `export {default} from './X'`. None → one error at the opening tag `[block.start, block.contentStart)`:
-   `<react> has no default export; add export default to the component`.
-5. **`blocks/vue.ts`**, `style-inside-target`: `topLevelTags(block.content, (name) => name === 'template')`, each
-   `style` tag → one error at that opening tag, offsets shifted by `block.contentStart`:
+   specifier exported as `default` (identifier or string), which covers `export {Card as default}`,
+   `export {Card as "default"}` and `export {default} from './X'`. None → one error at the opening tag
+   `[block.start, block.contentStart)`: `<react> has no default export; add export default to the component`.
+5. **`blocks/vue.ts`**, `style-inside-target`: `styleInsideTarget` with `nests = name === 'template'` and
+   `rawAtTop = name !== 'template'` (like Vue's SFC parser, a custom block such as `<docs>` is raw text). Each top-level
+   `style` tag → one error at that opening tag:
    `<style> cannot sit inside the <vue> block; move it to the root of the file`.
 6. **`blocks/svelte.ts`**, same code and message with `<svelte>`. `nests` = every element but the HTML void ones
    (`area base br col embed hr img input link meta param source track wbr`), so `<svelte:head><style>` and a
    `<style>` inside an element stay allowed, as Svelte allows them.
 7. **`blocks/style.ts`**:
    - `unknown-style-lang`: `lang` present and not one of `css scss sass less styl stylus postcss` (a bare `lang` too).
-     At the opening tag: `<style lang="foo"> is not a known style language; use css, scss, sass, less, styl, stylus or postcss`.
+     At the opening tag: `<style lang="foo"> is not a known style language; use css, scss, sass, less, styl, stylus or postcss`
+     (`<style lang>` for a bare one).
    - `duplicate-style-module`: module name = `'$style'` for a bare or empty `module` (Vue's parser reads `module=""`
      as bare), else its value. A block whose name an earlier block already injects → error at its opening tag:
      `<style module> injects $style more than once; give each module its own name`.
    - Constants and the module name helper stay private to the file (1.8 exports them if it needs them).
-8. **`packages/core/src/check.ts`**: `checkBlocks(split: SplitResult): Diagnostic[]` = `split.errors` plus
-   `getBlockKind(block.type).check(block, split)` for every block, stable-sorted by `start`. Exported from
-   `index.ts`. It never loads a compiler (milestones README rule).
+8. **`checkBlocks(split: SplitResult): Diagnostic[]`** in `packages/core/src/blocks/index.ts`, beside the registry
+   (no import cycle forces a file of its own) = `split.errors` plus `getBlockKind(block.type).check(block, split)` for
+   every block, stable-sorted by `start`. Exported from `index.ts`. It never loads a compiler (milestones README rule).
 9. **Dependency**: `pnpm add oxc-parser --filter @multifront/core` → exact `dependencies` pin, the newest version
-   past the 30 day `minimumReleaseAge` (today `0.149.0`, same as the `@oxc-project/types` already in the lockfile).
+   past the 30 day `minimumReleaseAge` (`0.149.0`, same as the `@oxc-project/types` already in the lockfile).
    No install script (napi optional bindings), so `allowBuilds` stays empty.
-10. **Fixtures**, `packages/e2e/fixtures/components/`, each otherwise valid, one mistake each:
+10. **Fixtures**, `packages/e2e/fixtures/components/`, each otherwise valid:
     - `ReactDefaultSpecifier.ucf`: `Card.ucf` with `function Card(…)` + `export { Card as default }`. Valid.
     - `invalid/ReactNoDefault.ucf`: `<style scoped>` first, then `<react>` with a named export only → one error at
       the `<react>` line, column 0.
+    - `invalid/ReactSyntaxError.ucf`: a `<react>` block missing a `}` with a named export only → no check error.
     - `invalid/StyleInVue.ucf`: `<vue>` whose `<script setup>` holds a `'<style>'` string, a comment `<!-- <style> -->`,
-      a `<template>` holding a nested `<template v-if="a > b">` and a `<style>` (all decoys), then an indented
-      top-level `<style scoped>` → one error at that line, column 2. Plus a root `<style>`.
+      a `<template>` holding a nested `<template v-if="a > b">` and a `<style>`, a `<docs>` custom block naming
+      `<style>` (all decoys), then an indented top-level `<style scoped>` → one error at that line, column 2. Plus a
+      root `<style>`.
     - `invalid/StyleInSvelte.ucf`: `<svelte>` with a `'<style>'` string in `<script>`, `<svelte:head><style>`, a
-      `<button onclick={() => count > 1}>`, then a top-level `<style>` → one error, column 2.
-    - `invalid/UnknownStyleLang.ucf`: `<react>`, `<style lang="postcss">` (accepted), `<style lang="foo">` → one error.
-    - `invalid/DuplicateStyleModule.ucf`: `<react>`, `<style module>`, `<style module="classes">`, `<style module>`
-      → one error at the third block.
-11. **Milestone doc**: `- Status: done` last line of 1.4; step text and "Hands to later milestones" edited only where
-    the shipped names differ; the 1.4 Build line for `blocks/svelte.ts` names the depth rule and `topLevelTags`; the
-   `oxc-parser` pin (`0.149.0`) is named in the step and the hand-off table.
+      `<button onclick={() => count > 1 …}>`, a self-closing `<Button label={count > 1 ? …} />`, a
+      `<Button {...(count > 1 ? big : small)} />` spread, an `<input value={'{'}>` (each would leak depth if read
+      wrong), then a top-level `<style>` → one error, column 2.
+    - `invalid/UnknownStyleLang.ucf`: `<react>`, `<style lang="postcss">` (accepted), `<style lang="foo">`,
+      `<style lang>` → two errors.
+    - `invalid/DuplicateStyleModule.ucf`: `<react>`, `<style module>`, `<style module="classes">`, `<style module>`,
+      `<style module="">`, `<style module="$style">` → one error at each of the last three.
+    - `invalid/MixedErrors.ucf`: `<style lang="foo">`, then two `<react>` blocks, the second ending
+      `export { Second as "default" }` → `unknown-style-lang` before `duplicate-target`, so the sort is needed.
+11. **Milestone doc**: `- Status: done` last line of 1.4; the 1.4 Build lines name `topLevelTags`, the vue raw-text
+    and svelte depth rules, `checkBlocks` in `blocks/index.ts`, and the new fixtures; the `oxc-parser` pin
+    (`0.149.0`) in the step and the hand-off table; risk 4 lists the known Svelte misses.
 
 ## Tests
 
@@ -81,18 +95,20 @@ through the lockfile). No new infra.
 
 - `packages/core/test/check.spec.ts` (new), fixtures through the same relative path as `split.spec.ts`:
   - every name in `listComponents()` (now 7, `ReactDefaultSpecifier.ucf` included) → `checkBlocks(split)` is `[]`;
-  - hand-written table `{fixture, errors: [{code, line, column}]}` for the five new invalid fixtures, exact match;
-  - every other invalid fixture (the 1.3 ones) → `checkBlocks(split)` equals `split.errors` (no check code on top; proves the merge,
-    and that the early-cut, unparsable `<react>` of `ReactCloseInString.ucf` gets no `react-no-default-export`);
-  - every result over every fixture is sorted by `start`, each diagnostic has a one-line message naming its tag, a
-    range inside the file, and `line` / `column` equal to the real position of `start`;
-  - each error points at the right text: `source.slice(start, end)` starts with `<react` / `<style`;
-  - file snapshot of the full diagnostics per new invalid fixture, `test/__snapshots__/check/invalid/<Name>.ucf.json`
+  - hand-written table `{fixture, errors: [{code, line, column}]}` for the six check fixtures, exact match and order;
+  - in each of those: `filename`, a message starting with the tag it names, `source.slice(start, end)` is that
+    opening tag, and `line` / `column` equal to the real position of `start`;
+  - every other invalid fixture → `checkBlocks(split)` equals `split.errors`;
+  - `ReactCloseInString.ucf` and `ReactSyntaxError.ucf`: the real TypeScript parser finds syntax errors in the
+    `<react>` block (shared helper `test/tsx.ts`, also used by `split.spec.ts`), and no `react-no-default-export`;
+  - file snapshot of the full diagnostics per check fixture, `test/__snapshots__/check/invalid/<Name>.ucf.json`
     (filename written as the fixture name), checked by hand.
 - `packages/core/test/split.spec.ts`: valid list gets `ReactDefaultSpecifier.ucf` (+ its block-table snapshot);
-  `INVALID_CASES` gets the five new fixtures with `errors: []` and their kept blocks (the "finds every invalid
-  fixture" test lists the whole folder; this also proves the splitter accepts them).
-- Fails without the step: no `checkBlocks` export, a missing rule, a decoy reported, or a wrong position.
+  `INVALID_CASES` gets the new fixtures (`errors: []`, or `duplicate-target` for `MixedErrors.ucf`) and their kept
+  blocks (the "finds every invalid fixture" test lists the whole folder).
+- Negative controls run by hand: removing the sort, the string-`default` arm, the parse-error bail-out, the
+  `module=""` rule, either `{…}` branch, the quote skip in `braceEnd`, the vue raw-text rule, or the vue / svelte
+  depth rule each fails `check.spec.ts`.
 
 ## Docs
 
@@ -114,8 +130,10 @@ None here: step 1.5's fuzz rules already run `checkBlocks` over generated files 
 - The new invalid fixtures join `INVALID_CASES` in `split.spec.ts` with `errors: []` (orchestrator: my pick).
 - The move into `scan.ts` / `diagnostics.ts` stays behaviour-neutral: the 1.2 / 1.3 snapshots do not change
   (orchestrator).
-- Built: negative controls run by hand (each rule broken on purpose: the vue / svelte depth rule, the raw-text skip,
-  the default specifier lookup, the bare `module` name); each made `check.spec.ts` fail.
+- Review: tests for the sort, the string `default`, a bare `lang`, `module=""` / `module="$style"`, the inner `{…}`
+  branches and an unparsable block with no default export; vue custom blocks read as raw text; braces in quotes
+  skipped; `checkBlocks` moved beside the registry; one shared `styleInsideTarget` and `orList`; scanner types
+  private to `scan.ts`. Omitted Svelte end tags stay a known miss, recorded under risk 4.
 
 ## Out of scope
 
