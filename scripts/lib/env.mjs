@@ -18,6 +18,7 @@ export function loadEnv() {
 // scope: secret = credential, dev = knob with a default, internal = set by the scripts or a tool they run (never in .env).
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env, and peer-floor runs only with it set'},
+  {name: 'GITHUB_OUTPUT', scope: 'internal', desc: 'set by GitHub Actions; the CI Playwright version step writes the cache key there'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite'},
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
