@@ -77,7 +77,7 @@ export type DiagnosticCode =
   | TargetErrorCode;
 
 /** The errors `resolveTarget` can return. */
-export type TargetErrorCode = 'framework-in-block' | 'unknown-framework' | 'no-target';
+export type TargetErrorCode = 'framework-in-block' | 'unknown-framework' | 'no-target' | 'target-not-enabled';
 
 export interface Diagnostic {
   code: DiagnosticCode;
@@ -148,6 +148,7 @@ export interface Importer {
 }
 
 export interface ResolveTargetOptions {
+  frameworks?: readonly Target[]; // what this build may compile; default all (spec 7)
   framework?: Target; // the project default (spec 4.2, rule 3)
   importers?: Record<string, Target>; // importer extension → framework, over DEFAULT_IMPORTERS
 }

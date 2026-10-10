@@ -16,6 +16,7 @@ const BADGE = '../../../components/Badge.ucf';
 const DEFAULT_REACT: ResolveTargetOptions = {framework: 'react'};
 const NO_DEFAULT: ResolveTargetOptions = {importers: {'.mts': 'vue'}};
 const CUSTOM: ResolveTargetOptions = {importers: {'.ts': 'svelte', '.tsx': 'vue'}};
+const REACT_ONLY: ResolveTargetOptions = {frameworks: ['react']};
 
 export const EXPECTED_IMPORTS: ExpectedImport[] = [
   {file: 'src/App.tsx', specifier: CARD, line: 1, options: DEFAULT_REACT, expect: 'react', rule: 'importer'},
@@ -60,4 +61,5 @@ export const EXPECTED_IMPORTS: ExpectedImport[] = [
   {file: 'no-default/unknown.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'unknown-framework'},
   {file: 'custom-importers/widget.ts', specifier: CARD, line: 1, options: CUSTOM, expect: 'svelte', rule: 'importer'},
   {file: 'custom-importers/view.tsx', specifier: CARD, line: 1, options: CUSTOM, expect: 'vue', rule: 'importer'},
+  {file: 'react-only/not-enabled.ts', specifier: CARD, line: 1, options: REACT_ONLY, expect: 'target-not-enabled'},
 ];

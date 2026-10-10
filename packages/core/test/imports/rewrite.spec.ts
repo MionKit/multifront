@@ -16,6 +16,8 @@ const APPS = join(FIXTURES_DIR, 'apps');
 const SYNTAX_ERROR = 'syntax-error.mjs';
 // The value every unknown-framework row of expected.ts uses.
 const UNKNOWN_FRAMEWORK = 'angular';
+// The value every target-not-enabled row of expected.ts uses.
+const NOT_ENABLED_FRAMEWORK = 'svelte';
 
 interface Input {
   key: string; // from fixtures/apps, '/' separators
@@ -100,7 +102,8 @@ function expectedFramework(file: string, line: number): string | undefined {
   const row = EXPECTED_IMPORTS.find((entry) => entry.file === file && entry.line === line);
   if (!row) throw new Error(`no expected.ts row for ${file}:${line}`);
   if ('rule' in row) return row.rule === 'attribute' ? row.expect : undefined;
-  return row.expect === 'unknown-framework' ? UNKNOWN_FRAMEWORK : undefined;
+  if (row.expect === 'unknown-framework') return UNKNOWN_FRAMEWORK;
+  return row.expect === 'target-not-enabled' ? NOT_ENABLED_FRAMEWORK : undefined;
 }
 
 describe('rewriteImportAttributes over the importer fixtures', () => {
