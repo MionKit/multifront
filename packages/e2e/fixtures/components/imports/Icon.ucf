@@ -1,0 +1,16 @@
+<react>
+  export default function Icon() {
+    return (
+      <svg className={$style.icon} viewBox="0 0 16 16" aria-label="icon-react-marker">
+        <circle cx="8" cy="8" r="6" />
+      </svg>
+    )
+  }
+</react>
+
+<style module>
+.icon {
+  width: 1em;
+  height: 1em;
+}
+</style>
