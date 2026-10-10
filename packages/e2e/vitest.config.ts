@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     name: 'e2e',
     environment: 'node',
-    include: ['{build,browser,editor,consumer}/**/*.spec.ts'],
+    include: ['{build,browser,editor,consumer,devx}/**/*.spec.ts'],
     testTimeout: 60_000,
   },
 });

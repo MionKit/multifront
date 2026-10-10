@@ -4,5 +4,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["build", "browser", "editor", "consumer", "fixtures/index.ts", "*.config.ts"]
+  "include": ["build", "browser", "editor", "consumer", "devx", "fixtures/index.ts", "*.config.ts"]
 }

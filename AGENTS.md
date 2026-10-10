@@ -49,7 +49,7 @@
 - Two tools meet (our plugin + plugin-vue, a parser + a compiler) → the test runs both for real.
 - Smallest allowed test: a real fixture file, through a public function or command, real output checked.
 - Fuzz tests only as generated real files: real fixtures mutated or recombined, run through the real tools.
-- Cross-package e2e: private `packages/e2e`, one folder per area (build, browser, editor, consumer), shared fixtures.
+- Cross-package e2e: private `packages/e2e`, a folder per area (build, browser, editor, consumer, devx), fixtures.
 - **Missing test infra is built, never skipped around.** Test needs what CI/host lacks (browser, VS Code,
   packed tarball) → that piece comes in the same PR.
 - e2e layout + "Test infrastructure": [docs/milestones/README.md](docs/milestones/README.md).
