@@ -1,0 +1,23 @@
+[
+  {
+    "type": "react",
+    "attrs": {},
+    "start": 0,
+    "end": 157,
+    "contentStart": 7,
+    "contentEnd": 149,
+    "index": 0
+  },
+  {
+    "type": "style",
+    "attrs": {
+      "module": true,
+      "scoped": true
+    },
+    "start": 159,
+    "end": 373,
+    "contentStart": 180,
+    "contentEnd": 365,
+    "index": 0
+  }
+]

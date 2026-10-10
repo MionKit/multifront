@@ -26,6 +26,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   ],
   'Card.ucf': [{scoped: false, module: '$style'}],
   'ComposesFrom.ucf': [{scoped: false, module: '$style'}],
+  'ComposesScoped.ucf': [{scoped: true, module: '$style'}],
   'Hello.ucf': [],
   'Panel.ucf': [
     {scoped: true, module: undefined},
@@ -38,6 +39,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
 // Hand-written: the classes each local class composes, in postcss-modules order.
 const COMPOSED: Record<string, Record<string, string[]>> = {
   'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
+  'ComposesScoped.ucf': {tag: ['accent', 'base'], chip: ['round', 'base']},
 };
 
 describe('compileStyles on valid fixtures', () => {

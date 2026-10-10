@@ -1,0 +1,15 @@
+
+.accent {
+  color: teal;
+}
+
+.tag {
+  composes: accent;
+  composes: base from './tag-base.css';
+  font-weight: bold;
+}
+
+.chip {
+  composes: round from './tag-round.css';
+  margin: 0;
+}

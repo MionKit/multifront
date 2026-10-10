@@ -55,25 +55,29 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
   const module = moduleName(block);
   const scoped = 'scoped' in block.attrs;
   const style = {index: block.index, id: styleId(filename, block.index), scoped, module};
+  const base = {filename, id: `data-v-${id}`, isProd: production};
   try {
-    const result = await compiler.compileStyleAsync({
-      filename,
-      id: `data-v-${id}`,
-      isProd: production,
-      scoped,
+    const first = await compiler.compileStyleAsync({
+      ...base,
+      // plugin-vue scopes what Vite's CSS modules output; scoping first breaks `composes`.
+      scoped: scoped && module === undefined,
       source: block.content,
       ...stylePreprocessOptions(block),
       modules: module !== undefined,
-      modulesOptions: modulesOptions(block, scoped, options),
+      modulesOptions: modulesOptions(block, options),
       inMap: blockMap(block, options),
     });
+    const result =
+      scoped && module !== undefined && first.errors.length === 0
+        ? await compiler.compileStyleAsync({...base, scoped: true, source: first.code, inMap: first.map})
+        : first;
     const errors = result.errors.map((err) => compileError(err, block, options));
     if (errors.length > 0) return {...style, code: '', map: undefined, classes: undefined, errors};
     return {
       ...style,
       code: result.code,
       map: result.map && onlyFile(result.map, filename, source),
-      classes: result.modules,
+      classes: first.modules,
       errors,
     };
   } catch (err) {
@@ -83,7 +87,7 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
 }
 
 // postcss-modules' loader throws outside its promise on a missing or broken `composes … from` file: this one rejects.
-function modulesOptions(block: Block, scoped: boolean, {id, filename: root, compiler, production}: CompileStylesOptions) {
+function modulesOptions(block: Block, {id, filename: root, compiler, production}: CompileStylesOptions) {
   const generateScopedName = (local: string) => `${local}_${id}_${block.index}`;
   // Shared across every composed file, however deep, so each is compiled and emitted once.
   const imports = new Map<string, string[]>();
@@ -98,7 +102,6 @@ function modulesOptions(block: Block, scoped: boolean, {id, filename: root, comp
       filename,
       id: `data-v-${id}`,
       isProd: production,
-      scoped,
       source: await readFile(filename, 'utf8'),
       modules: true,
       modulesOptions: composedOptions,
