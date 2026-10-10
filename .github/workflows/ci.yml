@@ -49,9 +49,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # `pnpm exec`, not `pnpm devx test`: devx spawns `.bin` shims without a shell, which Windows cannot run.
       - name: Test
-        run: pnpm exec vitest run --project core --reporter verbose packages/core/test/context.spec.ts
+        run: pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts
 
   commitlint:
     if: github.event_name == 'pull_request'

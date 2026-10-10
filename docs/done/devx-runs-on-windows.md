@@ -1,7 +1,7 @@
 ---
 type: chore
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-10
 ---
 
@@ -31,3 +31,15 @@ Windows job cannot use the same command as the `check` job.
 
 - `pnpm devx test` launches vitest on `windows-latest`, and the `windows` CI job uses it.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: run tool entries with node (approved 2026-10-10)
+
+Delegated session, automatic mode: the delegation stood in for plan approval.
+
+- `scripts/devx.mjs`: `bin(pkg, name)` reads the tool's entry from `node_modules/<pkg>/package.json` `bin`;
+  `run` spawns `process.execPath` with that entry. No `.bin` shim, no shell, same path on every OS.
+  All five tools (tsc, oxlint, oxfmt, vitest, commitlint) ship JS entries, so this covers every devx command.
+- CI `windows` job: test step is now `pnpm devx test --project core --reporter verbose packages/core/test/context.spec.ts`.
+  That job is the end-to-end test: devx launching vitest on `windows-latest`.
+- `docs/milestones/README.md` Windows paths row: names `pnpm devx test`, drops "devx does not run on Windows yet".
+- `SETUP.md` unchanged: it gains no Windows note.

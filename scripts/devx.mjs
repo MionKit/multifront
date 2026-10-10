@@ -12,11 +12,16 @@ import {renderDocsImages} from './docs-images.mjs';
 
 class CliError extends Error {}
 
-const bin = (name) => join(REPO_ROOT, 'node_modules', '.bin', name);
+// Runs the tool's JS entry with this node, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
+function bin(pkg, name = pkg) {
+  const dir = join(REPO_ROOT, 'node_modules', pkg);
+  const field = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).bin;
+  return join(dir, typeof field === 'string' ? field : field[name]);
+}
 
-function run(cmd, args) {
-  const result = spawnSync(cmd, args, {stdio: 'inherit', cwd: REPO_ROOT});
-  if (result.error) throw new CliError(`${CLI}: failed to launch ${cmd}: ${result.error.message}`);
+function run(entry, args) {
+  const result = spawnSync(process.execPath, [entry, ...args], {stdio: 'inherit', cwd: REPO_ROOT});
+  if (result.error) throw new CliError(`${CLI}: failed to launch ${entry}: ${result.error.message}`);
   if (result.status !== 0) throw new CliError('');
 }
 
@@ -34,12 +39,12 @@ function checkTree() {
 
 const handlers = {
   build(args) {
-    if (args.includes('--clean')) run(bin('tsc'), ['--build', 'tsconfig.json', '--clean']);
-    run(bin('tsc'), ['--build', 'tsconfig.json']);
+    if (args.includes('--clean')) run(bin('typescript', 'tsc'), ['--build', 'tsconfig.json', '--clean']);
+    run(bin('typescript', 'tsc'), ['--build', 'tsconfig.json']);
   },
   typecheck() {
     checkTree();
-    for (const pkg of listPackages()) run(bin('tsc'), ['-p', join(pkg.dir, 'tsconfig.json')]);
+    for (const pkg of listPackages()) run(bin('typescript', 'tsc'), ['-p', join(pkg.dir, 'tsconfig.json')]);
   },
   lint() {
     run(bin('oxlint'), []);
@@ -57,7 +62,7 @@ const handlers = {
     run(bin('vitest'), ['run', ...args]);
   },
   commitlint(args) {
-    run(bin('commitlint'), args);
+    run(bin('@commitlint/cli', 'commitlint'), args);
   },
   check() {
     handlers.format(['--check']);
