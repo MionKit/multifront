@@ -31,7 +31,7 @@ export function moduleName(block: Block): string | undefined {
   return module === true || module === '' ? '$style' : module;
 }
 
-/** One `compileStyleAsync` call per block, with the options plugin-vue passes. */
+/** Passes `compileStyleAsync` the same options plugin-vue passes. */
 export function compileStyles(blocks: Block[], options: CompileStylesOptions): Promise<CompiledStyle[]> {
   return Promise.all(blocks.map((block) => compileStyle(block, options)));
 }
@@ -63,12 +63,12 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
       errors,
     };
   } catch (err) {
-    // A preprocessor that is not installed throws before compileStyleAsync can collect it.
+    // A missing preprocessor throws before compileStyleAsync can collect it.
     return {...style, code: '', map: undefined, classes: undefined, errors: [compileError(err as Error, block, options)]};
   }
 }
 
-// Maps the block content to its place in the .ucf file, so every map after it points into the .ucf file.
+// So every map chained after it points into the .ucf file, not the bare block.
 function blockMap(block: Block, {filename, source, compiler}: CompileStylesOptions) {
   const text = new compiler.MagicString(source);
   text.remove(0, block.contentStart);
@@ -77,8 +77,7 @@ function blockMap(block: Block, {filename, source, compiler}: CompileStylesOptio
   return {...map, version: String(map.version)};
 }
 
-// After a preprocessor, PostCSS keeps segments it cannot follow through the input map: they point at the
-// preprocessor's output under a second source name, so they go.
+// After a preprocessor, PostCSS keeps segments into its output under a second source name: drop them.
 function onlyFile(map: Pick<SourceMap, 'file' | 'sources' | 'names' | 'mappings'>, filename: string, source: string): SourceMap {
   const fileIndex = map.sources.indexOf(filename);
   const mappings = decode(map.mappings).map((line) => line.filter((segment) => segment.length === 1 || segment[1] === fileIndex));

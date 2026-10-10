@@ -86,7 +86,6 @@ export interface SourceMap {
   mappings: string;
 }
 
-/** One `<style>` block, compiled. */
 export interface CompiledStyle {
   index: number; // the block's index among the <style> blocks
   id: string; // module id, from styleId()
