@@ -1,4 +1,4 @@
-// LanguagePlugin's `typescript` field is an augmentation in @volar/typescript; tsc drops a type-only import of it from the .d.ts.
+// The `typescript` field is a @volar/typescript augmentation; tsc drops a type-only import of it from the .d.ts.
 // oxlint-disable-next-line typescript/triple-slash-reference
 /// <reference types="@volar/typescript" preserve="true" />
 import {isTarget, splitBlocks} from '@multifront/core';
@@ -23,7 +23,7 @@ function stringSnapshot(text: string): IScriptSnapshot {
   return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
 }
 
-// A target row gets its first block only, as the build does; a shared row gets every block of its tag.
+// Targets get their first block only, as the build does; shared kinds get every block.
 function blocksOf(tag: BlockTag, split: SplitResult): Block[] {
   if (!isTarget(tag)) return split.blocks.filter((block) => block.type === tag);
   const block = split.targets[tag];

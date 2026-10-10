@@ -10,7 +10,7 @@ import {describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
 const plugin = createUcfLanguagePlugin();
-// Volar's own registry: it asks the plugin for the language, creates the codes and keeps them by id.
+// Volar's own registry: it picks the language, creates the codes, keeps them by id.
 const language = createLanguage([plugin], new Map(), () => {});
 const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs'), ...listComponents('editor')];
 const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx'};
@@ -27,7 +27,7 @@ function load(name: string) {
   return {script, source, split: splitBlocks(source, filename), root, byId: embeddedCodes, embedded: root.embeddedCodes ?? []};
 }
 
-// The codes the kept blocks must give: every css / scss style, then the first <react>.
+// Expected codes: css / scss styles, then the first <react>.
 function expectedCodes(styles: Block[], react: Block | undefined): {id: string; languageId: string; block: Block}[] {
   const codes = styles.flatMap((block) => {
     const lang = block.attrs.lang ?? 'css';
