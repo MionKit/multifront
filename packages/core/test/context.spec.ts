@@ -25,6 +25,7 @@ const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, numb
   'Hello.ucf': {hasScoped: false, modules: {}},
   'Panel.ucf': {hasScoped: true, modules: {}},
   'ReactDefaultSpecifier.ucf': {hasScoped: false, modules: {$style: 0}},
+  'ScopedModuleScss.ucf': {hasScoped: true, modules: {$style: 0}},
   'TsxEdges.ucf': {hasScoped: true, modules: {}},
 };
 

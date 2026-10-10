@@ -33,6 +33,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
     {scoped: false, module: undefined},
   ],
   'ReactDefaultSpecifier.ucf': [{scoped: false, module: '$style'}],
+  'ScopedModuleScss.ucf': [{scoped: true, module: '$style'}],
   'TsxEdges.ucf': [{scoped: true, module: undefined}],
 };
 
@@ -40,6 +41,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
 const COMPOSED: Record<string, Record<string, string[]>> = {
   'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
   'ComposesScoped.ucf': {tag: ['accent', 'base'], chip: ['round', 'base']},
+  'ScopedModuleScss.ucf': {meter: ['base']},
 };
 
 describe('compileStyles on valid fixtures', () => {
