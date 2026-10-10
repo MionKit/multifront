@@ -1,5 +1,5 @@
 import {execFileSync} from 'node:child_process';
-import {mkdtemp, rm} from 'node:fs/promises';
+import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -35,6 +35,21 @@ describe('loadVueCompiler', () => {
         'multifront: could not find @vue/compiler-sfc. Install vue or @vue/compiler-sfc in your project.'
       );
       expect(execFileSync(process.execPath, [script, REPO_ROOT], {encoding: 'utf8', env})).toBe('found');
+    } finally {
+      await rm(root, {recursive: true, force: true});
+    }
+  });
+
+  it('passes on the error of a compiler it found but cannot load', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'multifront-broken-vue-'));
+    const script = fileURLToPath(new URL('vueCompiler.child.ts', import.meta.url));
+    const compilerDir = join(root, 'node_modules', '@vue', 'compiler-sfc');
+    try {
+      await mkdir(compilerDir, {recursive: true});
+      await writeFile(join(compilerDir, 'package.json'), '{"name": "@vue/compiler-sfc", "main": "index.js"}');
+      await writeFile(join(compilerDir, 'index.js'), "throw new Error('broken compiler');");
+      const env = {...process.env, NODE_PATH: undefined};
+      expect(execFileSync(process.execPath, [script, root], {encoding: 'utf8', env})).toBe('broken compiler');
     } finally {
       await rm(root, {recursive: true, force: true});
     }
