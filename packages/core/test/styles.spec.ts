@@ -6,7 +6,7 @@ import {describe, expect, it} from 'vitest';
 import {styleId} from '@multifront/core';
 import type {CompiledStyle} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {hasClass, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
+import {hasClass, hasKeyframes, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 import {compile} from './styles.child.ts';
 
 function offsetOf(source: string, line: number, column: number): number {
@@ -35,6 +35,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   'ReactDefaultSpecifier.ucf': [{scoped: false, module: '$style'}],
   'ScopedModuleScss.ucf': [{scoped: true, module: '$style'}],
   'TsxEdges.ucf': [{scoped: true, module: undefined}],
+  'scoped-modules/ScopedModuleEdges.ucf': [{scoped: true, module: '$style'}],
 };
 
 // Hand-written: the classes each local class composes, in postcss-modules order.
@@ -44,12 +45,15 @@ const COMPOSED: Record<string, Record<string, string[]>> = {
   'ScopedModuleScss.ucf': {meter: ['base']},
 };
 
+// `scoped-modules/` holds the scoped module selectors Shiki's css and scss grammars cannot tokenize.
+const VALID = [...listComponents(), ...listComponents('scoped-modules')];
+
 describe('compileStyles on valid fixtures', () => {
   it('covers every valid fixture', () => {
-    expect(listComponents()).toEqual(Object.keys(STYLE_BLOCKS));
+    expect(VALID).toEqual(Object.keys(STYLE_BLOCKS));
   });
 
-  describe.each(listComponents())('%s', async (name) => {
+  describe.each(VALID)('%s', async (name) => {
     const {filename, source, split, id, styles} = await compile(name);
     const pairs = styles.map((style, index) => ({style, block: split.styles[index]!}));
 
@@ -75,6 +79,12 @@ describe('compileStyles on valid fixtures', () => {
         }
         expect(Object.keys(style.classes!).length).toBeGreaterThan(0);
         for (const [local, generated] of Object.entries(style.classes!)) {
+          if (!hasClass(block.content, local)) {
+            expect(hasKeyframes(block.content, local)).toBe(true);
+            // The scoped step renames keyframes `<name>-<scope id>` after postcss-modules made the class map.
+            expect(hasKeyframes(style.code, style.scoped ? `${generated}-${id}` : generated)).toBe(true);
+            continue;
+          }
           const names = [local, ...(COMPOSED[name]?.[local] ?? [])];
           expect(generated).toBe(names.map((className) => `${className}_${id}_${style.index}`).join(' '));
           expect(hasClass(block.content, local)).toBe(true);

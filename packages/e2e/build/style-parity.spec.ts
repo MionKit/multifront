@@ -5,14 +5,14 @@ import vue from '@vitejs/plugin-vue';
 import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BuildContext, SplitResult, VueCompiler} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, hasClass, listComponents, readComponent} from '../fixtures/index.ts';
+import {copyApp, hasClass, hasKeyframes, listComponents, readComponent} from '../fixtures/index.ts';
 import {buildApp} from './lib/build.ts';
 
 // The compiler plugin-vue itself resolves from the app root.
 const compiler = createRequire(import.meta.url)('vue/compiler-sfc') as VueCompiler;
 const styleKind = getBlockKind('style');
-// `langs/` adds the style langs no top-level fixture uses.
-const FIXTURES = [...listComponents(), ...listComponents('langs')];
+// `langs/` adds the style langs no top-level fixture uses; `scoped-modules/` the selectors Shiki cannot tokenize.
+const FIXTURES = [...listComponents(), ...listComponents('langs'), ...listComponents('scoped-modules')];
 
 /** Both builds get the same plugins, so their CSS passes the same Vite steps; only the entry differs. */
 async function buildCss(root: string, entry: string, ctx: BuildContext): Promise<string> {
@@ -85,6 +85,12 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
       const css = styleKind.build!(block, ctx).code;
       expect(Object.keys(classes).length).toBeGreaterThan(0);
       for (const [local, generated] of Object.entries(classes)) {
+        if (!hasClass(block.content, local)) {
+          expect(hasKeyframes(block.content, local)).toBe(true);
+          // The scoped step renames keyframes `<name>-<scope id>` after postcss-modules made the class map.
+          expect(hasKeyframes(css, 'scoped' in block.attrs ? `${generated}-${ctx.scopeId}` : generated)).toBe(true);
+          continue;
+        }
         expect(hasClass(block.content, local)).toBe(true);
         // `composes` appends the composed classes after the local one.
         for (const className of generated.split(' ')) expect(hasClass(css, className)).toBe(true);

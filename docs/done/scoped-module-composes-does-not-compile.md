@@ -56,6 +56,14 @@ modules run first, then plugin-vue scopes the result, and composed files come ou
   `ComposesFrom.ucf`: the style-parity test names composed classes as if they come from block 0.
 - Second fixture `ScopedModuleScss.ucf` (review): a `<style module scoped lang="scss">` block with nesting and
   `composes`, so the preprocess, modules, scoped chain and its map run too.
+- Third fixture `components/scoped-modules/ScopedModuleEdges.ucf` (review): `:global(…)`, `:deep(…)` and `@keyframes`
+  in a `<style module scoped>` block, the selectors whose output the new order changes. Style-parity and core
+  `styles.spec.ts` run the folder. The editor grammar test does not: Shiki's css and scss grammars leave
+  `:global(…)` and `:deep(…)` untokenized, an upstream gap.
+- New `hasKeyframes(css, name)` beside `hasClass` in `packages/e2e/fixtures/index.ts`: postcss-modules exports
+  `@keyframes` names in the class map, so the class-map checks of style-parity and `styles.spec.ts` take a key that is
+  no class only when it is an `@keyframes` name of the block and of our CSS (`<generated>-<scope id>` when scoped).
+  Class keys are checked as before.
 - Tests: style-parity picks the fixtures up; core `styles.spec.ts` gets `STYLE_BLOCKS` + `COMPOSED` rows and a CSS
   snapshot each; `split.spec.ts` and `context.spec.ts` get their rows; new split and editor snapshots committed.
 - Docs: m1 step 1.8's "one `compileStyleAsync` call per block" bullet and `docs/plan.md` section 1's
