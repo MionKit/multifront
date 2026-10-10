@@ -2,6 +2,7 @@ import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
+import {rewriteImportAttributes} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
 import {
@@ -15,6 +16,7 @@ import {
   MIXED_LINES,
   onLine,
   PLUGIN,
+  readApp,
 } from './lib/cases.ts';
 import {startLanguageServer} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
@@ -23,6 +25,7 @@ import type {Tsserver} from './lib/tsserver.ts';
 import {packVsix} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
+const NON_LITERAL = readApp('no-default/non-literal.ts');
 // Stands in for the extension's tsdk: a TypeScript lib folder.
 const TSDK = dirname(createRequire(import.meta.url).resolve('typescript'));
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
@@ -65,7 +68,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
     logFile = join(temp, 'pack-alone.log');
     // Isolated hides the project's own entry: the pack is the only plugin.
     server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], isolated: true, logFile});
-    await open(server, [APP, CARD]);
+    await open(server, [APP, CARD, NON_LITERAL]);
   });
 
   afterAll(async () => {
@@ -82,6 +85,13 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
   });
 
   appTsxCases(() => server);
+
+  it("runs the build's attribute rewrite through oxc-parser's wasm binding: a non-literal attribute is its error", async () => {
+    const {errors} = rewriteImportAttributes(NON_LITERAL.source, NON_LITERAL.filename);
+    expect(await server.diagnostics(NON_LITERAL.filename)).toMatchObject([
+      {code: 'framework-attribute-not-literal', category: 'error', text: errors[0]!.message},
+    ]);
+  });
 });
 
 describe("tsserver with the plugin pack and the project's own plugin: the first copy serves, the pack steps aside", () => {

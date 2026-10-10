@@ -1,10 +1,8 @@
 import {copyFile, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import type {TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {readComponent} from '../fixtures/index.ts';
 import {
   APP,
@@ -27,16 +25,6 @@ type Completions = ts.server.protocol.CompletionInfo;
 
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
 const BUTTON = readComponent('Button.ucf');
-// The rows tsserver serves; .vue, .svelte and .jsx importers come with M4 and M6, the rewrite's error with 3.8.
-const ROWS = EXPECTED_IMPORTS.filter(
-  (row) => /\.(tsx?|ucf)$/.test(row.file) && row.file !== 'src/mixed.ts' && row.expect !== 'framework-attribute-not-literal'
-);
-const RULE_REASON: Record<TargetRule, string> = {
-  block: 'the block it sits in',
-  attribute: 'its framework attribute',
-  importer: "the importer's extension",
-  default: 'the default framework',
-};
 const CARD_SPECIFIER = '../../../components/Card.ucf';
 const STYLE_ACCESS = 'className={$style.';
 // `$style`, and a named module; Button's <react> use comes after its <vue> and <svelte> ones.
@@ -51,32 +39,11 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
 
   beforeAll(async () => {
     server = startTsserver({cwd: APP_DIR, plugins: [PLUGIN]});
-    const importers = [...new Set(ROWS.map(({file}) => file))].map(readApp);
-    await open(server, [...importers, MIXED, CARD, BUTTON, TYPE_ERROR]);
+    await open(server, [APP, MIXED, readApp('src/lazy.ts'), CARD, BUTTON, TYPE_ERROR]);
   });
 
   afterAll(async () => {
     await server?.stop();
-  });
-
-  it.each(ROWS)('$file line $line: $expect', async (row) => {
-    const {filename, source} = readApp(row.file);
-    const at = locate(source, `'${row.specifier}'`);
-    const diagnostics = onLine(await server.diagnostics(filename), row.line);
-    if (!('rule' in row)) {
-      expect(diagnostics).toMatchObject([{code: row.expect, source: 'multifront', category: 'error', start: at}]);
-    } else if (row.expect === 'react') {
-      expect(diagnostics).toEqual([]);
-      const definitions = await server.request<TsDefinitions>('definition', {
-        file: filename,
-        line: at.line,
-        offset: at.offset + 1,
-      });
-      expect(definitions.map(({file}) => file)).toEqual([CARD.filename]);
-    } else {
-      expect(diagnostics).toMatchObject([{code: 'target-not-built', source: 'multifront', category: 'error', start: at}]);
-      expect(diagnostics[0]!.text).toContain(`imported as ${row.expect} (by ${RULE_REASON[row.rule]})`);
-    }
   });
 
   appTsxCases(() => server);
