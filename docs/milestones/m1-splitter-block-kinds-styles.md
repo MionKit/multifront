@@ -396,3 +396,21 @@ None: this is the first milestone. It builds on what the repo already has:
 - HMR, SSR and the browser area (milestone 3 onward).
 - `v-bind()` in CSS for React and Svelte, `<style src="…">`, target-only `<style>` (open questions in the spec).
 - The library build and the consumer area (milestone 5).
+
+## Manual QA
+
+Run from the repo root after `pnpm install`. Each check is marked with what the QA pass saw on `main` at `3dfa39b` plus the QA tests.
+
+1. `pnpm devx check` exits 0 on `main`. **Done:** green, 305 tests in 12 files. On the QA branch it is red until the failing QA tests are fixed.
+2. `pnpm devx test packages/e2e` runs the `e2e` project: `build/` and `editor/` tests, each with real Vite or real shiki. Expect every file listed with a test count, none skipped. **Done:** 6 files, 98 tests; 2 fail by design (check 9).
+3. `pnpm devx test packages/e2e/build/style-parity.spec.ts`: the exit test. Expect 21 passed (7 fixtures x 3). **Done.**
+4. Split a fixture:
+   `node --input-type=module -e "import {readFileSync} from 'node:fs'; import {splitBlocks} from './packages/core/src/index.ts'; const f = 'packages/e2e/fixtures/components/Card.ucf'; for (const b of splitBlocks(readFileSync(f, 'utf8'), f).blocks) console.log(b.type, JSON.stringify(b.attrs), b.start, b.end)"`
+   Expect `vue {} 0 170`, `react {} 172 318`, `svelte {} 320 469`, `style {"module":true,"lang":"scss"} 471 531`. **Done.**
+5. Errors in source order with line and column: the same command with `checkBlocks(splitBlocks(...))` on `invalid/MixedErrors.ucf`, printing `line:column code`. Expect `1:0 unknown-style-lang` then `13:0 duplicate-target`, each message naming its tag. **Done.**
+6. Build context for `Card.ucf` with `createBuildContext(split, {root: process.cwd(), compiler: createRequire(import.meta.url)('vue/compiler-sfc'), production: true})`. Expect an 8 hex char `scopeId`, `modules.$style.classes` = `{card: 'card_<scopeId>_0'}`, `styles[0].code` = `.card_<scopeId>_0 {\n  padding: 1rem;\n}` and `styles[0].map.sources` = the absolute `.ucf` path. **Done:** `224ba4d3`.
+7. `pnpm devx test packages/e2e/build/scope-id.spec.ts`: `scopeId()` against plugin-vue in a real build and a real dev server. Expect 3 passed. **Done.**
+8. `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=2000 pnpm devx test packages/core/test/split.fuzz.spec.ts` replays another seed. Expect 18 passed; `pnpm devx env` lists both knobs. **Done** (also seeds 99, 123456 and 4000000000 at 5000 runs).
+9. Seams (QA tests): `pnpm devx test packages/e2e/build/build-context.spec.ts packages/e2e/build/style-langs.spec.ts`. Expect every fixture, valid and invalid, through split, `checkBlocks` and `createBuildContext` inside a real Vite build with the compiler `multifront()` borrowed, and each `langs/` fixture's CSS equal to plugin-vue's. **Done:** `build-context` passes; `style-langs` fails on `langs/SassIndented.ucf` (a valid `lang="sass"` block gives `style-compile-error`), passes on `langs/PostcssPlain.ucf`.
+10. Windows paths: the `windows` job of the latest `main` CI run shows `test/context.spec.ts` with 41 tests passed. **Done:** run 38022076082.
+11. After any e2e run, `packages/e2e/.tmp/` holds no leftover app copy. **Done.**
