@@ -1,11 +1,8 @@
-import {splitBlocks} from '@multifront/core';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {componentPath, readComponent} from '../fixtures/index.ts';
-import {locate, offsetAt, startTsserver} from './lib/tsserver.ts';
-import type {Tsserver, TsDiagnostic} from './lib/tsserver.ts';
-
-type Definitions = ts.server.protocol.FileSpanWithContext[];
+import {inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
+import type {TsDefinitions, TsDiagnostic, Tsserver} from './lib/tsserver.ts';
 
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
 const CARD = readComponent('Card.ucf');
@@ -13,21 +10,12 @@ const PROFILE = readComponent('editor/Profile.ucf');
 const IMPORT_ERRORS = readComponent('editor/ImportErrors.ucf');
 const VUE_ONLY = readComponent('imports/VueOnly.ucf');
 
-function expectInCardReact(definitions: Definitions): void {
-  expect(definitions.map(({file}) => file)).toEqual([CARD.filename]);
-  const react = splitBlocks(CARD.source, CARD.filename).targets.react!;
-  const start = offsetAt(CARD.source, definitions[0]!.start);
-  expect(start).toBeGreaterThanOrEqual(react.contentStart);
-  expect(start).toBeLessThan(react.contentEnd);
-}
-
 describe('.ucf imports through tsserver with our plugin', () => {
   let server: Tsserver;
 
   beforeAll(async () => {
     server = startTsserver({cwd: componentPath('editor'), plugins: [PLUGIN]});
-    const files = [PROFILE, IMPORT_ERRORS, VUE_ONLY];
-    await server.request('updateOpen', {openFiles: files.map(({filename, source}) => ({file: filename, fileContent: source}))});
+    await open(server, [PROFILE, IMPORT_ERRORS, VUE_ONLY]);
   });
 
   afterAll(async () => {
@@ -44,7 +32,9 @@ describe('.ucf imports through tsserver with our plugin', () => {
 
   it("Profile.ucf: definition on Card lands in Card.ucf's <react> block", async () => {
     const at = locate(PROFILE.source, '<Card', 1);
-    expectInCardReact(await server.request<Definitions>('definition', {file: PROFILE.filename, ...at}));
+    const definitions = await server.request<TsDefinitions>('definition', {file: PROFILE.filename, ...at});
+    expect(definitions).toHaveLength(1);
+    expect(inBlock(CARD, 'react', definitions[0]!)).toBe(true);
   });
 
   it('Profile.ucf: both imports resolve, no diagnostics', async () => {
@@ -89,7 +79,7 @@ describe('.ucf imports through tsserver with our plugin', () => {
 
     it('the framework-in-block import stays unresolved: Badge has no definition', async () => {
       const at = locate(IMPORT_ERRORS.source, '<Badge', 1);
-      const definitions = await server.request<Definitions>('definition', {file: IMPORT_ERRORS.filename, ...at});
+      const definitions = await server.request<TsDefinitions>('definition', {file: IMPORT_ERRORS.filename, ...at});
       expect(definitions.map(({file}) => file)).not.toContain(componentPath('Badge.ucf'));
     });
 

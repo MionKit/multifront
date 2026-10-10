@@ -1,10 +1,18 @@
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
+import {splitBlocks} from '@multifront/core';
+import type {BlockTag} from '@multifront/core';
 import type * as ts from 'typescript';
 
 export type TsDiagnostic = ts.server.protocol.Diagnostic;
 export type TsLocation = ts.server.protocol.Location;
+export type TsDefinitions = ts.server.protocol.FileSpanWithContext[];
+
+interface Component {
+  filename: string;
+  source: string;
+}
 
 export interface Tsserver {
   request<Body = unknown>(command: string, args?: object): Promise<Body>;
@@ -33,6 +41,17 @@ export function locate(source: string, needle: string, shift = 0): TsLocation {
 export function offsetAt(source: string, {line, offset}: TsLocation): number {
   const lines = source.split('\n').slice(0, line - 1);
   return lines.reduce((sum, text) => sum + text.length + 1, 0) + offset - 1;
+}
+
+/** A span tsserver returned starts inside the content of `component`'s first `<tag>` block. */
+export function inBlock({filename, source}: Component, tag: BlockTag, {file, start}: {file: string; start: TsLocation}): boolean {
+  const block = splitBlocks(source, filename).blocks.find(({type}) => type === tag);
+  const offset = offsetAt(source, start);
+  return !!block && file === filename && offset >= block.contentStart && offset < block.contentEnd;
+}
+
+export function open(server: Tsserver, files: Component[]): Promise<unknown> {
+  return server.request('updateOpen', {openFiles: files.map(({filename, source}) => ({file: filename, fileContent: source}))});
 }
 
 /** The real tsserver over its stdio protocol; plugins run from source, as the workspace links them. */
