@@ -15,7 +15,7 @@ async function context(name: string, production = true) {
   return {filename, source, split, ctx};
 }
 
-// Written by hand from the fixture files: `modules` maps each injection name to the block that keeps it.
+// By hand from the fixture files: `modules` maps each injection name to the block that keeps it.
 const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, number>}> = {
   'Badge.ucf': {hasScoped: true, modules: {}},
   'Button.ucf': {hasScoped: true, modules: {classes: 1}},
@@ -100,7 +100,7 @@ describe('createBuildContext on invalid fixtures', () => {
     expect(styleKind.build!(split.styles[0]!, ctx)).toEqual({ext: '.css', code: '', map: undefined});
   });
 
-  // plugin-vue merges module names block by block, so a later block with the same name wins.
+  // As in plugin-vue, which merges module names block by block.
   it('gives a repeated module name to the last block that injects it', async () => {
     const {split, ctx} = await context('invalid/DuplicateStyleModule.ucf');
     expect(split.styles.map((block) => block.attrs.module)).toEqual([true, 'classes', true, '', '$style']);

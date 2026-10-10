@@ -36,7 +36,7 @@ async function fillContext(blocks: Block[], ctx: BuildContext): Promise<void> {
   ctx.hasScoped = ctx.styles.some((style) => style.scoped);
   for (const {module: name, index, classes} of ctx.styles) {
     if (name === undefined) continue;
-    // A later block with the same name wins, as in plugin-vue. A block that failed keeps `{}`, so `$style` resolves.
+    // Later same-name block wins, as in plugin-vue; a failed block keeps `{}` so `$style` still resolves.
     ctx.modules[name] = {name, index, id: classMapId(filename, index), classes: classes ?? {}};
   }
 }
