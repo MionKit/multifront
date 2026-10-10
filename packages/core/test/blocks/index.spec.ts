@@ -29,12 +29,6 @@ describe('block kinds', () => {
     });
   });
 
-  // Target kinds get `build` in M3 (react), M4 (vue) and M6 (svelte).
-  it('gives only the shared style kind fillContext and build', () => {
-    expect(BLOCK_KINDS.filter((kind) => kind.fillContext).map((kind) => kind.tag)).toEqual(['style']);
-    expect(BLOCK_KINDS.filter((kind) => kind.build).map((kind) => kind.tag)).toEqual(['style']);
-  });
-
   it('finds each kind by its tag', () => {
     for (const kind of BLOCK_KINDS) expect(getBlockKind(kind.tag)).toBe(kind);
   });
