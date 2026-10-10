@@ -1,7 +1,7 @@
 ---
 type: docs
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.1
@@ -12,7 +12,7 @@ step: 2.1
 ## Problem
 
 The M2 editor design rests on six open questions (milestone 2 doc, step 2.1). Steps 2.4, 2.8 and 2.9 still say "as
-spike answer N says", and M3 (3.10, "Attribute rows are compared only if spike 1 kept per-import attributes") waits on
+spike answer N says", and M3 (3.8, "Attribute rows are compared only if spike 1 kept per-import attributes") waits on
 answer 1. This step answers all six with real code, writes the answers and the decision for each "no" into
 `docs/plan.md` ("Prototype first", item 1), and turns every placeholder concrete. Only the docs are merged; the spike
 code is thrown away.
@@ -69,9 +69,14 @@ question:
 2. `mixed.ts`: resolved file per literal + `quickinfo` on both bindings.
 3. `q3: extra`: where `App.tsx`'s import resolves, `quickinfo` on `<Card`, `definition` on `Card` (inside
    `Card.ucf`?), the Volar warning in the log.
-4. One tsserver per load variant: the load log line, and whether `quickinfo` on `<Card` works.
+4. One tsserver per load variant: the load log line, and whether `quickinfo` on `<Card` works. Two more variants
+   shipped: a real `typescript-plugin/` folder with an ESM `main`, and one whose `main` is `.ts` (not found: tsserver's
+   lookup takes JS files only).
+   4b. A real `typescript-plugin/index.js` that imports the package's own `./typescript-plugin` export (`source` and
+   `default` conditions), with tsserver run plain and under `node --conditions=source`. The package is a symlink, as a
+   pnpm workspace link: Node refuses to strip types under `node_modules`, and follows the link out of it.
 5. `semanticDiagnosticsSync` on `main.ts`, `reexport.ts`, `lazy.ts` in both apps, every code printed. Pass = no
-   diagnostic about the attribute.
+   diagnostic about the attribute. A control app on `module: es2020` shows TypeScript does report attributes there.
 6. `q3: main`, as VS Code does: `open` `Card.ucf`; inside `<react>` `completionInfo` and `quickinfo` on `title`;
    `definition` from `App.tsx` lands in `Card.ucf`; `rename` on the prop in `Card.ucf` lists `App.tsx`; `references`
    from `App.tsx` lists the use in `<react>`; a `change` (no save) renaming the prop, then `semanticDiagnosticsSync` on
@@ -89,32 +94,30 @@ VS Code 1.141.0 (latest stable today; 2.11 pins it unless a newer stable is out)
 - `suite.cjs` writes JSON: Electron's `process.versions.node`; plugin load lines from the tsserver log; hover and
   definition on `<Card` in `App.tsx`; hover and completion inside `<react>` of `Card.ucf`; an unsaved `WorkspaceEdit`
   renaming the prop, then `languages.getDiagnostics(App.tsx)` shows the error.
-- Run with the CJS plugin, and with each ESM variant that loaded under Node 26.
+- Run with the CJS plugin, and with both ESM variants (`'module.exports'` and `export default`).
+- User data lives in `/tmp/ucfs-<variant>`: VS Code's IPC socket path must stay under 107 characters. The scratch
+  extension has no `activationEvents` (VS Code rejects them without a `main`).
 
-### 4. Write the answers
+### 4. Write the answers (as shipped)
 
-- `docs/plan.md` "Prototype first", item 1: "Answers" list (TypeScript 6.0.3, Volar 2.4.28, Node 26.11.1, VS Code
-  1.141.0 + Electron's Node), one bullet per question: yes/no, one line of evidence, the decision (from the milestone
-  text for 1, 2, 3, 4, 6; from Decisions below for 5). Then "Cases 2.9 takes over": the run.mjs cases.
-- `docs/milestones/m2-editor-basics.md`: 2.1 "five" → "six", `- Status: done` last; placeholders made concrete in 2.4
-  ("the one spike answer 3 picked"), 2.8 ("(spike answer 1)"), 2.9 ("the warnings of 2.1, if a spike answer was
-  "no"", "Module format as spike answer 4 says", "behaves as spike answer 2 decided"); 2.4's `./typescript-plugin`
-  export reshaped if tsserver cannot find it through `exports`; "Hands to later milestones" where a name or shape
-  changes.
-- Answer-dependent edits:
-  - No to 1: spec §5 "Attribute-aware resolution" and §4.2 attribute rows "build only (types follow the importer)";
-    2.7 `expected.ts` attribute rows "build only"; M3 3.10's conditional made concrete. Yes: only that M3 sentence.
-  - Limit on 2: the 2.9 `mixed.ts` case names the warning and the fix (one re-export file per framework).
-  - No to 3: 2.4, 2.5, 2.8 say the react code is the `.ucf` file's main service script, importers resolve to
-    `/abs/Card.ucf`; spec §5 and architecture "Editor and types" say so for M2; M4 4.13 gets a "Needs" line (solve
-    per-target scripts before Vue). `docs/assets/src/language.html` / `grid.html` only if what they show turns wrong,
-    then `pnpm devx docs-images`.
-  - No to 4: 2.4 / 2.9 say `./typescript-plugin` ships one bundled `.cjs`; `packages/AGENTS.md` "ESM only" names it.
-  - No to 5: plan.md answer 5, the 2.9 Build line (`getSemanticDiagnostics` drops that exact TypeScript error on
-    `.ucf` imports), spec §11 "Tools without our plugin" names the setting; later docs (M7 `mf-tsc`) if a handed-on name
-    or shape changes.
-  - No to 6: spec §6, architecture "Editor and types", milestones README "Hybrid mode" and the M2 goal take the
-    two-program fallback and its limits; M4 gets the re-check.
+Answers: 1 yes, 2 the expected limit (the last import wins), 3 no, 4 yes (ESM through `require(esm)`, factory exported
+as `'module.exports'`, a real `typescript-plugin/` folder), 5 yes, 6 yes.
+
+- `docs/plan.md` "Prototype first", item 1: "Answers" list (versions, one bullet per question: answer, evidence,
+  decision) and "Cases 2.9 takes over".
+- `docs/milestones/m2-editor-basics.md`: 2.1 "five" → "six", `- Status: done`; 2.4 exports gain the
+  `typescript-plugin/` folder, the TypeScript script is the react code as main service script; 2.5 names where
+  tsserver sees `Card.ucf.react.tsx`; 2.8 reads the attribute from `literal.parent` and returns the `.ucf` file itself;
+  2.9 Build gets the answer 2 warning and the module format, its Test the `Card.ucf` resolution and the concrete
+  `mixed.ts` case; Risks and "Hands to later milestones" (`typescript-plugin` line) follow.
+- M3 "Needs" (answers 1 and 3) and 3.8's Test: imports resolve to `Card.ucf`; attribute rows compared, `mixed.ts`
+  excepted.
+- M4 "Needs" from M2: 4.13 must serve `Card.ucf.vue.ts` another way first.
+- `docs/architecture.md` "Editor and types": one script per `.ucf` file in tsserver.
+- M7 Risks (related finding, from Volar's source): `proxyCreateProgram` has no extra service scripts either, so 7.2
+  cannot rely on `getExtraServiceScripts` as written.
+- Not changed, since no answer was a "no" that needed them: spec §4.2, §5, §6, §11, `packages/AGENTS.md`, the
+  milestones README, the graphics.
 
 ## Tests
 
@@ -125,8 +128,8 @@ VS Code 1.141.0 (latest stable today; 2.11 pins it unless a newer stable is out)
 
 ## Docs
 
-`docs/plan.md` (Prototype first, item 1) and the M2 milestone doc always; the rest per answer, as in plan step 4. No
-publicdocs page covers the editor yet.
+`docs/plan.md` (Prototype first, item 1), the M2, M3, M4 and M7 milestone docs, and `docs/architecture.md` ("Editor and
+types"), as in plan step 4. No publicdocs page covers the editor yet.
 
 ## Out of scope
 

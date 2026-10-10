@@ -41,7 +41,7 @@ Not in milestone 1, so M2 adds it (step 2.5): a way to load `@vue/compiler-sfc` 
 
 Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; only the answers stay.
 
-- Build: a scratch tsserver plugin (not merged), loaded into the real tsserver of TypeScript 6.0.3, with one `.ucf` file and a few importers. It answers five questions:
+- Build: a scratch tsserver plugin (not merged), loaded into the real tsserver of TypeScript 6.0.3, with one `.ucf` file and a few importers. It answers six questions:
   1. Inside `resolveModuleNameLiterals`, can we reach the import node of each literal (`literal.parent`, or by walking `containingSourceFile` when parent links are not set yet) and read `with { framework: 'react' }` on a static import, an `export ... from` and `import('./Card.ucf', { with: { framework: 'react' } })`?
   2. Two imports of the same specifier with different frameworks in one file: does TypeScript keep two resolutions, or one per (specifier, mode)? We expect one.
   3. Can `./Card.ucf` resolve to a file that is not on disk, `/abs/Card.ucf.react.tsx`, served as a Volar extra service script (`getExtraServiceScripts`), and do hover and go to definition map back into the `.ucf` file?
@@ -55,6 +55,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
   - **No to 4:** the `./typescript-plugin` subpath ships one bundled `.cjs` file, the one exception to "ESM only".
   - **No to 6:** fall back to two programs (our server runs its own TypeScript for `.ucf` files, tsserver serves `.ts` importers), and record the limits: importers see `.ucf` changes on save only, rename and references stop at the file kind. Milestone 4 must then re-check, because Vue's current tools assume hybrid mode.
 - Test: the spike's own script runs the real tsserver over its stdio protocol and prints the file each import resolves to. Its cases become the tsserver cases of 2.9.
+- Status: done
 
 ### 2.2 Grammar from the registry
 
@@ -81,7 +82,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 ### 2.4 `@multifront/language-tools` and the Volar language plugin
 
 - Build:
-  - New package `packages/language-tools`, `@multifront/language-tools`. Exports `.`, `./typescript-plugin` and `./server` (each with the `source` condition). Exact-pinned dependencies: `@multifront/core` (`workspace:*`), `@volar/language-core`, `@volar/typescript`. Peer: `typescript`. Joins the root `vitest.config.ts` projects and the root `tsconfig.json` references. `@multifront/e2e` gets it as `workspace:*`.
+  - New package `packages/language-tools`, `@multifront/language-tools`. Exports `.`, `./typescript-plugin` and `./server` (each with the `source` condition). tsserver finds plugins with its own Node10 lookup, which ignores `exports`, so the package also ships a real `typescript-plugin/` folder (in `files`): its `index.js` imports the package's own `./typescript-plugin` export and re-exports it as `'module.exports'` (spike 1, answer 4). Exact-pinned dependencies: `@multifront/core` (`workspace:*`), `@volar/language-core`, `@volar/typescript`. Peer: `typescript`. Joins the root `vitest.config.ts` projects and the root `tsconfig.json` references. `@multifront/e2e` gets it as `workspace:*`.
   - `src/blocks/index.ts`: the editor half of the registry, `EDITOR_BLOCK_KINDS`, same tags in the same order as `BLOCK_KINDS`. Types in `src/types.ts`:
 
     ```ts
@@ -104,7 +105,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
     `EditorFile` keeps the `VirtualFile` name and shape. It adds Volar mappings because a v3 source map has no exact spans and no per-span feature flags.
   - `src/blocks/style.ts`: `editor()` returns the block as one `.css` or `.scss` code, mapped 1:1 to the block content. `less`, `sass`, `stylus` and `postcss` blocks: no code yet, highlighting only.
   - `src/blocks/react.ts`: `editor()` returns the block as one `.tsx` code, mapped 1:1.
-  - `src/languagePlugin.ts`: `createUcfLanguagePlugin(options)` returns a Volar `LanguagePlugin`. `getLanguageId` is `ucf` for `.ucf`. `createVirtualCode` splits once with `splitBlocks`, loops `EDITOR_BLOCK_KINDS` (shared rows first, so they fill `ctx`), and returns a root code with embedded codes `react` (`typescriptreact`) and `style_0`, `style_1`, ... (`css` or `scss`). `typescript.extraFileExtensions` has `ucf`. The TypeScript script is the one spike answer 3 picked.
+  - `src/languagePlugin.ts`: `createUcfLanguagePlugin(options)` returns a Volar `LanguagePlugin`. `getLanguageId` is `ucf` for `.ucf`. `createVirtualCode` splits once with `splitBlocks`, loops `EDITOR_BLOCK_KINDS` (shared rows first, so they fill `ctx`), and returns a root code with embedded codes `react` (`typescriptreact`) and `style_0`, `style_1`, ... (`css` or `scss`). `typescript.extraFileExtensions` has `ucf`. The TypeScript script is the `react` code, returned by `getServiceScript` as the `.ucf` file's main service script: Volar's tsserver plugin does not serve `getExtraServiceScripts` (spike 1, answer 3).
 - Deliverable: a Volar language plugin that turns a `.ucf` file into mapped TSX and CSS / SCSS codes.
 - Test: area **Editor**, `packages/e2e/editor/virtualCode.spec.ts`. Runs the real `createUcfLanguagePlugin().createVirtualCode()` on every name in `listComponents()` and every invalid fixture. Checks:
   - each embedded code against a readable file snapshot (`toMatchFileSnapshot('__snapshots__/Card.ucf.react.tsx')`);
@@ -123,7 +124,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
     declare const $style: {readonly card: string; readonly title: string};
     ```
 
-    A named module uses its name (`declare const classes: ...`). The host names this file `Card.ucf.react.tsx`. Each class key gets a navigation-only mapping to its `offset`, so go to definition on `$style.card` lands on `.card`.
+    A named module uses its name (`declare const classes: ...`). Tools name this script `Card.ucf.react.tsx`; tsserver serves it as the `.ucf` file's own script (2.4), so it sees it as `Card.ucf`. Each class key gets a navigation-only mapping to its `offset`, so go to definition on `$style.card` lands on `.card`.
   - The `react` embedded code of 2.4 becomes this types script, so `$style` is typed inside the block too.
   - A public helper for tools that need a types script without a language server: `getTypesScript(filename, source, target, options?): EditorFile | undefined`, exported from `@multifront/language-tools` (`src/typesScript.ts`) (splits, fills `ctx`, calls that target's `types()`). M5 emits `.d.ts` files with it.
 - Deliverable: `Card.ucf.react.tsx` with an exact `$style` type, built synchronously.
@@ -171,7 +172,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 ### 2.8 Imports inside a `.ucf` block
 
 - Build:
-  - `src/resolve.ts` in language-tools: `resolveUcfImport(ts, literal, containingFile, options)`. It reads the `framework` attribute from the import node (spike answer 1), builds the `Importer` (the `Card.ucf.<target><ext>` script, or the `.ucf` file's own script, is that block's importer), calls `resolveTarget()`, splits the imported file, and returns its `Card.ucf.<target><ext>` when that file's row has `types()`. It does not use TypeScript's shared resolution cache for `.ucf` specifiers, because the answer depends on the importer.
+  - `src/resolve.ts` in language-tools: `resolveUcfImport(ts, literal, containingFile, options)`. It reads the `framework` attribute from `literal.parent`, the import node (spike 1, answer 1: only that one parent link is set, so it passes the source file to `getStart()` / `getText()`), builds the `Importer` (the `Card.ucf.<target><ext>` script, or the `.ucf` file's own script, is that block's importer), calls `resolveTarget()`, splits the imported file, and returns the imported `.ucf` file itself when that file's row has `types()` (in M2 only `react`, the file's main service script). It does not use TypeScript's shared resolution cache for `.ucf` specifiers, because the answer depends on the importer.
   - `readMultifrontOptions(ts, configFileName): ResolveTargetOptions` reads `framework` and `importers` from our entry in `compilerOptions.plugins`. tsserver skips a global plugin that the project also lists, so the same entry serves VS Code, other editors and M7's `mf-tsc`.
   - The TypeScript plugin's host calls `resolveUcfImport` from `resolveModuleNameLiterals`, for `.ucf` files and their importers alike (one program). Errors become diagnostics at the import: `framework-in-block`, and a missing block naming both files.
 - Deliverable: inside `<react>`, `import Card from '../Card.ucf'` gets Card's React types (spec 4.1).
@@ -181,12 +182,12 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 
 ### 2.9 TypeScript plugin
 
-- Build: `src/typescriptPlugin.ts`, subpath `./typescript-plugin`: Volar's `createLanguageServicePlugin` with `createUcfLanguagePlugin`, so tsserver serves `.ucf` files themselves (hybrid mode), then `resolveModuleNameLiterals` wrapped so `.ucf` specifiers go through `resolveUcfImport` and everything else goes to TypeScript. `getSemanticDiagnostics` adds the `resolveTarget` errors at the import (and the warnings of 2.1, if a spike answer was "no"). A target with no types yet (`vue` until M4, `svelte` until M6) leaves the module unresolved, with a message naming the target, so a test can still see which rule won. Module format as spike answer 4 says.
+- Build: `src/typescriptPlugin.ts`, subpath `./typescript-plugin`: Volar's `createLanguageServicePlugin` with `createUcfLanguagePlugin`, so tsserver serves `.ucf` files themselves (hybrid mode), then `resolveModuleNameLiterals` wrapped so `.ucf` specifiers go through `resolveUcfImport` and everything else goes to TypeScript. `getSemanticDiagnostics` adds the `resolveTarget` errors at the import, and the warning of spike 1 answer 2: TypeScript keeps one resolution per specifier and mode, so a second import of the same specifier with another framework in one file gets a warning naming the fix (one small re-export file per framework). A target with no types yet (`vue` until M4, `svelte` until M6) leaves the module unresolved, with a message naming the target, so a test can still see which rule won. Module format (spike 1, answer 4): ESM, with the factory exported as `'module.exports'`; tsserver loads it through the `typescript-plugin/` folder of 2.4.
 - Deliverable: every TypeScript feature inside `<react>`, and the React types for `.ts` and `.tsx` importers, in any editor that loads tsserver plugins.
 - Test: area **Editor**, `packages/e2e/editor/tsserver.spec.ts`, helper `packages/e2e/editor/lib/tsserver.ts` (`startTsserver({cwd, plugins})`, `request(command, args)`, `diagnostics(file)`). Starts the real `tsserver.js` of TypeScript 6.0.3 under `node --conditions=source`, with `--globalPlugins @multifront/language-tools/typescript-plugin`, on `fixtures/apps/imports/`:
-  - every row of `expected.ts` with a `.ts` or `.tsx` importer: `react` rows resolve to `Card.ucf.react.tsx`, `vue` and `svelte` rows report their target, error rows report their code at the import;
+  - every row of `expected.ts` with a `.ts` or `.tsx` importer: `react` rows resolve to `Card.ucf` (its React script), `vue` and `svelte` rows report their target, error rows report their code at the import;
   - in `App.tsx`: `quickinfo` on `<Card` shows its props, a wrong prop type is an error, `definition` lands in `Card.ucf` inside `<react>`;
-  - `mixed.ts` behaves as spike answer 2 decided;
+  - `mixed.ts` (not covered by the line above): both imports get the type of the last one, and the second import has the warning naming the fix;
   - `no-default/bare.ts` reports `no-target`.
   - inside `Card.ucf`'s `<react>` (served by tsserver): completion after `$style.` lists `card`; hover on `title` shows `string`; definition on `$style.card` lands on `.card`; `editor/TypeError.ucf` (new fixture) reports its type error at its `.ucf` line and column.
   - one program: a `change` command on `Card.ucf` (no save) that renames a prop makes `App.tsx` report the old prop at once; `rename` on the prop in `Card.ucf` also edits `App.tsx`; `references` from `App.tsx` lists the use inside `<react>`.
@@ -215,7 +216,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 - **react `types()`**, the `Card.ucf.react.tsx` script with typed `$style` and named modules, and **`getTypesScript(filename, source, target, options?)`**. **M5** emits the React `.d.ts` with it; **M6** types `$style` in the Svelte script the same way (`declare const` lines from `ctx.modules`).
 - **`createUcfLanguagePlugin(options)`** (`src/languagePlugin.ts`) and **`resolveUcfImport(ts, literal, containingFile, options)`** (`src/resolve.ts`). **M4** and **M6** reuse them for `.vue` and `.svelte` importers; **M7** builds `mf-tsc` on both (M7's draft calls the resolver `resolveUcfModuleNames`: same thing).
 - **`startServer()`** at `@multifront/language-tools/server` and the bin `multifront-language-server`. **M4** adds the Vue services, **M6** the Svelte ones, **M7** formatting and linting.
-- **`@multifront/language-tools/typescript-plugin`**. **M4** runs it beside Vue's own TypeScript plugin.
+- **`@multifront/language-tools/typescript-plugin`**, loaded by tsserver from the real `typescript-plugin/` folder (2.4). It serves the React script as the `.ucf` file's own script, because Volar's tsserver plugin has no extra service scripts (spike 1). **M4** runs it beside Vue's own TypeScript plugin, and must first serve per-target scripts another way.
 - **`loadVueCompiler(root)`** in core, and `compileStyle` in `VueCompiler`. **M4** and **M7** use them where there is no Vite.
 - **`generateGrammar(kinds)`** (`multifront-vscode/grammar`), the vendored grammars in `packages/vscode/syntaxes/vendor/`, and **`pnpm devx vsix`** (grammar, bundle, `.vsix`). Every later row gets highlighting from its `grammar` field. **M7** adds the Marketplace fields and publishing to the same command.
 - **Editor test helpers** in `packages/e2e/editor/lib/`: `tokenizeUcf(path, grammars)`, `startLanguageServer(workspace)`, `startTsserver({cwd, plugins})`, and the VS Code harness in `packages/e2e/editor/vscode/`. **M4**, **M5**, **M6** and **M7** add their cases with them.
@@ -235,9 +236,9 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
 
 ## Risks and open questions
 
-- **One resolution per specifier per file.** TypeScript stores resolutions per (specifier, mode), so `./Card.ucf` imported as React and as Vue in one file gets one type. Expected from spike 1; the fix is a re-export file per framework, and the plugin says so.
+- **One resolution per specifier per file.** TypeScript stores resolutions per (specifier, mode), so `./Card.ucf` imported as React and as Vue in one file gets one type, the last import's. Confirmed by spike 1; the fix is a re-export file per framework, and the plugin says so.
 - **TypeScript 7 (native) has no JavaScript plugin API.** Our tsserver plugin works on TypeScript 6. If VS Code moves to the native TypeScript, importers lose `.ucf` types until a plugin API exists. Vue's tools have the same problem. Watch it; nothing to build now.
-- **Volar extra service scripts** (spike answer 3) may not carry every LSP feature. Fallback: the React code is the main script in M2, and M4 solves per-target scripts.
+- **No Volar extra service scripts in tsserver.** Spike 1 confirmed it: the React code is the main script in M2, and M4 must solve per-target scripts before it adds Vue.
 - **Grammar and splitter can disagree.** An embedded TSX rule (a string, a template literal, a JSX tag the TSX grammar misreads) can run past `</react>`. The 2.2 check against `splitBlocks` catches it on the fixtures. `'</react>'` in a string is a documented limitation in both (`invalid/ReactCloseInString.ucf`).
 - **Style languages VS Code does not ship.** `source.sass`, `source.stylus` and `source.css.postcss` highlight only when the user has an extension for that language; otherwise the block shows as plain text.
 - **Sync class names vs the build's class map.** A project PostCSS config that renames classes would make them differ. The 2.5 test guards the fixtures only.

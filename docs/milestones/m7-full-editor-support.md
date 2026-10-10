@@ -208,6 +208,7 @@ All of it with real tools: no mock server, no fake oxlint output, no stubbed VS 
 
 Risks:
 
+- **Volar has no extra service scripts on the `tsc` path either.** `@volar/typescript` 2.4.28 `proxyCreateProgram` warns `getExtraServiceScripts() is not available in this use case.`, as its tsserver plugin does (spike 1, answer 3). 7.2 must use whatever M4 builds to serve per-target scripts, unless a newer Volar adds them.
 - **oxfmt and oxlint are young.** oxfmt is 0.x and oxlint's JSON shape is not a promised contract. Both are exact-pinned in the repo, and the parity tests (7.6, 7.8, 7.11) fail on any change in a bump. Users bring their own versions through the peer ranges.
 - **Svelte formatting depends on install layout.** oxfmt loads `svelte/compiler` from its own location. With pnpm's strict layout this works only when `svelte` is installed so pnpm links it as oxfmt's peer. 7.7 warns and skips instead of failing.
 - **Linting a block alone.** Block files sit in a temp folder, so rules that follow imports (`import/no-cycle`) do not see across files, and type-aware linting (`--type-aware`, tsgolint) is not supported. Upstream support (7.9) would fix both.

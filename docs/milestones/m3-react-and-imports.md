@@ -38,8 +38,8 @@ From milestone 1 (splitter, block kinds, styles):
 
 From milestone 2 (editor basics):
 
-- `@multifront/language-tools/typescript-plugin`, which resolves `.ucf` imports from `.ts` / `.tsx` files to the virtual script `Card.ucf.react.tsx`. If it already calls a first `resolveTarget()`, step 3.3 replaces that function in place.
-- The result of spike 1 (types by import attribute), recorded in `docs/plan.md`: does the TypeScript plugin see `with { framework }` per import?
+- `@multifront/language-tools/typescript-plugin`, which resolves `.ucf` imports from `.ts` / `.tsx` files to the `.ucf` file itself, whose service script is the React virtual script `Card.ucf.react.tsx` (spike 1: Volar's tsserver plugin has no extra service scripts). If it already calls a first `resolveTarget()`, step 3.3 replaces that function in place.
+- The result of spike 1 (types by import attribute), recorded in `docs/plan.md`: the TypeScript plugin sees `with { framework }` per import, and TypeScript keeps one resolution per specifier and mode in a file.
 - The editor test harness in `packages/e2e/editor/`: a real tsserver with our plugin loaded, which can tell where an import of `./Card.ucf` resolves (go to definition, or a TS error on the import).
 
 ## Steps
@@ -175,7 +175,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: `@multifront/language-tools/typescript-plugin` calls `resolveTarget` from core with the same `framework` and `importers` options, read from its tsconfig plugin entry. No copy of the rules stays in language-tools.
 - Deliverable: one import, one answer, in the build and in the editor.
-- Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/imports/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf.react.tsx`. Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared only if spike 1 kept per-import attributes in the types.
+- Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over each `fixtures/apps/imports/` project. For every row the build (3.7) resolves to react, the import resolves to `Card.ucf` (its React script). Every error row gives a TS error on the import. Rows that pick vue or svelte wait for milestones 4 and 6 (their virtual scripts do not exist yet). Attribute rows are compared too (spike 1 kept per-import attributes in the types), except `mixed.ts`: types give both its imports the last one's framework, while the build follows each attribute.
 
 ### 3.9 Browser harness and first render
 
