@@ -8,5 +8,15 @@
     "end": 199,
     "line": 13,
     "column": 0
+  },
+  {
+    "code": "unknown-style-lang",
+    "severity": "error",
+    "message": "<style lang> is not a known style language; use css, scss, sass, less, styl, stylus or postcss",
+    "filename": "invalid/UnknownStyleLang.ucf",
+    "start": 233,
+    "end": 245,
+    "line": 19,
+    "column": 0
   }
 ]

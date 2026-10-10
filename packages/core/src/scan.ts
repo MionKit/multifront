@@ -1,4 +1,16 @@
-import type {Block, FoundTag, OpeningTag} from './types.ts';
+import type {Block, TagBreak} from './types.ts';
+
+interface OpeningTag {
+  attrs: Block['attrs'];
+  end: number; // just after its '>' or '/>'; the name end when it never ends
+  broken?: TagBreak;
+}
+
+interface FoundTag {
+  name: string;
+  start: number; // offset of its '<'
+  end: number; // just after its '>' or '/>'
+}
 
 export const isSpace = (char: string | undefined): boolean =>
   char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f';
@@ -11,12 +23,15 @@ export function tagNameEnd(source: string, pos: number): number {
   return end;
 }
 
-// Just after the `}` matching the `{` at `pos`, or -1.
+// Just after the `}` matching the `{` at `pos`, or -1. Braces inside a quoted run do not count.
 function braceEnd(source: string, pos: number): number {
   let depth = 0;
   for (let index = pos; index < source.length; index++) {
-    if (source[index] === '{') depth++;
-    else if (source[index] === '}' && --depth === 0) return index + 1;
+    const char = source[index]!;
+    if (char === '"' || char === "'" || char === '`') index = source.indexOf(char, index + 1);
+    if (index === -1) return -1;
+    if (char === '{') depth++;
+    else if (char === '}' && --depth === 0) return index + 1;
   }
   return -1;
 }
@@ -58,8 +73,8 @@ export function readOpeningTag(source: string, pos: number, inner = false): Open
     if (quote === '"' || quote === "'") {
       const close = source.indexOf(quote, pos + 1);
       // A quote left open would run on into the next block.
-      if (close === -1 || (!inner && /[>\n]/.test(source.slice(pos + 1, close))))
-        return {attrs, end: nameEnd, broken: 'open-quote'};
+      const runsOn = close === -1 || (!inner && /[>\n]/.test(source.slice(pos + 1, close)));
+      if (runsOn) return {attrs, end: nameEnd, broken: 'open-quote'};
       attrs[name] = source.slice(pos + 1, close);
       pos = close + 1;
     } else if (inner && quote === '{') {
@@ -89,10 +104,14 @@ export function findClosingTag(source: string, tag: string, from: number): {star
 }
 
 /**
- * The opening tags at depth 0 of the markup in `text`. Only tags whose name `nests` open a level; comments and the
- * raw text of `<script>` and `<style>` are skipped.
+ * The opening tags at depth 0 of the markup in `text`. Only tags whose name `nests` open a level; comments, the raw
+ * text of `<script>` and `<style>`, and at depth 0 the raw text of every tag `rawAtTop` names are skipped.
  */
-export function topLevelTags(text: string, nests: (name: string) => boolean): FoundTag[] {
+export function topLevelTags(
+  text: string,
+  nests: (name: string) => boolean,
+  rawAtTop: (name: string) => boolean = () => false
+): FoundTag[] {
   const found: FoundTag[] = [];
   let depth = 0;
   for (let pos = text.indexOf('<'); pos !== -1; pos = text.indexOf('<', pos)) {
@@ -119,7 +138,8 @@ export function topLevelTags(text: string, nests: (name: string) => boolean): Fo
     if (depth === 0) found.push({name, start: pos, end: opening.end});
     pos = opening.end;
     if (opening.broken) continue;
-    if (name === 'script' || name === 'style') pos = findClosingTag(text, name, pos)?.end ?? text.length;
+    if (name === 'script' || name === 'style' || (depth === 0 && rawAtTop(name)))
+      pos = findClosingTag(text, name, pos)?.end ?? text.length;
     else if (nests(name)) depth++;
   }
   return found;

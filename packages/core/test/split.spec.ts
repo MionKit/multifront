@@ -1,17 +1,9 @@
-import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
 import {TARGETS, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BlockTag, Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
-
-function tsxSyntaxErrors(code: string): string[] {
-  const file = ts.createSourceFile('Block.tsx', code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
-  const host = ts.createCompilerHost({});
-  host.getSourceFile = (name) => (name === file.fileName ? file : undefined);
-  const program = ts.createProgram([file.fileName], {noLib: true, noResolve: true}, host);
-  return program.getSyntacticDiagnostics(file).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
-}
+import {tsxSyntaxErrors} from './tsx.ts';
 
 describe('splitBlocks on valid fixtures', () => {
   it('finds every valid fixture', () => {
@@ -114,14 +106,19 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'react', 'react', 'style'],
   },
-  // Structurally valid: only checkBlocks reports these.
-  {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [], blocks: ['react', 'style', 'style', 'style']},
+  {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [], blocks: ['react', 'style', 'style', 'style', 'style', 'style']},
+  {
+    fixture: 'invalid/MixedErrors.ucf',
+    errors: [{code: 'duplicate-target', line: 13, column: 0}],
+    blocks: ['style', 'react', 'react'],
+  },
   {
     fixture: 'invalid/ReactCloseInString.ucf',
     errors: [{code: 'text-outside-block', line: 3, column: 29}],
     blocks: ['react', 'style'],
   },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ReactSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/StrayClosingTag.ucf',
     errors: [{code: 'text-outside-block', line: 6, column: 0}],
@@ -149,7 +146,7 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'style'],
   },
-  {fixture: 'invalid/UnknownStyleLang.ucf', errors: [], blocks: ['react', 'style', 'style']},
+  {fixture: 'invalid/UnknownStyleLang.ucf', errors: [], blocks: ['react', 'style', 'style', 'style']},
 ];
 
 describe('splitBlocks on invalid fixtures', () => {
