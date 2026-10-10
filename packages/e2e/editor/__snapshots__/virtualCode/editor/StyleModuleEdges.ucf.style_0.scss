@@ -1,0 +1,27 @@
+
+// .ghost in a line comment is not a class
+/* nor .ghost in a block comment */
+.card {
+  &__body {
+    padding: 1rem;
+  }
+
+  &-title,
+  .card-title {
+    margin: 0;
+  }
+
+  :global(.outside) .inner {
+    color: red;
+  }
+
+  :not(.muted) {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 40em) {
+  .wide {
+    width: 100%;
+  }
+}

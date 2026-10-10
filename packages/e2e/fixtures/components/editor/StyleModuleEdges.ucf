@@ -1,0 +1,65 @@
+<!-- CSS module keys the editor must find as the build does: nesting, :global, keyframes, @value, comments. -->
+
+<react>
+  export default function StyleModuleEdges({ label }: { label: string }) {
+    return (
+      <section className={`${$style.card} ${$style.card__body} ${$style['card-title']}`}>
+        <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>
+      </section>
+    )
+  }
+</react>
+
+<style module lang="scss">
+// .ghost in a line comment is not a class
+/* nor .ghost in a block comment */
+.card {
+  &__body {
+    padding: 1rem;
+  }
+
+  &-title,
+  .card-title {
+    margin: 0;
+  }
+
+  :global(.outside) .inner {
+    color: red;
+  }
+
+  :not(.muted) {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 40em) {
+  .wide {
+    width: 100%;
+  }
+}
+</style>
+
+<style module="theme">
+@value accent: rebeccapurple;
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes :global(spin) {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+:global .page .global-only {
+  color: red;
+}
+
+.fade-in {
+  animation: fade 1s;
+  color: accent;
+}
+</style>

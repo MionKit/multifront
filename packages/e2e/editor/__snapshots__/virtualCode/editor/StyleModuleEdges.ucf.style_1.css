@@ -1,0 +1,23 @@
+
+@value accent: rebeccapurple;
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes :global(spin) {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+:global .page .global-only {
+  color: red;
+}
+
+.fade-in {
+  animation: fade 1s;
+  color: accent;
+}

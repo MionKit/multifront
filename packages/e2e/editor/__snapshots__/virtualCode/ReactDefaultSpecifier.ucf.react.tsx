@@ -9,3 +9,4 @@
   }
 
   export { Card as default }
+declare const $style: {readonly card: string};
