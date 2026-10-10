@@ -12,7 +12,7 @@ import {renderDocsImages} from './docs-images.mjs';
 
 class CliError extends Error {}
 
-// Runs the tool's JS entry with this node, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
+// The JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
 function bin(pkg, name = pkg) {
   const dir = join(REPO_ROOT, 'node_modules', pkg);
   const field = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).bin;
