@@ -1,6 +1,6 @@
 import {copyFile, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BuildContext, SplitResult, VueCompiler} from '@multifront/core';
@@ -11,6 +11,8 @@ import {buildApp} from './lib/build.ts';
 // The compiler plugin-vue itself resolves from the app root.
 const compiler = createRequire(import.meta.url)('vue/compiler-sfc') as VueCompiler;
 const styleKind = getBlockKind('style');
+// `langs/` adds the style langs no top-level fixture uses.
+const FIXTURES = [...listComponents(), ...listComponents('langs')];
 
 /** Both builds get the same plugins, so their CSS passes the same Vite steps; only the entry differs. */
 async function buildCss(root: string, entry: string, ctx: BuildContext): Promise<string> {
@@ -22,8 +24,8 @@ async function buildCss(root: string, entry: string, ctx: BuildContext): Promise
   return css.join('');
 }
 
-describe.each(listComponents())('%s, our CSS against plugin-vue after a real Vite build', (name) => {
-  const base = name.replace(/\.ucf$/, '');
+describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build', (name) => {
+  const base = basename(name, '.ucf');
   let root: string;
   let split: SplitResult;
   let ctx: BuildContext;
@@ -33,8 +35,8 @@ describe.each(listComponents())('%s, our CSS against plugin-vue after a real Vit
   beforeAll(async () => {
     const {filename, source} = readComponent(name);
     root = await copyApp('vue-reference');
-    await copyFile(filename, join(root, 'src', name));
-    split = splitBlocks(source, join(root, 'src', name));
+    await copyFile(filename, join(root, 'src', `${base}.ucf`));
+    split = splitBlocks(source, join(root, 'src', `${base}.ucf`));
     ctx = await createBuildContext(split, {root, compiler, production: true});
 
     const plain = split.styles.filter((block) => !('module' in block.attrs));
@@ -50,7 +52,10 @@ describe.each(listComponents())('%s, our CSS against plugin-vue after a real Vit
     oursCss = await buildCss(root, 'src/ours-entry.ts', ctx);
   });
 
-  afterAll(() => rm(root, {recursive: true, force: true}));
+  // `root` is unset when `beforeAll` failed before copyApp returned.
+  afterAll(async () => {
+    if (root) await rm(root, {recursive: true, force: true});
+  });
 
   it('reports nothing', () => {
     expect(checkBlocks(split)).toEqual([]);
