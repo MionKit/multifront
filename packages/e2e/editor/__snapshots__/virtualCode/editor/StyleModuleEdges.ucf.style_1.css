@@ -1,7 +1,21 @@
 
 @value accent: rebeccapurple;
+@value gap 1rem;
+@value (x, y as z) from './values.css';
 
 @keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@-webkit-keyframes slide {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes :local(pop) {
   from {
     opacity: 0;
   }
@@ -20,4 +34,8 @@
 .fade-in {
   animation: fade 1s;
   color: accent;
+}
+
+:export {
+  primary: red;
 }

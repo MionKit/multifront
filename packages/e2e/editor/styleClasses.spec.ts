@@ -7,6 +7,7 @@ import {FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts'
 
 const compiler = loadVueCompiler(FIXTURES_DIR);
 const NAMES = [...listComponents(), 'editor/StyleModuleEdges.ucf'];
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
 // Each `declare const <module>: {...}` line, read by the real TypeScript parser: module name → its keys.
 function declaredModules(script: EditorFile): Record<string, string[]> {
@@ -37,23 +38,16 @@ describe('getTypesScript types $style with the class names the build finds', () 
     const build = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: false});
     const script = getTypesScript(filename, source, 'react', {compiler})!;
 
-    it('declares every module with the keys of the build’s class map', () => {
-      const expected = Object.fromEntries(
-        Object.entries(build.modules).map(([module, {classes}]) => [module, Object.keys(classes)])
-      );
-      expect(sorted(declaredModules(script))).toEqual(sorted(expected));
+    it('declares every module a block can name with the keys of the build’s class map', () => {
+      // A module name that is no identifier (`module="my-theme"`) cannot be named in <react>: no line.
+      const expected = Object.entries(build.modules).filter(([module]) => IDENTIFIER.test(module));
+      const keys = Object.fromEntries(expected.map(([module, {classes}]) => [module, Object.keys(classes)]));
+      expect(sorted(declaredModules(script))).toEqual(sorted(keys));
     });
 
-    it('keeps the block content first, mapped with every feature', () => {
-      expect(script.code.startsWith(split.targets.react!.content)).toBe(true);
-      expect(script.mappings[0]!.sourceOffsets).toEqual([split.targets.react!.contentStart]);
-    });
-
-    it('maps each key it can to its name in a <style> block of that module, for navigation only', () => {
-      for (const {sourceOffsets, generatedOffsets, lengths, data} of script.mappings.slice(1)) {
-        const [offset, generated, length] = [sourceOffsets[0]!, generatedOffsets[0]!, lengths[0]!];
-        expect(data).toEqual({navigation: true});
-        expect(script.code.slice(generated, generated + length)).toBe(source.slice(offset, offset + length));
+    it('maps each key it can to its name in a <style> block of that module', () => {
+      for (const {sourceOffsets, generatedOffsets} of script.mappings.slice(1)) {
+        const [offset, generated] = [sourceOffsets[0]!, generatedOffsets[0]!];
         const line = script.code.slice(script.code.lastIndexOf('\n', generated) + 1, generated);
         const module = /^declare const ([\w$]+):/.exec(line)![1];
         const block = split.styles.find((style) => style.contentStart <= offset && offset < style.contentEnd);
@@ -68,15 +62,46 @@ describe('getTypesScript types $style with the class names the build finds', () 
     expect(script.mappings.slice(1).map(({sourceOffsets}) => sourceOffsets[0])).toEqual([source.indexOf('.card {') + 1]);
   });
 
-  it('gives no jump target to a name not written in the block, and none to a commented one', () => {
+  it('finds every module key StyleModuleEdges.ucf has, and jumps to where each name is written', () => {
     const {filename, source} = readComponent('editor/StyleModuleEdges.ucf');
     const script = getTypesScript(filename, source, 'react', {compiler})!;
-    const targets = script.mappings
-      .slice(1)
-      .map(({sourceOffsets, lengths}) => source.slice(sourceOffsets[0], sourceOffsets[0]! + lengths[0]!));
-    expect(targets).not.toContain('card__body');
-    expect(targets).toEqual(['card-title', 'card', 'inner', 'muted', 'wide', 'accent', 'fade', 'fade-in']);
-    expect(declaredModules(script).$style).not.toContain('ghost');
+    expect(script.code).not.toContain('my-theme');
+    const at = (text: string, skip = 0) => source.indexOf(text) + skip;
+    const targets = Object.fromEntries(
+      script.mappings
+        .slice(1)
+        .map(({sourceOffsets: [offset], lengths: [length]}) => [source.slice(offset, offset! + length!), offset])
+    );
+    // Not here: card__body and row__cell (written as `&__`), dot.ted (written escaped).
+    expect(targets).toEqual({
+      'card-title': at('.card-title {', 1),
+      card: at('.card {', 1),
+      inner: at('.inner', 1),
+      muted: at('.muted', 1),
+      // Past the `.wide` in the comments and in the string.
+      wide: source.lastIndexOf('.wide {') + 1,
+      // `.dot.ted` is two classes; the escaped `.dot\\.ted` one gets no target, not theirs.
+      dot: at('.dot.ted', 1),
+      ted: at('.dot.ted', 5),
+      accent: at('accent:'),
+      gap: at('gap 1rem'),
+      x: at('(x,', 1),
+      z: at('as z', 3),
+      fade: at('fade {'),
+      slide: at('slide {'),
+      pop: at('pop)'),
+      'fade-in': at('.fade-in', 1),
+      primary: at('primary: red'),
+      row: at('.row\n', 1),
+      'row-end': at('.row-end', 1),
+    });
+  });
+
+  it('types a module the editor cannot read loosely', () => {
+    const {filename, source} = readComponent('editor/LessModule.ucf');
+    expect(getTypesScript(filename, source, 'react', {compiler})!.code).toContain(
+      'declare const $style: {readonly [name: string]: string};'
+    );
   });
 
   it.each(['Card.ucf', 'Button.ucf'])('matches the %s.react.tsx snapshot', async (name) => {

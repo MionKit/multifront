@@ -5,16 +5,19 @@ import selectorParser from 'postcss-selector-parser';
 import type {Container} from 'postcss-selector-parser';
 import type {EditorContext, StyleClass} from './types.ts';
 
-type KeyKind = 'class' | 'keyframes' | 'value';
+type KeyKind = 'class' | 'keyframes' | 'value' | 'export';
 
-const LINE_COMMENT_LANGS = ['scss', 'sass', 'less', 'styl', 'stylus'];
 // No braces needed there, so a selector is not always text before a `{`.
 const INDENTED_LANGS = ['sass', 'styl', 'stylus'];
 const KEYFRAMES = /^(-\w+-)?keyframes$/i;
 const GLOBAL_NAME = /^:global\(.*\)$/;
 const LOCAL_NAME = /^:local\(\s*(.*?)\s*\)$/;
-const VALUE_DEFINITION = /^([\w-]+)\s*:/;
-const VALUE_IMPORT = /^(.+?)\s+from\s/;
+// postcss-modules-values' own patterns: the colon of a definition is optional.
+const VALUE_IMPORT = /^(.+?|\([\s\S]+?\))\s+from\s+("[^"]*"|'[^']*'|[\w-]+)$/;
+const VALUE_DEFINITION = /(?:\s+|^)([\w-]+):?(.*?)$/;
+const IMPORT_ALIAS = /^([\w-]+)(?:\s+as\s+([\w-]+))?/;
+// Only a name CSS needs no escape for is written in the block as it reads.
+const PLAIN_NAME = /^-?[_a-zA-Z][\w-]*$/;
 
 /** The keys the build's CSS module exports, found synchronously; undefined when the block cannot be read. */
 export function readStyleClasses(block: Block, ctx: EditorContext): StyleClass[] | undefined {
@@ -27,7 +30,8 @@ export function readStyleClasses(block: Block, ctx: EditorContext): StyleClass[]
     return undefined;
   }
   const lang = typeof block.attrs.lang === 'string' ? block.attrs.lang : 'css';
-  const text = mask(block.content, LINE_COMMENT_LANGS.includes(lang));
+  // Every preprocessor reads `//` as a comment; plain CSS does not.
+  const text = mask(block.content, stylePreprocessOptions(block).preprocessLang !== undefined);
   const preludes = INDENTED_LANGS.includes(lang) ? [{text, start: 0}] : rulePreludes(text);
   return [...keys].map(([name, kind]) => {
     const offset = nameOffset(name, kind, text, preludes);
@@ -48,19 +52,23 @@ function plainCss(block: Block, {split, compiler}: EditorContext): string | unde
   }
 }
 
-// postcss-modules' rules: local by default, `:global` opts out, keyframes and `@value` names are keys too.
+// postcss-modules' rules: local by default, `:global` opts out; keyframes, `@value` and `:export` names are keys too.
 function moduleKeys(css: string): Map<string, KeyKind> {
   const keys = new Map<string, KeyKind>();
   const add = (name: string, kind: KeyKind) => keys.has(name) || keys.set(name, kind);
   postcss.parse(css).walk((node) => {
-    if (node.type === 'rule' && !insideKeyframes(node)) {
+    if (node.type === 'rule' && node.parent?.type === 'root' && node.selector === ':export') {
+      node.each((child) => {
+        if (child.type === 'decl') add(child.prop, 'export');
+      });
+    } else if (node.type === 'rule' && !insideKeyframes(node)) {
       const root = selectorParser().astSync(node.selector);
       for (const selector of root.nodes) localClasses(selector, true, (name) => add(name, 'class'));
     } else if (node.type === 'atrule' && KEYFRAMES.test(node.name)) {
       const name = keyframesName(node.params.trim());
       if (name) add(name, 'keyframes');
-    } else if (node.type === 'atrule' && node.name === 'value') {
-      for (const name of valueNames(node.params.trim())) add(name, 'value');
+    } else if (node.type === 'atrule' && /^value$/i.test(node.name)) {
+      for (const name of valueNames(node)) add(name, 'value');
     }
   });
   return keys;
@@ -94,22 +102,19 @@ function keyframesName(params: string): string | undefined {
   return LOCAL_NAME.exec(params)?.[1] ?? params;
 }
 
-// `@value name: x;` or `@value a, b as c from './x.css';`
-function valueNames(params: string): string[] {
-  const definition = VALUE_DEFINITION.exec(params);
-  if (definition) return [definition[1]!];
+// `@value name: x;`, `@value name x;` or `@value (a, b as c) from './x.css';`
+function valueNames({params, raws}: postcss.AtRule): string[] {
   const imported = VALUE_IMPORT.exec(params);
-  if (!imported) return [];
-  return imported[1]!
-    .replace(/^\(|\)$/g, '')
-    .split(',')
-    .map((part) =>
-      part
-        .trim()
-        .split(/\s+as\s+/)
-        .pop()!
-    )
-    .filter(Boolean);
+  if (imported) {
+    const aliases = imported[1]!.replace(/^\(\s*([\s\S]+)\s*\)$/, '$1').split(/\s*,\s*/);
+    return aliases.flatMap((alias) => {
+      const tokens = IMPORT_ALIAS.exec(alias);
+      return tokens ? [tokens[2] ?? tokens[1]!] : [];
+    });
+  }
+  const definition = VALUE_DEFINITION.exec(`${params}${raws.between ?? ''}`);
+  // A definition with no value defines nothing.
+  return definition && definition[2]!.replace(/\/\*((?!\*\/).*?)\*\//g, '').length > 0 ? [definition[1]!] : [];
 }
 
 // Comments, strings and `url(...)` become spaces, so offsets stay put and nothing in them is found.
@@ -153,18 +158,24 @@ function rulePreludes(text: string): {text: string; start: number}[] {
 }
 
 function nameOffset(name: string, kind: KeyKind, text: string, preludes: {text: string; start: number}[]): number | undefined {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!PLAIN_NAME.test(name)) return undefined;
   if (kind === 'class') {
+    // An escaped `\.`, or a `\` after the name, belongs to another, escaped class name.
+    const pattern = new RegExp(`(?<!\\\\)\\.${name}(?![\\w\\\\-])`);
     for (const prelude of preludes) {
-      const match = new RegExp(`\\.${escaped}(?![\\w-])`).exec(prelude.text);
+      const match = pattern.exec(prelude.text);
       if (match) return prelude.start + match.index + 1;
     }
     return undefined;
   }
-  const pattern =
-    kind === 'keyframes'
-      ? `@(?:-\\w+-)?keyframes\\s+(?::local\\(\\s*)?(${escaped})(?![\\w-])`
-      : `@value\\b[^;]*?(?<![\\w-])(${escaped})(?![\\w-])`;
-  const match = new RegExp(pattern, 'i').exec(text);
-  return match ? match.index + match[0].length - name.length : undefined;
+  if (kind === 'keyframes')
+    return groupOffset(new RegExp(`@(?:-\\w+-)?keyframes\\s+(?::local\\(\\s*)?(${name})(?![\\w-])`, 'di'), text);
+  if (kind === 'export') return groupOffset(new RegExp(`:export\\s*\\{[^}]*?(?<![\\w-])(${name})\\s*:`, 'd'), text);
+  // A value's own name: the first word of a definition, or an alias before ` from`.
+  const value = `@value\\s+(?:(${name})(?![\\w-])|[^;]*?(?<![\\w-])(${name})(?![\\w-])[^;]*\\sfrom\\s)`;
+  return groupOffset(new RegExp(value, 'di'), text);
+}
+
+function groupOffset(pattern: RegExp, text: string): number | undefined {
+  return pattern.exec(text)?.indices?.slice(1).find(Boolean)?.[0];
 }
