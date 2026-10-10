@@ -24,7 +24,6 @@ type Results = Awaited<ReturnType<typeof runInVsCode>>;
 let temp: string;
 let extension: string;
 
-// The first run downloads VS Code; later ones start it in seconds.
 beforeAll(async () => {
   temp = mkdtempSync(join(tmpdir(), 'multifront-exit-'));
   extension = await packVsix(temp);
@@ -34,10 +33,10 @@ afterAll(() => {
   if (temp) rmSync(temp, {recursive: true, force: true});
 });
 
-/** One test per check, from the results of the run `start` makes. */
 function reportChecks(names: Check[], start: () => Promise<Results>): void {
   let results: Results;
 
+  // Long timeout: the first run downloads VS Code; later ones start it in seconds.
   beforeAll(async () => {
     results = await start();
   }, 900_000);

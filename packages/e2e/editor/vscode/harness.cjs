@@ -1,10 +1,10 @@
-// Runs inside VS Code's extension host, as plain CommonJS: the host loads an extension test file with require.
-// `runInVsCode()` in ../lib/vscode.ts starts it and reads the JSON results file it writes.
+// Plain CommonJS: VS Code's extension host loads extension test files with require.
+// `runInVsCode()` in ../lib/vscode.ts reads the JSON results file it writes.
 const {execFileSync} = require('node:child_process');
 const {writeFileSync} = require('node:fs');
 const {join} = require('node:path');
 
-/** Runs every check in order and writes `[{name, error?}]` to MULTIFRONT_VSCODE_RESULTS; never throws. */
+/** Never throws: a failed check is recorded, so VS Code exits 0 and the spec still reads every result. */
 async function runChecks(checks) {
   const results = [];
   for (const check of checks) {
@@ -18,7 +18,7 @@ async function runChecks(checks) {
   writeFileSync(process.env.MULTIFRONT_VSCODE_RESULTS, JSON.stringify(results, null, 2));
 }
 
-/** Polls `probe` until it returns a truthy value; language features answer late, or with `(loading...)` first. */
+/** Language features answer late, or with `(loading...)` first. */
 async function until(probe, what, ms = 60_000) {
   const end = Date.now() + ms;
   let last;
@@ -35,7 +35,7 @@ async function until(probe, what, ms = 60_000) {
   throw new Error(`timed out after ${ms} ms waiting for ${what}; last: ${last instanceof Error ? last.message : JSON.stringify(last)}`);
 }
 
-/** Opens `path` in its own tab: VS Code checks only documents open in a tab, and a preview tab is replaced by the next. */
+/** VS Code checks only documents open in a tab, and the next file replaces a preview tab. */
 async function show(path) {
   const vscode = require('vscode');
   const document = await vscode.workspace.openTextDocument(path);
@@ -43,7 +43,6 @@ async function show(path) {
   return document;
 }
 
-/** The position `shift` characters past the first `needle` at or after `from`. */
 function positionOf(document, needle, shift = 0, from = 0) {
   const index = document.getText().indexOf(needle, from);
   if (index < 0) throw new Error(`${needle} not found in ${document.fileName}`);
@@ -62,12 +61,11 @@ function serverProcesses(extensionPath) {
     .map(([pid]) => pid);
 }
 
-/** Hover text, every content part joined. */
 function hoverText(hovers) {
   return hovers.flatMap(({contents}) => contents.map((part) => (typeof part === 'string' ? part : part.value))).join('\n');
 }
 
-/** A diagnostic's code as a number or string; TypeScript's may come as `{value, target}`. */
+/** TypeScript's diagnostic code may come as `{value, target}`. */
 function codeOf({code}) {
   return typeof code === 'object' && code !== null ? code.value : code;
 }

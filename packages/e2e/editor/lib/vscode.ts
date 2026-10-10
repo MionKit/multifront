@@ -6,7 +6,7 @@ import {PassThrough} from 'node:stream';
 import {runTests} from '@vscode/test-electron';
 import {REPO_ROOT} from './vsix.ts';
 
-// The newest stable at least 30 days old: a downloaded build gets the same age floor as npm packages.
+// Newest stable at least 30 days old: the same age floor as npm packages.
 export const VSCODE_VERSION = '1.137.0';
 
 interface CheckResult {
@@ -26,7 +26,7 @@ interface Display {
   stop(): void;
 }
 
-/** Runs `suite` in the pinned VS Code with fresh user data and extensions folders; returns what each check recorded. */
+/** Runs `suite` in the pinned VS Code; returns what each check recorded. */
 export async function runInVsCode({extension, workspace, suite, args = []}: RunOptions): Promise<CheckResult[]> {
   const display = await startDisplay();
   const temp = mkdtempSync(join(tmpdir(), 'multifront-vscode-'));
