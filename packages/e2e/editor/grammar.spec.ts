@@ -1,32 +1,20 @@
-import {BLOCK_KINDS, splitBlocks} from '@multifront/core';
-import type {Block, BlockTag} from '@multifront/core';
+import {BLOCK_KINDS, getBlockKind, splitBlocks} from '@multifront/core';
+import type {Block, BlockTag, SplitResult} from '@multifront/core';
 import {generateGrammar} from 'multifront-vscode/grammar';
-import {beforeAll, describe, expect, it} from 'vitest';
+import {describe, expect, it} from 'vitest';
 import {componentPath, listComponents, readComponent} from '../fixtures/index.ts';
 import {hasScope, tokenizeUcf} from './lib/tokenize.ts';
 import type {ScopedToken} from './lib/tokenize.ts';
 
 const grammars = generateGrammar();
 
-interface Tokenized {
-  source: string;
-  blocks: Block[];
-  tokens: ScopedToken[];
-}
+const BLOCK_SCOPE = new RegExp(`^meta\\.embedded\\.block\\.(${BLOCK_KINDS.map(({tag}) => tag).join('|')})(\\.|$)`);
 
-const cache = new Map<string, Tokenized>();
+type Tokenized = Pick<SplitResult, 'source' | 'blocks'> & {tokens: ScopedToken[]};
 
 async function tokenize(name: string): Promise<Tokenized> {
-  const cached = cache.get(name);
-  if (cached) return cached;
   const {filename, source} = readComponent(name);
-  const tokenized = {
-    source,
-    blocks: splitBlocks(source, filename).blocks,
-    tokens: await tokenizeUcf(componentPath(name), grammars),
-  };
-  cache.set(name, tokenized);
-  return tokenized;
+  return {source, blocks: splitBlocks(source, filename).blocks, tokens: await tokenizeUcf(componentPath(name), grammars)};
 }
 
 function tokenAt({tokens}: Tokenized, offset: number): ScopedToken {
@@ -35,7 +23,7 @@ function tokenAt({tokens}: Tokenized, offset: number): ScopedToken {
   return token;
 }
 
-// The token of the first `needle` inside the `tag` block; `skip` moves `at` past a prefix of the needle.
+// The token of the first `needle` inside the `tag` block; `skip` moves past a prefix of the needle.
 function tokenIn(file: Tokenized, tag: BlockTag, needle: string, skip = 0): ScopedToken {
   const block = file.blocks.find((candidate) => candidate.type === tag)!;
   const at = file.source.indexOf(needle, block.contentStart);
@@ -44,46 +32,69 @@ function tokenIn(file: Tokenized, tag: BlockTag, needle: string, skip = 0): Scop
   return tokenAt(file, at + skip);
 }
 
-// Every character whose embedded block scope differs from the splitter's block.
+// The content scope the block's own grammar rule must give: `lang` picks a `byLang` grammar, as in the build.
+function contentScope(block: Block): string {
+  const {lang} = block.attrs;
+  const byLang = getBlockKind(block.type).grammar.byLang ?? {};
+  const scope = typeof lang === 'string' && Object.hasOwn(byLang, lang) ? byLang[lang] : undefined;
+  return `meta.embedded.block.${block.type}${scope ? `.${scope.languageId}` : ''}`;
+}
+
+function where(source: string, offset: number): string {
+  const line = source.slice(0, offset).split('\n').length;
+  return `${line}:${offset - source.lastIndexOf('\n', offset - 1) - 1} ${JSON.stringify(source[offset])}`;
+}
+
+// Every character whose block content scope differs from the one its splitter block wants.
 function mismatches({source, blocks, tokens}: Tokenized): string[] {
   const found: string[] = [];
   for (const token of tokens) {
-    const got = BLOCK_KINDS.filter(({tag}) => hasScope(token, `meta.embedded.block.${tag}`)).map(({tag}) => tag);
+    const got = [...new Set(token.scopes.filter((scope) => BLOCK_SCOPE.test(scope)))].join();
     for (let offset = token.start; offset < token.end; offset++) {
       const block = blocks.find(({contentStart, contentEnd}) => contentStart <= offset && offset < contentEnd);
-      const want = block ? [block.type] : [];
-      if (got.join() === want.join()) continue;
-      const line = source.slice(0, offset).split('\n').length;
-      const column = offset - source.lastIndexOf('\n', offset - 1) - 1;
-      found.push(`${line}:${column} ${JSON.stringify(source[offset])} wants [${want.join()}] got [${got.join()}]`);
+      const want = block ? contentScope(block) : '';
+      if (got !== want) found.push(`${where(source, offset)} wants [${want}] got [${got}]`);
     }
   }
   return found;
 }
 
-beforeAll(async () => {
-  await tokenize('Card.ucf'); // loads the WASM and the built-in grammars once
-}, 60_000);
+// Vue and Svelte scopes outside their own block: an injection that escaped its block.
+function leaks({source, blocks, tokens}: Tokenized): string[] {
+  const found: string[] = [];
+  for (const token of tokens) {
+    const block = blocks.find(({contentStart, contentEnd}) => contentStart <= token.start && token.start < contentEnd);
+    const foreign = token.scopes.filter((scope) => /\.(vue|svelte)$/.test(scope) && !scope.endsWith(`.${block?.type}`));
+    if (foreign.length) found.push(`${where(source, token.start)} in <${block?.type ?? 'none'}> has ${foreign.join(' ')}`);
+  }
+  return found;
+}
 
 describe('the .ucf grammar generated from the block registry, in the real vscode-textmate', () => {
-  it('serves every grammar under its own scope, so none clashes with the Vue or Svelte extension', () => {
+  it('serves every grammar under its own scope and never includes an upstream one', () => {
     expect(grammars[0]!.scopeName).toBe('source.ucf');
-    expect(grammars.filter(({scopeName}) => !/^(source\.ucf|ucf\.)/.test(scopeName))).toEqual([]);
+    expect(grammars.filter(({scopeName}) => !scopeName.startsWith('source.ucf'))).toEqual([]);
+    // The test registry also holds shiki's text.html.vue and source.svelte, so a missed rename would still highlight.
+    expect(JSON.stringify(grammars)).not.toMatch(/"include":"(text\.html\.vue|source\.svelte|vue\.)/);
   });
 
-  it.each([...listComponents(), ...listComponents('langs')])(
-    '%s: each block scope covers exactly the content splitBlocks reads',
-    async (name) => {
-      const file = await tokenize(name);
-      expect(file.blocks.length).toBeGreaterThan(0);
-      expect(mismatches(file)).toEqual([]);
-    }
-  );
+  it.each([
+    ...listComponents(),
+    ...listComponents('langs'),
+    ...listComponents('editor'),
+    'invalid/BrokenOpeningTags.ucf', // `<style scoped/>` opens nothing
+    'invalid/UnknownRootTag.ucf', // `<react_old>` is not `<react>`
+  ])('%s: each block scope covers exactly the content splitBlocks reads, and no injection escapes', async (name) => {
+    const file = await tokenize(name);
+    expect(file.blocks.length).toBeGreaterThan(0);
+    expect(mismatches(file)).toEqual([]);
+    expect(leaks(file)).toEqual([]);
+  });
 
   it('Card.ucf: every block gets its own language scopes', async () => {
     const card = await tokenize('Card.ucf');
     expect(tokenIn(card, 'react', 'export').scopes).toContain('keyword.control.export.tsx');
-    // The vue.directives and vue.interpolations injections, served as ucf.vue.*.
+    // The vue.directives and vue.interpolations injections, served under source.ucf.vue.
     expect(tokenIn(card, 'vue', ':class').scopes).toContain('punctuation.attribute-shorthand.bind.html.vue');
     expect(tokenIn(card, 'vue', ':class', 1).scopes).toContain('entity.other.attribute-name.html.vue');
     expect(tokenIn(card, 'vue', '{{').scopes).toContain('punctuation.definition.interpolation.begin.html.vue');
@@ -97,6 +108,17 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
   it('Panel.ucf: the <style lang = scss> block uses the SCSS grammar', async () => {
     const panel = await tokenize('Panel.ucf');
     expect(tokenIn(panel, 'style', '$pad').scopes).toContain('variable.scss');
+  });
+
+  it('editor/GrammarEdges.ucf: injections that name the Vue root, and Svelte rules reached through #scope', async () => {
+    const edges = await tokenize('editor/GrammarEdges.ucf');
+    // vue.sfc.script.leading-operator-fix: its selector names text.html.vue.
+    expect(tokenIn(edges, 'vue', '< limit').scopes).toContain('keyword.operator.relational.js');
+    // Svelte's <template> injection includes its own #scope.
+    expect(tokenIn(edges, 'svelte', '{limit}').scopes).toEqual(
+      expect.arrayContaining(['meta.template.svelte', 'punctuation.section.embedded.begin.svelte'])
+    );
+    expect(tokenIn(edges, 'style', '$gap').scopes).toContain('variable.scss');
   });
 
   it('TsxEdges.ucf: <>, <T,> and a < b end the <react> scope exactly at </react>', async () => {

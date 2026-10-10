@@ -10,7 +10,6 @@ import type {IRawGrammar} from 'vscode-textmate';
 export interface ScopedToken {
   start: number; // offsets into the file
   end: number;
-  text: string;
   scopes: string[];
 }
 
@@ -68,8 +67,7 @@ export async function tokenizeUcf(path: string, grammars: GrammarFile[]): Promis
     for (const {startIndex, endIndex, scopes} of result.tokens) {
       // The last token can reach past the line: the tokenizer adds the newline.
       const end = Math.min(endIndex, line.length);
-      if (end > startIndex)
-        tokens.push({start: offset + startIndex, end: offset + end, text: line.slice(startIndex, end), scopes});
+      if (end > startIndex) tokens.push({start: offset + startIndex, end: offset + end, scopes});
     }
     offset += line.length + 1;
   }
