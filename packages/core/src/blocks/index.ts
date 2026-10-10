@@ -13,7 +13,7 @@ export function getBlockKind(tag: BlockTag): BlockKind {
   return KINDS_BY_TAG[tag];
 }
 
-/** Splitter errors plus every block's own rules, in `start` order. Hosts call this, never the kinds one by one. */
+/** Hosts call this, never the kinds' `check` one by one. */
 export function checkBlocks(split: SplitResult): Diagnostic[] {
   const blockErrors = split.blocks.flatMap((block) => getBlockKind(block.type).check(block, split));
   return [...split.errors, ...blockErrors].sort((first, second) => first.start - second.start);

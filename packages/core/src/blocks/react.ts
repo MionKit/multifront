@@ -4,7 +4,7 @@ import type {Block, BlockKind, Diagnostic, SplitResult} from '../types.ts';
 
 function check(block: Block, split: SplitResult): Diagnostic[] {
   const {program, errors} = parseSync(split.filename, block.content, {lang: 'tsx', sourceType: 'module'});
-  // A block that does not parse gets its syntax errors from the TSX compiler and TypeScript, with better messages.
+  // Syntax errors come from the TSX compiler and TypeScript, with better messages.
   if (errors.length > 0) return [];
   // `export default …`, `export {Card as default}` or `export {default} from './Card'`.
   const hasDefault = program.body.some(
