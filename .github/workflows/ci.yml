@@ -32,18 +32,22 @@ jobs:
       - name: Agent docs
         run: pnpm devx agent-docs
       # The VS Code build the editor exit test downloads; its version is pinned in that file.
-      - uses: actions/cache@v5
+      - &vscode-cache
+        uses: actions/cache@v5
         with:
           path: .vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('packages/e2e/editor/lib/vscode.ts') }}
       # The browser tests' Chromium, cached per Playwright version (each pins its own browser build).
-      - id: playwright
+      - &playwright-version
+        id: playwright
         run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v5
+      - &playwright-cache
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: pnpm exec playwright install --with-deps chromium
+      - &chromium
+        run: pnpm exec playwright install --with-deps chromium
       # Verbose: the log names every test that ran, so a skipped one shows.
       - name: Test
         run: pnpm devx test --reporter verbose
@@ -63,19 +67,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Rewrites pnpm-workspace.yaml and the lockfile of this throwaway checkout, and prints the installed floor.
       - run: pnpm devx peer-floor react
-      # The VS Code build the editor exit test downloads; its version is pinned in that file.
-      - uses: actions/cache@v5
-        with:
-          path: .vscode-test
-          key: vscode-test-${{ runner.os }}-${{ hashFiles('packages/e2e/editor/lib/vscode.ts') }}
-      # The browser tests' Chromium, cached per Playwright version (each pins its own browser build).
-      - id: playwright
-        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v5
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - run: pnpm exec playwright install --with-deps chromium
+      # The same caches and Chromium as the check job.
+      - *vscode-cache
+      - *playwright-version
+      - *playwright-cache
+      - *chromium
       - name: Test
         run: pnpm devx test --reporter verbose
 
