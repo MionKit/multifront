@@ -13,24 +13,35 @@ const SERVER_BIN = join(
   'node_modules/@multifront/language-tools/bin/multifront-language-server.js'
 );
 
-/** Runs from source; pulls diagnostics as VS Code does. */
-export async function startLanguageServer(workspace: string): Promise<LanguageServer> {
-  // test-utils forks with `process.env` and replaces execArgv: NODE_OPTIONS is the only way in.
-  const nodeOptions = process.env.NODE_OPTIONS;
-  process.env.NODE_OPTIONS = `${nodeOptions ?? ''} --conditions=source`.trim();
+interface LanguageServerOptions {
+  server?: string; // a bundled server file, run as is; default: the bin, from source
+  initializationOptions?: object;
+}
+
+/** Pulls diagnostics as VS Code does. */
+export async function startLanguageServer(workspace: string, options: LanguageServerOptions = {}): Promise<LanguageServer> {
   let handle: LanguageServerHandle;
-  try {
-    handle = forkLanguageServer(SERVER_BIN, workspace);
-  } finally {
-    if (nodeOptions === undefined) delete process.env.NODE_OPTIONS;
-    else process.env.NODE_OPTIONS = nodeOptions;
+  if (options.server) handle = forkLanguageServer(options.server, workspace);
+  else {
+    // test-utils forks with `process.env` and replaces execArgv: NODE_OPTIONS is the only way in.
+    const nodeOptions = process.env.NODE_OPTIONS;
+    process.env.NODE_OPTIONS = `${nodeOptions ?? ''} --conditions=source`.trim();
+    try {
+      handle = forkLanguageServer(SERVER_BIN, workspace);
+    } finally {
+      if (nodeOptions === undefined) delete process.env.NODE_OPTIONS;
+      else process.env.NODE_OPTIONS = nodeOptions;
+    }
   }
   const kill = () => {
     handle.connection.dispose();
     handle.process.kill();
   };
   try {
-    await handle.initialize(pathToFileURL(workspace).href, {}, {textDocument: {diagnostic: {}}, workspace: {diagnostics: {}}});
+    await handle.initialize(pathToFileURL(workspace).href, options.initializationOptions ?? {}, {
+      textDocument: {diagnostic: {}},
+      workspace: {diagnostics: {}},
+    });
   } catch (err) {
     kill();
     throw err;

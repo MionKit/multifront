@@ -1,4 +1,3 @@
-import {readFileSync} from 'node:fs';
 import {copyFile, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -6,17 +5,16 @@ import type {TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
-import {FIXTURES_DIR, readComponent} from '../fixtures/index.ts';
+import {readComponent} from '../fixtures/index.ts';
+import {APP, APP_DIR, appTsxCases, CARD, codesOnLine, edit, expectCardPropError, onLine, readApp} from './lib/cases.ts';
+import type {Component} from './lib/cases.ts';
 import {inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
-import type {TsDefinitions, TsDiagnostic, TsLocation, Tsserver} from './lib/tsserver.ts';
+import type {TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
 type QuickInfo = ts.server.protocol.QuickInfoResponseBody;
 type Completions = ts.server.protocol.CompletionInfo;
-type Component = ReturnType<typeof readComponent>;
 
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
-const APP_DIR = join(FIXTURES_DIR, 'apps', 'imports');
-const CARD = readComponent('Card.ucf');
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
 // The rows TypeScript itself reads; .vue, .svelte and .jsx importers come with M4 and M6.
 const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.tsx?$/.test(file) && file !== 'src/mixed.ts');
@@ -30,36 +28,7 @@ const CARD_SPECIFIER = '../../../components/Card.ucf';
 const STYLE_ACCESS = 'className={$style.';
 const REACT_SIGNATURE = 'Card({ title }: { title: string })';
 
-function readApp(file: string): Component {
-  const filename = join(APP_DIR, file);
-  return {filename, source: readFileSync(filename, 'utf8')};
-}
-
-const APP = readApp('src/App.tsx');
 const MIXED = readApp('src/mixed.ts');
-
-const onLine = (diagnostics: TsDiagnostic[], line: number) => diagnostics.filter(({start}) => start.line === line);
-const codesOnLine = (diagnostics: TsDiagnostic[], line: number) => onLine(diagnostics, line).map(({code}) => code);
-
-/** An unsaved edit; resolves to its undo. */
-async function edit(server: Tsserver, {filename, source}: Component, needle: string, newText: string) {
-  const start = locate(source, needle);
-  const end = locate(source, needle, needle.length);
-  const change = (text: string, to: TsLocation) =>
-    server.request('updateOpen', {changedFiles: [{fileName: filename, textChanges: [{start, end: to, newText: text}]}]});
-  await change(newText, end);
-  return () => change(needle, locate(source.replace(needle, newText), newText, newText.length));
-}
-
-async function expectCardPropError(server: Tsserver, component: Component, needle: string, newText: string) {
-  const revert = await edit(server, component, needle, newText);
-  try {
-    expect(codesOnLine(await server.diagnostics(APP.filename), locate(APP.source, '<Card').line)).toEqual([2322]);
-  } finally {
-    await revert();
-  }
-  expect(await server.diagnostics(APP.filename)).toEqual([]);
-}
 
 describe('the TypeScript plugin in tsserver, on the imports app', () => {
   let server: Tsserver;
@@ -94,23 +63,7 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
     }
   });
 
-  describe('App.tsx', () => {
-    it('quickinfo on <Card shows its props', async () => {
-      const info = await server.request<QuickInfo>('quickinfo', {file: APP.filename, ...locate(APP.source, '<Card', 1)});
-      expect(info.displayString.replace(/\s+/g, ' ')).toContain('{ title: string; }');
-    });
-
-    it("definition on <Card lands in Card.ucf's <react> block", async () => {
-      const at = locate(APP.source, '<Card', 1);
-      const definitions = await server.request<TsDefinitions>('definition', {file: APP.filename, ...at});
-      expect(definitions).toHaveLength(1);
-      expect(inBlock(CARD, 'react', definitions[0]!)).toBe(true);
-    });
-
-    it('a wrong prop type is an error', async () => {
-      await expectCardPropError(server, APP, '"Hello"', '{1}');
-    });
-  });
+  appTsxCases(() => server);
 
   describe('mixed.ts: one specifier imported as vue, then as react', () => {
     it.each(['VueCard', 'ReactCard'])('%s gets the React types of the last import', async (name) => {
