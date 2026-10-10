@@ -212,7 +212,8 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - CI: a `react-floor` job: install, `pnpm devx peer-floor react`, Chromium, `pnpm devx test`. Every React test of this and later steps runs on both ends of the range, with no list to keep.
 - Deliverable: Playwright against real served and built apps, and every React test on the oldest and the newest supported React, for this and every later milestone.
 - Test: `packages/e2e/browser/react-render.spec.ts` (area: browser). `react-basic` in dev and in the production preview: AllBlocks renders; the `$style.card` class gives the computed `padding: 16px`; the `classes` module and the global style apply; no console errors. `react-basic`'s `index.html` names an empty icon, so the browser's favicon request is no 404.
-  - Plus `packages/e2e/devx/peer-floor.spec.ts`: the react floor read from the real manifest, the overrides block, and the refusals.
+  - Plus `packages/e2e/browser/harness.spec.ts`: `collectConsole` catches a real warning, error and page error; `launchChromium` names the fix when Chromium does not start.
+  - Plus `packages/e2e/devx/peer-floor.spec.ts`: the react floor read from the real manifest, the overrides block on the committed `pnpm-workspace.yaml` (the floor job has already rewritten the working copy), the installed copies, and the refusals.
 - Status: done
 
 ### 3.10 Scope transform: stamping
