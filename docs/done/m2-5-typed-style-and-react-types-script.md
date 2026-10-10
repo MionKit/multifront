@@ -20,8 +20,9 @@ Found while planning (compiler-sfc 3.5.42, probed in a scratch script):
 
 - The sync `compileStyle` with `preprocessLang: 'scss'` runs sass `compileString` (sync), so `&__title` comes out as
   `.p__title`. less and stylus are sync there too.
-- The build's module keys are more than class selectors: postcss-modules also exports `@keyframes` names and
-  `@value` names. Classes under `:global(...)` or after a bare `:global` are not keys, `:local(...)` ones are, classes
+- The build's module keys are more than class selectors: postcss-modules also exports `@keyframes` names (vendor
+  prefixed too), `@value` names (the colon is optional; imports export their alias) and the props of a root
+  `:export` rule. Classes under `:global(...)` or after a bare `:global` are not keys, `:local(...)` ones are, classes
   inside `:not(...)` are, `@keyframes :global(x)` is not. `composes` adds no keys.
 - `postcss` 8.5.28 (what compiler-sfc already resolves to) and `postcss-selector-parser` 7.1.6 are both older than the
   30-day release age.
@@ -56,18 +57,23 @@ Found while planning (compiler-sfc 3.5.42, probed in a scratch script):
    - without a compiler: a block with no preprocess lang is read raw; any other → `undefined`.
    - the CSS is parsed with `postcss.parse` (a throw → `undefined`). Keys, in walk order, deduped: the keys
      postcss-modules exports. Class nodes of each rule selector (`postcss-selector-parser`), skipping `:global(...)`
-     contents and everything after a bare `:global` until `:local`; `@keyframes <name>` unless `:global(name)`;
-     `@value <name>`. Rules inside `@keyframes` skipped.
-   - `offset`: the first place the name is written in the raw block (comments and strings masked): a class as
-     `.name` not followed by `[\w-]`, inside a rule prelude (text ending in `{`; for sass and stylus, anywhere);
-     `@keyframes name`, `@value name`. Not written there (scss `&__title`) → no offset.
+     contents and everything after a bare `:global` until `:local`; `@keyframes <name>` (and `@-webkit-keyframes`)
+     unless `:global(name)`, `:local(name)` read as `name`; `@value` names with postcss-modules-values' own patterns
+     (`name: x`, `name x`, `(a, b as c) from '...'`, a definition with no value gives none); each prop of a root
+     `:export` rule. Rules inside `@keyframes` skipped.
+   - `offset`: the first place the name is written in the raw block (comments, strings and `url(...)` masked; `//`
+     too when the block is preprocessed): a class as `.name` not preceded by `\` and not followed by `[\w\\-]`,
+     inside a rule prelude (text ending in `{`; for sass and stylus, anywhere); `@keyframes name`, a value's own
+     name (first word of a definition, or an alias before ` from`), `name:` inside `:export {...}`. A name CSS must
+     escape (`dot.ted` from `.dot\.ted`) and one not written there (scss `&__title`) → no offset.
 6. **React row** (`src/blocks/react.ts`): `types(block, ctx)` returns `{ext: '.tsx', code, map: undefined, mappings}`:
    the block content, then one line per `ctx.modules` entry whose name is an identifier, on its own line at the end:
    `declare const $style: {readonly card: string; readonly title: string};` (named module: `declare const classes`).
    A key that is not an identifier is quoted (`readonly "card-title": string`). An empty module gives `{}`. A module
    that could not be read gives the loose `{readonly [name: string]: string}`, so a style mid-edit never turns every
    `$style.x` red (the CSS service reports the style error itself).
-   Mappings: the 2.4 content mapping (all features), plus per key with an `offset` one mapping
+   Mappings: the 2.4 content mapping (all features), plus per key with an `offset` (only plain CSS names have one,
+   so a quoted key is the name in quotes) one mapping
    `{sourceOffsets: [offset], generatedOffsets: [key start, inside any quotes], lengths: [name.length],
    data: {navigation: true}}`. `editor(block, ctx)` returns `[types(block, ctx)]`, so the `react` embedded code is the
    types script and `$style` is typed inside the block too.
@@ -94,18 +100,24 @@ All on this host and in CI's `check` job (`pnpm devx test`): Node, the pnpm inst
     production: false})` gives `ctx.modules[name].classes` keys; `getTypesScript(filename, source, 'react',
     {compiler})` is parsed with the real TypeScript parser and its `declare const` lines give each module's keys.
     Same module names, same key sets.
-  - **Jump targets**: every navigation mapping's source slice equals its key, lies inside a `<style module>` block of
-    that module, and for `Card.ucf` lands on the `card` of `.card`.
+  - **Jump targets**: every navigation mapping lies inside a `<style module>` block of that module, and for
+    `Card.ucf` lands on the `card` of `.card` (slices and flags are checked by the 2.4 virtual code test).
   - **Snapshots**: `__snapshots__/Card.ucf.react.tsx` (`$style`) and `__snapshots__/Button.ucf.react.tsx` (`classes`).
   - **No compiler**: `getTypesScript` without options still reads `Button.ucf`'s plain CSS module (`primary`), and
     `Card.ucf`'s scss module gets the loose type.
   - `getTypesScript(..., 'vue')` and a file without `<react>` (`invalid/StylesOnly.ucf`) give `undefined`.
 - **New fixture** `packages/e2e/fixtures/components/editor/StyleModuleEdges.ucf` (splitter-valid; has `<react>`):
   a `<style module lang="scss">` with `&__body`, `&-title` and `.card-title`, `:global(.outside) .inner`,
-  `:not(.muted)`, `.wide` in `@media`, `.ghost` only in a `//` and a `/* */` comment; a `<style module="theme">` with
-  `@value accent`, `@keyframes fade`, `@keyframes :global(spin)`, `:global .page .global-only`, `.fade-in`.
-  The 2.2 grammar and 2.4 virtual code tests pick it up through `listComponents('editor')` (new snapshots there).
-- **`packages/e2e/editor/virtualCode.spec.ts`** (2.4): the plugin gets `{compiler: loadVueCompiler(FIXTURES_DIR)}`;
+  `:not(.muted)`, `.wide` in `@media` after `.wide` in a `//` comment, a `/* */` comment and a string, `.dot\.ted`
+  and `.dot.ted`; a `<style module="theme">` with `@value accent:`, `@value gap 1rem`,
+  `@value (x, y as z) from './values.css'` (new `editor/values.css`), `@keyframes fade`, `@-webkit-keyframes slide`,
+  `@keyframes :local(pop)`, `@keyframes :global(spin)`, `:global .page .global-only`, `.fade-in`, `:export`; a
+  `<style module="rows" lang="sass">`; a `<style module="my-theme">` (no identifier: no `declare` line). A test pins
+  every key's exact jump target. New fixture `editor/LessModule.ucf` (`<style module lang="less">`, no less
+  installed: compileStyle throws) is typed loosely. The 2.2 grammar and 2.4 virtual code tests pick both up through
+  `listComponents('editor')` (new snapshots there).
+- **`packages/e2e/editor/virtualCode.spec.ts`** (2.4): the plugin gets `{compiler: loadVueCompiler(FIXTURES_DIR)}`,
+  and one more case runs `createUcfLanguagePlugin()` with no options (plain CSS module read, scss typed loosely);
   the react snapshots gain their `declare const` lines (reviewed). "Every feature on" becomes exact per kind: the
   content mapping has every feature, each other mapping is `{navigation: true}` and only that; the "source slice equals
   generated slice" and "whole block through the mapper" checks stay as they are.
@@ -113,7 +125,8 @@ All on this host and in CI's `check` job (`pnpm devx test`): Node, the pnpm inst
   module `vue/compiler-sfc` resolves to, and its sync `compileStyle` preprocesses `Card.ucf`'s scss block; from a fresh
   `mkdtemp(tmpdir())` it throws "could not find @vue/compiler-sfc". That case runs in a plain Node child
   (`test/vueCompiler.child.ts`) with no `NODE_PATH`: pnpm's bin shims put the store's hoisted `node_modules` there,
-  so inside vitest any folder finds Vue.
+  so inside vitest any folder finds Vue. A compiler that resolves but throws on load passes its own error on
+  (`loadVueCompiler` resolves first, then loads outside the `try`).
 - `packages/vite/test/vueCompiler.spec.ts` stays: its fallback case now runs through `loadVueCompiler`.
 - `builtTypes.spec.ts` stays: the built `.d.ts` must still typecheck with the new exports.
 - Each new check is confirmed to fail without its behaviour (a dropped bare `:global` rule, no keyframes key, no
@@ -148,6 +161,10 @@ All on this host and in CI's `check` job (`pnpm devx test`): Node, the pnpm inst
 - No fuzz test in 2.5: the milestone puts none in this step (orchestrator).
 - `stylePreprocessOptions(block)` and `moduleName(block)` are exported from core, so the build and the editor share
   them (orchestrator).
+- Review: the `Card.ucf.react.tsx` and `Button.ucf.react.tsx` snapshots in `styleClasses.spec.ts` stay although the
+  virtual code test pins the same text: the 2.5 step text sets them as its floor.
+- Review: the optional `@vue/compiler-sfc` peer of language-tools stays: the 2.5 step text names it, and it makes a
+  package manager say which compiler the editor reads scss with.
 
 ## Done when
 
