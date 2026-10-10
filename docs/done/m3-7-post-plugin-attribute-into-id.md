@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.7
@@ -64,15 +64,18 @@ browser and Node (spike 3, answer 2). Spec 4.4 is not built.
 ### 4. `packages/e2e/build/imports.spec.ts` (area: build)
 
 - A row's sub-project: the nearest `vite.config.ts` above its file, loaded with `APP_CONFIG_LOADER`.
-- Rows in scope: `.ts`, `.tsx`, `.jsx`, `.ucf`. `.vue` / `.svelte` rows wait for M4 / M6 (`vue()` / `svelte()` in
-  these configs). `strings-and-comments.ts` has zero `.ucf` references.
+- Rows in scope: `.js`, `.ts`, `.mts`, `.tsx`, `.jsx`, `.vue`, `.ucf` (`no-default/plain.js` with the attribute and
+  `no-default/importer.mts`, vue through `importers`, added with their rows; `vue()` in the root config for
+  `Page.vue`). `.svelte` rows wait for M6 (`svelte()` in these configs). `strings-and-comments.ts` has zero `.ucf` references.
 - A helper lists every module reference of an output with `parseAst`: import / export declarations, `import()`,
   and in SSR code `__vite_ssr_import__` / `__vite_ssr_dynamic_import__`, with their attributes / options.
 - **Dev**: one server per sub-project (middleware mode, `ws: false`, `server.preTransformRequests: false`,
   `optimizeDeps.noDiscovery`). Each target-row file through `transformRequest` in `client` and `ssr` (a `.ucf` row
-  through its `.ucf.react.tsx` module): its `.ucf` references in source order match its rows in line order, path
-  before `?` = `/@fs<Card>.react.tsx` / `/@fs<Card>` / `/@fs<Card>.svelte.svelte`, no `framework` in the query; no
-  reference has an attribute or options with `with` / `framework`.
+  through its `.ucf.react.tsx` module): its `.ucf` references in source order (less Fast Refresh's import of the
+  module itself) match its rows in line order, path before `?` = `<Card>.react.tsx` / `/@fs<Card>` /
+  `<Card>.svelte.svelte` (Vite writes `/@fs` only before a file on disk), no `framework` in the query; no reference
+  has an attribute or options with `with` / `framework`.
+- A guard: every `.ts`, `.tsx`, `.jsx`, `.ucf` file of the app is a row file or `strings-and-comments.ts`.
 - **SSR**: `ssr-entry.tsx` through `server.environments.ssr.runner.import()`, `render()` gives
   `<div class="<card>"><h2>Hello</h2></div>` with `<card>` from core `createBuildContext` (same root, dev).
 - **Build**: per sub-project with react rows, one `buildApp` over every file whose rows are all react; `moduleIds`
@@ -85,7 +88,7 @@ browser and Node (spike 3, answer 2). Spec 4.4 is not built.
 ### 5. Docs
 
 - `docs/milestones/m3-react-and-imports.md` 3.7 to what shipped, `- Status: done`; hand-off: `build/imports.spec.ts`
-  and the sub-project `vite.config.ts` files, M4 / M6 add `vue()` / `svelte()` and the `.vue` / `.svelte` rows.
+  and the sub-project `vite.config.ts` files, M4 builds the `.vue` rows, M6 adds `svelte()` and the `.svelte` rows.
 - `docs/spec.md` 4.4: the post plugin reports a non-literal attribute and the target rules' errors at the import,
   in the importer's source.
 - `publicdocs/07-errors.md` "Import Errors": row `framework-attribute-not-literal`.
@@ -97,7 +100,7 @@ None: the plugin is a thin host around `rewriteImportAttributes`, whose properti
 
 ## Out of scope
 
-- `.vue` / `.svelte` importers (M4 / M6). A `loc` for `missing-target-block` in a build (stays a `resolveId` error).
+- `.svelte` importers (M6), building `.vue` rows (M4). A `loc` for `missing-target-block` in a build (stays a `resolveId` error).
 - The TypeScript plugin (3.8), browser tests (3.9).
 
 ## Decisions
@@ -109,6 +112,15 @@ Orchestrator's answers to the plan:
   `@jridgewell/trace-mapping` as an exact-pinned dependency of `@multifront/vite` is fine.
 - The four `vite.config.ts` files are left out of core's importer listings by name: they are no importers.
 - The `framework-attribute-not-literal` row joins `publicdocs/07-errors.md` now.
+- Review (automatic), fixed: commits split by concern; `keyName` shared from `build/lib/build.ts`; core exports
+  `locate`, used by the plugin and the test; Rolldown's error types; one react-file list; `.js` / `.mts` rows; the
+  error codes compared with the rows; the `Page.vue` row in dev (`vue()` in the root config); `filesOf` shared in
+  `fixtures/index.ts`; smaller nits.
+- Review, kept: the unmapped-`loc` fallback has no test (no real tool gives a transform output with an unmapped
+  import); the post transform reports rule errors for externalized `.ucf` imports too (the rules apply to every
+  `.ucf` import an app writes).
+- The `.svelte` row waits for M6 (orchestrator): Svelte is M6's target, and its plugin is that milestone's work, not
+  test infra.
 
 ## Done when
 

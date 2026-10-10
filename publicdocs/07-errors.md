@@ -25,6 +25,7 @@ These sit on the path of a `.ucf` import. [Imports](04-imports.md) says how an i
 
 | Code | Fix |
 | --- | --- |
+| `framework-attribute-not-literal` | Write the `framework` value as a string literal: `with {framework: 'react'}`. |
 | `framework-in-block` | Remove the `framework` attribute: an import in `<react>` always gets react. |
 | `missing-target-block` | Add the block the import picks to the imported file, or pick a framework the file has. |
 | `unknown-framework` | Use `vue`, `react` or `svelte` as the `framework` value. |

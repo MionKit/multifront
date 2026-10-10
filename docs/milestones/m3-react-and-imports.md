@@ -177,15 +177,18 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 ### 3.7 Post plugin: the attribute moves into the id
 
-- Build: `packages/vite/src/attributes.ts`, the plugin `multifront:attributes`, `enforce: 'post'`, returned second by `multifront()`. Its `transform` has a code filter `/\.ucf/` and runs on JS-like ids (`.js`, `.ts`, `.jsx`, `.tsx`, `.vue`, `.svelte`, with or without a query). It calls `rewriteImportAttributes` and reports errors with `this.error`. It runs before Vite's import analysis in dev and before Rolldown reads the imports in a build, so we never depend on Rolldown forwarding attributes.
-  - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it. Each sub-project gets its `vite.config.ts` (`react()` and `multifront()` with the same options as its `tsconfig.json` plugin entry): the root (for `src/`), `no-default/`, `custom-importers/`, `react-only/`.
+- Build: `packages/vite/src/attributes.ts`, `attributesPlugin(options)`: the plugin `multifront:attributes`, `enforce: 'post'`, returned second by `multifront()`. Its `transform` has a code filter `/\.ucf/` and runs on JS-like ids (`.js`, `.mjs`, `.cjs`, `.ts`, `.mts`, `.cts`, `.jsx`, `.tsx`, `.vue`, `.svelte`, with or without a query; `.mts` since `importers` may name it). Core exports its `locate(source, offset)` for the line and column. It calls `rewriteImportAttributes` and reports errors with `this.error`. It runs before Vite's import analysis in dev and before Rolldown reads the imports in a build, so we never depend on Rolldown forwarding attributes.
+  - It also calls `resolveTarget` on each rewritten import and reports a rule error at the import, with the same message as `resolveId` (`importErrorMessage` in `packages/vite/src/diagnostics.ts`): Rolldown gives `resolveId` no position, so only the transform can point a build error at the import. A file with a rewrite error reports only that one (one problem, one error), and an error names the first problem of the file. `resolveId` keeps its errors for the imports the transform never sees (a written `?framework=`, a `.ucf` entry, block imports) and `missing-target-block`.
+  - The location is in the importer's own source, not the compiled code the hook gets: in dev Vite maps the position back through the source maps itself; in a build the plugin maps it with `this.getCombinedSourcemap()` and `@jridgewell/trace-mapping` (an exact-pinned dependency of `@multifront/vite`).
+  - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and exports `render()` (`renderToString`), with its `expected.ts` row. Each sub-project gets its `vite.config.ts` (`react()` and `multifront()` with the same options as its `tsconfig.json` plugin entry): the root (for `src/`), `no-default/`, `custom-importers/`, `react-only/`. `filesOf(app, pattern)` in `packages/e2e/fixtures/index.ts` lists an app's importers, the configs left out by name; core's `resolveTarget.spec.ts` and `rewrite.spec.ts` use it.
 - Deliverable: spec 4.4 for `.ts`, `.tsx`, `.js`, `.jsx` importers, in dev, build and SSR.
-- Test: `packages/e2e/build/imports.spec.ts` (area: build). For every importer file:
-  - **Dev:** a real dev server with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer: each `.ucf` import is now the expected id (`/Card.ucf.react.tsx`, the bare `/Card.ucf` for vue, `/Card.ucf.svelte.svelte`), and no `with` or `framework` is left.
-  - **Build:** a build of every react row: no attribute in the output.
-  - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML has the card; the SSR-transformed code has no attribute.
-  - Error rows fail with their code and location.
+- Test: `packages/e2e/build/imports.spec.ts` (area: build). For every `.js`, `.ts`, `.mts`, `.tsx`, `.jsx`, `.vue` and `.ucf` row (`no-default/` gains `plain.js` and `importer.mts`; the root config also has `vue()`, so `Page.vue`'s script reaches the plugin; `.svelte` rows come with milestone 6, which adds `svelte()` to the configs):
+  - **Dev:** a real dev server per sub-project with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer (a `.ucf` row: its React module), client and SSR: each `.ucf` import is now the expected id in source order (`/abs/Card.ucf.react.tsx`, `/@fs/abs/Card.ucf` for vue, `/abs/Card.ucf.svelte.svelte`), and no `with` or `framework` is left.
+  - **Build:** a build of every react row per sub-project: no attribute in the output.
+  - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML is the card with its `$style.card` class; the SSR-transformed code has no attribute.
+  - Error rows fail with their code and location (`file`, line, column in the importer's source), in dev and in a build.
   - Adds `@types/react-dom` as an exact-pinned root devDependency (`react`, `react-dom`, `@types/react` and `@vitejs/plugin-react` are already there, plugin-react since 3.1, `react-dom` since 3.6), the same version as `@multifront/vite`'s `react-dom` (3.6).
+- Status: done
 
 ### 3.8 The TypeScript plugin uses the same rules
 
@@ -333,6 +336,7 @@ Tests and fixtures (`packages/e2e`):
 - `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows.
 - `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 6 a Svelte row.
+- `packages/e2e/build/imports.spec.ts` and the `vite.config.ts` of each `fixtures/apps/imports/` sub-project: milestone 4 builds the `.vue` rows (the root config already has `vue()`), milestone 6 adds `svelte()` to the configs and the `.svelte` rows to the test.
 - The fuzz runner pattern, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 6 (Svelte stamping).
 - The spike 3 verdict in `docs/plan.md`: milestones 4 and 6.
 
