@@ -1,0 +1,9 @@
+import "<fixtures>/components/react/Unicode.ucf?ucf&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/react/Unicode.ucf?ucf&type=style&index=0&module&lang.js";
+
+  // Café, naïve, 😀: accents and an emoji before the JSX.
+  const label = 'Ünïcödé 🎉';
+
+  export default function Unicode() {
+    return <p className={$style.text}>Crème brûlée 🍮 {label} <b>énd</b></p>;
+  }

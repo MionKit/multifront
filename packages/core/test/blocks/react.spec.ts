@@ -1,8 +1,12 @@
+import {createRequire} from 'node:module';
+import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
+import {parseSync} from 'oxc-parser';
+import type {ImportDeclaration, Node} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
-import {checkBlocks, getBlockKind, splitBlocks} from '@multifront/core';
-import type {Diagnostic} from '@multifront/core';
+import {checkBlocks, classMapId, createBuildContext, getBlockKind, splitBlocks, styleId} from '@multifront/core';
+import type {Diagnostic, VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
 
 const react = getBlockKind('react');
 const IN_BLOCK = 'framework-in-block';
@@ -95,5 +99,145 @@ describe('react.check', () => {
     expect(split.errors).toEqual([]);
     expect(split.targets.react!.content).toContain(form);
     expect(diagnostics).toEqual([]);
+  });
+});
+
+const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
+
+// By hand from the fixture files: `css` = the <style> indexes, `modules` = injection name → the block it keeps,
+// `tokens` = text in the <react> block at its .ucf line (1-based) and column (0-based, UTF-16).
+const BUILD_CASES: {
+  fixture: string;
+  css: number[];
+  modules: Record<string, number>;
+  tokens: {text: string; line: number; column: number}[];
+  foreign?: string[];
+}[] = [
+  {
+    fixture: 'invalid/DuplicateStyleModule.ucf',
+    css: [0, 1, 2, 3, 4],
+    modules: {$style: 4, classes: 1},
+    tokens: [
+      {text: 'DuplicateStyleModule()', line: 2, column: 26},
+      {text: '$style.first', line: 3, column: 28},
+      {text: 'classes.second', line: 3, column: 44},
+    ],
+  },
+  {
+    fixture: 'react/AllBlocks.ucf',
+    css: [0, 1, 2],
+    modules: {$style: 0, classes: 1},
+    tokens: [
+      {text: 'AllBlocks()', line: 14, column: 26},
+      {text: '$style.card', line: 16, column: 22},
+      {text: 'all-blocks-react-marker', line: 18, column: 41},
+    ],
+    foreign: ['all-blocks-vue-marker', 'all-blocks-svelte-marker', '<script', ':class=', 'class={'],
+  },
+  {
+    fixture: 'react/Unicode.ucf',
+    css: [0],
+    modules: {$style: 0},
+    tokens: [
+      {text: '{label}', line: 6, column: 54},
+      {text: '<b>', line: 6, column: 62},
+      {text: 'énd', line: 6, column: 65},
+    ],
+  },
+  {
+    fixture: 'react/UseClient.ucf',
+    css: [0],
+    modules: {$style: 0},
+    tokens: [
+      {text: "'use client'", line: 2, column: 2},
+      {text: 'useState(0)', line: 7, column: 30},
+      {text: '$style.button', line: 9, column: 25},
+    ],
+  },
+];
+
+// An import our build put in: its source is a style or class map id.
+function isInjected(node: Node): node is ImportDeclaration {
+  return node.type === 'ImportDeclaration' && /[?]ucf&type=style&/.test(node.source.value);
+}
+
+async function build(name: string) {
+  const {filename, source} = readComponent(name);
+  const split = splitBlocks(source, filename);
+  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: true});
+  const block = split.targets.react!;
+  return {filename, source, split, block, diagnostics: react.check(block, split), file: react.build!(block, ctx)};
+}
+
+describe('react.build', () => {
+  it('has a row for every react/ fixture', () => {
+    const rows = BUILD_CASES.map((row) => row.fixture).filter((name) => name.startsWith('react/'));
+    expect(listComponents('react')).toEqual(rows);
+  });
+
+  describe.each(BUILD_CASES)('$fixture', async ({fixture, css, modules, tokens, foreign}) => {
+    const {filename, source, split, block, diagnostics, file} = await build(fixture);
+    const {program, errors} = parseSync('Block.tsx', file.code, {lang: 'tsx', sourceType: 'module'});
+    const injected = program.body.filter(isInjected);
+
+    it('is a valid <react> block, built as a .tsx file that parses', () => {
+      expect(diagnostics).toEqual([]);
+      expect(file.ext).toBe('.tsx');
+      expect(errors).toEqual([]);
+    });
+
+    it('matches the code snapshot', async () => {
+      const code = file.code.replaceAll(FIXTURES_DIR, '<fixtures>');
+      await expect(code).toMatchFileSnapshot(`../__snapshots__/react/build/${fixture.split('/').pop()}.tsx.snap`);
+    });
+
+    it('imports each <style> CSS module in order, then one class map per injection name', () => {
+      const found = injected.map((node) => ({names: node.specifiers.map(({local}) => local.name), id: node.source.value}));
+      expect(found).toEqual([
+        ...css.map((index) => ({names: [], id: styleId(filename, index)})),
+        ...Object.entries(modules).map(([name, index]) => ({names: [name], id: classMapId(filename, index)})),
+      ]);
+    });
+
+    it('adds nothing else: without its imports the code is the block content', () => {
+      let rest = file.code;
+      for (const {start, end} of [...injected].reverse()) {
+        const newlineAfter = rest[end] === '\n';
+        rest = rest.slice(0, newlineAfter ? start : start - 1) + rest.slice(newlineAfter ? end + 1 : end);
+      }
+      expect(rest).toBe(block.content);
+      for (const text of foreign ?? []) {
+        expect(source).toContain(text);
+        expect(file.code).not.toContain(text);
+      }
+      expect(split.blocks.some((other) => other.type === 'vue' || other.type === 'svelte')).toBe(foreign !== undefined);
+    });
+
+    it('maps each marked token back to its line and column in the .ucf file', () => {
+      expect(file.map!.sources).toEqual([filename]);
+      expect(file.map!.sourcesContent).toEqual([source]);
+      const map = new TraceMap(file.map!);
+      for (const {text, line, column} of tokens) {
+        expect(source.split('\n')[line - 1]!.slice(column).startsWith(text), text).toBe(true);
+        const at = file.code.indexOf(text);
+        expect(file.code.lastIndexOf(text), text).toBe(at);
+        const before = file.code.slice(0, at).split('\n');
+        const original = originalPositionFor(map, {line: before.length, column: before.at(-1)!.length});
+        expect({text, source: original.source, line: original.line, column: original.column}).toEqual({
+          text,
+          source: filename,
+          line,
+          column,
+        });
+      }
+    });
+  });
+
+  it("keeps UseClient.ucf's 'use client' directive first, before every injected import", async () => {
+    const {file} = await build('react/UseClient.ucf');
+    const {program} = parseSync('Block.tsx', file.code, {lang: 'tsx', sourceType: 'module'});
+    const [first, ...rest] = program.body;
+    expect(first).toMatchObject({type: 'ExpressionStatement', directive: 'use client'});
+    expect(rest.filter(isInjected)).toHaveLength(2);
   });
 });

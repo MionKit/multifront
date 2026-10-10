@@ -1,0 +1,20 @@
+<react>
+  'use client';
+
+  import { useState } from 'react';
+
+  export default function UseClient() {
+    const [count, setCount] = useState(0);
+    return (
+      <button className={$style.button} onClick={() => setCount(count + 1)}>
+        Clicked {count}
+      </button>
+    );
+  }
+</react>
+
+<style module>
+.button {
+  padding: 4px 8px;
+}
+</style>

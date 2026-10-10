@@ -1,3 +1,4 @@
+import MagicString from 'magic-string';
 import {parseSync} from 'oxc-parser';
 import type {
   ExportAllDeclaration,
@@ -13,7 +14,7 @@ import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
 import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
-import type {Block, BlockKind, Diagnostic, SplitResult} from '../types.ts';
+import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
 
 // Names the block binds only as types; a same-name value wins.
 function typeOnlyNames(program: Program): Set<string> {
@@ -102,9 +103,41 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
   return [createDiagnostic(split, 'react-no-default-export', block.start, block.contentStart, message), ...diagnostics];
 }
 
+// One side-effect import per <style>, then one per class map; ids quoted as JSON so any path stays a valid string.
+function styleImports(ctx: BuildContext): string[] {
+  const css = ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`);
+  const modules = Object.values(ctx.modules).map(({name, id}) => `import ${name} from ${JSON.stringify(id)};`);
+  return [...css, ...modules];
+}
+
+// End of the directive prologue in the block content, or undefined without one; `"use client"` must stay first.
+function prologueEnd(block: Block, filename: string): number | undefined {
+  const {program} = parseSync(filename, block.content, {lang: 'tsx', sourceType: 'module'});
+  let end: number | undefined;
+  for (const statement of program.body) {
+    if (statement.type !== 'ExpressionStatement' || !statement.directive) break;
+    end = statement.end;
+  }
+  return end;
+}
+
+// Edits a MagicString over the whole .ucf source, so the map points straight into the .ucf file.
+function build(block: Block, ctx: BuildContext): VirtualFile {
+  const text = new MagicString(ctx.source);
+  text.remove(0, block.contentStart);
+  text.remove(block.contentEnd, ctx.source.length);
+  const imports = styleImports(ctx);
+  const prologue = prologueEnd(block, ctx.filename);
+  if (prologue === undefined) text.prependRight(block.contentStart, imports.map((line) => `${line}\n`).join(''));
+  else text.appendLeft(block.contentStart + prologue, imports.map((line) => `\n${line}`).join(''));
+  const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
+  return {ext: '.tsx', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
+}
+
 export const reactKind: BlockKind = {
   tag: 'react',
   role: 'target',
   grammar: {scopeName: 'source.tsx', languageId: 'typescriptreact'},
   check,
+  build,
 };

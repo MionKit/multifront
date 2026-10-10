@@ -1,0 +1,50 @@
+<vue>
+  <script setup lang="ts">
+  const marker = 'all-blocks-vue-marker'
+  </script>
+  <template>
+    <div :class="$style.card">
+      <p :class="classes.title">All blocks</p>
+      <p class="all-blocks-global">{{ marker }}</p>
+    </div>
+  </template>
+</vue>
+
+<react>
+  export default function AllBlocks() {
+    return (
+      <div className={$style.card}>
+        <p className={classes.title}>All blocks</p>
+        <p className="all-blocks-global">all-blocks-react-marker</p>
+      </div>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    const marker = 'all-blocks-svelte-marker'
+  </script>
+  <div class={$style.card}>
+    <p class={classes.title}>All blocks</p>
+    <p class="all-blocks-global">{marker}</p>
+  </div>
+</svelte>
+
+<style module>
+.card {
+  padding: 16px;
+}
+</style>
+
+<style module="classes">
+.title {
+  color: rgb(20, 90, 160);
+}
+</style>
+
+<style>
+.all-blocks-global {
+  font-style: italic;
+}
+</style>
