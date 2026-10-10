@@ -35,11 +35,10 @@ function typeOnlyNames(program: Program): Set<string> {
 }
 
 function syntaxError(block: Block, split: SplitResult, error: OxcError): Diagnostic {
-  const label = error.labels[0];
-  const [start, end] = label
-    ? [block.contentStart + label.start, block.contentStart + label.end]
-    : [block.start, block.contentStart];
-  return createDiagnostic(split, 'react-syntax-error', start, end, `<react> does not parse: ${error.message}`);
+  // Every oxc syntax error seen has a label; without one, the block's first character stands in.
+  const {start, end} = error.labels[0] ?? {start: 0, end: 0};
+  const message = `<react> does not parse: ${error.message}`;
+  return createDiagnostic(split, 'react-syntax-error', block.contentStart + start, block.contentStart + end, message);
 }
 
 // `export default …`, `export {Card as default}` or `export {default} from './Card'`, when it exports a value.
