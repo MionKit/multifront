@@ -4,7 +4,7 @@ import {describe, expect, it} from 'vitest';
 import {compileStyles, scopeId, splitBlocks, styleId} from '@multifront/core';
 import type {CompiledStyle, VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
+import {hasClass, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
@@ -22,10 +22,6 @@ function offsetOf(source: string, line: number, column: number): number {
 
 function token(text: string, offset: number): string {
   return /^[\w.#:%@-]+/.exec(text.slice(offset))?.[0] ?? text.charAt(offset);
-}
-
-function hasClass(css: string, name: string): boolean {
-  return new RegExp(`\\.${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
 }
 
 // Written by hand from the fixture files: one row per <style> block.

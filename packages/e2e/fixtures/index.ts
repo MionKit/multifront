@@ -37,3 +37,8 @@ export function listComponents(folder?: string): string[] {
     .map((entry) => prefix + entry.name)
     .sort();
 }
+
+/** `name` as a class selector in `css`, not a prefix of a longer one. */
+export function hasClass(css: string, name: string): boolean {
+  return new RegExp(`\\.${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
+}
