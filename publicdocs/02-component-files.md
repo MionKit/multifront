@@ -51,6 +51,7 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 - At least one of `<vue>`, `<react>` and `<svelte>`, each at most once. Any number of `<style>` blocks.
 - Every block has its closing tag: `<react/>` is not a block.
 - `<react>` exports the component as default.
+- `<react>` code parses as TSX, and its `.ucf` imports carry no `framework` attribute: they always get react.
 - `<style>` sits at the top level, never inside `<vue>` or `<svelte>`.
 - `lang` is `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`.
 - Two `<style module>` blocks need two names, for example `module` and `module="classes"`.
