@@ -121,6 +121,7 @@ const INVALID_CASES: InvalidCase[] = [
   },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
   {fixture: 'invalid/ReactSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/ScssPartialError.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/ScssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
