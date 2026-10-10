@@ -69,7 +69,10 @@ export type DiagnosticCode =
   | 'style-inside-target'
   | 'unknown-style-lang'
   | 'duplicate-style-module'
-  | 'style-compile-error';
+  | 'style-compile-error'
+  | 'framework-in-block'
+  | 'unknown-framework'
+  | 'no-target';
 
 export interface Diagnostic {
   code: DiagnosticCode;
@@ -132,3 +135,19 @@ export interface StyleModule {
   id: string; // class map module id, from classMapId()
   classes: Record<string, string>; // local → generated class name
 }
+
+/** The file holding a `.ucf` import. */
+export interface Importer {
+  fileName: string;
+  block?: Target; // the import sits inside that .ucf target block (spec 4.1)
+}
+
+export interface ResolveTargetOptions {
+  framework?: Target; // the project default (spec 4.2, rule 3)
+  importers?: Record<string, Target>; // importer extension → framework, over DEFAULT_IMPORTERS
+}
+
+/** Which rule of spec 4.1 / 4.2 picked the target. */
+export type TargetRule = 'block' | 'attribute' | 'importer' | 'default';
+
+export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: DiagnosticCode; message: string}};
