@@ -1,13 +1,13 @@
-import {describe, expect, it} from 'vitest';
-import {checkBlocks, getBlockKind, splitBlocks} from '@multifront/core';
+// Seeded fuzz of splitBlocks and checkBlocks over mutated real fixtures (fuzzy-testing skill templates, no library).
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {checkBlocks, isTarget, splitBlocks} from '@multifront/core';
 import type {Block, BlockTag, Diagnostic, SplitResult} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {componentPath, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
-import {DEFAULT_FUZZ_SETTINGS, createRandom, describeFailure, fuzzSettings, mixSeed, runFuzz} from './fuzz.ts';
-import type {FuzzFailure, Random, Violation} from './fuzz.ts';
 import {tsxSyntaxErrors} from './tsx.ts';
 
 const SPEC_PATH = 'packages/core/test/split.fuzz.spec.ts';
+const DEFAULT_SETTINGS = {seed: 2026, runs: 500};
 
 const ACTION_KINDS = [
   'shuffle',
@@ -20,42 +20,109 @@ const ACTION_KINDS = [
   'truncate',
 ] as const;
 type ActionKind = (typeof ACTION_KINDS)[number];
+const DAMAGE: readonly ActionKind[] = ['delete-close', 'close-in-string', 'truncate'];
+
+type Rule = 'never-throws' | 'positions' | 'structure' | 'untouched' | 'parses' | 'known-outcome';
+
+interface Violation {
+  rule: Rule;
+  message: string;
+}
 
 interface Action {
   kind: ActionKind;
   seed: number;
 }
 
-interface ModelBlock {
-  type: BlockTag;
+interface ModelBlock extends Pick<Block, 'type' | 'content' | 'attrs'> {
   open: string;
-  content: string;
   close: string;
-  attrs: Block['attrs'];
   intact: boolean; // opening tag, content and closing tag all read as the fixture's did
 }
 
 interface Model {
   gaps: string[]; // gaps[i] comes before blocks[i]; one more gap than blocks
   blocks: ModelBlock[];
-  deletedCloses: number;
-  closeInString: boolean;
-  cuts: number[]; // truncate points as fractions of the length, applied last
+  cut?: number; // truncate point as a fraction of the rendered length
 }
 
 type PlacedBlock = ModelBlock & Pick<Block, 'start' | 'contentStart' | 'contentEnd' | 'end'>;
 
-// `placed` is missing once the shrinker cuts raw lines: only the model-free rules (1 to 3) apply then.
+// `placed` is missing once the shrinker cuts raw lines: only the model-free rules apply then.
 interface FuzzCase {
   fixture: string;
   actions: Action[];
   applied: ActionKind[];
   source: string;
   placed?: PlacedBlock[];
-  damaged?: boolean;
 }
 
-type Splitter = (source: string, filename: string) => SplitResult;
+interface Failure {
+  seed: number;
+  runIndex: number;
+  runSeed: number;
+  input: FuzzCase;
+  shrunk: FuzzCase;
+  violations: Violation[];
+}
+
+type Splitter = typeof splitBlocks;
+
+// --- seeded randomness -----------------------------------------------------------------------------------------
+
+function readKnob(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = /^\d+$/.test(raw) ? Number(raw) : NaN;
+  if (!(value >= min && value <= max)) throw new Error(`${name} must be an integer from ${min} to ${max}, got '${raw}'`);
+  return value;
+}
+
+function fuzzSettings(): typeof DEFAULT_SETTINGS {
+  return {
+    // mixSeed works on 32 bits: a larger seed would silently replay a smaller one.
+    seed: readKnob('MULTIFRONT_FUZZ_SEED', DEFAULT_SETTINGS.seed, 0, 0xffffffff),
+    runs: readKnob('MULTIFRONT_FUZZ_RUNS', DEFAULT_SETTINGS.runs, 1, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function mixSeed(base: number, label: string, index: number): number {
+  let hash = base >>> 0;
+  for (const char of label) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0;
+  return Math.imul(hash ^ index, 0x01000193) >>> 0;
+}
+
+function createRandom(seed: number) {
+  const next = mulberry32(seed);
+  const int = (max: number) => Math.floor(next() * max);
+  return {
+    next,
+    int,
+    pick<Item>(list: readonly Item[]): Item {
+      if (!list.length) throw new Error('pick() from an empty list');
+      return list[int(list.length)]!;
+    },
+    shuffle<Item>(list: readonly Item[]): Item[] {
+      const copy = [...list];
+      for (let index = copy.length - 1; index > 0; index--) {
+        const other = int(index + 1);
+        [copy[index], copy[other]] = [copy[other]!, copy[index]!];
+      }
+      return copy;
+    },
+  };
+}
+type Random = ReturnType<typeof createRandom>;
 
 // --- fixtures --------------------------------------------------------------------------------------------------
 
@@ -68,8 +135,7 @@ const BASE_MODELS = new Map(
   })
 );
 
-function modelOf(split: SplitResult): Model {
-  const {source, blocks} = split;
+function modelOf({source, blocks}: SplitResult): Model {
   const gaps = blocks.map((block, index) => source.slice(index ? blocks[index - 1]!.end : 0, block.start));
   gaps.push(source.slice(blocks.at(-1)?.end ?? 0));
   return {
@@ -82,9 +148,6 @@ function modelOf(split: SplitResult): Model {
       attrs: block.attrs,
       intact: true,
     })),
-    deletedCloses: 0,
-    closeInString: false,
-    cuts: [],
   };
 }
 
@@ -102,7 +165,7 @@ const QUOTED_RUN = /'[^'\n]*'|"[^"\n]*"/g;
 
 // --- input maker -----------------------------------------------------------------------------------------------
 
-const isTarget = (block: ModelBlock) => getBlockKind(block.type).role === 'target';
+const isTargetBlock = (block: ModelBlock) => isTarget(block.type);
 const quotedRuns = (block: ModelBlock) => [...block.content.matchAll(QUOTED_RUN)];
 
 function applicable(model: Model): ActionKind[] {
@@ -112,10 +175,10 @@ function applicable(model: Model): ActionKind[] {
     if (kind === 'shuffle') return blocks.length > 1;
     if (kind === 'requote') return blocks.length > 0;
     if (kind === 'recombine') return react.length > 0;
-    if (kind === 'duplicate') return blocks.some(isTarget);
+    if (kind === 'duplicate') return blocks.some(isTargetBlock);
     if (kind === 'delete-close') return blocks.some((block) => block.close);
     if (kind === 'close-in-string') return react.some((block) => quotedRuns(block).length);
-    return true;
+    return model.cut === undefined;
   });
 }
 
@@ -148,36 +211,30 @@ function apply(model: Model, kind: ActionKind, random: Random): void {
     block.open = requote(block, random);
   } else if (kind === 'recombine') {
     const block = random.pick(blocks.filter((candidate) => candidate.type === 'react'));
+    // The `;` keeps the next line a statement of its own, so the block still parses.
     block.content = `\n  ${random.pick(DONOR_LINES)};${block.content}`;
   } else if (kind === 'duplicate') {
     const index = random.int(blocks.length + 1);
-    blocks.splice(index, 0, {...random.pick(blocks.filter(isTarget))});
+    blocks.splice(index, 0, {...random.pick(blocks.filter(isTargetBlock))});
     gaps.splice(index + 1, 0, '\n\n');
   } else if (kind === 'delete-close') {
     const block = random.pick(blocks.filter((candidate) => candidate.close));
     block.close = '';
     block.intact = false;
-    model.deletedCloses++;
   } else if (kind === 'close-in-string') {
     const block = random.pick(blocks.filter((candidate) => candidate.type === 'react' && quotedRuns(candidate).length));
     const at = random.pick(quotedRuns(block)).index + 1;
     block.content = `${block.content.slice(0, at)}</react>${block.content.slice(at)}`;
     block.intact = false;
-    model.closeInString = true;
-  } else model.cuts.push(random.next());
+  } else model.cut = random.next();
 }
 
 // Replays `actions` on the fixture; an action that no longer applies (the shrinker dropped what it needed) is skipped.
 function replay(fixture: string, actions: Action[]): {model: Model; applied: ActionKind[]} {
   const base = BASE_MODELS.get(fixture)!;
-  const model: Model = {...base, gaps: [...base.gaps], blocks: base.blocks.map((block) => ({...block})), cuts: []};
+  const model: Model = {gaps: [...base.gaps], blocks: base.blocks.map((block) => ({...block}))};
   const applied: ActionKind[] = [];
-  // A truncation runs last, so its cut lands in the final text.
-  const ordered = [
-    ...actions.filter((action) => action.kind !== 'truncate'),
-    ...actions.filter((action) => action.kind === 'truncate'),
-  ];
-  for (const action of ordered) {
+  for (const action of actions) {
     if (!applicable(model).includes(action.kind)) continue;
     apply(model, action.kind, createRandom(action.seed));
     applied.push(action.kind);
@@ -195,15 +252,16 @@ function build(fixture: string, actions: Action[]): FuzzCase {
     source += block.open + block.content + block.close + model.gaps[index + 1];
     return {...block, start, contentStart, contentEnd, end: contentEnd + block.close.length};
   });
-  for (const cut of model.cuts) source = source.slice(0, Math.floor(cut * (source.length + 1)));
+  // The cut applies to the rendered text, so it lands in the final file whatever the action order.
+  if (model.cut !== undefined) source = source.slice(0, Math.floor(model.cut * (source.length + 1)));
   const kept = placed
     .filter((block) => block.start < source.length)
     .map((block) => (block.end <= source.length ? block : {...block, intact: false}));
-  const damaged = model.deletedCloses > 0 || model.closeInString || model.cuts.length > 0;
-  return {fixture, actions, applied, source, placed: kept, damaged};
+  return {fixture, actions, applied, source, placed: kept};
 }
 
-function generate(random: Random): FuzzCase {
+function caseAt(seed: number, runIndex: number): FuzzCase {
+  const random = createRandom(mixSeed(seed, 'run', runIndex));
   const fixture = random.pick(FIXTURES);
   const actions: Action[] = [];
   const count = 1 + random.int(4);
@@ -220,18 +278,21 @@ interface Outcome {
   diagnostics: Diagnostic[];
 }
 
+const isDamaged = (fuzzCase: FuzzCase) => fuzzCase.applied.some((kind) => DAMAGE.includes(kind));
+
 const parsesMemo = new Map<string, boolean>();
 function parsesAsTsx(code: string): boolean {
   if (!parsesMemo.has(code)) parsesMemo.set(code, !tsxSyntaxErrors(code).length);
   return parsesMemo.get(code)!;
 }
 
-function realPosition(source: string, offset: number): {line: number; column: number} {
+function realPosition(source: string, offset: number): Pick<Diagnostic, 'line' | 'column'> {
   const lines = source.slice(0, offset).split('\n');
   return {line: lines.length, column: lines.at(-1)!.length};
 }
 
-const fieldsOf = (block: Pick<Block, 'type' | 'attrs' | 'content' | 'start' | 'contentStart' | 'contentEnd' | 'end'>) =>
+// `index` is left out: only the intact prefix knows it.
+const fieldsOf = (block: Omit<Block, 'index'>) =>
   JSON.stringify([block.type, block.attrs, block.content, block.start, block.contentStart, block.contentEnd, block.end]);
 
 function intactPrefix(placed: PlacedBlock[]): PlacedBlock[] {
@@ -242,13 +303,13 @@ function intactPrefix(placed: PlacedBlock[]): PlacedBlock[] {
 // Each non-first block of a target, among `blocks`.
 function extraTargetCopies(blocks: PlacedBlock[]): PlacedBlock[] {
   const seen = new Set<BlockTag>();
-  return blocks.filter((block) => getBlockKind(block.type).role === 'target' && (seen.has(block.type) || !seen.add(block.type)));
+  return blocks.filter((block) => isTargetBlock(block) && (seen.has(block.type) || !seen.add(block.type)));
 }
 
 // The block whose closing tag was deleted, when that is the only damage and nothing later can close it.
 function soleUnclosable(fuzzCase: FuzzCase): PlacedBlock | undefined {
   const {placed, source, applied} = fuzzCase;
-  const damage = applied.filter((kind) => kind === 'delete-close' || kind === 'close-in-string' || kind === 'truncate');
+  const damage = applied.filter((kind) => DAMAGE.includes(kind));
   if (!placed || damage.length !== 1 || damage[0] !== 'delete-close') return undefined;
   const block = placed.find((candidate) => !candidate.close)!;
   return new RegExp(`</${block.type}[\\s>]`).test(source.slice(block.contentStart)) ? undefined : block;
@@ -294,35 +355,42 @@ function checkUntouched({placed}: FuzzCase, {split}: Outcome): Violation[] {
   if (!placed) return [];
   const violations: Violation[] = [];
   const fail = (message: string) => violations.push({rule: 'untouched', message});
-  const matched: Block[] = [];
+  const prefix = intactPrefix(placed);
   const counts = new Map<BlockTag, number>();
-  intactPrefix(placed).forEach((expected, position) => {
+  prefix.forEach((expected, position) => {
     const index = counts.get(expected.type) ?? 0;
     counts.set(expected.type, index + 1);
     const found = split.blocks[position];
     if (!found || fieldsOf(found) !== fieldsOf(expected) || found.index !== index)
       fail(`untouched <${expected.type}> at ${expected.start} came back as ${found ? fieldsOf(found) : 'nothing'}`);
-    else matched.push(found);
   });
-  for (const expected of placed.slice(intactPrefix(placed).length).filter((block) => block.intact)) {
+  for (const expected of placed.slice(prefix.length).filter((block) => block.intact)) {
     const found = split.blocks.find((block) => block.start === expected.start);
-    if (!found) continue;
-    if (fieldsOf(found) !== fieldsOf(expected))
+    if (found && fieldsOf(found) !== fieldsOf(expected))
       fail(`untouched <${expected.type}> at ${expected.start} came back as ${fieldsOf(found)}`);
-    else matched.push(found);
   }
-  for (const block of matched.filter((candidate) => candidate.type === 'react'))
-    if (!parsesAsTsx(block.content)) fail(`untouched <react> at ${block.start} no longer parses as TSX`);
   return violations;
 }
 
+// Reads what the splitter returned at an untouched <react> block's start, whatever the untouched rule found.
+function checkParses({placed}: FuzzCase, {split}: Outcome): Violation[] {
+  if (!placed) return [];
+  return placed
+    .filter((expected) => expected.intact && expected.type === 'react')
+    .flatMap((expected) => {
+      const found = split.blocks.find((block) => block.start === expected.start && block.type === 'react');
+      if (!found || parsesAsTsx(found.content)) return [];
+      return [{rule: 'parses', message: `untouched <react> at ${found.start} no longer parses as TSX`}];
+    });
+}
+
 function checkKnownOutcomes(fuzzCase: FuzzCase, {split, diagnostics}: Outcome): Violation[] {
-  const {placed, damaged} = fuzzCase;
+  const {placed} = fuzzCase;
   if (!placed) return [];
   const fail = (message: string): Violation[] => [{rule: 'known-outcome', message}];
   const hasError = (code: Diagnostic['code'], start: number) =>
     split.errors.some((error) => error.code === code && error.start === start);
-  if (!damaged) {
+  if (!isDamaged(fuzzCase)) {
     const expected = extraTargetCopies(placed).map((block) => ['duplicate-target', block.start, block.contentStart]);
     const actual = split.errors.map((error) => [error.code, error.start, error.end]);
     if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -341,7 +409,7 @@ function checkKnownOutcomes(fuzzCase: FuzzCase, {split, diagnostics}: Outcome): 
   return [];
 }
 
-function checkCase(fuzzCase: FuzzCase, splitter: Splitter = splitBlocks): Violation[] {
+function checkCase(fuzzCase: FuzzCase, splitter: Splitter): Violation[] {
   let outcome: Outcome;
   try {
     const split = splitter(fuzzCase.source, componentPath(fuzzCase.fixture));
@@ -349,17 +417,19 @@ function checkCase(fuzzCase: FuzzCase, splitter: Splitter = splitBlocks): Violat
   } catch (err) {
     return [{rule: 'never-throws', message: String(err)}];
   }
-  return [checkPositions, checkStructure, checkUntouched, checkKnownOutcomes].flatMap((rule) => rule(fuzzCase, outcome));
+  return [checkPositions, checkStructure, checkUntouched, checkParses, checkKnownOutcomes].flatMap((rule) =>
+    rule(fuzzCase, outcome)
+  );
 }
 
-// --- shrinker --------------------------------------------------------------------------------------------------
+// --- shrinker and runner ---------------------------------------------------------------------------------------
 
 function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean): FuzzCase {
   let {actions} = fuzzCase;
   for (let index = 0; index < actions.length;) {
     const fewer = actions.filter((_, other) => other !== index);
     const candidate = build(fuzzCase.fixture, fewer);
-    // Dropping a truncation can lengthen the file: only a shorter or equal failing file counts as smaller.
+    // Dropping a truncation lengthens the file: only a failing file no longer than before counts as smaller.
     if (candidate.source.length <= build(fuzzCase.fixture, actions).source.length && stillFails(candidate)) actions = fewer;
     else index++;
   }
@@ -383,39 +453,61 @@ function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean
   return raw(lines);
 }
 
+// `onlyRule` keeps one rule's violations, so a negative control proves that rule on its own.
+function fuzz(splitter: Splitter, settings: typeof DEFAULT_SETTINGS, onlyRule?: Rule): Failure | undefined {
+  const check = (fuzzCase: FuzzCase) =>
+    checkCase(fuzzCase, splitter).filter((violation) => !onlyRule || violation.rule === onlyRule);
+  for (let runIndex = 0; runIndex < settings.runs; runIndex++) {
+    const input = caseAt(settings.seed, runIndex);
+    const violations = check(input);
+    if (!violations.length) continue;
+    const rule = violations[0]!.rule;
+    const shrunk = shrink(input, (candidate) => check(candidate).some((found) => found.rule === rule));
+    return {seed: settings.seed, runIndex, runSeed: mixSeed(settings.seed, 'run', runIndex), input, shrunk, violations};
+  }
+  return undefined;
+}
+
 const showCase = (fuzzCase: FuzzCase) =>
   `  fixture ${fuzzCase.fixture}, actions ${JSON.stringify(fuzzCase.applied)}\n  source ${JSON.stringify(fuzzCase.source)}`;
 
-// `onlyRule` keeps one rule's violations, so a negative control proves that rule on its own.
-function fuzz(splitter: Splitter = splitBlocks, settings = fuzzSettings(), onlyRule?: string): FuzzFailure<FuzzCase> | undefined {
-  const check = (fuzzCase: FuzzCase) =>
-    checkCase(fuzzCase, splitter).filter((violation) => !onlyRule || violation.rule === onlyRule);
-  return runFuzz({...settings, generate, check, shrink});
+// The assertion message is the only output CI shows for a failing test, so it carries the replay line.
+function describeFailure(failure: Failure): string {
+  return [
+    `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed})`,
+    ...failure.violations.map((violation) => `  [${violation.rule}] ${violation.message}`),
+    `replay: MULTIFRONT_FUZZ_SEED=${failure.seed} MULTIFRONT_FUZZ_RUNS=${failure.runIndex + 1} pnpm devx test ${SPEC_PATH}`,
+    'input:',
+    showCase(failure.input),
+    'shrunk:',
+    showCase(failure.shrunk),
+  ].join('\n');
 }
 
 // --- tests -----------------------------------------------------------------------------------------------------
 
 describe('splitBlocks fuzz', () => {
-  const {seed, runs} = fuzzSettings();
+  const settings = fuzzSettings();
 
-  it(`holds every rule over ${runs} generated files (seed ${seed})`, () => {
-    const failure = fuzz();
-    if (failure) expect.fail(describeFailure(failure, SPEC_PATH, showCase));
+  it(`holds every rule over ${settings.runs} generated files (seed ${settings.seed})`, () => {
+    const failure = fuzz(splitBlocks, settings);
+    if (failure) expect.fail(describeFailure(failure));
   });
 
   it('reaches every case', () => {
     const reached = new Set<string>();
-    for (let runIndex = 0; runIndex < DEFAULT_FUZZ_SETTINGS.runs; runIndex++) {
-      const fuzzCase = generate(createRandom(mixSeed(DEFAULT_FUZZ_SETTINGS.seed, 'run', runIndex)));
+    for (let runIndex = 0; runIndex < DEFAULT_SETTINGS.runs; runIndex++) {
+      const fuzzCase = caseAt(DEFAULT_SETTINGS.seed, runIndex);
       const split = splitBlocks(fuzzCase.source, componentPath(fuzzCase.fixture));
       const placed = fuzzCase.placed!;
       const prefix = intactPrefix(placed);
+      const damaged = isDamaged(fuzzCase);
       for (const kind of fuzzCase.applied) reached.add(kind);
       if (!split.errors.length) reached.add('error-free file');
-      if (!fuzzCase.damaged) reached.add('undamaged file');
-      if (!fuzzCase.damaged && extraTargetCopies(placed).length) reached.add('undamaged duplicate');
-      if (fuzzCase.damaged && prefix.length) reached.add('damaged file with an intact prefix');
-      if (fuzzCase.damaged && extraTargetCopies(prefix).length) reached.add('damaged file with a duplicate in the intact prefix');
+      if (!damaged) reached.add('undamaged file');
+      if (!damaged && extraTargetCopies(placed).length) reached.add('undamaged duplicate');
+      if (damaged && prefix.length) reached.add('damaged file with an intact prefix');
+      if (damaged && extraTargetCopies(prefix).length) reached.add('damaged file with a duplicate in the intact prefix');
       const later = placed.slice(prefix.length).filter((block) => block.intact);
       if (later.some((block) => split.blocks.some((found) => found.start === block.start)))
         reached.add('intact block after damage');
@@ -435,6 +527,40 @@ describe('splitBlocks fuzz', () => {
     );
   });
 
+  it('shrinks to the fewest actions and lines that still fail', () => {
+    const input = build('Hello.ucf', [
+      {kind: 'gap', seed: 1},
+      {kind: 'duplicate', seed: 2},
+      {kind: 'requote', seed: 3},
+      {kind: 'shuffle', seed: 4},
+    ]);
+    const shrunk = shrink(input, (candidate) => (candidate.source.match(/<react/g) ?? []).length > 1);
+    expect(shrunk.applied).toEqual(['duplicate']);
+    expect(shrunk.source).toBe('<react>\n<react>\n');
+  });
+
+  describe('env knobs', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('reads the seed and the run count', () => {
+      vi.stubEnv('MULTIFRONT_FUZZ_SEED', '7');
+      vi.stubEnv('MULTIFRONT_FUZZ_RUNS', '30');
+      expect(fuzzSettings()).toEqual({seed: 7, runs: 30});
+    });
+
+    it.each([
+      ['MULTIFRONT_FUZZ_SEED', 'x'],
+      ['MULTIFRONT_FUZZ_SEED', '4294967296'],
+      ['MULTIFRONT_FUZZ_RUNS', '0'],
+      ['MULTIFRONT_FUZZ_RUNS', '-3'],
+    ])('rejects %s=%s', (name, value) => {
+      vi.stubEnv(name, value);
+      expect(() => fuzzSettings()).toThrow(name);
+    });
+  });
+
   // Each rule is proven live: a deliberately broken splitter must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const mapBlocks = (split: SplitResult, change: (block: Block) => Block): SplitResult => ({
@@ -442,12 +568,12 @@ describe('splitBlocks fuzz', () => {
       blocks: split.blocks.map(change),
     });
     const withoutCode =
-      (code: Diagnostic['code']): Splitter =>
+      (code: Diagnostic['code'], when: (split: SplitResult) => boolean = () => true): Splitter =>
       (source, filename) => {
         const split = splitBlocks(source, filename);
-        return {...split, errors: split.errors.filter((error) => error.code !== code)};
+        return when(split) ? {...split, errors: split.errors.filter((error) => error.code !== code)} : split;
       };
-    const BROKEN: [string, string, Splitter][] = [
+    const BROKEN: [string, Rule, Splitter][] = [
       [
         'a throw on truncated input',
         'never-throws',
@@ -475,8 +601,25 @@ describe('splitBlocks fuzz', () => {
           })),
       ],
       [
-        'a <react> block cut early',
+        'an index one too high',
         'untouched',
+        (source, filename) => mapBlocks(splitBlocks(source, filename), (block) => ({...block, index: block.index + 1})),
+      ],
+      [
+        'a wrong attribute on blocks after damage',
+        'untouched',
+        (source, filename) => {
+          const split = splitBlocks(source, filename);
+          const damage = split.errors.find((error) => error.code !== 'duplicate-target');
+          if (!damage) return split;
+          return mapBlocks(split, (block) =>
+            block.start > damage.start ? {...block, attrs: {...block.attrs, broken: true}} : block
+          );
+        },
+      ],
+      [
+        'a <react> block cut early',
+        'parses',
         (source, filename) =>
           mapBlocks(splitBlocks(source, filename), (block) => {
             if (block.type !== 'react') return block;
@@ -485,18 +628,33 @@ describe('splitBlocks fuzz', () => {
           }),
       ],
       ['a missing duplicate-target', 'known-outcome', withoutCode('duplicate-target')],
+      [
+        'a duplicate-target missing from a damaged file',
+        'known-outcome',
+        withoutCode('duplicate-target', (split) => split.errors.some((error) => error.code !== 'duplicate-target')),
+      ],
       ['a missing unclosed-block', 'known-outcome', withoutCode('unclosed-block')],
+      [
+        'a block check firing on an undamaged file',
+        'known-outcome',
+        (source, filename) =>
+          mapBlocks(splitBlocks(source, filename), (block) =>
+            block.type === 'style' ? {...block, attrs: {...block.attrs, lang: 'nope'}} : block
+          ),
+      ],
     ];
 
     it.each(BROKEN)('%s fails rule %s', (_, rule, splitter) => {
-      const failure = fuzz(splitter, DEFAULT_FUZZ_SETTINGS, rule);
+      const failure = fuzz(splitter, DEFAULT_SETTINGS, rule);
       expect(failure?.violations.map((violation) => violation.rule)).toContain(rule);
-      const {input, shrunk} = failure!;
+      const {input, shrunk, runIndex} = failure!;
       expect(checkCase(shrunk, splitter).map((violation) => violation.rule)).toContain(rule);
       expect(shrunk.source.length).toBeLessThanOrEqual(input.source.length);
-      expect(describeFailure(failure!, SPEC_PATH, showCase)).toContain(
-        `MULTIFRONT_FUZZ_SEED=${DEFAULT_FUZZ_SETTINGS.seed} MULTIFRONT_FUZZ_RUNS=${failure!.runIndex + 1}`
+      expect(describeFailure(failure!)).toContain(
+        `MULTIFRONT_FUZZ_SEED=${DEFAULT_SETTINGS.seed} MULTIFRONT_FUZZ_RUNS=${runIndex + 1}`
       );
+      const replayed = fuzz(splitter, {seed: DEFAULT_SETTINGS.seed, runs: runIndex + 1}, rule);
+      expect(replayed?.input).toEqual(input);
     });
   });
 });
