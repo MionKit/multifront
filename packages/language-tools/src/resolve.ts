@@ -27,7 +27,7 @@ function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: 
 }
 
 // Only the literal's own parent link is set during resolution, so nothing here reads a position.
-function frameworkAttribute(ts: TypeScript, literal: ts.StringLiteralLike): string | undefined {
+function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expression | undefined {
   const node = literal.parent as ts.Node | undefined;
   if (!node) return undefined;
   let value: ts.Expression | undefined;
@@ -38,7 +38,7 @@ function frameworkAttribute(ts: TypeScript, literal: ts.StringLiteralLike): stri
     const withClause = options && ts.isObjectLiteralExpression(options) ? propertyValue(ts, options, 'with') : undefined;
     if (withClause && ts.isObjectLiteralExpression(withClause)) value = propertyValue(ts, withClause, 'framework');
   }
-  return value && ts.isStringLiteralLike(value) ? value.text : undefined;
+  return value;
 }
 
 /** `fileName` as the importer would write it. */
@@ -65,7 +65,11 @@ export function resolveUcfImport(
   // In tsserver a `.ucf` file's own script is its main target's block, so its imports sit in that block.
   const importer: Importer = {fileName: containingFile};
   if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
-  const choice = resolveTarget(importer, frameworkAttribute(ts, literal), options);
+  const value = frameworkValue(ts, literal);
+  const text = value && ts.isStringLiteralLike(value) ? value.text : undefined;
+  // Inside a block the key itself is framework-in-block, whatever its value.
+  const attribute = importer.block && value ? (text ?? '') : text;
+  const choice = resolveTarget(importer, attribute, options);
   if ('error' in choice) return {resolvedModule: undefined, error: choice.error};
   const {target, rule} = choice;
   // No shared cache: the same specifier gets another answer from another importer.
