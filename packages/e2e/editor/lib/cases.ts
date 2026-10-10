@@ -82,10 +82,13 @@ function byStart(first: {range: Range; code: unknown}, second: {range: Range; co
   return byLine || firstStart.character - secondStart.character || String(first.code).localeCompare(String(second.code));
 }
 
-async function multifrontDiagnostics(server: LanguageServer, document: Document) {
+async function diagnosticsOf(server: LanguageServer, document: Document) {
   const report = await server.sendDocumentDiagnosticRequest(document.uri);
-  const items = 'items' in report ? report.items : [];
-  const ours = items
+  return 'items' in report ? report.items : [];
+}
+
+async function multifrontDiagnostics(server: LanguageServer, document: Document) {
+  const ours = (await diagnosticsOf(server, document))
     .filter(({source}) => source === 'multifront')
     .map(({code, severity, message, range}) => ({code, severity, message, range}));
   return ours.sort(byStart);
@@ -100,6 +103,17 @@ function expectedDiagnostics(document: Document, name: string) {
     range: rangeOf(document, start, end),
   }));
   return expected.sort(byStart);
+}
+
+/** Every diagnostic not ours: which service sent it, and whether it starts inside the first <style>. */
+async function styleErrors(server: LanguageServer, document: Document, {filename, source}: Component) {
+  const {contentStart, contentEnd} = splitBlocks(source, filename).styles[0]!;
+  return (await diagnosticsOf(server, document))
+    .filter(({source: from}) => from !== 'multifront')
+    .map(({source: from, range}) => {
+      const start = document.offsetAt(range.start);
+      return {from, inStyle: start >= contentStart && start < contentEnd};
+    });
 }
 
 /** The 2.6 language server cases; the caller's server has `fixtures/components` as its workspace. */
@@ -150,6 +164,25 @@ export function languageServerCases(getServer: () => LanguageServer): void {
     it('reports nothing of ours on a valid file', async () => {
       const document = await getServer().openTextDocument(componentPath('Card.ucf'), 'ucf');
       expect(await multifrontDiagnostics(getServer(), document)).toEqual([]);
+    });
+  });
+
+  // Goal: "Inside <style>: CSS and SCSS ... errors", mapped back to the .ucf file.
+  describe('the language server reports CSS and SCSS errors inside <style>', () => {
+    it('invalid/ScssSyntaxError.ucf: an scss error inside its <style>', async () => {
+      const component = readComponent('invalid/ScssSyntaxError.ucf');
+      const document = await getServer().openTextDocument(component.filename, 'ucf');
+      const errors = await styleErrors(getServer(), document, component);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors).toEqual(errors.map(() => ({from: 'scss', inStyle: true})));
+    });
+
+    it('editor/CssDeclarationError.ucf as an unsaved buffer: a css error inside its <style>', async () => {
+      const component = readComponent('editor/CssDeclarationError.ucf');
+      const document = await getServer().openUntitledDocument('ucf', component.source);
+      const errors = await styleErrors(getServer(), document, component);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors).toEqual(errors.map(() => ({from: 'css', inStyle: true})));
     });
   });
 }

@@ -26,8 +26,9 @@ import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserv
 type Completions = ts.server.protocol.CompletionInfo;
 
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
-// The rows TypeScript itself reads; .vue, .svelte and .jsx importers come with M4 and M6.
-const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.tsx?$/.test(file) && file !== 'src/mixed.ts');
+const BUTTON = readComponent('Button.ucf');
+// The rows tsserver serves (`.ucf` importers through our plugin); .vue, .svelte and .jsx come with M4 and M6.
+const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.(tsx?|ucf)$/.test(file) && file !== 'src/mixed.ts');
 const RULE_REASON: Record<TargetRule, string> = {
   block: 'the block it sits in',
   attribute: 'its framework attribute',
@@ -36,6 +37,11 @@ const RULE_REASON: Record<TargetRule, string> = {
 };
 const CARD_SPECIFIER = '../../../components/Card.ucf';
 const STYLE_ACCESS = 'className={$style.';
+// `$style`, and a named module; Button's <react> use comes after its <vue> and <svelte> ones.
+const MODULE_ACCESS = [
+  {component: CARD, access: STYLE_ACCESS, key: 'card'},
+  {component: BUTTON, access: '{`button ${classes.', key: 'primary'},
+];
 const REACT_SIGNATURE = 'Card({ title }: { title: string })';
 
 describe('the TypeScript plugin in tsserver, on the imports app', () => {
@@ -44,7 +50,7 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
   beforeAll(async () => {
     server = startTsserver({cwd: APP_DIR, plugins: [PLUGIN]});
     const importers = [...new Set(ROWS.map(({file}) => file))].map(readApp);
-    await open(server, [...importers, MIXED, CARD, TYPE_ERROR]);
+    await open(server, [...importers, MIXED, CARD, BUTTON, TYPE_ERROR]);
   });
 
   afterAll(async () => {
@@ -134,11 +140,11 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
     }
   });
 
-  describe("inside Card.ucf's <react>", () => {
-    it('completion after $style. lists card', async () => {
-      const at = locate(CARD.source, STYLE_ACCESS, STYLE_ACCESS.length);
-      const completions = await server.request<Completions>('completionInfo', {file: CARD.filename, ...at});
-      expect(completions.entries.map(({name}) => name)).toContain('card');
+  describe("inside Card.ucf's <react>, and Button.ucf's named module", () => {
+    it.each(MODULE_ACCESS)('completion after $access lists $key', async ({component, access, key}) => {
+      const at = locate(component.source, access, access.length);
+      const completions = await server.request<Completions>('completionInfo', {file: component.filename, ...at});
+      expect(completions.entries.map(({name}) => name)).toContain(key);
     });
 
     it('hover on title shows string', async () => {
@@ -149,11 +155,11 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
       expect(info.displayString).toContain('title: string');
     });
 
-    it('definition on $style.card lands on .card', async () => {
-      const at = locate(CARD.source, STYLE_ACCESS, STYLE_ACCESS.length + 1);
-      const definitions = await server.request<TsDefinitions>('definition', {file: CARD.filename, ...at});
+    it.each(MODULE_ACCESS)('definition on the $key key lands on .$key', async ({component, access, key}) => {
+      const at = locate(component.source, access, access.length + 1);
+      const definitions = await server.request<TsDefinitions>('definition', {file: component.filename, ...at});
       expect(definitions.map(({file, start}) => ({file, start}))).toEqual([
-        {file: CARD.filename, start: locate(CARD.source, '.card {', 1)},
+        {file: component.filename, start: locate(component.source, `.${key} {`, 1)},
       ]);
     });
 
