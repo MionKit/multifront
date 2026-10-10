@@ -50,11 +50,9 @@ export interface UcfImportOptions extends ResolveTargetOptions {
   host: ts.ModuleResolutionHost;
   getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one
 }
-export interface UcfResolution {
-  resolvedModule: ts.ResolvedModuleFull | undefined; // the .ucf file itself, served as its target's script
-  target?: Target;
-  rule?: TargetRule;
-  error?: {code: DiagnosticCode; message: string}; // reported at the import
+/** What TypeScript reads, plus the error the plugin reports at the import. */
+export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocations {
+  error?: Pick<Diagnostic, 'code' | 'message'>;
 }
 export function resolveUcfImport(ts, literal: ts.StringLiteralLike, containingFile: string, options: UcfImportOptions): UcfResolution;
 export function readMultifrontOptions(ts, configFileName: string): ResolveTargetOptions;
@@ -64,21 +62,27 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
   `CallExpression`'s second argument `with` object. The `framework` value counts only as a string literal (non-literal
   is M3). Read with `.text`, so the single parent link is enough.
 - Importer: `{fileName: containingFile}`, and when it ends in `.ucf`, `block` = the main script's target,
-  `MAIN_SCRIPT_TARGET = 'react'` exported from `languagePlugin.ts` (which `getServiceScript` uses too).
+  `MAIN_SCRIPT_TARGET = 'react'` from `languagePlugin.ts` (which `getServiceScript` uses too; not a public export).
 - `resolveTarget(importer, attribute, options)`; on error → `{resolvedModule: undefined, error}`.
 - File: `ts.resolveModuleName(text, containingFile, compilerOptions, ucfHost)`, no cache (the answer depends on the
   importer). `ucfHost.fileExists` answers `X.d.ucf.ts` with "does `X.ucf` exist", as Volar's resolver does, so `paths`
   and packages work as for any import. No file → `{resolvedModule: undefined}` (TypeScript's own TS2307).
-- `getSplit(file).targets[target]` missing → `missing-target-block`, naming both files:
+  TypeScript finds another file (a real `Card.ucf.ts`) → its result, unchanged.
+- `getSplit(file)` gives a split without the target's block → `missing-target-block`, naming both files:
   `../imports/VueOnly.ucf has no <react> block; ImportErrors.ucf imports it as react` (path relative to the importer).
-- Target row in `EDITOR_BLOCK_KINDS` has no `types()` (vue, svelte in M2) → unresolved, no error of ours (2.9 adds the
-  message naming the target).
-- Else `{resolvedModule: {resolvedFileName: <abs .ucf>, extension: '.tsx', isExternalLibraryImport}, target, rule}`.
+  `getSplit` gives nothing → no error.
+- Target is not `MAIN_SCRIPT_TARGET` (vue, svelte in M2: tsserver serves one script per file) → unresolved, with the
+  `missing-target-block` error if any (2.9 adds the message naming the target).
+- Else `{resolvedModule: {resolvedFileName: <abs .ucf>, extension: '.tsx', isExternalLibraryImport}, error}`: resolved
+  even when the block is missing, so an unsaved edit that adds it needs no new resolution (TypeScript reuses an
+  importer's resolutions until the importer changes). A `.ucf` file without `<react>` is served as the empty module
+  `export {};` (`getServiceScript` in `languagePlugin.ts`), never as raw text read as TSX.
 - `readMultifrontOptions`: `ts.readConfigFile` + `ts.parseJsonConfigFileContent` with a `readDirectory` returning `[]`
   (no file glob, `extends` followed), our entry (`name === '@multifront/language-tools/typescript-plugin'`) from
   `options.plugins`: `framework` when `isTarget`, `importers` values when `isTarget`. One private
   `entryOptions(compilerOptions)`, which the plugin calls on the live `compilerOptions` tsserver hands
-  `resolveModuleNameLiterals`, so a tsconfig edit counts without a restart.
+  `resolveModuleNameLiterals`, so a tsconfig edit counts without a restart. A config that cannot be read throws
+  (TS18003 "no inputs" ignored: the file list is skipped on purpose).
 - `index.ts` exports `resolveUcfImport`, `readMultifrontOptions` and the two types (in `types.ts`).
 
 ### 3. `packages/language-tools/src/typescriptPlugin.ts`, subpath `./typescript-plugin`
@@ -92,8 +96,9 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
   walks the program's source file (import / export declarations, `import()` calls with a `.ucf` specifier), calls
   `resolveUcfImport` again (pure, no stored state, so reused resolutions cannot drop an error) and adds per `error`
   `{file, start: literal.getStart(sf), length: literal.getWidth(sf), category: Error, code, source: 'multifront',
-  messageText}`. `code` is our string code (cast: `ts.Diagnostic.code` is typed `number`). TypeScript's own TS2307 /
-  TS2792 on the same literal is dropped: one problem, one error. The Volar proxy wraps this, so positions map to `.ucf`.
+  messageText}`. `code` is our string code (cast: `ts.Diagnostic.code` is typed `number`). TypeScript's own errors
+  inside that import statement or `import()` call (TS2307, TS1192, TS2305, ...) are dropped: one problem, one error.
+  The Volar proxy wraps this, so positions map to `.ucf`.
 - Covers `.ts` / `.tsx` importers too (one program); their `unknown-framework` / `no-target` come out the same path
   (2.9 tests those rows).
 - `package.json`: `exports["./typescript-plugin"]` = `{source: ./src/typescriptPlugin.ts, types:
@@ -105,8 +110,11 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
 
 - `packages/e2e/fixtures/components/editor/Profile.ucf`: `<react>` imports `../Badge.ucf` and `../Card.ucf`, renders
   `<Card title="Ada" />` and `<Badge label="Admin" />`.
-- `editor/ImportErrors.ucf`: `<react>` imports `../Card.ucf` (renders `<Card />`, no `title`), `../imports/VueOnly.ucf`,
-  and `../Badge.ucf` with `{ framework: 'vue' }`.
+- `editor/ImportErrors.ucf`: `<react>` imports `../Card.ucf` (renders `<Card />`, no `title`), `../imports/VueOnly.ucf`
+  (also as `export { default as Again } from`), `../Badge.ucf` with `{ framework: 'vue' }` (also as `import()`), and
+  the missing `../Gone.ucf`.
+- `packages/e2e/fixtures/plugin-options/`: `extends-only/tsconfig.json` (only `extends` the imports app) and
+  `invalid-values/tsconfig.json` (`framework: 'angular'`, `importers: {'.ts': 'vue', '.tsx': 1}`).
 - `packages/e2e/fixtures/components/imports/VueOnly.ucf`: `<vue>` only. New shared folder.
 - `editor/tsconfig.json`: the imports app's compiler options (`jsx: react-jsx`, `module: preserve`,
   `moduleResolution: bundler`, `strict`, `noEmit`, `skipLibCheck`), `include: ["*.ucf"]`, no plugin entry (the global
@@ -120,7 +128,8 @@ export function readMultifrontOptions(ts, configFileName: string): ResolveTarget
 semantic sync commands) and `stop()`. Spawns `process.execPath --conditions=source <typescript 6.0.3>/lib/tsserver.js
 --globalPlugins <plugins> --pluginProbeLocations packages/e2e --disableAutomaticTypingAcquisition`: the plugin is found
 as installed in `packages/e2e/node_modules`, as `lsp.ts` does for the server. Content-Length protocol, responses
-matched by `request_seq`, `success: false` rejects. Files open with `updateOpen` (which answers, unlike `open`).
+matched by `request_seq`, `success: false` rejects, a request after tsserver exited rejects. Files open with
+`updateOpen` (which answers, unlike `open`).
 
 ## Decisions
 
@@ -129,7 +138,9 @@ matched by `request_seq`, `success: false` rejects. Files open with `updateOpen`
   code name in the message.
 - 2.8 builds the plugin entry, the `./typescript-plugin` subpath, the `typescript-plugin/` folder and
   `editor/lib/tsserver.ts`, because its own test needs them. 2.9 keeps the rest.
-- TypeScript's TS2307 / TS2792 on a literal where our error stands is dropped: one problem, one error.
+- TypeScript's own errors on an import where our error stands are dropped: one problem, one error.
+- Review: a `.ucf` file without the main block still resolves (error from diagnostics only), and is served as an empty
+  module, so an unsaved edit adding the block reaches the importer at once (spec 6). Fixed here, not left out of scope.
 
 ## Tests
 
@@ -140,19 +151,27 @@ lists as "nothing to add".
   `@multifront/language-tools/typescript-plugin`:
   - `Profile.ucf`: `quickinfo` on `<Card` shows `{ title: string; }`; `definition` on `Card` gives `Card.ucf` with a
     span inside its `<react>` content (from the real `splitBlocks`); no diagnostics in the file (both imports resolve).
-  - `ImportErrors.ucf`: TS2741 (missing `title`) on the `<Card />` line; `missing-target-block` on the `VueOnly.ucf`
-    import line, message naming `VueOnly.ucf` and `ImportErrors.ucf`; `framework-in-block` on the `Badge.ucf` import
-    line; both with `source: 'multifront'`; no TS2307 on either line.
+  - `ImportErrors.ucf`: TS2741 (missing `title`) on the `<Card />` line; `missing-target-block` (the exact message)
+    on the `VueOnly.ucf` import and `export ... from` lines; `framework-in-block` at the specifier of the static and
+    the `import()` Badge imports; each the only diagnostic on its line, `source: 'multifront'`; `<Badge` has no
+    definition in `Badge.ucf` (the attribute import stays unresolved, unlike Volar's own resolver); `../Gone.ucf` keeps
+    TS2307.
+  - `VueOnly.ucf` opened: no diagnostics. `src/App.tsx` of the imports app: definition on `<Card` lands in `Card.ucf`'s
+    `<react>`, no diagnostics; `src/reexport.ts` (vue): only TS2307, no error of ours.
+  - An unsaved `updateOpen` edit adding `<react>` to `VueOnly.ucf`: the import line in `ImportErrors.ucf` is clean.
+  - 2.4's `virtualCode.spec.ts`: without a `<react>` block, the service script is `export {};` with no mappings.
 - `packages/language-tools/test/resolve.spec.ts` (package test, mirrors `src/resolve.ts`): for every row of
   `EXPECTED_IMPORTS`, `readMultifrontOptions(ts, <nearest tsconfig.json>)` equals the row's `options` (fixture read by
-  relative path, as core's tests do); `components/editor/tsconfig.json` gives `{}`.
+  relative path, as core's tests do, found with `ts.findConfigFile`); `extends-only` gives `{framework: 'react'}`;
+  `invalid-values` gives `{importers: {'.ts': 'vue'}}`; `components/editor/tsconfig.json` gives `{}`; a missing file
+  throws.
 
 ## Docs
 
 - `docs/milestones/m2-editor-basics.md`: 2.8 Build names the plugin entry, subpath, folder, `UcfImportOptions`, the
   code and source on TS diagnostics and the dropped TS2307; Test names the helper as built here; `- Status: done`.
   2.9 Build keeps the compiler, the `mixed.ts` warning and the no-types message; helper becomes 2.8's. Hand-offs:
-  `resolveUcfImport` signature and options, `MAIN_SCRIPT_TARGET`, `startTsserver(...).stop()`, `missing-target-block`,
+  `resolveUcfImport` signature and options, `startTsserver(...).stop()`, `missing-target-block`,
   `editor/tsconfig.json` in the fixtures line.
 - `docs/milestones/m3-react-and-imports.md:120`: `missing-target-block` already joined `DiagnosticCode` in M2.
 - None in spec / plan / architecture (`architecture.md:105` already describes this); no public page covers the editor.
@@ -165,11 +184,10 @@ None: the step names no fuzz test and has no cheap oracle beyond 2.7's fixture t
 
 - The `mixed.ts` warning, the vue / svelte "no types yet" message, `loadVueCompiler` in the plugin, the 2.9 test cases.
 - `framework-attribute-not-literal`, `importerFromId`, the `Card.ucf.<target>.tsx` importer names (M3).
-- Re-resolving an importer when the imported file gains its block in an unsaved edit (TypeScript reuses the resolution
-  until the importer changes).
 
 ## Done when
 
-- Both tests pass, and fail with the resolution wrapper removed.
+- `blockImports.spec.ts` fails with the resolution wrapper removed (the attribute import and `reexport.ts` cases), and
+  with a missing block left unresolved (the unsaved edit case).
 - `pnpm devx check` green; snapshots committed; milestone and M3 docs updated.
 - The simplify-comments pass ran on every touched source file, committed on its own.
