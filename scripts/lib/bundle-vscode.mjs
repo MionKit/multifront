@@ -1,5 +1,4 @@
-// Bundles the extension, the language server and the TypeScript plugin into packages/vscode/dist/, all CommonJS.
-// core parses <react> with oxc-parser: the bundles use its wasm binding, so one .vsix serves every platform.
+// The bundles use oxc-parser's wasm binding, which core parses <react> with, so one .vsix serves every platform.
 import {copyFileSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {basename, dirname, join, resolve} from 'node:path';
@@ -22,7 +21,7 @@ function version(path) {
   return JSON.parse(readFileSync(path, 'utf8')).version;
 }
 
-// The wasm binding must be the build of the parser core was written against.
+// The wasm binding must match the oxc-parser core resolves.
 const parserVersion = version(join(oxcDir, 'package.json'));
 const bindingVersion = version(join(dirname(binding), 'package.json'));
 if (parserVersion !== bindingVersion) {
@@ -48,7 +47,7 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
         {find: /^@oxc-parser\/binding-wasm32-wasi$/, replacement: binding},
       ],
     },
-    // Every dependency is bundled; Node built-ins stay imports.
+    // Node built-ins stay imports.
     ssr: {noExternal: true, resolve: {conditions: ['source'], externalConditions: ['source']}},
     build: {
       outDir: DIST,
@@ -57,8 +56,7 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
       ssr: true,
       lib: {entry: resolve(EXTENSION_DIR, entry), formats: ['cjs']},
       rolldownOptions: {
-        // The host provides `vscode`; tsserver hands the plugin its TypeScript, and only @volar/vscode's web path
-        // requires it.
+        // Host provides `vscode`; tsserver hands the plugin TypeScript; only @volar/vscode's web path requires it.
         external: [...external, 'typescript', /^typescript\//],
         // Volar's server loads a tsdk with `eval('require')`.
         checks: {eval: false},

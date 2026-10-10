@@ -11,16 +11,14 @@ export const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js
   readZip: (path: string, filter: (name: string) => boolean) => Promise<Map<string, Buffer>>;
 };
 
-/**
- * A temp copy of what `pnpm devx vsix` reads, so a test packs without racing others over packages/vscode/dist.
- * Workspace links are copied as absolute links, so packages resolve to this repo; the caller deletes the folder.
- */
+/** A copy of what `pnpm devx vsix` reads, so tests pack without racing over packages/vscode/dist; caller deletes it. */
 export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   const root = mkdtempSync(join(tmpdir(), 'vsix-'));
   cpSync(join(REPO_ROOT, 'scripts'), join(root, 'scripts'), {recursive: true});
   const generated = new Set(
     ['dist', 'LICENSE', join('node_modules', 'multifront-typescript-plugin-pack')].map((name) => join(EXTENSION_DIR, name))
   );
+  // Workspace links are copied as absolute links, so packages resolve to this repo.
   cpSync(EXTENSION_DIR, join(root, 'packages', 'vscode'), {
     recursive: true,
     filter: (path) => !generated.has(path) && !path.endsWith('.vsix'),

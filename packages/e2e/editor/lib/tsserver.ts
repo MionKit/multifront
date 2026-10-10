@@ -25,16 +25,16 @@ export interface Tsserver {
 interface TsserverOptions {
   cwd: string;
   plugins: string[]; // global plugins
-  probeLocations?: string[]; // where tsserver looks for plugins first; default: packages/e2e, as installed there
-  // Not from source, and no workspace package resolves next to tsserver.js: only the probe locations give plugins.
+  probeLocations?: string[]; // searched for plugins first; default packages/e2e, where they are installed
+  // No source condition, no workspace package next to tsserver.js: only the probe locations give plugins.
   isolated?: boolean;
   logFile?: string;
 }
 
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
 export const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
-// The root link: with symlinks kept, tsserver's own `../../..` plugin lookup is the root node_modules, which holds
-// no workspace package (the real path's `.pnpm/node_modules` holds them all).
+// Symlinks kept: tsserver's own `../../..` plugin lookup is root node_modules, with no workspace package in it.
+// The real path's `.pnpm/node_modules` holds them all.
 const ROOT_TSSERVER = join(E2E_DIR, '..', '..', 'node_modules', 'typescript', 'lib', 'tsserver.js');
 const HEADER = 'Content-Length: ';
 

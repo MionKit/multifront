@@ -197,7 +197,7 @@ describe('pnpm devx vsix bundles only with the wasm build of the oxc-parser core
 
   it('refuses a wasm binding of another version', () => {
     root = tempRepo();
-    // The real binding package, copied in place of its link, with the version a stale install would have.
+    // A stale install, faked on a copy so the real binding package stays untouched.
     const binding = join(root, 'packages', 'vscode', 'node_modules', '@oxc-parser', 'binding-wasm32-wasi');
     const real = realpathSync(binding);
     rmSync(binding);

@@ -136,20 +136,18 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
   };
 });
 
-// Symbol.for: one key for every copy of this module, so the VS Code extension's pack and a project's own install agree.
+// Symbol.for: one key across module copies, so the extension's pack and a project's own install agree.
 const SERVED = Symbol.for('multifront.typescript-plugin');
 
-/**
- * tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2.
- * The first copy loaded in a project serves it; tsserver loads the project's own entry before global plugins.
- */
+/** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
 const plugin: ts.server.PluginModuleFactory = (modules) => {
   const volar = volarPlugin(modules);
   return {
     ...volar,
     create(info) {
-      // The owner is this module copy, so a tsconfig reload, which calls `create` again, is not another copy.
+      // Owner is the module copy: a tsconfig reload calls `create` again but is not another copy.
       const project = info.project as ts.server.Project & {[SERVED]?: unknown};
+      // First copy loaded serves; tsserver loads the project's own entry before global plugins.
       if (project[SERVED] && project[SERVED] !== plugin) {
         info.project.projectService.logger.info(
           'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside'

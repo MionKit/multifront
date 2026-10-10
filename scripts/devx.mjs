@@ -101,14 +101,14 @@ const handlers = {
     // vsce takes the version as given, and it names the output file.
     if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version ?? '')) throw new CliError(`${CLI}: version.json has no valid version`);
     const extension = join(REPO_ROOT, 'packages', 'vscode');
-    // So nothing the build no longer makes is packed.
+    // So stale build output is not packed.
     rmSync(join(extension, 'dist'), {recursive: true, force: true});
     run(join(REPO_ROOT, 'scripts', 'lib', 'write-grammar.mjs'), [], {node: ['--conditions=source']});
     run(join(REPO_ROOT, 'scripts', 'lib', 'bundle-vscode.mjs'), []);
     // vsce reads a license only from the extension folder, and prompts without one.
     copyFileSync(join(REPO_ROOT, 'LICENSE'), join(extension, 'LICENSE'));
-    // vsce packs a node_modules folder only when `npm list` names it a dependency, which the workspace links break:
-    // so it packs a copy of the shipped files whose only dependency is the plugin pack.
+    // vsce packs node_modules only for `npm list` dependencies, which workspace links break.
+    // So pack a copy of the shipped files whose one dependency is the plugin pack.
     const manifest = JSON.parse(readFileSync(join(extension, 'package.json'), 'utf8'));
     const stage = mkdtempSync(join(tmpdir(), 'multifront-vsix-'));
     try {
