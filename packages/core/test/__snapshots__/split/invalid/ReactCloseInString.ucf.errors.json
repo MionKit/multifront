@@ -1,0 +1,12 @@
+[
+  {
+    "code": "text-outside-block",
+    "severity": "error",
+    "message": "'</react>' in the <react> block closed it early; write '<\\/react>' instead",
+    "filename": "invalid/ReactCloseInString.ucf",
+    "start": 86,
+    "end": 154,
+    "line": 3,
+    "column": 29
+  }
+]
