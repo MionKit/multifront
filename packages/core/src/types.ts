@@ -71,6 +71,8 @@ export type DiagnosticCode =
   | 'duplicate-style-module'
   | 'style-compile-error'
   | 'missing-target-block'
+  | 'target-not-built'
+  | 'mixed-frameworks'
   | TargetErrorCode;
 
 /** The errors `resolveTarget` can return. */
