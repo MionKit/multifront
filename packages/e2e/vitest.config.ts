@@ -8,5 +8,7 @@ export default defineConfig({
     environment: 'node',
     include: ['{build,browser,editor,consumer,devx}/**/*.spec.ts'],
     testTimeout: 60_000,
+    // Node itself loads fixture apps' `vite.config.ts` (`configLoader: 'native'`): this makes it pick our `src/`.
+    execArgv: ['--conditions=source'],
   },
 });
