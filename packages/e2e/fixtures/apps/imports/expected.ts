@@ -56,7 +56,7 @@ export const EXPECTED_IMPORTS: ExpectedImport[] = [
   {file: 'no-default/export-all.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
   {file: 'no-default/dynamic.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
   {file: 'no-default/importer.tsx', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'importer'},
-  {file: 'no-default/importer.jsx', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'importer'},
+  {file: 'no-default/jsx-importer.jsx', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'importer'},
   {file: 'no-default/plain.js', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
   {file: 'no-default/importer.mts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'vue', rule: 'importer'},
   {file: 'no-default/ssr-entry.tsx', specifier: CARD, line: 2, options: NO_DEFAULT, expect: 'react', rule: 'attribute'},
