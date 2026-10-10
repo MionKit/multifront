@@ -231,7 +231,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.11 Root forwarding and the helper module
 
 - Build:
-  - `packages/core/src/react/scopeHelper.ts`: `SCOPE_HELPER_ID = 'virtual:multifront/scope-attrs'` and `scopeHelperCode(dev: boolean): string`. The Vite plugin serves it as `\0virtual:multifront/scope-attrs`. A few lines, bundled once:
+  - `packages/core/src/react/scopeHelper.ts`: `SCOPE_HELPER_ID = 'virtual:multifront/scope-attrs'` and `scopeHelperCode(dev: boolean): string`. The pre plugin `multifront` serves it as `\0virtual:multifront/scope-attrs` (no extra plugin). A few lines, bundled once:
 
     ```ts
     export function __ucfScopeAttrs(props) {
@@ -239,19 +239,21 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
       for (const key in props) if (key.startsWith('data-v-')) attrs[key] = props[key];
       return attrs;
     }
-    // dev only: __ucfWarnFragment(props, name) warns once per component when a data-v-* prop came in
+    // dev only: __ucfWarnFragment(props, name) warns once per component when a data-v-* prop came in;
+    // name is the .ucf file's base name ("FragmentRoot"), as Vue's warnings name a component
     ```
 
-  - In `scope.ts`, find the default-exported component: follow an identifier to its module-level declaration; unwrap the wrappers of `reactApis.ts` (`memo`, `forwardRef`, `React.memo`, `React.forwardRef`), nested in any order; function or arrow, block or expression body.
+  - In `scope.ts`, `transformScope(text, parsed, block, ctx)` stamps (3.10) then forwards, and returns the helper names `react.build` imports. Find the default-exported component (`export default …` or `export {X as default}`): follow an identifier to its module-level declaration; unwrap the wrappers of `reactApis.ts` (`memo`, `forwardRef`, `React.memo`, `React.forwardRef`), nested in any order; function or arrow, block or expression body.
   - Collect every `return` of that function (not of nested functions) and the expression body. Unwrap parentheses, TS `as` / `satisfies` / `!`, both branches of `?:`, the right side of `&&` / `||` / `??`, and one hop of `const x = <jsx>` in the same function.
-  - Each JSX element root gets `{...__ucfScopeAttrs(<props>)}` right after its name. A component root forwards too, so the chain continues down, as in Vue.
+  - Each JSX element root gets `{...__ucfScopeAttrs(<props>)}` right after its name and its stamp. A component root forwards too, so the chain continues down, as in Vue.
   - A fragment root gets no forwarding. In dev it becomes `(__ucfWarnFragment(<props>, "Name"), <>...</>)`, Vue's multi-root warning. Nothing in production.
   - `null`, strings, calls and `children` get nothing (documented limitation, like third-party components).
-  - `<props>` is the first parameter's name. With no parameter, `__props` is added; inside `forwardRef` it becomes `(__props, __ref)` so React's two-parameter check stays quiet.
+  - `<props>` is the first parameter's name. With no parameter, `__props` is added; inside `forwardRef` it becomes `(__props, __ref)` so React's two-parameter check stays quiet. A destructured first parameter gets no forwarding until 3.12.
   - Forwarding runs on every React component from a `.ucf` file, scoped style or not, so a parent's scope reaches a child that has no style of its own (spec 3.5.1). Stamping still needs `ctx.hasScoped`.
-  - Fixtures: `packages/e2e/fixtures/components/react/shapes/` `MultiReturn.ucf`, `Ternary.ucf`, `NestedTernary.ucf`, `AndRoot.ucf`, `Memo.ucf`, `ForwardRef.ucf`, `MemoForwardRef.ucf`, `ExportIdentifier.ucf`, `ArrowExpression.ucf`, `NoParams.ucf`, `ConstRoot.ucf`, `ComponentRoot.ucf`, `FragmentRoot.ucf`, `NullRoot.ucf`. `fixtures/apps/react-scope/Parent.ucf` has a scoped style on the class each shape puts on its root, and renders each shape once per branch.
+  - Fixtures: `packages/e2e/fixtures/components/react/shapes/` `MultiReturn.ucf`, `Ternary.ucf`, `NestedTernary.ucf`, `AndRoot.ucf`, `Memo.ucf`, `ForwardRef.ucf`, `MemoForwardRef.ucf`, `ExportIdentifier.ucf`, `ArrowExpression.ucf`, `NoParams.ucf`, `ConstRoot.ucf`, `ComponentRoot.ucf`, `FragmentRoot.ucf`, `NullRoot.ucf`. `fixtures/apps/react-scope/Parent.ucf` has a scoped style on the class each shape puts on its root, and renders each shape once per branch, each in a `data-case="<Shape>:<branch>"` wrapper; the app renders it on `?page=shapes`, Stamped.ucf otherwise.
 - Deliverable: a parent's scoped style reaches the root of a child `.ucf` component.
-- Test: one snapshot per shape in `packages/core/test/react/scope.spec.ts`. `packages/e2e/browser/react-scope.spec.ts`, dev and preview, for every shape and branch: the child's root DOM element carries the parent's `data-v-<parent id>`, the parent's scoped rule applies to it (computed color), and a non-root element does not carry it. `FragmentRoot` logs exactly one warning in dev and none in preview. The `ForwardRef` ref still points at the DOM node.
+- Test: one snapshot per shape in `packages/core/test/react/scope.spec.ts`, plus per shape in dev and production: the spread sits on exactly the JSX element roots, the warning on the fragment roots in dev only, the helper import names what is called, and only inserts. `packages/e2e/browser/react-scope.spec.ts`, dev and preview, for every shape and branch: the child's root DOM element carries the parent's `data-v-<parent id>`, the parent's scoped rule applies to it (computed color), and a non-root element does not carry it. `FragmentRoot` logs exactly one warning in dev and none in preview. The `ForwardRef` ref still points at the DOM node. `packages/e2e/build/react-target.spec.ts`: the build bundles the helper once, without the warning.
+- Status: done
 
 ### 3.12 Destructured props
 
