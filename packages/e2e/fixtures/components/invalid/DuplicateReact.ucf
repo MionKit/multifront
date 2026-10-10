@@ -10,6 +10,12 @@
   }
 </react>
 
+<react>
+  export default function Third() {
+    return <p className="twice">Third</p>
+  }
+</react>
+
 <style scoped>
 .twice {
   color: teal;

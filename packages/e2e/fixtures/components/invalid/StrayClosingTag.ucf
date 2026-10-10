@@ -1,0 +1,12 @@
+<react>
+  export default function StrayClosingTag() {
+    return <p className="stray">Stray closing tag</p>
+  }
+</react>
+</react>
+
+<style scoped>
+.stray {
+  color: silver;
+}
+</style>

@@ -89,13 +89,31 @@ const INVALID_CASES: InvalidCase[] = [
     blocks: ['react'],
   },
   {
+    fixture: 'invalid/BrokenUnknownTags.ucf',
+    errors: [
+      {code: 'unknown-root-tag', line: 1, column: 0},
+      {code: 'unknown-root-tag', line: 9, column: 0},
+      {code: 'unknown-root-tag', line: 16, column: 0},
+      {code: 'text-outside-block', line: 17, column: 2},
+    ],
+    blocks: ['react', 'style'],
+  },
+  {
     fixture: 'invalid/DuplicateReact.ucf',
-    errors: [{code: 'duplicate-target', line: 7, column: 0}],
-    blocks: ['react', 'react', 'style'],
+    errors: [
+      {code: 'duplicate-target', line: 7, column: 0},
+      {code: 'duplicate-target', line: 13, column: 0},
+    ],
+    blocks: ['react', 'react', 'react', 'style'],
   },
   {
     fixture: 'invalid/ReactCloseInString.ucf',
     errors: [{code: 'text-outside-block', line: 3, column: 29}],
+    blocks: ['react', 'style'],
+  },
+  {
+    fixture: 'invalid/StrayClosingTag.ucf',
+    errors: [{code: 'text-outside-block', line: 6, column: 0}],
     blocks: ['react', 'style'],
   },
   {fixture: 'invalid/StylesOnly.ucf', errors: [{code: 'missing-target', line: 1, column: 0}], blocks: ['style', 'style']},
@@ -171,10 +189,20 @@ describe('splitBlocks on invalid fixtures', () => {
     expect(split.blocks.filter((block) => block.type === 'react')).toHaveLength(1);
   });
 
-  it('keeps the first of two <react> blocks as the target', () => {
+  it('keeps the first of three <react> blocks as the target and flags the others', () => {
     const split = splitFixture('invalid/DuplicateReact.ucf');
     expect(split.targets.react).toBe(split.blocks[0]);
-    expect(split.errors[0]!.start).toBe(split.blocks[1]!.start);
+    expect(split.errors.map((error) => error.start)).toEqual([split.blocks[1]!.start, split.blocks[2]!.start]);
+  });
+
+  it('keeps a <react> block that holds the closing tag of an unknown tag left open before it', () => {
+    const split = splitFixture('invalid/BrokenUnknownTags.ucf');
+    expect(split.targets.react?.content).toContain('</div>');
+  });
+
+  it('gives a doubled closing tag the generic advice, not the escape advice', () => {
+    const [error] = splitFixture('invalid/StrayClosingTag.ucf').errors;
+    expect(error!.message).not.toContain('<\\/');
   });
 
   it("tells the author to write '<\\/react>' when a string closes the block", () => {

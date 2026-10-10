@@ -1,0 +1,17 @@
+<div>
+  <p>a tag left open</p>
+<react>
+  export default function BrokenUnknownTags() {
+    return <div className="unknown">Broken unknown tags</div>
+  }
+</react>
+
+<baz x="open
+<style scoped>
+.unknown {
+  color: green;
+}
+</style>
+
+<foo/>
+  stray text after a self-closing tag
