@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 2
 step: 2.6
@@ -46,8 +46,8 @@ Found while planning (Volar 2.4.28 tarballs read in a scratch folder):
 2. **Root code carries its split** (`src/languagePlugin.ts`, `src/types.ts`): `UcfVirtualCode extends VirtualCode
    { split: SplitResult }`; `createRootCode` returns it with the split it already made. Hosts split once; the
    diagnostics service reads it instead of splitting again. Not exported from `.`.
-3. **`multifront` service** (`src/multifrontService.ts`): `createMultifrontService(): LanguageServicePlugin`, name
-   `multifront`, capabilities `{diagnosticProvider: {interFileDependencies: false, workspaceDiagnostics: false}}`.
+3. **`multifront` service** (`src/multifrontService.ts`): `multifrontService: LanguageServicePlugin` (a constant: no
+   options, state comes from `create(context)`), name `multifront`, capabilities `{diagnosticProvider: {interFileDependencies: false, workspaceDiagnostics: false}}`.
    `provideDiagnostics(document)` acts only on languageId `ucf`: it finds the root code
    (`context.decodeEmbeddedDocumentUri(URI.parse(document.uri))`, `context.language.scripts.get(...)`) and returns
    `checkBlocks(root.split)` as LSP diagnostics: `range` from `document.positionAt(start)` to
@@ -55,11 +55,11 @@ Found while planning (Volar 2.4.28 tarballs read in a scratch folder):
    `DiagnosticSeverity.Warning`, `code` the `DiagnosticCode`, `message` as is, `source: 'multifront'`.
 4. **`startServer(): void`** (`src/server.ts`): `createConnection()` (reads `--stdio` from argv), `createServer`,
    `listen()`; `onInitialize(params)` → `server.initialize(params, createSimpleProject([byUri(plugin)]),
-   [createCssService(), createMultifrontService()])`; `onInitialized(server.initialized)`,
+   [createCssService(), multifrontService])`; `onInitialized(server.initialized)`,
    `onShutdown(server.shutdown)`.
-   - `plugin = createUcfLanguagePlugin({compiler})`, `compiler = loadVueCompiler(root)` with `root` the first workspace
-     folder (`params.workspaceFolders[0]`, else `rootUri`); no root or a throw → `undefined` (plain CSS modules
-     only). This follows the 2.5 hand-off "2.6 and 2.9 pass its result as `EditorOptions.compiler`".
+   - `plugin = createUcfLanguagePlugin()`, no Vue compiler: the compiler only feeds `ctx.modules`, which only types
+     `$style` in the `react` code, and no service of this server reads that code. With one, every edit would run a
+     sync Sass compile per scss module for nothing. The 2.5 hand-off "2.6 and 2.9 pass its result" becomes "2.9".
    - `byUri` (private) adapts the string-keyed plugin to `LanguagePlugin<URI>`: `getLanguageId(uri)` and
      `createVirtualCode(uri, languageId, snapshot)` call the plugin's with `fileName(uri)` (`uri.fsPath` for `file:`,
      else `uri.toString()`).
@@ -82,20 +82,27 @@ process. No new infra (milestones README: "Editor: tsserver, LSP, vsix | M2 | no
   (`packages/e2e/node_modules/@multifront/language-tools/bin/multifront-language-server.js`), with `--conditions=source`
   added to `NODE_OPTIONS` only while the child is forked. Then `initialize(workspace URI, {}, {textDocument:
   {diagnostic: {}}, workspace: {diagnostics: {}}})`, so diagnostics are pulled as in VS Code. `LanguageServer` = the
-  test-utils handle plus `stop()` (shutdown, `exit`, kill).
+  test-utils handle plus `stop()` (shutdown, `exit`, then always dispose and kill); a failed `initialize` kills the
+  child too. `NODE_OPTIONS` gets a row in `scripts/lib/env.mjs` (`internal`).
 - **`packages/e2e/editor/server.spec.ts`**, workspace `fixtures/components`, every position found from the fixture
   text:
-  - `<style>` of `Panel.ucf`: completion inside `padding` lists `padding`; hover on `padding` has CSS docs naming it,
-    with its range on that word in the `.ucf` file; definition on `$pad` in `padding: $pad` lands in `Panel.ucf` on
-    the `$pad` of `$pad: 1rem;`.
+  - `<style>` of `Panel.ucf`: completion inside `padding` lists `padding`; hover on `padding` has its markdown CSS docs
+    ("the padding area"), with its range on the declaration `padding: $pad` in the `.ucf` file (the CSS service's
+    hover range is the whole declaration); definition on `$pad` in `padding: $pad` lands in `Panel.ucf` on
+    `$pad: 1rem` (the CSS service's target is the whole declaration).
   - every fixture in `listComponents('invalid')`: the pulled diagnostics with `source: 'multifront'` equal
     `checkBlocks(splitBlocks(source, filename))`, compared as `{code, severity, message, range}` (range from the
     offsets through the opened `TextDocument`), both sorted.
+  - an unsaved buffer (`openUntitledDocument`, an `untitled:` URI) of `invalid/DuplicateReact.ucf` gets the same
+    diagnostics, `duplicate-target` among them.
   - `Card.ucf` (valid) gets no `multifront` diagnostic.
   - the TypeScript cases are tsserver tests (2.9).
-- Each check is confirmed to fail without its behaviour (service not registered, an off-by-one range, CSS service
-  dropped).
-- `virtualCode.spec.ts` and `builtTypes.spec.ts` stay green with `split` on the root code and the new subpath.
+- Each check is confirmed to fail without its behaviour: `multifront` service dropped (18 fail), CSS service dropped
+  (3 fail), diagnostic end off by one (18 fail). Fixtures whose errors are build-time only (compose, preprocessor and
+  CSS / SCSS / React syntax errors) give no `checkBlocks` diagnostic, and the server sends none of ours either.
+- `virtualCode.spec.ts` stays green with `split` on the root code. `fixtures/apps/language-tools-dist/index.ts` also
+  imports `startServer` from `@multifront/language-tools/server`, so `builtTypes.spec.ts` checks the subpath's built
+  types.
 
 ## Docs
 
@@ -124,6 +131,8 @@ process. No new infra (milestones README: "Editor: tsserver, LSP, vsix | M2 | no
 - oxc-parser's native binding in the bundled server is on this milestone's path: an open item in 2.10's Build text, and
   M7 7.13's "no native binary" line depends on it. No todo file (orchestrator).
 - No fuzz test: 2.6 has none (orchestrator).
+- Review: the server passes no Vue compiler (nothing it serves reads the `$style` types); hand-off text changed to
+  "2.9 passes it".
 
 ## Done when
 
