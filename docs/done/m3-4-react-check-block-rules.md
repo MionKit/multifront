@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.4
@@ -33,7 +33,8 @@ file at the exact spot: a syntax error (`react-syntax-error`), and a `with { fra
   `<style lang="scss"> does not compile: <reason>`. Line and column through `createDiagnostic`.
 - **`react-no-default-export`**: M1's check, unchanged. `export {default} from '...'` is already accepted (react.ts:41);
   this step pins it with a fixture.
-- **`framework-in-block`**: an oxc `Visitor` over the program. A `.ucf` import counts with the same rule as
+- **`framework-in-block`**: a walk over the program (`walk` in the new `packages/core/src/ast.ts`, on oxc's
+  `visitorKeys`: the wasm build the editor bundles load has no `Visitor`). A `.ucf` import counts with the same rule as
   `rewriteImportAttributes`: specifier is a string literal or a template literal without expressions, ending in `.ucf`.
   - `ImportDeclaration`, `ExportNamedDeclaration` (with a source), `ExportAllDeclaration`: each attribute whose key
     is `framework` (identifier or string key).
@@ -49,8 +50,13 @@ file at the exact spot: a syntax error (`react-syntax-error`), and a `with { fra
 
 - Hybrid mode: tsserver with our plugin already reports TypeScript's syntax errors inside `<react>` and
   `framework-in-block` on the import. One problem, one error (M2 2.9).
-- One named set beside the service, `TSSERVER_CODES = ['react-syntax-error', 'framework-in-block']`, exported from
-  `@multifront/language-tools` so the editor tests read the same list. `provideDiagnostics` drops those codes.
+- One named set in its own module, `packages/language-tools/src/tsserverCodes.ts`:
+  `TSSERVER_CODES = ['react-syntax-error', 'framework-in-block']`, exported from `@multifront/language-tools` so the
+  editor tests read the same list (its own module, so the main entry does not load `@volar/language-server`).
+  `provideDiagnostics` drops those codes.
+- The TypeScript plugin (`packages/language-tools/src/resolve.ts`, `resolveUcfImport`): inside a `.ucf` block a
+  `framework` key with a non-literal value is `framework-in-block` too. Before, it read as no attribute, so with the
+  server filter the editor showed nothing for it.
 
 ### 4. Fixtures, `packages/e2e/fixtures/components/react/`
 
@@ -78,6 +84,7 @@ Paths from `react/errors/` to the shared components are `../../X.ucf`.
   `DefaultArrow.ucf` (`export default () => ...`), `DefaultMemo.ucf` (`export default memo(function ...)`),
   `DefaultIdentifier.ucf` (`export default DefaultIdentifier`), `AsDefault.ucf` (`export { AsDefault as default }`),
   `DefaultFrom.ucf` (`export { default } from '../../Card.ucf'`). All names unique across `fixtures/components/`.
+- `react/tsconfig.json`: the project tsserver opens these files in (same as `editor/tsconfig.json`).
 
 ## Tests
 
@@ -103,6 +110,8 @@ All run in `pnpm devx test` (core and e2e vitest projects; CI `check` job and th
   plugin, both on `react/errors/AttrInBlock.ucf` and `react/errors/SyntaxError.ucf`. Each `framework-in-block`
   import is reported once, by tsserver, and the language server sends no `framework-in-block`; the syntax error is
   reported by tsserver on its line, and the language server sends no `react-syntax-error`.
+- `packages/e2e/editor/seams.spec.ts`: `resolveUcfImport` on every `.ucf` literal of `AttrInBlock.ucf`: each one with
+  a `framework` key, the non-literal one included, gives `framework-in-block`; the bare one resolves.
 - No change needed, they pick it up: `packages/e2e/build/build-context.spec.ts` (every diagnostic at its real line
   and column), and `packages/core/test/split.fuzz.spec.ts` ("an undamaged file: checkBlocks adds nothing" now covers
   both new codes).
@@ -116,7 +125,8 @@ All run in `pnpm devx test` (core and e2e vitest projects; CI `check` job and th
 - `docs/spec.md` 3.2 (spec.md:80): the `checkBlocks` rule list gains "a `<react>` block that does not parse, a
   `framework` attribute on an import inside `<react>`".
 - `publicdocs/07-errors.md`: a `react-syntax-error` row under "Component File Errors" (fix the syntax error the
-  message names). The `framework-in-block` row already fits.
+  message names). The `framework-in-block` row already fits. `publicdocs/02-component-files.md`, "Block Rules": a
+  line that `<react>` code parses as TSX and its `.ucf` imports carry no `framework` attribute.
 - plan / architecture: none, no structure change.
 
 ## Fuzzing
@@ -129,6 +139,10 @@ the parsers' known edge differences.
 
 - Orchestrator: the language server leaves `react-syntax-error` and `framework-in-block` to tsserver (hybrid mode,
   "one problem, one error"); one named list, its own editor test.
+- Found while building: the TS plugin read a non-literal `framework` value inside a block as no attribute; fixed here
+  (above), pinned by `seams.spec.ts` and `tsserverCodes.spec.ts`.
+- Found while building, unrelated: `rewrite.ts` still uses oxc's `Visitor`, missing from the wasm bundles; filed as a
+  guidelines todo in this PR.
 
 ## Out of scope
 

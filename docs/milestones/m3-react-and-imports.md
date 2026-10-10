@@ -133,11 +133,12 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: the check half of the react row, `packages/core/src/blocks/react.ts`. It parses the block content with oxc-parser (`lang: 'tsx'`) and maps offsets through `contentStart` to `.ucf` line and column.
   - `react-no-default-export` is M1's check (1.4). This step adds the accepted form `export {default} from '...'` and the `default-forms` fixtures that pin every form: `export default function`, `export default class`, `export default <expression>` (arrow, `memo(...)`, an identifier), `export {X as default}`.
-  - `framework-in-block`: any `with { framework }` inside the block (spec 4.1), pointing at the attribute.
+  - `framework-in-block`: any `with { framework }` on a `.ucf` import inside the block (spec 4.1), whatever its value, pointing at the attribute.
   - `react-syntax-error`: the parser's own errors, mapped into the `.ucf` file.
   - Fixtures: `packages/e2e/fixtures/components/react/errors/` `NoDefault.ucf`, `NamedOnly.ucf`, `AttrInBlock.ucf`, `SyntaxError.ucf`; `packages/e2e/fixtures/components/react/default-forms/` one file per accepted form.
-- Deliverable: every host that calls `check` (the Vite plugin now, the language server later) reports these at the exact spot in the `.ucf` file.
+- Deliverable: every host that calls `check` (the Vite plugin now, the language server later) reports these at the exact spot in the `.ucf` file. The language server leaves `react-syntax-error` and `framework-in-block` to tsserver, which reports both inside `.ucf` files (hybrid mode: one problem, one error).
 - Test: `packages/core/test/blocks/react.spec.ts`. Each fixture through `splitBlocks` and the registry's `react.check`: the error files give exactly their code, line and column; every `default-forms` file gives none.
+- Status: done
 
 ### 3.5 `react.build()`: the virtual module, styles and `$style`
 
@@ -305,7 +306,7 @@ Core (`@multifront/core`):
 
 - `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `TargetErrorCode`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
-- The react row of the registry: `react.check(block): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics).
+- The react row of the registry: `react.check(block, split): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 5 (library build, `"use client"`), milestone 7 (language server diagnostics; `TSSERVER_CODES` in `@multifront/language-tools` lists the codes the server leaves to tsserver).
 - `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
 - `SCOPE_HELPER_ID` (`'virtual:multifront/scope-attrs'`) and `scopeHelperCode(dev)`. Milestone 5 bundles it once per library build.
 - The stamping rule: ` data-v-<scopeId>=""` on every host and component element, never on fragments; forwarding on every component, scoped style or not. Milestone 6 mirrors it in Svelte markup.
