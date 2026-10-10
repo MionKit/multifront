@@ -12,18 +12,18 @@
     "type": "react",
     "attrs": {},
     "start": 172,
-    "end": 333,
+    "end": 457,
     "contentStart": 179,
-    "contentEnd": 325,
+    "contentEnd": 449,
     "index": 0
   },
   {
     "type": "svelte",
     "attrs": {},
-    "start": 335,
-    "end": 484,
-    "contentStart": 343,
-    "contentEnd": 475,
+    "start": 459,
+    "end": 608,
+    "contentStart": 467,
+    "contentEnd": 599,
     "index": 0
   },
   {
@@ -32,10 +32,10 @@
       "module": true,
       "lang": "scss"
     },
-    "start": 486,
-    "end": 546,
-    "contentStart": 512,
-    "contentEnd": 538,
+    "start": 610,
+    "end": 670,
+    "contentStart": 636,
+    "contentEnd": 662,
     "index": 0
   }
 ]
