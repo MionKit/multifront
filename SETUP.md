@@ -46,6 +46,8 @@ pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; 
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
 
+Fuzz tests run on a fixed seed. A failure prints the line that replays it; a longer run on another seed: `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/core/test/split.fuzz.spec.ts`.
+
 ## Docs graphics
 
 `pnpm devx docs-images` renders `docs/assets/src/*.html` with Playwright's Chromium. If that browser is not installed, point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
