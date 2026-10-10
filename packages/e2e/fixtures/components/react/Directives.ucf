@@ -1,0 +1,14 @@
+<react>
+  'use client'
+  'use strict';
+
+  export default function Directives() {
+    return <p className={$style.note}>Two directives</p>;
+  }
+</react>
+
+<style module>
+.note {
+  color: olive;
+}
+</style>

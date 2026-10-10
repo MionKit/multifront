@@ -1,0 +1,15 @@
+import "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=0&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=1&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=2&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=3&lang.css";
+import $style from "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=0&module&lang.js";
+import theme from "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=1&module&lang.js";
+import rows from "<fixtures>/components/editor/StyleModuleEdges.ucf?ucf&type=style&index=2&module&lang.js";
+
+  export default function StyleModuleEdges({ label }: { label: string }) {
+    return (
+      <section className={`${$style.card} ${$style.card__body} ${$style['card-title']}`}>
+        <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>
+      </section>
+    )
+  }
