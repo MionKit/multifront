@@ -83,7 +83,7 @@ export interface Diagnostic {
 }
 
 /** The part of @vue/compiler-sfc core calls; hosts pass the one their Vue ships. */
-export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'parse' | 'MagicString'>;
+export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'>;
 
 export interface SourceMap {
   version: 3;

@@ -24,7 +24,8 @@ export {createBuildContext} from './context.ts';
 export {classMapId, styleId} from './ids.ts';
 export {scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
-export {compileStyles} from './styles.ts';
+export {compileStyles, moduleName, stylePreprocessOptions} from './styles.ts';
+export {loadVueCompiler} from './vueCompiler.ts';
 
 /** Every target, in the order a library build emits them. */
 export const TARGETS: readonly Target[] = ['vue', 'react', 'svelte'];
