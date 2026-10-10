@@ -1,0 +1,13 @@
+{
+  "code": "export const ReactCard = await import('../../../components/Card.ucf?framework=react');\n",
+  "imports": [
+    {
+      "kind": "dynamic",
+      "specifier": "../../../components/Card.ucf",
+      "start": 38,
+      "end": 68,
+      "framework": "react"
+    }
+  ],
+  "errors": []
+}

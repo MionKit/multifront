@@ -1,0 +1,13 @@
+{
+  "code": "export const SvelteCard = await import('../../../components/Card.ucf?framework=svelte');\n",
+  "imports": [
+    {
+      "kind": "dynamic",
+      "specifier": "../../../components/Card.ucf",
+      "start": 39,
+      "end": 69,
+      "framework": "svelte"
+    }
+  ],
+  "errors": []
+}

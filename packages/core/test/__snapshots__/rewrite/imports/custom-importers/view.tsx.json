@@ -1,0 +1,12 @@
+{
+  "code": "import Card from '../../../components/Card.ucf';\n\nexport {Card};\n",
+  "imports": [
+    {
+      "kind": "static",
+      "specifier": "../../../components/Card.ucf",
+      "start": 17,
+      "end": 47
+    }
+  ],
+  "errors": []
+}

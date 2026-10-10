@@ -1,0 +1,55 @@
+{
+  "code": "import First from '../../components/Card.ucf?framework=react' with {type: 'component'};\nimport Last from '../../components/Card.ucf?framework=vue' with { type: 'component' };\nimport Middle from '../../components/Card.ucf?framework=svelte' with {mode: 'a', type: 'b',};\nimport Trailing from '../../components/Card.ucf?framework=react';\nimport Quoted from \"../../components/Card.ucf?framework=vue\";\nimport '../../components/Card.ucf?framework=react';\nexport * as All from '../../components/Card.ucf?framework=svelte';\nimport NotUcf from './target.js' with {framework: 'react'};\nimport data from './data.json' with {type: 'json'};\n\nexport {data, First, Last, Middle, NotUcf, Quoted, Trailing};\n",
+  "imports": [
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 18,
+      "end": 45,
+      "framework": "react"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 109,
+      "end": 136,
+      "framework": "vue"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 202,
+      "end": 229,
+      "framework": "svelte"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 302,
+      "end": 329,
+      "framework": "react"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 377,
+      "end": 404,
+      "framework": "vue"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 439,
+      "end": 466,
+      "framework": "react"
+    },
+    {
+      "kind": "reexport",
+      "specifier": "../../components/Card.ucf",
+      "start": 515,
+      "end": 542,
+      "framework": "svelte"
+    }
+  ],
+  "errors": []
+}

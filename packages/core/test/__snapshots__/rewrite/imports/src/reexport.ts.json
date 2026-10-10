@@ -1,0 +1,13 @@
+{
+  "code": "export {default as VueCard} from '../../../components/Card.ucf?framework=vue';\n",
+  "imports": [
+    {
+      "kind": "reexport",
+      "specifier": "../../../components/Card.ucf",
+      "start": 33,
+      "end": 63,
+      "framework": "vue"
+    }
+  ],
+  "errors": []
+}

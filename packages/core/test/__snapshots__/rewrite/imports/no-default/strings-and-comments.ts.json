@@ -1,0 +1,5 @@
+{
+  "code": "// import Card from '../../../components/Card.ucf' with {framework: 'react'};\n/* export * from '../../../components/Card.ucf' with {framework: 'vue'}; */\nexport const example = \"import Card from '../../../components/Card.ucf' with {framework: 'react'}\";\nexport const template = `await import('../../../components/Card.ucf', {with: {framework: 'svelte'}})`;\n",
+  "imports": [],
+  "errors": []
+}
