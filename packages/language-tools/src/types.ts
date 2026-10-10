@@ -1,5 +1,5 @@
 import type {Block, BlockTag, SplitResult, StyleModule, VirtualFile, VueCompiler} from '@multifront/core';
-import type {CodeMapping} from '@volar/language-core';
+import type {CodeMapping, VirtualCode} from '@volar/language-core';
 
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
 export interface EditorBlockKind {
@@ -21,6 +21,11 @@ export interface EditorOptions {
 export interface EditorContext extends EditorOptions {
   split: SplitResult;
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
+}
+
+/** The root code of a `.ucf` file keeps its split, so a host's services never split the file again. */
+export interface UcfVirtualCode extends VirtualCode {
+  split: SplitResult;
 }
 
 export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
