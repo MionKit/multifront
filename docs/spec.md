@@ -194,12 +194,13 @@ So in a one-framework app, a plain `import Card from './Card.ucf'` just works. T
 | Target | Module id | Why |
 | --- | --- | --- |
 | vue | `/abs/Card.ucf` | plugin-vue needs a real file on disk (3.4) |
-| react | `/abs/Card.ucf?target=react&lang.tsx` | plugin-react only picks up `.tsx` ids |
-| svelte | `/abs/Card.ucf?target=svelte&lang.svelte` | plugin-svelte only picks up `.svelte` ids |
+| react | `/abs/Card.ucf.react.tsx` | the path must end in `.tsx`: with plugin-react, Vite parses an id whose path is not JS, like `Card.ucf?…&lang.tsx`, without JSX |
+| svelte | `/abs/Card.ucf.svelte.svelte` | plugin-svelte only picks up ids whose path, before any `?`, ends in `.svelte` |
 | styles | `/abs/Card.ucf?ucf&type=style&index=N&lang.css` | shared by every target |
 | style class maps | `/abs/Card.ucf?ucf&type=style&index=N&module&lang.js` | shared by React and Svelte; Vue uses plugin-vue's own (3.4) |
 
 - Never a `vue` query: plugin-vue treats any id with one as its own sub-request (`Card.vue?vue&type=style`).
+- The react and svelte ids name no file on disk, so Vite does not tie them to `Card.ucf`: `load` adds the `.ucf` file as a watch file, and our `hotUpdate` finds those modules by id when it changes.
 
 ### 4.4 Attributes never reach a runtime
 

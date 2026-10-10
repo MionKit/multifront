@@ -10,7 +10,7 @@ Every root block becomes a normal file that an existing tool already understands
 
 - We write no compilers and no language services.
 - We make those virtual files and pick the tool for each one.
-- The file ending picks the tool: `lang.tsx` goes to plugin-react, `lang.css` to Vite's CSS step.
+- The file ending picks the tool: `Card.ucf.react.tsx` goes to plugin-react, `?…&lang.css` to Vite's CSS step.
 
 ## Where we sit next to Vue
 

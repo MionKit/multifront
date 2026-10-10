@@ -47,12 +47,22 @@ Three unknowns can change the design. Each gets a throwaway spike before its mil
 2. **A `<vue>` block in the editor.** Generate Vue virtual code from the block with `@vue/language-core` and map its offsets back into the `.ucf` file.
 3. **Attributes surviving each compiler.** Check plugin-vue's script compile, the Svelte compiler and Oxc all keep `with { ... }` on imports, so our post rewrite still sees it.
 
+   **Answers** (milestone 3.1, run on Vite 8.2.2, `@vitejs/plugin-react` 6.1.1, `@vitejs/plugin-vue` 6.0.8 with Vue 3.5.42, Svelte 5.57.0 with `@sveltejs/vite-plugin-svelte` 7.3.0, oxc-parser 0.149.0, Node 26.11.1). A recording post plugin read the code each importer reaches post plugins with:
+
+   1. **Every compiler keeps the attribute.** `a.ts` and `b.tsx` (Oxc, plus plugin-react), `C.vue` (`<script setup lang="ts">` and a sibling `<script lang="ts">`), `D.vue` (plain `<script>`) and `E.svelte` (`<script lang="ts">` and `<script module lang="ts">`) keep `with { framework: 'react' }` on a static import, `export … from`, `export * from` and `import()`, in dev (`transformRequest`), dev SSR, a build and an SSR build. No change to spec 4.4, the architecture or M4 / M6: the post rewrite sees every importer kind. In a build, `C.vue`'s script reaches post plugins as `C.vue?vue&type=script&setup=true&lang.ts`, which 3.7's "with or without a query" covers.
+   2. **The rewrite is needed even where Vite seems to cope.** Without it, Vite's import analysis drops the attribute of static imports and re-exports, but keeps `{ with: { framework } }` on `import()` in the dev output, client and SSR: the browser and Node would get it.
+   3. **Check 1 fails: Vite cannot compile `/abs/Card.ucf?target=react&lang.tsx` in dev.** With plugin-react (6.0.0, 6.0.5, 6.1.0, 6.1.1), dev and dev SSR fail with `[PARSE_ERROR] Unexpected JSX expression`. Vite's `getModifiedOxcTransformOptions` (`dist/node/chunks/node.js:4145`) sets `lang: 'js'` for an id that matches plugin-react's `jsxRefreshInclude` (query allowed) while its path is not a JS file. Adding `/\.ucf$/` to plugin-react's `include` changes nothing; builds work. **Decision:** the React id is `/abs/Card.ucf.react.tsx` (spec 4.3), the same name as the editor's virtual script. It gets JSX and Fast Refresh in dev on every plugin-react 6.x, so the peer range starts at 6.0.0. The Svelte id follows for the same reason: plugin-svelte 7.3.0 leaves `/abs/Card.ucf?target=svelte&lang.svelte` uncompiled and compiles `/abs/Card.ucf.svelte.svelte` with its default filter. Cost: these ids name no file on disk, so `load` adds the `.ucf` file as a watch file and `hotUpdate` maps a change to the modules by id.
+   4. **Check 2: the scanner needs a load-only scan plugin.** Our `resolveId` gets `options.scan === true`. Returning `/abs/Card.ucf.react.tsx` during the scan, the scanner reads that path from disk and fails ("Failed to scan for dependencies"); returning it as external, a bare import found only in a `<react>` block is optimized after the first load ("dependency optimized: react-dom/client", a reload). **Decision:** our plugin adds an `optimizeDeps.rolldownOptions.plugins` entry whose `load` serves the `<react>` block as `moduleType: 'tsx'` for `/\.ucf\.react\.tsx$/` (those plugins run before Vite's scan plugins). Then the dep is optimized at startup and nothing is optimized late (3.6, 3.14).
+   5. **Check 3 passes.** oxc-parser node positions are UTF-16 offsets: after an emoji and accents, `<div` starts at 73, its UTF-16 index (UTF-8 byte offset 94). No conversion helper.
+
+   The canary `packages/e2e/build/attributes-survive.spec.ts` keeps guarding answer 1 for `.ts` and `.tsx` with real plugin-react, in dev and SSR.
+
 ## Building on plugin-vue
 
 We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `@multifront/vite`, and our plugin runs before it (`enforce: 'pre'`) so it only ever sees plain SFC code. What we learned reading plugin-vue 6.0.8:
 
 1. **Borrow its compiler.** plugin-vue exposes `api.options.compiler`, filled in its `buildStart`. `getVueCompiler()` reads it, and falls back to core's `loadVueCompiler(root)`, which resolves `vue/compiler-sfc` from the project root the same way plugin-vue does (the editor uses it too). Done and tested.
-2. **The `vue` query is taken.** plugin-vue treats any id with a `vue` query as one of its own sub-requests (`Card.vue?vue&type=style`). Our internal ids use `?target=react` / `?target=svelte` instead (spec 4.3). Users never write a query; they use import attributes.
+2. **The `vue` query is taken.** plugin-vue treats any id with a `vue` query as one of its own sub-requests (`Card.vue?vue&type=style`). Our internal React and Svelte ids carry no query at all (`Card.ucf.react.tsx`, `Card.ucf.svelte.svelte`, spec 4.3). Users never write a query; they use import attributes.
 3. **No virtual `.vue` path.** On a cache miss (a dev server restart, SSR) plugin-vue reads the SFC from disk with `fs.readFileSync`, which fails for a file that does not exist. So the Vue target keeps the real `Card.ucf` path as the module id: we add `/\.ucf$/` to plugin-vue's `include` (its `api.include` setter, from our `configResolved`) and turn the `.ucf` source into SFC code in our pre `transform`. This is the pattern unplugin-vue-markdown uses with `.md` files. A test must cover the restart and SSR cache misses.
 4. **One scope id for all targets.** plugin-vue hashes `sha256(relativePath + (production ? source : ''))`, first 8 hex chars. It also takes `features.componentIdGenerator`, so we set our own generator there and use the same one for React and Svelte. Same `data-v-*` everywhere, by construction.
 
@@ -90,7 +100,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 - `resolveTarget(importer, attribute, options)` in core: the spec 4.1 and 4.2 rules (automatic inside a block, attribute or importer outside), shared by the Vite plugin and the TypeScript plugin.
 - Vite: resolve `.ucf` imports to the per-target ids of spec 4.3; a post plugin moves `with { framework }` into the id and removes it (static, re-export and dynamic imports; a non-literal value is an error).
-- Virtual modules: style CSS, class map, and `Card.ucf?target=react&lang.tsx`.
+- Virtual modules: style CSS, class map, and `Card.ucf.react.tsx`.
 - Scope transform in core (oxc-parser + MagicString): stamp host and component elements, forward on returned roots (several returns, `?:`, `&&`, `memo`, `forwardRef`), rewrite destructured props, warn on fragment roots. The forwarding helper is a virtual module served by the Vite plugin, not a package.
 - Tests: snapshot per JSX shape; a block importing another `.ucf` gets its own framework, and an attribute inside a block is an error; every outside rule and its order; no attribute left in dev, build or SSR output.
 - Exit check: demo app renders the React Card; Fast Refresh keeps state; a style edit only reloads CSS; a parent scoped style reaches a child root.
@@ -112,7 +122,7 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 
 ### 6. Svelte target
 
-- `Card.ucf?target=svelte&lang.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
+- `Card.ucf.svelte.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
 - Editor: `Card.ucf.svelte.ts` through `svelte2tsx`, for `.svelte` importers and the `<svelte>` block's types.
 - Library output: uncompiled `.svelte` files + processed CSS + `.d.ts`.
 
