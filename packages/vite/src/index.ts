@@ -1,3 +1,4 @@
+import {normalizePath} from 'vite';
 import type {Plugin, ResolvedConfig, Rolldown} from 'vite';
 import {
   DiagnosticsError,
@@ -8,7 +9,7 @@ import {
   missingTargetBlockMessage,
   resolveTarget,
 } from '@multifront/core';
-import type {ResolveTargetOptions, Target, VueCompiler} from '@multifront/core';
+import type {Target, VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
 import {describeDiagnostic, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions} from './types.ts';
@@ -20,7 +21,6 @@ export {getVueCompiler} from './vueCompiler.ts';
 
 // After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
 const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
-const VIRTUAL_TARGETS = (['react', 'svelte'] as const).map((target) => [target, `.ucf${TARGET_SUFFIX[target]}`] as const);
 const REACT_ID = /\.ucf\.react\.tsx$/;
 
 function splitId(id: string): {path: string; query: URLSearchParams} {
@@ -29,11 +29,13 @@ function splitId(id: string): {path: string; query: URLSearchParams} {
   return {path: id.slice(0, queryStart), query: new URLSearchParams(id.slice(queryStart + 1))};
 }
 
+function isUrlImporter(importer: string | undefined, root: string): boolean {
+  return importer === undefined || normalizePath(importer) === `${root}/index.html`;
+}
+
 function virtualTarget(path: string): {target: Target; file: string} | undefined {
-  for (const [target, suffix] of VIRTUAL_TARGETS) {
-    if (path.endsWith(suffix)) return {target, file: path.slice(0, -TARGET_SUFFIX[target].length)};
-  }
-  return undefined;
+  const target = (['react', 'svelte'] as const).find((candidate) => path.endsWith(`.ucf${TARGET_SUFFIX[candidate]}`));
+  return target && {target, file: path.slice(0, -TARGET_SUFFIX[target].length)};
 }
 
 export function multifront(options: MultifrontOptions = {}): Plugin[] {
@@ -43,7 +45,6 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       `multifront: framework '${options.framework}' is not one of the enabled frameworks (${frameworks.join(', ')}).`
     );
   }
-  const targetOptions: ResolveTargetOptions = {frameworks, framework: options.framework, importers: options.importers};
   let config: ResolvedConfig | undefined;
   let vueCompiler: VueCompiler | undefined;
   const api = {
@@ -95,8 +96,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const resolved = await this.resolve(path, importer, {...resolveOptions, skipSelf: true});
         if (!resolved || resolved.external) return resolved;
         const file = splitId(resolved.id).path;
+        // A dev URL of the Vue id, which keeps the real path: Vite resolves a URL with no importer, or its root `index.html`.
+        if (config!.command === 'serve' && !query.has('framework') && isUrlImporter(importer, config!.root)) return file;
         const from = importer === undefined ? undefined : importerFromId(importer);
-        const choice = resolveTarget(from, query.get('framework') ?? undefined, targetOptions);
+        // In dev Vite resolves the file `load` watches from the module itself: the real file, not an import.
+        if (from?.block && from.fileName === file && !query.has('framework')) return file;
+        const choice = resolveTarget(from, query.get('framework') ?? undefined, options);
         // The scan never sees the attribute; the real pipeline reports what it cannot place.
         if (scan && ('error' in choice || choice.target !== 'react')) return {id: file, external: true};
         if ('error' in choice) {

@@ -1,7 +1,12 @@
 import {readFile} from 'node:fs/promises';
 import {createBuildContext, splitBlocks} from '@multifront/core';
-import type {BuildContextOptions, SplitResult} from '@multifront/core';
-import type {UcfCache, UcfEntry} from './types.ts';
+import type {BuildContext, BuildContextOptions, SplitResult} from '@multifront/core';
+
+/** One `.ucf` file, split and with its shared kinds run. */
+export interface UcfEntry {
+  split: SplitResult;
+  ctx: BuildContext;
+}
 
 interface Cached {
   source: string;
@@ -10,7 +15,7 @@ interface Cached {
 }
 
 /** Splits once per file content; options are read on the first `loadUcf`, after plugin-vue lent its compiler. */
-export function createUcfCache(contextOptions: () => BuildContextOptions): UcfCache {
+export function createUcfCache(contextOptions: () => BuildContextOptions) {
   const files = new Map<string, Cached>();
 
   async function read(file: string): Promise<Cached> {
@@ -24,10 +29,11 @@ export function createUcfCache(contextOptions: () => BuildContextOptions): UcfCa
   }
 
   return {
-    async splitUcf(file) {
+    // No style compile: for resolveId.
+    async splitUcf(file: string): Promise<SplitResult> {
       return (await read(file)).split;
     },
-    async loadUcf(file) {
+    async loadUcf(file: string): Promise<UcfEntry> {
       const cached = await read(file);
       const {split} = cached;
       cached.entry ??= createBuildContext(split, contextOptions()).then((ctx) => ({split, ctx}));
