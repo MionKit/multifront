@@ -31,7 +31,7 @@ Facts from a throwaway probe (VS Code 1.141.0 tarball, the `.vsix` from `main` u
 - **Display: the harness starts its own `Xvfb -displayfd` on Linux with no `DISPLAY`**, so `pnpm devx test` and `check` run on headless hosts and in CI with no wrapper. Missing Xvfb fails with "install xvfb".
 - **Development extension = the unzipped `.vsix`** from `pnpm devx vsix` run in a temp repo copy, as `bundle.spec.ts` does: it tests what ships and never races `vsix.spec.ts` over `packages/vscode/dist`.
 
-- **Found while building, fixed here (own commits):** the unzip lowercased every entry name (vsce's `readZip`), so VS Code found no `*.tmLanguage.json` grammar; it now unzips with vsce's `yauzl`, names as packed. VS Code's TypeScript extension activates on JS and TS files only, so a lone `.ucf` file got no tsserver features: `activate` now activates `vscode.typescript-language-features` first (the exit test opens `Card.ucf` first, and 4 checks fail without it).
+- **Found while building, fixed here (own commits):** the unzip lowercased every entry name (vsce's `readZip`), so VS Code found no `*.tmLanguage.json` grammar; it now unzips with jszip (brought by `@vscode/test-electron`), names as packed. VS Code's TypeScript extension activates on JS and TS files only, so a lone `.ucf` file got no tsserver features: `activate` now activates `vscode.typescript-language-features` first (the exit test opens `Card.ucf` first, and 4 checks fail without it). It does so only when that extension is there: a second VS Code run, `withoutTypescript.cjs` with `--disable-extension vscode.typescript-language-features` (`runInVsCode`'s `args`), checks the extension still activates, forks its server, and answers the `Panel.ucf` hover and `duplicate-target`.
 
 ### Changes
 
