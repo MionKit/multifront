@@ -1,6 +1,6 @@
 import {basename, dirname, isAbsolute, relative, sep} from 'node:path';
-import {isTarget, resolveTarget} from '@multifront/core';
-import type {Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
+import {isTarget, resolveTarget, splitBlocks} from '@multifront/core';
+import type {Importer, ResolveTargetOptions, SplitResult, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
@@ -55,6 +55,12 @@ function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
   };
 }
 
+// No open buffer (a `tsc` host, or tsserver before the file is synced): the file as the host reads it.
+function readSplit(host: ts.ModuleResolutionHost, fileName: string): SplitResult | undefined {
+  const source = host.readFile(fileName);
+  return source === undefined ? undefined : splitBlocks(source, fileName);
+}
+
 /** The framework of one `.ucf` import (spec 4.1, 4.2), and the file TypeScript reads for it. */
 export function resolveUcfImport(
   ts: TypeScript,
@@ -72,7 +78,7 @@ export function resolveUcfImport(
   const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, ucfHost(options.host));
   if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule, target};
   const fileName = resolvedModule.resolvedFileName.slice(0, -UCF_DECLARATION.length) + '.ucf';
-  const split = options.getSplit(fileName);
+  const split = options.getSplit(fileName) ?? readSplit(options.host, fileName);
   let error: UcfResolution['error'];
   if (split && !split.targets[target]) {
     const message = `${importPath(containingFile, fileName)} has no <${target}> block; ${basename(containingFile)} imports it as ${target}`;

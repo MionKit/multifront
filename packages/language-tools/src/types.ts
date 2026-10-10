@@ -56,7 +56,7 @@ export type TypeScript = Omit<typeof ts, 'default'>;
 export interface UcfImportOptions extends ResolveTargetOptions {
   compilerOptions: ts.CompilerOptions;
   host: ts.ModuleResolutionHost;
-  getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one
+  getSplit(fileName: string): SplitResult | undefined; // the open buffer when there is one; else the file is read through `host`
 }
 
 /** Plus the error the plugin reports at the import. */
