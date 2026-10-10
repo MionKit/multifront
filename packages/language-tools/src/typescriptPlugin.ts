@@ -41,7 +41,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
     };
     errors.push({diagnostic, node: literal.parent});
   };
-  const targets = new Map<string, Target>(); // specifier → the first framework it was imported as
+  const targets = new Map<string, Target>();
   for (const literal of ucfLiterals(ts, sourceFile)) {
     const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options);
     if (error) report(literal, error.code, error.message);
@@ -60,7 +60,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   return errors;
 }
 
-/** Without `@vue/compiler-sfc` in the project (a React-only app), `$style` reads plain CSS modules only. */
+/** `@vue/compiler-sfc` is optional: a React-only app has none. */
 function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefined {
   try {
     return loadVueCompiler(info.project.getCurrentDirectory());

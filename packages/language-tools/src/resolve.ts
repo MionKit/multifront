@@ -41,7 +41,7 @@ function frameworkAttribute(ts: TypeScript, literal: ts.StringLiteralLike): stri
   return value && ts.isStringLiteralLike(value) ? value.text : undefined;
 }
 
-/** `fileName` as the importer would write it: relative, with `./` or `../`. */
+/** `fileName` as the importer would write it. */
 function importPath(containingFile: string, fileName: string): string {
   const path = relative(dirname(containingFile), fileName).split(sep).join('/');
   return isAbsolute(path) || /^\.\.?\//.test(path) ? path : `./${path}`;
