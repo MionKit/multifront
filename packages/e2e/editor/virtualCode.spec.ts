@@ -1,6 +1,6 @@
 import {BLOCK_KINDS, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Block} from '@multifront/core';
-import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS} from '@multifront/language-tools';
+import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript} from '@multifront/language-tools';
 import {createLanguage} from '@volar/language-core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import ts from 'typescript';
@@ -9,7 +9,8 @@ import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
-const plugin = createUcfLanguagePlugin({compiler: loadVueCompiler(FIXTURES_DIR)});
+const compiler = loadVueCompiler(FIXTURES_DIR);
+const plugin = createUcfLanguagePlugin({compiler});
 // Volar's own registry: it picks the language, creates the codes, keeps them by id.
 const language = createLanguage([plugin], new Map(), () => {});
 const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs'), ...listComponents('editor')];
@@ -24,7 +25,8 @@ function load(name: string) {
   const {filename, source} = readComponent(name);
   const script = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!;
   const {root, embeddedCodes} = script.generated!;
-  return {script, source, split: splitBlocks(source, filename), root, byId: embeddedCodes, embedded: root.embeddedCodes ?? []};
+  const split = splitBlocks(source, filename);
+  return {filename, script, source, split, root, byId: embeddedCodes, embedded: root.embeddedCodes ?? []};
 }
 
 // Expected codes: css / scss styles, then the first <react>.
@@ -75,7 +77,7 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
   });
 
   describe.each(NAMES)('%s', (name) => {
-    const {script, source, split, root, byId, embedded} = load(name);
+    const {filename, script, source, split, root, byId, embedded} = load(name);
 
     it('has a ucf root code over the whole source', () => {
       expect(script.languageId).toBe('ucf');
@@ -135,6 +137,15 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
       expect(script).toMatchObject({extension: '.tsx', scriptKind: ts.ScriptKind.TSX});
       if (react) expect(script.code).toBe(react);
       else expect([textOf(script.code), script.code.mappings]).toEqual(['export {};\n', []]);
+    });
+
+    // M5 emits `.d.ts` files with getTypesScript: they must be what the editor shows.
+    it('getTypesScript gives the react code and its mappings', () => {
+      const react = byId.get('react');
+      const types = getTypesScript(filename, source, 'react', {compiler});
+      expect(types && {code: types.code, mappings: types.mappings}).toEqual(
+        react && {code: textOf(react), mappings: react.mappings}
+      );
     });
 
     it('matches the code snapshots', async () => {

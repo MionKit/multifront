@@ -1,0 +1,9 @@
+<react>
+  export default function Note() {
+    return <p className="note" />
+  }
+</react>
+
+<style>
+.note { color: red; ; : }
+</style>
