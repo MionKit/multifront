@@ -70,6 +70,7 @@ export type DiagnosticCode =
   | 'unknown-style-lang'
   | 'duplicate-style-module'
   | 'style-compile-error'
+  | 'missing-target-block'
   | TargetErrorCode;
 
 /** The errors `resolveTarget` can return. */
