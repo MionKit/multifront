@@ -7,7 +7,7 @@ const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 // An unreadable module (a style mid-edit) must not turn every `$style.x` red; its own service reports the error.
 const LOOSE_MODULE = '{readonly [name: string]: string}';
 
-// Appends `declare const $style: {readonly card: string};` after the block, one line per module.
+// The block, then `declare const $style: {readonly card: string};` per module.
 function types(block: Block, ctx: EditorContext): EditorFile {
   const mappings: CodeMapping[] = [contentMapping(block)];
   let code = block.content;
@@ -21,7 +21,7 @@ function types(block: Block, ctx: EditorContext): EditorFile {
   return {ext: '.tsx', code, map: undefined, mappings};
 }
 
-// Each written key jumps to its name in the style block: navigation only, the rest is ours.
+// Each written key jumps to its name in the style block; the rest is ours.
 function moduleType(classes: StyleClass[], start: number, mappings: CodeMapping[]): string {
   let text = '{';
   for (const [i, {name, offset}] of classes.entries()) {

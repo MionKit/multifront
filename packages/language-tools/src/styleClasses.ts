@@ -19,7 +19,7 @@ const IMPORT_ALIAS = /^([\w-]+)(?:\s+as\s+([\w-]+))?/;
 // Only a name CSS needs no escape for is written in the block as it reads.
 const PLAIN_NAME = /^-?[_a-zA-Z][\w-]*$/;
 
-/** The keys the build's CSS module exports, found synchronously; undefined when the block cannot be read. */
+/** The keys the build's CSS module exports, found synchronously. */
 export function readStyleClasses(block: Block, ctx: EditorContext): StyleClass[] | undefined {
   const css = plainCss(block, ctx);
   if (css === undefined) return undefined;
@@ -39,7 +39,7 @@ export function readStyleClasses(block: Block, ctx: EditorContext): StyleClass[]
   });
 }
 
-// The block as plain CSS, preprocessed the way the build does; the sync compile refuses `modules`, so none here.
+// Preprocessed as the build does; the sync compile refuses `modules`, so none here.
 function plainCss(block: Block, {split, compiler}: EditorContext): string | undefined {
   const preprocess = stylePreprocessOptions(block);
   if (!compiler) return preprocess.preprocessLang ? undefined : block.content;

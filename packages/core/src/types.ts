@@ -82,7 +82,7 @@ export interface Diagnostic {
   column: number; // 0-based column of start (the Rollup / Vite `loc` convention)
 }
 
-/** The part of @vue/compiler-sfc core calls; hosts pass the one their Vue ships. */
+/** The @vue/compiler-sfc parts multifront calls; hosts pass the one their Vue ships. */
 export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'>;
 
 export interface SourceMap {

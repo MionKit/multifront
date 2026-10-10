@@ -27,7 +27,7 @@ export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
   classes: StyleClass[] | undefined; // undefined: the block could not be read
 }
 
-/** One key the build's CSS module exports: a class, a `@keyframes` name or a `@value` name. */
+/** One key the build's CSS module exports: a class, `@keyframes`, `@value` or `:export` name. */
 export interface StyleClass {
   name: string;
   offset?: number; // offset of the name in the .ucf file (`card` in `.card`), when written there
