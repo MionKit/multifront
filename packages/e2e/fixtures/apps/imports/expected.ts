@@ -1,16 +1,17 @@
-import type {DiagnosticCode, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
+import type {ResolveTargetOptions, Target, TargetErrorCode, TargetRule} from '@multifront/core';
 
 /** One `.ucf` import of this app and what it must resolve to, in the build and in the editor alike. */
-export type ExpectedImport = {
+type ExpectedImport = {
   file: string; // from this folder, '/' separators
   specifier: string;
   line: number; // 1-based, in the whole file
   options: ResolveTargetOptions; // the plugin entry of the nearest tsconfig.json
-} & ({expect: Target; rule: TargetRule} | {expect: DiagnosticCode});
+} & ({expect: Target; rule: TargetRule} | {expect: TargetErrorCode});
 
 const CARD = '../../../components/Card.ucf';
 const BADGE = '../../../components/Badge.ucf';
 const DEFAULT_REACT: ResolveTargetOptions = {framework: 'react'};
+const NO_DEFAULT: ResolveTargetOptions = {importers: {'.mts': 'vue'}};
 const CUSTOM: ResolveTargetOptions = {importers: {'.ts': 'svelte', '.tsx': 'vue'}};
 
 export const EXPECTED_IMPORTS: ExpectedImport[] = [
@@ -33,7 +34,11 @@ export const EXPECTED_IMPORTS: ExpectedImport[] = [
   },
   {file: 'src/Showcase.ucf', specifier: CARD, line: 2, options: DEFAULT_REACT, expect: 'react', rule: 'block'},
   {file: 'src/BlockAttribute.ucf', specifier: BADGE, line: 2, options: DEFAULT_REACT, expect: 'framework-in-block'},
-  {file: 'no-default/bare.ts', specifier: CARD, line: 1, options: {}, expect: 'no-target'},
+  // The block's own framework is still an attribute: an error too.
+  {file: 'src/BlockAttribute.ucf', specifier: CARD, line: 3, options: DEFAULT_REACT, expect: 'framework-in-block'},
+  {file: 'src/Widget.jsx', specifier: CARD, line: 1, options: DEFAULT_REACT, expect: 'react', rule: 'importer'},
+  {file: 'src/Gallery.svelte', specifier: CARD, line: 2, options: DEFAULT_REACT, expect: 'svelte', rule: 'importer'},
+  {file: 'no-default/bare.ts', specifier: CARD, line: 1, options: NO_DEFAULT, expect: 'no-target'},
   {file: 'custom-importers/widget.ts', specifier: CARD, line: 1, options: CUSTOM, expect: 'svelte', rule: 'importer'},
   {file: 'custom-importers/view.tsx', specifier: CARD, line: 1, options: CUSTOM, expect: 'vue', rule: 'importer'},
 ];
