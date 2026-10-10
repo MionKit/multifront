@@ -1,11 +1,18 @@
 // Milestone 2 QA: 2.8's resolver as a public function, the way M7's mf-tsc calls it: no open buffers.
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {splitBlocks} from '@multifront/core';
+import {rewriteImportAttributes, splitBlocks} from '@multifront/core';
 import {resolveUcfImport} from '@multifront/language-tools';
+import type {UcfImportOptions} from '@multifront/language-tools';
 import ts from 'typescript';
 import {describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, componentPath, readComponent} from '../fixtures/index.ts';
+
+const OPTIONS: UcfImportOptions = {
+  compilerOptions: {module: ts.ModuleKind.Preserve, moduleResolution: ts.ModuleResolutionKind.Bundler},
+  host: ts.sys,
+  getSplit: () => undefined,
+};
 
 describe('resolveUcfImport with no open buffer', () => {
   const {filename, source} = readComponent('editor/ImportErrors.ucf');
@@ -18,11 +25,7 @@ describe('resolveUcfImport with no open buffer', () => {
       .filter(ts.isImportDeclaration)
       .map(({moduleSpecifier}) => moduleSpecifier)
       .find((node): node is ts.StringLiteral => ts.isStringLiteral(node) && node.text === specifier)!;
-    return resolveUcfImport(ts, literal, filename, {
-      compilerOptions: {module: ts.ModuleKind.Preserve, moduleResolution: ts.ModuleResolutionKind.Bundler},
-      host: ts.sys,
-      getSplit: () => undefined,
-    });
+    return resolveUcfImport(ts, literal, filename, OPTIONS, sourceFile);
   }
 
   it('splits the imported file itself: a file without the block is missing-target-block', () => {
@@ -54,11 +57,7 @@ describe('resolveUcfImport on the attributes of a <react> block', () => {
 
   it('every import with a framework key is framework-in-block, a non-literal value too; the bare one resolves', () => {
     const codes = literals.map((literal) => {
-      const resolution = resolveUcfImport(ts, literal, filename, {
-        compilerOptions: {module: ts.ModuleKind.Preserve, moduleResolution: ts.ModuleResolutionKind.Bundler},
-        host: ts.sys,
-        getSplit: () => undefined,
-      });
+      const resolution = resolveUcfImport(ts, literal, filename, OPTIONS, sourceFile);
       return [literal.getText(sourceFile), resolution.error?.code];
     });
     expect(codes).toEqual([
@@ -79,20 +78,21 @@ describe('resolveUcfImport on the attributes of a <react> block', () => {
 
 describe('resolveUcfImport on a non-literal framework attribute outside a block', () => {
   const filename = join(FIXTURES_DIR, 'apps', 'imports', 'no-default', 'non-literal.ts');
-  const sourceFile = ts.createSourceFile(filename, readFileSync(filename, 'utf8'), ts.ScriptTarget.Latest, true);
+  const source = readFileSync(filename, 'utf8');
+  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true);
 
-  it('reads as no attribute: a .ts importer with no default framework is no-target', () => {
+  it("is the build's rewrite error, at its span, and the import stays unresolved", () => {
     let literal: ts.StringLiteralLike | undefined;
     const visit = (node: ts.Node): void => {
       if (ts.isStringLiteralLike(node) && node.text.endsWith('.ucf')) literal = node;
       ts.forEachChild(node, visit);
     };
     visit(sourceFile);
-    const resolution = resolveUcfImport(ts, literal!, filename, {
-      compilerOptions: {module: ts.ModuleKind.Preserve, moduleResolution: ts.ModuleResolutionKind.Bundler},
-      host: ts.sys,
-      getSplit: () => undefined,
-    });
-    expect(resolution.error?.code).toBe('no-target');
+    const resolution = resolveUcfImport(ts, literal!, filename, OPTIONS, sourceFile);
+    const [error] = rewriteImportAttributes(source, filename).errors;
+    expect(error?.code).toBe('framework-attribute-not-literal');
+    const {code, message, start, end} = error!;
+    expect(resolution.resolvedModule).toBeUndefined();
+    expect(resolution.error).toEqual({code, message, start, end});
   });
 });

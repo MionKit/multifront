@@ -26,13 +26,24 @@ interface ImportError {
   node: ts.Node; // the import statement or `import()` call: TypeScript's own errors there are the same problem
 }
 
+interface ReportOptions {
+  warning: boolean;
+  start: number; // the specifier by default
+  end: number;
+}
+
 function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ImportError[] {
   const errors: ImportError[] = [];
-  const report = (literal: ts.StringLiteralLike, code: DiagnosticCode, message: string, warning = false): void => {
+  const report = (
+    literal: ts.StringLiteralLike,
+    code: DiagnosticCode,
+    message: string,
+    {warning = false, start = literal.getStart(sourceFile), end = literal.end}: Partial<ReportOptions> = {}
+  ): void => {
     const diagnostic: ts.Diagnostic = {
       file: sourceFile,
-      start: literal.getStart(sourceFile),
-      length: literal.getWidth(sourceFile),
+      start,
+      length: end - start,
       category: warning ? ts.DiagnosticCategory.Warning : ts.DiagnosticCategory.Error,
       // Our string code, as the language server reports it; tsserver passes it on as is.
       code: code as unknown as number,
@@ -43,8 +54,8 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   };
   const targets = new Map<string, Target>();
   for (const literal of ucfLiterals(ts, sourceFile)) {
-    const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options);
-    if (error) report(literal, error.code, error.message);
+    const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options, sourceFile);
+    if (error) report(literal, error.code, error.message, {start: error.start, end: error.end});
     if (!target) continue;
     const first = targets.get(literal.text);
     if (!first) targets.set(literal.text, target);
@@ -54,7 +65,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
         `${literal.text} is imported as ${first} and as ${target} in this file; TypeScript keeps one resolution per ` +
         `specifier, so every import of it here gets the last one's types. Import each framework from its own small ` +
         `re-export file`;
-      report(literal, 'mixed-frameworks', message, true);
+      report(literal, 'mixed-frameworks', message, {warning: true});
     }
   }
   return errors;
@@ -129,7 +140,7 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
         const options = importOptions(compilerOptions);
         let next = 0;
         return literals.map((literal) =>
-          isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options) : resolved[next++]!
+          isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
         );
       };
     },

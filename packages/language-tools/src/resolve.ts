@@ -1,6 +1,13 @@
 import {dirname} from 'node:path';
-import {importPath, isTarget, missingTargetBlockMessage, resolveTarget, splitBlocks} from '@multifront/core';
-import type {Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
+import {
+  importPath,
+  isTarget,
+  missingTargetBlockMessage,
+  resolveTarget,
+  rewriteImportAttributes,
+  splitBlocks,
+} from '@multifront/core';
+import type {Diagnostic, Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
@@ -41,6 +48,27 @@ function frameworkValue(ts: TypeScript, literal: ts.StringLiteralLike): ts.Expre
   return value;
 }
 
+// A new SourceFile per edit: one parse per file version.
+const rewriteErrors = new WeakMap<ts.SourceFile, Diagnostic[]>();
+
+/** The build's `framework-attribute-not-literal` errors (spec 4.4); block imports never go through the rewrite. */
+function attributeErrors(sourceFile: ts.SourceFile): Diagnostic[] {
+  if (sourceFile.fileName.endsWith('.ucf')) return [];
+  let errors = rewriteErrors.get(sourceFile);
+  if (!errors) {
+    errors = rewriteImportAttributes(sourceFile.text, sourceFile.fileName).errors;
+    rewriteErrors.set(sourceFile, errors);
+  }
+  return errors;
+}
+
+// Only `import()` options can hold one; plain `end` fields, since no position helper works during resolution.
+function attributeError(literal: ts.StringLiteralLike, sourceFile: ts.SourceFile): Diagnostic | undefined {
+  const call = literal.parent as ts.Node | undefined;
+  if (!call) return undefined;
+  return attributeErrors(sourceFile).find(({start, end}) => literal.end <= start && end <= call.end);
+}
+
 function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
   return {
     ...host,
@@ -54,8 +82,15 @@ export function resolveUcfImport(
   ts: TypeScript,
   literal: ts.StringLiteralLike,
   containingFile: string,
-  options: UcfImportOptions
+  options: UcfImportOptions,
+  sourceFile: ts.SourceFile // the importer as TypeScript parsed it; the build's rewrite reads its text
 ): UcfResolution {
+  // The build fails this import, so it stays unresolved; a file that does not parse has none.
+  const notLiteral = attributeError(literal, sourceFile);
+  if (notLiteral) {
+    const {code, message, start, end} = notLiteral;
+    return {resolvedModule: undefined, error: {code, message, start, end}};
+  }
   // In tsserver a `.ucf` file's own script is its main target's block.
   const importer: Importer = {fileName: containingFile};
   if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
