@@ -1,8 +1,6 @@
 import {spawnSync} from 'node:child_process';
 import type {SpawnSyncReturns} from 'node:child_process';
-import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
-import {createRequire} from 'node:module';
-import {tmpdir} from 'node:os';
+import {mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {BLOCK_KINDS} from '@multifront/core';
 import {generateGrammar} from 'multifront-vscode/grammar';
@@ -10,15 +8,9 @@ import type {GrammarFile} from 'multifront-vscode/grammar';
 import {afterEach, beforeAll, describe, expect, it} from 'vitest';
 import {componentPath} from '../fixtures/index.ts';
 import {tokenizeUcf} from './lib/tokenize.ts';
+import {EXTENSION_DIR, readZip, REPO_ROOT, tempRepo} from './lib/vsix.ts';
 
-const REPO_ROOT = join(import.meta.dirname, '..', '..', '..');
-const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
-const VSCE = join(REPO_ROOT, 'node_modules', '@vscode', 'vsce', 'vsce');
-
-// Untyped; keys every entry by its lowercased path.
-const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js') as {
-  readZip: (path: string, filter: (name: string) => boolean) => Promise<Map<string, Buffer>>;
-};
+const PACK = 'node_modules/multifront-typescript-plugin-pack';
 
 type GrammarContribution = Pick<GrammarFile, 'scopeName' | 'path' | 'injectTo'> & {
   language?: string;
@@ -27,9 +19,12 @@ type GrammarContribution = Pick<GrammarFile, 'scopeName' | 'path' | 'injectTo'> 
 
 interface Manifest {
   version: string;
+  main: string;
+  activationEvents: string[];
   contributes: {
     languages: {id: string; extensions: string[]; configuration: string; icon: {light: string; dark: string}}[];
     grammars: GrammarContribution[];
+    typescriptServerPlugins: {name: string; enableForWorkspaceTypeScriptVersions: boolean; languages: string[]}[];
   };
 }
 
@@ -72,7 +67,6 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
   const generated = generateGrammar();
   const vsixPath = join(EXTENSION_DIR, `multifront-vscode-${version}.vsix`);
   let output: string;
-  let listed: string[];
   let packed: Map<string, Buffer>;
 
   const packedJson = <Value>(path: string): Value => {
@@ -82,15 +76,12 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
   };
 
   beforeAll(async () => {
-    // Gitignored leftovers: an old .vsix must not pass as new, a removed grammar must not be packed.
+    // Gitignored leftovers: an old .vsix must not pass as new, a removed grammar or file must not be packed.
     rmSync(vsixPath, {force: true});
-    mkdirSync(join(EXTENSION_DIR, 'dist', 'syntaxes'), {recursive: true});
+    for (const dir of ['dist/syntaxes', PACK]) mkdirSync(join(EXTENSION_DIR, dir), {recursive: true});
     writeFileSync(join(EXTENSION_DIR, 'dist', 'syntaxes', 'source.ucf.removed.tmLanguage.json'), '{}');
+    writeFileSync(join(EXTENSION_DIR, PACK, 'removed.js'), '');
     output = succeed(devx(REPO_ROOT, 'vsix'), REPO_ROOT);
-    listed = succeed([VSCE, 'ls', '--no-dependencies'], EXTENSION_DIR)
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
     packed = await readZip(vsixPath, () => true);
   }, 120_000);
 
@@ -98,7 +89,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(output).not.toMatch(/WARNING|::warning::/);
   });
 
-  it('packs exactly the manifest, language files, generated grammars and licenses, as vsce ls lists them', () => {
+  it('packs exactly the manifest, language files, generated grammars, bundles, plugin pack and licenses', () => {
     const vendored = Object.keys(readJson<Record<string, unknown>>(join(EXTENSION_DIR, 'syntaxes', 'vendor', 'sources.json')));
     expect(vendored.length).toBeGreaterThan(0);
     const [language] = manifest.contributes.languages;
@@ -109,8 +100,13 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
       'syntaxes/vendor/sources.json',
       ...vendored.map((name) => `syntaxes/vendor/${name}/LICENSE`),
       ...generated.map(({path}) => `dist/syntaxes/${path}`),
+      'dist/extension.cjs',
+      'dist/server.cjs',
+      'dist/typescript-plugin.cjs',
+      'dist/parser.wasm32-wasi.wasm',
+      `${PACK}/index.js`,
+      `${PACK}/package.json`,
     ];
-    expect(new Set(listed)).toEqual(new Set(expected));
     const inZip = [...packed.keys()].filter((name) => name.startsWith('extension/'));
     expect(new Set(inZip)).toEqual(new Set(expected.map(zipPath)));
   });
@@ -129,6 +125,17 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(packedManifest.contributes.languages[0]).toMatchObject({id: 'ucf', extensions: ['.ucf']});
     expect(packedManifest.version).toBe(version);
     expect(packedJson(packedManifest.contributes.languages[0]!.configuration)).toHaveProperty('comments.blockComment');
+  });
+
+  it('starts the server from the bundle on .ucf files, and has tsserver load the plugin pack for them', () => {
+    const packedManifest = packedJson<Manifest>('package.json');
+    expect(packedManifest.main).toBe('./dist/extension.cjs');
+    expect(packedManifest.activationEvents).toEqual(['onLanguage:ucf']);
+    // tsserver finds a plugin only as `<extension>/node_modules/<name>`; `languages` sends .ucf files to it.
+    expect(packedManifest.contributes.typescriptServerPlugins).toEqual([
+      {name: 'multifront-typescript-plugin-pack', enableForWorkspaceTypeScriptVersions: true, languages: ['ucf']},
+    ]);
+    expect(packed.get(zipPath(`${PACK}/index.js`))!.toString('utf8')).toContain("require('../../dist/typescript-plugin.cjs')");
   });
 
   it('Card.ucf gets the same scopes from the packed grammar files as from generateGrammar()', async () => {
@@ -153,21 +160,12 @@ describe('pnpm devx vsix takes the version from version.json', () => {
   });
 
   function repoWithVersion(versionJson: string): string {
-    const root = mkdtempSync(join(tmpdir(), 'vsix-'));
+    const root = tempRepo(versionJson);
     temps.push(root);
-    cpSync(join(REPO_ROOT, 'scripts'), join(root, 'scripts'), {recursive: true});
-    const generatedHere = new Set(['dist', 'LICENSE'].map((name) => join(EXTENSION_DIR, name)));
-    cpSync(EXTENSION_DIR, join(root, 'packages', 'vscode'), {
-      recursive: true,
-      filter: (path) => !generatedHere.has(path) && !path.endsWith('.vsix'),
-    });
-    symlinkSync(join(REPO_ROOT, 'node_modules'), join(root, 'node_modules'), 'junction');
-    cpSync(join(REPO_ROOT, 'LICENSE'), join(root, 'LICENSE'));
-    writeFileSync(join(root, 'version.json'), versionJson);
     return root;
   }
 
-  it('packs the version into the .vsix manifest only, never into package.json', async () => {
+  it('packs the version into the .vsix manifest only, never into package.json', {timeout: 120_000}, async () => {
     const root = repoWithVersion('{"version": "1.2.3"}');
     succeed(devx(root, 'vsix'), root);
     const extension = join(root, 'packages', 'vscode');

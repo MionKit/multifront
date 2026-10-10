@@ -36,3 +36,8 @@ loglevel: warn
 # ── Strict peers ─────────────────────────────────────────
 strictPeerDependencies: true
 autoInstallPeers: false
+peerDependencyRules:
+  # oxc's wasm binding pins emnapi 2.0.0-alpha.3 and runs only on it; the runtime's range starts at alpha.4.
+  allowedVersions:
+    '@napi-rs/wasm-runtime>@emnapi/core': 2.0.0-alpha.3
+    '@napi-rs/wasm-runtime>@emnapi/runtime': 2.0.0-alpha.3
