@@ -1,12 +1,12 @@
 import {dirname} from 'node:path';
-import {locate as lineAndColumn, rewriteImportAttributes} from '@multifront/core';
+import {rewriteImportAttributes} from '@multifront/core';
 import type {Diagnostic, TargetRule} from '@multifront/core';
 import ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {APP_DIR, CARD, edit, onLine, PLUGIN, readApp} from './lib/cases.ts';
-import {locate, open, startTsserver} from './lib/tsserver.ts';
-import type {TsDefinitions, TsLocation, Tsserver} from './lib/tsserver.ts';
+import {locate, open, startTsserver, tsLocation} from './lib/tsserver.ts';
+import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
 // tsserver serves no .vue or .svelte importer before M4 and M6; mixed.ts has its own cases in tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !/\.(vue|svelte)$/.test(row.file) && row.file !== 'src/mixed.ts');
@@ -18,13 +18,6 @@ const RULE_REASON: Record<TargetRule, string> = {
   default: 'the default framework',
 };
 const NON_LITERAL = readApp('no-default/non-literal.ts');
-
-type Component = ReturnType<typeof readApp>;
-
-function tsLocation(source: string, offset: number): TsLocation {
-  const {line, column} = lineAndColumn(source, offset);
-  return {line, offset: column + 1};
-}
 
 // The build's one error for the file, as tsserver must report it.
 function rewriteError({filename, source}: Component) {
@@ -85,6 +78,20 @@ describe('the TypeScript plugin on every row of the imports app, as the build re
     try {
       const diagnostics = onLine(await server.diagnostics(NON_LITERAL.filename), error.line);
       expect(diagnostics).toMatchObject([{code: 'framework-attribute-not-literal', category: 'error', ...error.expected}]);
+    } finally {
+      await revert();
+    }
+  });
+
+  it('a file that does not parse gets no rewrite error: the import reads as it did, no-target here', async () => {
+    const last = NON_LITERAL.source.trimEnd().split('\n').at(-1)!;
+    const edited = {...NON_LITERAL, source: NON_LITERAL.source.replace(last, `${last}\nconst = ;`)};
+    expect(rewriteImportAttributes(edited.source, edited.filename).errors).toEqual([]);
+    const revert = await edit(server, NON_LITERAL, last, `${last}\nconst = ;`);
+    try {
+      const at = locate(NON_LITERAL.source, "'../../../components/Card.ucf'");
+      const diagnostics = onLine(await server.diagnostics(NON_LITERAL.filename), at.line);
+      expect(diagnostics).toMatchObject([{code: 'no-target', source: 'multifront', category: 'error', start: at}]);
     } finally {
       await revert();
     }
