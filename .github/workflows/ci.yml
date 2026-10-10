@@ -31,6 +31,11 @@ jobs:
         run: pnpm devx lint
       - name: Agent docs
         run: pnpm devx agent-docs
+      # The VS Code build the editor exit test downloads; its version is pinned in that file.
+      - uses: actions/cache@v5
+        with:
+          path: .vscode-test
+          key: vscode-test-${{ runner.os }}-${{ hashFiles('packages/e2e/editor/lib/vscode.ts') }}
       - name: Test
         run: pnpm devx test
       - name: Build

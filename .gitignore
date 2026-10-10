@@ -11,5 +11,7 @@ coverage/
 .idea/
 .tmp/
 *.vsix
+# VS Code downloads of the real VS Code tests.
+.vscode-test/
 # Copied from the root LICENSE by pnpm devx vsix.
 packages/vscode/LICENSE
