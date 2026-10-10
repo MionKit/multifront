@@ -1,0 +1,13 @@
+
+  import type { ReactNode } from 'react'
+
+  function renderLabel() {
+    return <span className="shape">call</span>
+  }
+
+  export default function NullRoot(props: { branch?: string; children?: ReactNode }) {
+    if (props.branch === 'string') return 'text'
+    if (props.branch === 'call') return renderLabel()
+    if (props.branch === 'children') return props.children
+    return null
+  }

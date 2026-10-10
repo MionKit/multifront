@@ -14,7 +14,8 @@ import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
 import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
-import {stampScope} from '../react/scope.ts';
+import {transformScope} from '../react/scope.ts';
+import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
 
 // A module name the block cannot name (`module="my-theme"`) gets no import, as the editor declares none.
@@ -122,18 +123,18 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
+  const parsed = parseSync(ctx.filename, block.content, {lang: 'tsx', sourceType: 'module'});
+  const helpers = transformScope(text, parsed, block, ctx);
   // JSON quoting keeps any path a valid string.
   const imports = [
     ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
     ...Object.values(ctx.modules)
       .filter(({name}) => IDENTIFIER.test(name))
       .map(({name, id}) => `import ${name} from ${JSON.stringify(id)};`),
+    ...(helpers.length > 0 ? [`import {${helpers.join(', ')}} from ${JSON.stringify(SCOPE_HELPER_ID)};`] : []),
   ];
-  // Stamping needs a scoped style, so it never runs without the imports.
   if (imports.length > 0) {
-    const {program} = parseSync(ctx.filename, block.content, {lang: 'tsx', sourceType: 'module'});
-    if (ctx.hasScoped) stampScope(text, program, block.contentStart, ctx.scopeId);
-    const prologue = prologueEnd(program);
+    const prologue = prologueEnd(parsed.program);
     if (prologue === undefined) text.prependRight(block.contentStart, imports.map((line) => `${line}\n`).join(''));
     else text.appendLeft(block.contentStart + prologue, imports.map((line) => `\n${line}`).join(''));
   }

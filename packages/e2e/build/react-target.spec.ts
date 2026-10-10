@@ -2,7 +2,7 @@ import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import react from '@vitejs/plugin-react';
-import {checkBlocks, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
+import {SCOPE_HELPER_ID, checkBlocks, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {BuildContext} from '@multifront/core';
 import {multifront} from '@multifront/vite';
 import type {MultifrontOptions} from '@multifront/vite';
@@ -61,6 +61,13 @@ describe('vite build of react-basic', () => {
   it('bundles the React module of every component, Icon reached from UsesIcon with no attribute', () => {
     for (const name of COMPONENTS) expect(chunk.moduleIds).toContain(`${componentPath(name)}.react.tsx`);
     for (const marker of REACT_MARKERS) expect(chunk.code).toContain(marker);
+  });
+
+  it('bundles the scope helper once for every forwarding component, without the dev fragment warning', () => {
+    expect(chunk.moduleIds).toContain(`\0${SCOPE_HELPER_ID}`);
+    expect(chunk.code.split('function __ucfScopeAttrs(').length - 1).toBe(1);
+    expect(chunk.code.split('__ucfScopeAttrs(').length - 1).toBeGreaterThan(2);
+    expect(chunk.code).not.toContain('__ucfWarnFragment');
   });
 
   it('leaves out the text of the <vue> and <svelte> blocks', () => {

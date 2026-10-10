@@ -1,0 +1,8 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  export default function ConstRoot(props: { branch?: string }) {
+    const root = (
+      <article {...__ucfScopeAttrs(props)} className="shape"><span className="inner">const {props.branch}</span></article>
+    )
+    return root
+  }

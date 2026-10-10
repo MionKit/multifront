@@ -1,0 +1,7 @@
+<react>
+  import { forwardRef } from 'react'
+
+  export default forwardRef<HTMLDivElement, { branch?: string }>(function ForwardRef(props, ref) {
+    return <div ref={ref} className="shape"><span className="inner">forwardRef {props.branch}</span></div>
+  })
+</react>

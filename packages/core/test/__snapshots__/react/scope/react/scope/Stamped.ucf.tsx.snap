@@ -1,4 +1,5 @@
 import "<fixtures>/components/react/scope/Stamped.ucf?ucf&type=style&index=0&lang.css";
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
 
   import { Fragment, Fragment as Frag } from 'react'
   import * as React from 'react'
@@ -15,13 +16,13 @@ import "<fixtures>/components/react/scope/Stamped.ucf?ucf&type=style&index=0&lan
     return <ol data-v-7ee94528="" className="list">{items.map((item) => <li data-v-7ee94528="" key={item}>{item}</li>)}</ol>
   }
 
-  export default function Stamped() {
+  export default function Stamped(__props) {
     const count = 1
     const limit = 2
     const less = count < limit
     // Each named fragment is a sole child once: only there does React check Fragment props on mount.
     return (
-      <>
+      (__ucfWarnFragment(__props, "Stamped"), <>
         <div data-v-7ee94528="" className="box">
           <p data-v-7ee94528="" className="text">{identity(String(less))}</p>
           <svg data-v-7ee94528="" className="icon" width="10" height="10">
@@ -42,6 +43,6 @@ import "<fixtures>/components/react/scope/Stamped.ucf?ucf&type=style&index=0&lan
           <p data-v-7ee94528="" className="alias"><Frag><span data-v-7ee94528="">alias</span></Frag></p>
           <p data-v-7ee94528="" className="namespace"><React.Fragment><span data-v-7ee94528="">namespace</span></React.Fragment></p>
         </div>
-      </>
+      </>)
     )
   }

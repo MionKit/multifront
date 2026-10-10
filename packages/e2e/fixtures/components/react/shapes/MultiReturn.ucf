@@ -1,0 +1,23 @@
+<react>
+  const ITEMS = ['one', 'two']
+
+  export default function MultiReturn(props: { branch?: string }) {
+    if (props.branch === 'early') return (<section className="shape"><span className="inner">early</span></section>)!
+    // A nested function's return is not a root of this component.
+    const items = ITEMS.map((item) => {
+      return <li key={item}>{item}</li>
+    })
+    return (
+      <div className="shape">
+        <span className="inner">last</span>
+        <ul>{items}</ul>
+      </div>
+    )
+  }
+</react>
+
+<style scoped>
+.inner {
+  font-style: italic;
+}
+</style>

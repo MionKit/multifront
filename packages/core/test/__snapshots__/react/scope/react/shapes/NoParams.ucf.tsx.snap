@@ -1,0 +1,5 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  export default function NoParams /* () */ (__props) {
+    return <div {...__ucfScopeAttrs(__props)} className="shape"><span className="inner">no params</span></div>
+  }

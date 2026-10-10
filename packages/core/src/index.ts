@@ -35,6 +35,7 @@ export {
   resolveTarget,
 } from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
+export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
 export {scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
 export {compileStyles, moduleName, stylePreprocessOptions} from './styles.ts';

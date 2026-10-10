@@ -3,7 +3,8 @@
   'use strict';
 import "<fixtures>/components/react/Directives.ucf?ucf&type=style&index=0&lang.css";
 import $style from "<fixtures>/components/react/Directives.ucf?ucf&type=style&index=0&module&lang.js";
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
 
-  export default function Directives() {
-    return <p className={$style.note}>Two directives</p>;
+  export default function Directives(__props) {
+    return <p {...__ucfScopeAttrs(__props)} className={$style.note}>Two directives</p>;
   }

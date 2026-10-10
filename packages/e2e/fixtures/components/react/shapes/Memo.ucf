@@ -1,0 +1,7 @@
+<react>
+  import { memo } from 'react'
+
+  export default memo(function Memo(props: { branch?: string }) {
+    return <div className="shape"><span className="inner">memo {props.branch}</span></div>
+  })
+</react>

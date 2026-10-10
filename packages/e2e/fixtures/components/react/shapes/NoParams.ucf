@@ -1,0 +1,5 @@
+<react>
+  export default function NoParams /* () */ () {
+    return <div className="shape"><span className="inner">no params</span></div>
+  }
+</react>

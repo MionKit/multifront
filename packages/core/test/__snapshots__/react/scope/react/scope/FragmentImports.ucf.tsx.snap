@@ -1,4 +1,5 @@
 import "<fixtures>/components/react/scope/FragmentImports.ucf?ucf&type=style&index=0&lang.css";
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
 
   // Build only: './other' does not exist. Each way an import binds React's Fragment, or does not.
   import { default as R, 'Fragment' as Quoted, type Fragment as SpecFrag } from 'react'
@@ -16,9 +17,9 @@ import "<fixtures>/components/react/scope/FragmentImports.ucf?ucf&type=style&ind
     return <React.Fragment data-v-21b437e4="" className="param-shadow" />
   }
 
-  export default function FragmentImports() {
+  export default function FragmentImports(__props) {
     return (
-      <div data-v-21b437e4="">
+      <div data-v-21b437e4="" {...__ucfScopeAttrs(__props)}>
         <R.Fragment><span data-v-21b437e4="">default as</span></R.Fragment>
         <Quoted><span data-v-21b437e4="">quoted</span></Quoted>
         <SpecFrag data-v-21b437e4="" />
