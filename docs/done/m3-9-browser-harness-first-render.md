@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-10
 milestone: 3
 step: 3.9
@@ -92,7 +92,8 @@ floor job.
   leaves `pnpm-workspace.yaml` byte for byte; `devx peer-floor angular` with `CI` exits 1 naming `react`, nothing
   changed.
 - The full reinstall is proven by the `react-floor` job (the command checks the installed versions), and once by hand
-  before the PR on a throwaway `git worktree` (`CI=1 pnpm devx peer-floor react`, then `pnpm devx test`).
+  before the PR on a throwaway `git worktree` (`CI=1 pnpm devx peer-floor react`, then `pnpm devx test`): react,
+  react-dom, @types 19.0.0 and plugin-react 6.0.0 installed, all 37 test files green, the browser test included.
 
 ## Done when
 
