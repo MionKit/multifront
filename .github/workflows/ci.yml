@@ -36,7 +36,7 @@ jobs:
       - name: Build
         run: pnpm devx build
 
-  # Windows-only behaviour: `\` paths turned into the `/` paths scope ids hash.
+  # Windows-only behaviour: `\` paths turned into `/` (scope ids, devx package dirs) and devx tool launch.
   windows:
     runs-on: windows-latest
     steps:
