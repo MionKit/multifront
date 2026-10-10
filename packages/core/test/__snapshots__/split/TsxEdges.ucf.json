@@ -11,12 +11,13 @@
   {
     "type": "style",
     "attrs": {
-      "scoped": true
+      "scoped": true,
+      "lang": "css"
     },
     "start": 563,
-    "end": 622,
-    "contentStart": 577,
-    "contentEnd": 614,
+    "end": 633,
+    "contentStart": 588,
+    "contentEnd": 625,
     "index": 0
   }
 ]

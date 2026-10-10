@@ -77,7 +77,7 @@ export interface Diagnostic {
 export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'parse' | 'MagicString'>;
 
 export interface SourceMap {
-  version: number;
+  version: 3;
   file?: string;
   sourceRoot?: string;
   sources: string[];

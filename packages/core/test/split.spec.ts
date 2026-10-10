@@ -108,6 +108,7 @@ const INVALID_CASES: InvalidCase[] = [
     blocks: ['react', 'react', 'react', 'style'],
   },
   {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [], blocks: ['react', 'style', 'style', 'style', 'style', 'style']},
+  {fixture: 'invalid/MissingPreprocessor.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/MixedErrors.ucf',
     errors: [{code: 'duplicate-target', line: 13, column: 0}],
@@ -120,6 +121,7 @@ const INVALID_CASES: InvalidCase[] = [
   },
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
   {fixture: 'invalid/ReactSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ScssPartialError.ucf', errors: [], blocks: ['react', 'style']},
   {fixture: 'invalid/ScssSyntaxError.ucf', errors: [], blocks: ['react', 'style']},
   {
     fixture: 'invalid/StrayClosingTag.ucf',

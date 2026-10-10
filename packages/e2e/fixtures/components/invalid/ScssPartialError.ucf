@@ -1,0 +1,13 @@
+<react>
+  export default function Chip({ label }: { label: string }) {
+    return <span className="chip">{label}</span>
+  }
+</react>
+
+<style lang="scss">
+@use 'broken-partial';
+
+.chip {
+  padding: 0.25rem;
+}
+</style>

@@ -2,7 +2,7 @@ import {createRequire} from 'node:module';
 import vue from '@vitejs/plugin-vue';
 import {build, type Plugin} from 'vite';
 import {describe, expect, it} from 'vitest';
-import {compileStyles, splitBlocks} from '@multifront/core';
+import {compileStyles, scopeId, splitBlocks} from '@multifront/core';
 import {getVueCompiler, multifront} from '@multifront/vite';
 // A relative path, not a package dependency: @multifront/e2e depends on vite.
 import {readComponent} from '../../e2e/fixtures/index.ts';
@@ -44,15 +44,10 @@ describe('getVueCompiler', () => {
   it('returns a compiler core compiles styles with', async () => {
     const {filename, source} = readComponent('Badge.ucf');
     const compiler = getVueCompiler([], new URL('..', import.meta.url).pathname);
-    const [style] = await compileStyles(splitBlocks(source, filename).styles, {
-      id: '1a2b3c4d',
-      filename,
-      source,
-      compiler,
-      production: true,
-    });
+    const id = scopeId('Badge.ucf', source, true);
+    const [style] = await compileStyles(splitBlocks(source, filename).styles, {id, filename, source, compiler, production: true});
     expect(style?.errors).toEqual([]);
-    expect(style?.code).toContain('.badge[data-v-1a2b3c4d]');
+    expect(style?.code).toContain(`.badge[data-v-${id}]`);
   });
 });
 
