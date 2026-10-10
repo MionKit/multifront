@@ -1,11 +1,11 @@
 import {readFileSync} from 'node:fs';
 import {BLOCK_KINDS} from '@multifront/core';
-import type {BlockKind} from '@multifront/core';
+import type {BlockKind, GrammarScope} from '@multifront/core';
 import type {GrammarFile, TmGrammar, TmRule} from './types.ts';
 
-export type {GrammarFile, TmGrammar, TmRule} from './types.ts';
+export type {GrammarFile} from './types.ts';
 
-export const ROOT_SCOPE = 'source.ucf';
+const ROOT_SCOPE = 'source.ucf';
 
 interface VendoredGrammar {
   dir: string; // under syntaxes/vendor/
@@ -18,7 +18,12 @@ const VENDORED: Record<string, VendoredGrammar> = {
   'text.html.vue': {
     dir: 'vue',
     main: 'vue.tmLanguage.json',
-    injections: ['vue-directives.json', 'vue-interpolations.json', 'vue-sfc-style-variable-injection.json'],
+    injections: [
+      'vue-directives.json',
+      'vue-interpolations.json',
+      'vue-sfc-script-leading-operator-fix.json',
+      'vue-sfc-style-variable-injection.json',
+    ],
   },
   'source.svelte': {dir: 'svelte', main: 'svelte.tmLanguage.json', injections: []},
 };
@@ -29,8 +34,11 @@ const TAG_CAPTURES = {
   3: {name: 'punctuation.definition.tag.end.ucf'},
 };
 
+// The splitter drops an opening tag whose quote holds a `>` or runs past the line: the block never opens.
+const BROKEN_QUOTE = `(?=(?:"[^"]*|'[^']*)(?:>|$))`;
+
 const ATTRIBUTE: TmRule = {
-  match: `([^\\s"'=<>/]+)(?:\\s*(=)\\s*(?:("[^"]*")|('[^']*')|([^\\s>]+)))?`,
+  match: `([^\\s"'=<>/]+)(?:\\s*(=)\\s*(?:("[^">]*")|('[^'>]*')|([^\\s"'>][^\\s>]*)))?`,
   captures: {
     1: {name: 'entity.other.attribute-name.ucf'},
     2: {name: 'punctuation.separator.key-value.ucf'},
@@ -51,18 +59,19 @@ function grammarFile(grammar: TmGrammar, injectTo?: string[]): GrammarFile {
 }
 
 // Deep copy with every `include` passed through `rename`.
-function renameIncludes<T>(node: T, rename: (include: string) => string): T {
-  if (Array.isArray(node)) return node.map((item: unknown) => renameIncludes(item, rename)) as T;
+function renameIncludes<Tree>(node: Tree, rename: (include: string) => string): Tree {
+  if (Array.isArray(node)) return node.map((item: unknown) => renameIncludes(item, rename)) as Tree;
   if (node === null || typeof node !== 'object') return node;
   const entries = Object.entries(node).map(([key, value]: [string, unknown]) => [
     key,
     key === 'include' && typeof value === 'string' ? rename(value) : renameIncludes(value, rename),
   ]);
-  return Object.fromEntries(entries) as T;
+  return Object.fromEntries(entries) as Tree;
 }
 
-// Each `,` alternative of an injection selector, narrowed to inside `scope`; a `,` in parentheses is not one.
-function insideScope(selector: string, scope: string): string {
+// Each `,` alternative of an injection selector, narrowed to inside the `embedded` block: the upstream root scope
+// is never on the stack there, so where an alternative names it, the block scope takes its place.
+function insideBlock(selector: string, upstream: string, embedded: string): string {
   const alternatives: string[] = [];
   let depth = 0;
   let start = 0;
@@ -76,40 +85,54 @@ function insideScope(selector: string, scope: string): string {
     }
   }
   alternatives.push(selector.slice(start));
+  const root = new RegExp(`(^|[\\s(|,])${escapeRegExp(upstream)}(?=$|[\\s)|,])`, 'g');
   return alternatives
     .map((alternative) => {
       const trimmed = alternative.trim();
       const priority = /^[LRB]:/.test(trimmed) ? trimmed.slice(0, 2) : '';
-      return `${priority}${scope} ${trimmed.slice(priority.length).trim()}`;
+      const path = trimmed.slice(priority.length).trim();
+      const replaced = path.replace(root, `$1${embedded}`);
+      return replaced === path ? `${priority}${embedded} ${path}` : priority + replaced;
     })
     .join(', ');
 }
 
-// The splitter's tag rules: a name ends at a space, `/` or `>`; the first `</tag` then a space or `>` closes the block.
-function blockRule(tag: string, contentName: string, include: string, lookahead = ''): TmRule {
-  const name = escapeRegExp(tag);
+function contentRule(name: string, contentName: string, include: string): TmRule {
   return {
-    begin: `(<)(${name})(?![^\\s/>])${lookahead}`,
-    beginCaptures: TAG_CAPTURES,
-    end: `(</)(${name})(?=[\\s>])[^>]*(>)?`,
-    endCaptures: TAG_CAPTURES,
-    patterns: [
-      ATTRIBUTE,
-      {
-        begin: '(>)',
-        beginCaptures: {1: TAG_CAPTURES[3]},
-        end: `(?=</${name}(?:[\\s>]|$))`,
-        contentName,
-        patterns: [{include}],
-      },
-    ],
+    begin: '(>)',
+    beginCaptures: {1: TAG_CAPTURES[3]},
+    end: `(?=</${name}(?:[\\s>]|$))`,
+    contentName,
+    patterns: [{include}],
   };
 }
 
-// The opening tag carries `lang="x"`, `lang='x'` or `lang = x`; a TextMate lookahead reads one line only.
-function langLookahead(lang: string): string {
+// `lang="x"`, `lang='x'` or `lang = x`, on any line of the opening tag, picks x's grammar for the content.
+function langRule(name: string, lang: string, contentName: string, include: string): TmRule {
   const value = escapeRegExp(lang);
-  return `(?=[^>]*[\\s/]lang\\s*=\\s*(?:"${value}"|'${value}'|${value}(?![^\\s>])))`;
+  return {
+    begin: `(?<![^\\s/])(lang)\\s*(=)\\s*(?:("${value}")|('${value}')|(${value})(?![^\\s>]))`,
+    beginCaptures: ATTRIBUTE.captures!,
+    end: `(?=</${name}(?:[\\s>]|$))|${BROKEN_QUOTE}`,
+    patterns: [ATTRIBUTE, contentRule(name, contentName, include)],
+  };
+}
+
+// The splitter's tag rules: a name ends at a space, `/` or `>`; a self-closing tag opens nothing; the first `</tag`
+// then a space or `>` closes the block. Attributes may span lines; a `lang` rule is listed before ATTRIBUTE, so at
+// the same `lang` it wins, and ATTRIBUTE swallows a quoted value that only contains `lang=`.
+function blockRule(tag: string, embedded: string, include: string, byLang: Record<string, GrammarScope>): TmRule {
+  const name = escapeRegExp(tag);
+  const langs = Object.entries(byLang).map(([lang, scope]) =>
+    langRule(name, lang, `${embedded}.${scope.languageId}`, scope.scopeName)
+  );
+  return {
+    begin: `(<)(${name})(?![^\\s/>])(?![^>]*/>)`,
+    beginCaptures: TAG_CAPTURES,
+    end: `(</)(${name})(?=[\\s>])[^>]*(>)?|${BROKEN_QUOTE}`,
+    endCaptures: TAG_CAPTURES,
+    patterns: [...langs, ATTRIBUTE, contentRule(name, embedded, include)],
+  };
 }
 
 // Serves a pinned copy as `scope`, so it never clashes with the official extension. VS Code reads injections from
@@ -124,16 +147,16 @@ function serveVendored(
   const rename = (include: string): string =>
     include === upstream || include.startsWith(`${upstream}#`) ? scope + include.slice(upstream.length) : include;
   const {injections, ...main} = renameIncludes(readVendored(copy.dir, copy.main), rename);
-  // At the root, `#x` and `$self` would name the root grammar.
-  const anchor = (include: string): string => (include === '$self' ? scope : include.startsWith('#') ? scope + include : include);
+  // At the root, `#x` would name the root grammar's repository.
+  const anchor = (include: string): string => (include.startsWith('#') ? scope + include : include);
   for (const [selector, rule] of Object.entries(injections ?? {})) {
-    rootInjections[insideScope(selector, embedded)] = renameIncludes(rule, anchor);
+    rootInjections[insideBlock(selector, upstream, embedded)] = renameIncludes(rule, anchor);
   }
   const files = [grammarFile({...main, scopeName: scope})];
   for (const name of copy.injections) {
     const injection = renameIncludes(readVendored(copy.dir, name), rename);
-    const injectionSelector = insideScope(injection.injectionSelector!, embedded);
-    files.push(grammarFile({...injection, scopeName: `ucf.${injection.scopeName}`, injectionSelector}, [ROOT_SCOPE]));
+    const injectionSelector = insideBlock(injection.injectionSelector!, upstream, embedded);
+    files.push(grammarFile({...injection, scopeName: `${scope}.${injection.scopeName}`, injectionSelector}, [ROOT_SCOPE]));
   }
   return files;
 }
@@ -152,11 +175,7 @@ export function generateGrammar(kinds: readonly BlockKind[] = BLOCK_KINDS): Gram
       include = `${ROOT_SCOPE}.${tag}`;
       vendored.push(...serveVendored(copy, grammar.scopeName, include, embedded, injections));
     }
-    // A `lang` rule comes first: at the same `<tag`, the first listed pattern wins.
-    for (const [lang, scope] of Object.entries(grammar.byLang ?? {})) {
-      patterns.push(blockRule(tag, `${embedded}.${scope.languageId}`, scope.scopeName, langLookahead(lang)));
-    }
-    patterns.push(blockRule(tag, embedded, include));
+    patterns.push(blockRule(tag, embedded, include, grammar.byLang ?? {}));
   }
   return [grammarFile({scopeName: ROOT_SCOPE, patterns, injections}), ...vendored];
 }

@@ -8,6 +8,7 @@
       "vue.tmLanguage.json": "extensions/vscode/syntaxes/vue.tmLanguage.json",
       "vue-directives.json": "extensions/vscode/syntaxes/vue-directives.json",
       "vue-interpolations.json": "extensions/vscode/syntaxes/vue-interpolations.json",
+      "vue-sfc-script-leading-operator-fix.json": "extensions/vscode/syntaxes/vue-sfc-script-leading-operator-fix.json",
       "vue-sfc-style-variable-injection.json": "extensions/vscode/syntaxes/vue-sfc-style-variable-injection.json"
     }
   },
