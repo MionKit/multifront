@@ -2,17 +2,19 @@
 // core parses <react> with oxc-parser: the bundles use its wasm binding, so one .vsix serves every platform.
 import {copyFileSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {build} from 'vite';
 
-const EXTENSION_DIR = join(import.meta.dirname, '..', '..', 'packages', 'vscode');
+const REPO_ROOT = join(import.meta.dirname, '..', '..');
+const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
 const DIST = join(EXTENSION_DIR, 'dist');
 // tsserver finds a plugin only as `<extension>/node_modules/<name>`.
 const PACK = join(EXTENSION_DIR, 'node_modules', 'multifront-typescript-plugin-pack');
 const WASM = 'parser.wasm32-wasi.wasm';
 
 const fromExtension = createRequire(join(EXTENSION_DIR, 'package.json'));
-const fromCore = createRequire(join(realpathSync(join(EXTENSION_DIR, 'node_modules', '@multifront', 'core')), 'package.json'));
+const linked = (name) => realpathSync(join(EXTENSION_DIR, 'node_modules', '@multifront', name));
+const fromCore = createRequire(join(linked('core'), 'package.json'));
 const binding = fromExtension.resolve('@oxc-parser/binding-wasm32-wasi');
 const oxcDir = dirname(fromCore.resolve('oxc-parser/package.json'));
 
@@ -29,7 +31,8 @@ if (parserVersion !== bindingVersion) {
 
 const ENTRIES = {
   extension: {entry: 'src/extension.ts', external: ['vscode']},
-  server: {entry: 'src/server.ts', external: []},
+  // The bin other editors start, so the extension runs the same server.
+  server: {entry: join(linked('language-tools'), 'bin', 'multifront-language-server.js'), external: []},
   'typescript-plugin': {entry: 'src/typescriptPlugin.ts', external: []},
 };
 
@@ -52,7 +55,7 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
       emptyOutDir: false,
       minify: false,
       ssr: true,
-      lib: {entry: join(EXTENSION_DIR, entry), formats: ['cjs']},
+      lib: {entry: resolve(EXTENSION_DIR, entry), formats: ['cjs']},
       rolldownOptions: {
         // The host provides `vscode`; tsserver hands the plugin its TypeScript, and only @volar/vscode's web path
         // requires it.
@@ -70,6 +73,6 @@ copyFileSync(join(dirname(binding), WASM), join(DIST, WASM));
 
 rmSync(PACK, {recursive: true, force: true});
 mkdirSync(PACK, {recursive: true});
-const manifest = {name: 'multifront-typescript-plugin-pack', version: version(join(EXTENSION_DIR, 'package.json')), private: true, main: 'index.js'};
+const manifest = {name: basename(PACK), version: version(join(REPO_ROOT, 'version.json')), private: true, main: 'index.js'};
 writeFileSync(join(PACK, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 writeFileSync(join(PACK, 'index.js'), "module.exports = require('../../dist/typescript-plugin.cjs');\n");

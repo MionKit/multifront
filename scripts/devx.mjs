@@ -110,13 +110,12 @@ const handlers = {
     // vsce packs a node_modules folder only when `npm list` names it a dependency, which the workspace links break:
     // so it packs a copy of the shipped files whose only dependency is the plugin pack.
     const manifest = JSON.parse(readFileSync(join(extension, 'package.json'), 'utf8'));
-    const pack = JSON.parse(readFileSync(join(extension, 'node_modules', 'multifront-typescript-plugin-pack', 'package.json'), 'utf8'));
     const stage = mkdtempSync(join(tmpdir(), 'multifront-vsix-'));
     try {
       for (const pattern of manifest.files) {
         for (const path of globSync(pattern, {cwd: extension})) cpSync(join(extension, path), join(stage, path), {recursive: true});
       }
-      writeFileSync(join(stage, 'package.json'), `${JSON.stringify({...manifest, dependencies: {[pack.name]: pack.version}}, null, 2)}\n`);
+      writeFileSync(join(stage, 'package.json'), `${JSON.stringify({...manifest, dependencies: {'multifront-typescript-plugin-pack': version}}, null, 2)}\n`);
       const out = join(extension, `multifront-vscode-${version}.vsix`);
       // vsce would otherwise run `npm version` on package.json.
       run(bin('@vscode/vsce', 'vsce'), ['package', version, '--no-update-package-json', '--out', out], {cwd: stage});
