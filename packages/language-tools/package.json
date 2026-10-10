@@ -24,6 +24,11 @@
       "source": "./src/server.ts",
       "types": "./dist/server.d.ts",
       "default": "./dist/server.js"
+    },
+    "./typescript-plugin": {
+      "source": "./src/typescriptPlugin.ts",
+      "types": "./dist/typescriptPlugin.d.ts",
+      "default": "./dist/typescriptPlugin.js"
     }
   },
   "bin": {
@@ -32,6 +37,7 @@
   "files": [
     "bin",
     "dist",
+    "typescript-plugin",
     "!dist/**/*.tsbuildinfo"
   ],
   "sideEffects": false,
