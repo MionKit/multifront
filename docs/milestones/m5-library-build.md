@@ -56,7 +56,7 @@ From M3:
 
 - `resolveTarget(importer, attribute, options)` in core, where a build entry (no importer) resolves to the `framework` option (M3 3.3).
 - `multifront({frameworks, target, importers})` returning the pre plugin and the post attribute plugin.
-- The module ids of spec 4.3: `/abs/Card.ucf?target=react&lang.tsx` and `/abs/Card.ucf?ucf&type=style&index=N&lang.css`, and the `$style` class map module.
+- The module ids of spec 4.3: `/abs/Card.ucf.react.tsx` and `/abs/Card.ucf?ucf&type=style&index=N&lang.css`, and the `$style` class map module.
 - The scope transform in core (oxc-parser + MagicString) with root forwarding, and the virtual helper module holding `__ucfScopeAttrs`, served by the Vite plugin.
 - `@vitejs/plugin-react` as a peer (and pinned devDependency) of `@multifront/vite`.
 
@@ -94,7 +94,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
   - `packages/vite/src/library/targets.ts`: the `LibraryTarget` interface and the `libraryTargets` table (`satisfies Partial<Record<Target, LibraryTarget>>`) with `react` (plugin-react, peers `react` and `react-dom` at `^19.0.0`) and `vue` (plugin-vue, peer `vue` at `^3.5.0`). A target with no row is a clear build error naming the target.
   - Per target: find every `.ucf` file under `src` with a block for that target (split once with `splitBlocks`). Files without that block are skipped and listed in `skipped`. Then run one real `vite build` with `configFile: false`, `mode: 'production'`, `build.lib` (ES only), `minify: false`, `sourcemap: true`, `emptyOutDir`, and `preserveModules` with `preserveModulesRoot` set to `src`.
-  - A naming function maps every `.ucf` module id (with or without the `?target=` query) to its path without `.ucf`: `Card.js`, `forms/Field.js`. Virtual modules go under `_virtual/`.
+  - A naming function maps every `.ucf` module id (the bare one, `Card.ucf.react.tsx`, `Card.ucf.svelte.svelte`) to its path without `.ucf`: `Card.js`, `forms/Field.js`. Virtual modules go under `_virtual/`.
   - The target's peers are external (a peer and its subpaths, like `react/jsx-runtime`). Any other bare import is a build error: the package has peer dependencies only.
   - New fixture: `packages/e2e/fixtures/library/`, a small real library (not a workspace package; it resolves its tools from `packages/e2e/node_modules`). `package.json` (`@mf-fixture/ui`), `README.md`, `LICENSE`, `src/index.ts` and these components:
     - `Card.ucf`: React and Vue, `<style module>` with CSS variables, `<style scoped lang="scss">`, imports `Icon.ucf`. No hooks.
@@ -110,7 +110,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - Deliverable: `buildLibrary({root, outDir})` writes `dist/react/` and `dist/vue/` with one JS file per component and one per plain module.
 - Test: build area, `packages/e2e/build/library.spec.ts`. Every library test builds the fixture library into its own fresh temp `outDir`, so tests can run in parallel. Check:
   - `react/Card.js`, `react/forms/Field.js`, `vue/VueOnly.js` exist; `react/VueOnly.js` does not and `skipped` names it.
-  - no output file name or import specifier contains `.ucf` or `?target=`; `react/Card.js` imports `./Icon.js`.
+  - no output file name or import specifier contains `.ucf`; `react/Card.js` imports `./Icon.js`.
   - `react/` contains no Vue code and `vue/` no React code (no `react` import in vue output, no `vue` import in react output).
   - `react` is imported, never bundled; a fixture copy that adds `import x from 'left-pad'` fails with the peer-only error.
   - the source map of `react/Card.js` maps a line of the JSX back into `Card.ucf`, using the real `source-map-js` reader.
@@ -235,7 +235,7 @@ It passes only if JS per component, CSS files, `"use client"`, `.d.ts`, `package
 
 ## Risks and open questions
 
-- **Rolldown and `preserveModules`.** Ids with a query (`?target=react&lang.tsx`) and `\0` virtual ids must map to clean file names, and the CSS of a style id must land in the component's CSS file. 5.1 and 5.2 prove it early; the fallback is our own CSS emit (5.2).
+- **Rolldown and `preserveModules`.** Ids with a query (`?ucf&type=style&…`), ids with a double extension (`Card.ucf.react.tsx`) and `\0` virtual ids must map to clean file names, and the CSS of a style id must land in the component's CSS file. 5.1 and 5.2 prove it early; the fallback is our own CSS emit (5.2).
 - **Directives.** Rolldown may keep or drop `"use client"`; we add it only when missing. Turbopack (Next's default bundler) and webpack must both accept CSS imported from a `"use client"` file in `node_modules`. 5.11 covers the default; a webpack run (`next build --webpack`) is cheap to add if it breaks.
 - **`"use client"` detection is a heuristic.** A hook reached in an unusual way (`React['useState']`) is missed. The author adds `'use client'` in the block; it is always kept.
 - **Automatic `className` / `style` / `ref` merge** (decided: automatic, spec 8). It changes what a React root gets, in apps too. How the compiler sees that a component handles a prop itself (destructuring, `props.className`, a spread, something smarter), and whether an `mf-lint` rule helps, is designed in this step's todo.

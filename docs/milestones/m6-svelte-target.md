@@ -6,7 +6,7 @@ A `.ucf` file with a `<svelte>` block works as a real Svelte 5 component, in dev
 
 Facts checked while planning (pinned versions below):
 
-- **plugin-svelte does not pick up our id by default.** Its filter is `^[^?#]+\.svelte(?:[?#]|$)`: the `.svelte` must come before the `?`. `/abs/Card.ucf?target=svelte&lang.svelte` fails. A real Vite 8.2.2 build with plugin-svelte 7.3.0 confirms it: default fails, with `include: [/\.ucf\?target=svelte&lang\.svelte$/]` it compiles. `include` is a public option and adds to the default filter. So we ship that regex as `svelteInclude` (step 6.3).
+- **plugin-svelte picks up our id by default.** Its filter is `^[^?#]+\.svelte(?:[?#]|$)`: the `.svelte` must come before any `?`. Our id `/abs/Card.ucf.svelte.svelte` (spec 4.3) ends in `.svelte`, and plugin-svelte 7.3.0 compiles it with its default filter (M3 spike 3), so users set no `include`.
 - **Svelte reserves `$`.** `import $style from '...'` is a compile error (`dollar_prefix_invalid`), and `$style` in markup means "subscribe to a store named `style`". So the build rewrites every `$style` reference to `__ucfStyle` and imports the class map under that name (step 6.2).
 - **The Svelte compiler keeps import attributes.** `import X from './Card.ucf' with { framework: 'react' }` and the dynamic form come out unchanged in Svelte's JS output, so the post rewrite of spec 4.4 still sees them (step 6.4 tests it for real).
 - **Svelte's language server never loads TypeScript plugins.** svelte-language-server 0.18.4 builds its own language service with its own module loader and does not read the tsconfig `plugins`. So our TypeScript plugin cannot help a `.svelte` importer inside Svelte's editor. Inside tsserver, typescript-svelte-plugin wraps `resolveModuleNameLiterals` and calls the one before it, so both plugins should load side by side (step 6.11).
@@ -34,7 +34,7 @@ From milestone 2:
 
 From milestone 3:
 
-- `resolveTarget(importer, attribute, options)` in core, with: the `.svelte` importer rule, the in-block rule for an importer id that carries `?target=svelte`, the "imported file has no block for that framework" error, and the `framework`-attribute-inside-a-block error.
+- `resolveTarget(importer, attribute, options)` in core, with: the `.svelte` importer rule, the in-block rule for an importer id `X.ucf.svelte.svelte`, the "imported file has no block for that framework" error, and the `framework`-attribute-inside-a-block error.
 - In `@multifront/vite`: the resolve step to the spec 4.3 ids, the style virtual modules `Card.ucf?ucf&type=style&index=N&lang.css`, the class-map virtual module id that `$style` imports, the post plugin of spec 4.4, the `importers` option of `MultifrontOptions`, and the HMR hook (style edit updates styles only, a target edit invalidates only that target).
 - The `__ucfScopeAttrs` helper and its virtual module id.
 - The warning React gives for a fragment root (its code and how it reaches the user), so a Svelte multi-root warns the same way.
@@ -90,13 +90,11 @@ From milestone 5 (exact names as milestone 5 ships them):
 ### 6.3 Vite: serve the Svelte id and hand it to plugin-svelte
 
 - Build: in `@multifront/vite`:
-  - `load` for `/abs/Card.ucf?target=svelte&lang.svelte` returns `build()`'s code and map (the split is cached, as for the other targets).
-  - `export const svelteInclude = /\.ucf\?target=svelte&lang\.svelte$/`, documented as `svelte({ include: [svelteInclude] })`, or `vitePlugin: { include: [svelteInclude] }` in `svelte.config.js` for SvelteKit.
-  - A clear build error when the Svelte target is needed but plugin-svelte is missing (checked in `configResolved`, by plugin name `vite-plugin-svelte`), or did not compile our id (checked in our post plugin: the code still holds raw Svelte markup). The message names `svelteInclude`.
+  - `load` for `/abs/Card.ucf.svelte.svelte` returns `build()`'s code and map (the split is cached, as for the other targets), and adds the `.ucf` file with `this.addWatchFile`.
+  - A clear build error when the Svelte target is needed but plugin-svelte is missing (checked in `configResolved`, by plugin name `vite-plugin-svelte`), or did not compile our id (checked in our post plugin: the code still holds raw Svelte markup, as when the user's `exclude` matches it). The message names the id.
   - Peers: `svelte` ^5 and `@sveltejs/vite-plugin-svelte` ^7, both optional. The package carries the pinned devDependencies that satisfy them, as it does for plugin-vue.
-  - Update spec 4.3's "Why" cell for svelte and spec 3.6 to say why `include` is needed.
-- Deliverable: a Vite app with `multifront()` and `svelte({ include: [svelteInclude] })` builds a `.ucf` file as a Svelte component.
-- Test: build area, `packages/e2e/build/svelte-target.spec.ts`, fixture app `packages/e2e/fixtures/apps/svelte-vite` (real Vite, real plugin-svelte, the shared `fixtures/components/Panel.ucf` from M1, which gains its `<svelte>` block and a `<style module lang="scss">`, and a new `PanelItem.ucf` with all three target blocks. The other shared fixtures gain their `<svelte>` block in this step too: `Counter.ucf`, `imports/Icon.ucf`, `imports/UsesIcon.ucf`). Checks: the output JS is compiled Svelte (no raw markup); the CSS file holds the shared scoped CSS and no Svelte-made CSS; no marker string from the `<vue>` or `<react>` block is in the bundle; the source map points back into `Panel.ucf`. The same app without `include`, and without plugin-svelte, fails with our message.
+- Deliverable: a Vite app with `multifront()` and `svelte()` builds a `.ucf` file as a Svelte component.
+- Test: build area, `packages/e2e/build/svelte-target.spec.ts`, fixture app `packages/e2e/fixtures/apps/svelte-vite` (real Vite, real plugin-svelte, the shared `fixtures/components/Panel.ucf` from M1, which gains its `<svelte>` block and a `<style module lang="scss">`, and a new `PanelItem.ucf` with all three target blocks. The other shared fixtures gain their `<svelte>` block in this step too: `Counter.ucf`, `imports/Icon.ucf`, `imports/UsesIcon.ucf`). Checks: the output JS is compiled Svelte (no raw markup); the CSS file holds the shared scoped CSS and no Svelte-made CSS; no marker string from the `<vue>` or `<react>` block is in the bundle; the source map points back into `Panel.ucf`. The same app without plugin-svelte fails with our message.
 
 ### 6.4 Imports from and into Svelte
 
@@ -120,7 +118,7 @@ From milestone 5 (exact names as milestone 5 ships them):
 
 ### 6.6 SSR and a SvelteKit app built from `.ucf` sources
 
-- Build: whatever SSR needs (the scope id must be the same on server and client). Add `packages/e2e/fixtures/apps/sveltekit-src`: SvelteKit 2.70.3 with adapter-node, `multifront()` before `sveltekit()`, `svelteInclude` in `svelte.config.js`, routes that import `.ucf` files.
+- Build: whatever SSR needs (the scope id must be the same on server and client). Add `packages/e2e/fixtures/apps/sveltekit-src`: SvelteKit 2.70.3 with adapter-node, `multifront()` before `sveltekit()`, routes that import `.ucf` files.
 - Deliverable: `.ucf` sources render on the server and hydrate in SvelteKit.
 - Test: browser area, `packages/e2e/browser/svelte-ssr.spec.ts`. In dev and after `vite build` plus the node server: the SSR HTML has the stamped elements and the CSS link; hydration logs no mismatch warning; the `data-v-*` value is the same in the HTML and after hydration; a button click works. Then restart the dev server and load again (cache miss): still renders.
 
@@ -202,7 +200,6 @@ All for milestone 7 (full editor support):
 - `emitSvelteTypes({ root, outDir })`, for `mf-tsc` to run it before `svelte-check` in CI.
 - `packages/core/src/blocks/svelte.ts` `build()`: the `.svelte` file `mf-lint` hands to oxlint; `mf-fmt` leaves `<svelte>` as written (spec 6.1).
 - `loadSvelteCompiler(root)` in core.
-- `svelteInclude` from `@multifront/vite`.
 - Diagnostic codes `svelte-parse-error` and `missing-style-module`.
 - Fixtures: `components/Panel.ucf`, `components/PanelItem.ucf`, `components/svelte/{errors,shapes,imports,roots}/`, apps `svelte-vite`, `sveltekit-src`, `all-targets`, `consumer-sveltekit`.
 
@@ -217,10 +214,9 @@ All for milestone 7 (full editor support):
 
 ## Risks and open questions
 
-- **`include` is a user step.** Zero-config would mean pushing our regex into plugin-svelte's `api.filter.id.include` from our `configResolved` (its `vite-plugin-svelte:config` plugin exposes an `api` object, but it is not documented). Plan: public `include` plus a clear error. Open: is zero-config worth leaning on that object?
 - **`$style` is renamed under the hood.** Hover shows `__ucfStyle`. The other way was a store: `import style from …` and the class map wrapped as `{ subscribe }`, so `$style` works natively. Rejected because it takes the name `style`, which many Svelte components use for a prop.
 - **plugin-svelte's `hotUpdate` transforms the bare file id.** See 6.5. If the bare id cannot be made safe, our HMR hook drops the Svelte module from the list it hands on, and Vite's default update (the compiled module accepts itself) still applies.
-- **Svelte names the component `Card_ucf`** (from `filename`). Only dev messages show it.
+- **Svelte names the component `Card_ucf_svelte`** (from the id's file name, `Card.ucf.svelte.svelte`). Only dev messages show it.
 - **Svelte 5 HMR resets local state** on a block edit. The tests check "no reload", not "state kept".
 - **The fallback declarations need `rootDirs`.** That setting also changes plain `tsc` for `.ts` importers in that project; our plugin and `mf-tsc` override it. Open: write them from the Vite dev server too, so CI without the editor has them?
 - **Forwarding is runes-mode only.** Legacy components would need `$$restProps`.

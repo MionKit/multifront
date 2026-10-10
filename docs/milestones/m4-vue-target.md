@@ -61,7 +61,7 @@ From **M3** (React target and imports):
 
 - `resolveTarget(importer, attribute, options)` with the full spec 4.1 and 4.2 rules. That includes this one: an importer id that is the bare `/abs/Card.ucf`, or a `/abs/Card.ucf?vue&…` sub-request, is inside the `<vue>` block, so its imports get `vue`.
 - The Vite plugin resolving a `vue` pick to the bare `/abs/Card.ucf` id (spec 4.3), with the "file has no block for that framework" error. If M3 leaves the `vue` case as an error, step 4.4 lifts it.
-- Every non-Vue id M3 creates has `target=` or `ucf` in its query (`?target=react&lang.tsx`, `?ucf&type=style&index=N&lang.css`, the class-map id). Step 4.4's exclude pattern relies on it.
+- Every non-Vue id M3 creates either has a path that does not end in `.ucf` (`/abs/Card.ucf.react.tsx`, `/abs/Card.ucf.svelte.svelte`) or has `ucf` in its query (`?ucf&type=style&index=N&lang.css`, the class-map id). Step 4.4's include and exclude patterns rely on it.
 - The per-file split cache, looked up by absolute filename, which holds the split and `ctx`.
 - The post plugin that moves `with { framework }` into the id.
 - The HMR hook, which must leave the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules in the list it returns, so that plugin-vue decides the Vue update.
@@ -119,7 +119,7 @@ New dependencies, all exact-pinned:
 - Build: `packages/vite/src/vueTarget.ts`, called from our `configResolved` (it runs before plugin-vue's `options` hook, the last moment its `api.include` setter allows):
   - Find plugin-vue by name (`vite:vue`, as `getVueCompiler()` does).
   - Add `/\.ucf$/` to `api.include`, keeping the user's patterns.
-  - Add `/\.ucf\?(?:.*&)?(?:target=|ucf\b)/` to `api.exclude`. plugin-vue's transform tests only the path, without the query, so without this it would compile `Card.ucf?target=react&lang.tsx` and the style modules as SFCs. The exclude goes into its hook filter, which sees the full id.
+  - Add `/\.ucf\?(?:.*&)?ucf\b/` to `api.exclude`. plugin-vue's transform tests only the path, without the query, so without this it would compile the style and class map modules as SFCs. The exclude goes into its hook filter, which sees the full id. The React and Svelte ids end in `.tsx` / `.svelte`, so `/\.ucf$/` never matches them.
   - Our pre `transform` handles only the bare `.ucf` id (no query). It returns `vueBlock.build()` from the cached split.
   - When a `.ucf` resolves to `vue` and plugin-vue is not in the plugin list, the build fails with "the vue target needs @vitejs/plugin-vue in your Vite plugins", naming the importer.
 - Deliverable: `import Counter from './Counter.ucf'` in a Vue app builds and runs.
@@ -251,7 +251,7 @@ New dependencies, all exact-pinned:
 
 - `vueSfcCode(source, blocks)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
 - `vueBlock`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
-- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?(?:target=|ucf\b)/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`?target=svelte` ids already pass the exclude, so the Svelte target needs no change here).
+- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
 - If spike 2 moved them: Vue tag and directive completions in the `<vue>` block. Used by **M7**.
 - Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).

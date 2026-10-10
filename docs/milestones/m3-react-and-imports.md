@@ -6,7 +6,7 @@ An app imports a `.ucf` file and gets a working React component, with shared sty
 
 When it is done:
 
-- The `<react>` block kind has its `check` and `build` halves. `build` makes the virtual module `Card.ucf?target=react&lang.tsx` with the style imports, `$style`, and the scope transform.
+- The `<react>` block kind has its `check` and `build` halves. `build` makes the virtual module `Card.ucf.react.tsx` with the style imports, `$style`, and the scope transform.
 - The scope transform (oxc-parser + MagicString) stamps `data-v-<id>=""` on every element and forwards the parent's scope attributes to the returned roots of the default export, so a parent's scoped style reaches a child root, as in Vue.
 - `resolveTarget()` in core holds every target rule of spec 4.1 and 4.2. The Vite plugin and the TypeScript plugin both call it.
 - The Vite plugin resolves the per-target ids of spec 4.3, serves the style CSS and class map modules, rewrites `with { framework }` into the id (spec 4.4), and does style-only and target-only HMR.
@@ -67,10 +67,12 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - **plugin-vue drops it:** milestone 4 runs the same rewrite in our pre `transform` on the `<script>` blocks of `.vue` importers, located with the borrowed compiler's `parse()`.
   - **Svelte drops it:** milestone 6 does the same on `.svelte` importers, located with `svelte/compiler` `parse`.
   - **A compiler cannot even parse `with`:** that importer type supports only the importer rule and the default. An attribute there is a build error. Spec 4.2 gets that note.
-  - **Check 1 fails:** the demo and the docs set plugin-react's `include` to also match `/\.ucf$/`.
-  - **Check 2 fails:** `resolveId` marks `.ucf` external during the scan, and 3.14 adds a cold start test for late optimizations.
+  - **Check 1 fails:** the React id changes so Vite parses it as TSX (verdict: `/abs/Card.ucf.react.tsx`, and the Svelte id with it: `/abs/Card.ucf.svelte.svelte`). Setting plugin-react's `include` does not help.
+  - **Check 2 fails:** a load-only scan plugin in `optimizeDeps.rolldownOptions.plugins` serves the `<react>` block during the scan (3.6), and 3.14's cold start test guards it.
   - **Check 3 fails:** the scope transform converts positions once, in one helper, and 3.5 keeps a non-ASCII fixture.
 - Test: a canary that keeps guarding the React path: `packages/e2e/build/attributes-survive.spec.ts` (area: build). Fixture `packages/e2e/fixtures/apps/attribute-canary/` (`plain.ts`, `component.tsx`, the four import forms, importing a plain `./target.js`). A real dev server with real plugin-react and the recording post plugin. It checks `with { framework: 'react' }` is still on all four imports in the dev and SSR transforms. It fails the day a Vite or plugin-react upgrade drops the attribute.
+- Verdict: every compiler keeps the attribute; check 1 failed (new React and Svelte ids), check 2 needs the scan plugin, check 3 passed. Details in `docs/plan.md`, "Prototype first", item 3.
+- Status: done
 
 ### 3.2 Import attribute rewrite in core
 
@@ -115,7 +117,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   importerFromId(id: string): Importer // new: module ids and virtual script names to an Importer
   ```
 
-  - `importerFromId` derives `block` (spec 4.1): `X.ucf?target=react&lang.tsx` is inside `<react>`, `X.ucf?target=svelte&lang.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.react.tsx`, `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
+  - `importerFromId` derives `block` (spec 4.1): `X.ucf.react.tsx` (the module id and the virtual script share the name) is inside `<react>`, `X.ucf.svelte.svelte` inside `<svelte>`, a bare `X.ucf` or a `X.ucf?vue&…` sub-request inside `<vue>` (the Vue block keeps the real path, spec 4.3), and the virtual scripts `X.ucf.vue.ts`, `X.ucf.svelte.ts` inside their target.
   - No importer (a build entry, as in the M5 library build) skips the block and importer rules: the attribute, then `options.framework`, else `no-target`.
   - A result outside `options.frameworks` is `target-not-enabled`, naming the enabled targets. New codes join `DiagnosticCode` (`target-not-enabled` also joins `TargetErrorCode`): `target-not-enabled` and `framework-attribute-not-literal` (3.2). `missing-target-block` and `target-not-built` are already there: M2 (2.8, 2.9) reports them in the editor, and 3.6 reports `target-not-built` in the build.
   - The TypeScript plugin keeps calling the same function (3.8).
@@ -148,9 +150,9 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - `multifront(options)` now returns `Plugin[]` (the pre plugin `multifront`; 3.7 adds the post plugin). `MultifrontOptions` gains `importers?: Record<string, Target>`. `targets` keeps the spec default: all three.
   - `cache.ts`: `loadUcf(file): Promise<UcfEntry>`, `UcfEntry = {split, ctx}`. Splits once per file content and runs the shared kinds (`createBuildContext`).
   - Core: `buildTarget(split, ctx, target): VirtualFile`, the host function that runs that target row's `check` and `build`. The Vite `load` hook and M5's library build both call it.
-  - `@vitejs/plugin-react`, `react` and `react-dom` become optional peers of `@multifront/vite`, with the pinned devDependencies that satisfy them (like plugin-vue). Ranges: `react` and `react-dom` `^19.0.0` (spec 8: `ref` is a prop); plugin-react from the lowest version that passes spike check 1 (6.1 expected). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
-  - `resolveId` for a specifier whose path ends in `.ucf`: read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids (style, class map, target ids) pass through. During the dependency scan, follow the spike's verdict.
-  - `load`: the react id runs `react.check` (errors through `this.error` with `loc: {file, line, column}`) then `react.build`. A style id returns its CSS and map. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
+  - `@vitejs/plugin-react`, `react` and `react-dom` become optional peers of `@multifront/vite`, with the pinned devDependencies that satisfy them (like plugin-vue). Ranges: `react` and `react-dom` `^19.0.0` (spec 8: `ref` is a prop); plugin-react `^6.0.0` (spike check 1 passes from 6.0.0 on). Scope id from the path relative to `config.root` and `config.isProduction`; `production = config.isProduction`.
+  - `resolveId` for a specifier whose path ends in `.ucf`: read `?framework=`, resolve the path with `this.resolve(..., {skipSelf: true})`, call `resolveTarget`, then check the file has that block (`missing-target-block`, naming the importer and the imported file). Return the id of spec 4.3 for all three targets. Our own ids (style, class map, target ids) pass through. During the dependency scan (`options.scan`), return the same react id: the `config` hook adds a scan plugin to `optimizeDeps.rolldownOptions.plugins` whose `load` serves the `<react>` block for `/\.ucf\.react\.tsx$/` as `moduleType: 'tsx'`, so bare imports inside `<react>` blocks are optimized at startup (spike check 2: without it the scan fails on the missing file, and as an external they are optimized late).
+  - `load`: the react id runs `react.check` (errors through `this.error` with `loc: {file, line, column}`) then `react.build`, and adds the `.ucf` file with `this.addWatchFile` (the id names no file on disk, spec 4.3). A style id returns its CSS and map. A class map id returns its JS. A vue or svelte id fails with `target-not-built` (milestone 4 removes vue from it, milestone 6 deletes it).
   - `vueCompiler.spec.ts` is updated for the array.
   - Fixtures: `packages/e2e/fixtures/apps/react-basic/` (`index.html`, `src/main.tsx` with bare imports, `vite.config.ts` with `react()` and `multifront()`, error entries under `src/errors/`). the shared `fixtures/components/imports/` folder: `Icon.ucf` and `UsesIcon.ucf` (its `<react>` block imports `./Icon.ucf` with no attribute); M4 and M6 add their blocks to both. M2's `imports/VueOnly.ucf` is the missing-block case.
 - Deliverable: `import AllBlocks from './AllBlocks.ucf'` in a `.tsx` file builds with real plugin-react.
@@ -167,11 +169,11 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - Fixtures: `fixtures/apps/imports/` (3.2), plus `no-default/ssr-entry.tsx` that imports `Card.ucf` with `framework: 'react'` and renders it.
 - Deliverable: spec 4.4 for `.ts`, `.tsx`, `.js`, `.jsx` importers, in dev, build and SSR.
 - Test: `packages/e2e/build/imports.spec.ts` (area: build). For every importer file:
-  - **Dev:** a real dev server with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer: each `.ucf` import is now the expected id (`?target=react&lang.tsx`, the bare `/Card.ucf` for vue, `?target=svelte&lang.svelte`), and no `with` or `framework` is left.
+  - **Dev:** a real dev server with real plugin-react and `server.preTransformRequests: false`. `transformRequest` of the importer: each `.ucf` import is now the expected id (`/Card.ucf.react.tsx`, the bare `/Card.ucf` for vue, `/Card.ucf.svelte.svelte`), and no `with` or `framework` is left.
   - **Build:** a build of every react row: no attribute in the output.
   - **SSR:** `ssr-entry.tsx` loaded through the SSR module runner and rendered with `react-dom/server` `renderToString`: the HTML has the card; the SSR-transformed code has no attribute.
   - Error rows fail with their code and location.
-  - Adds `react`, `react-dom`, `@types/react`, `@types/react-dom`, `@vitejs/plugin-react` as exact-pinned root devDependencies, the same versions as `@multifront/vite`'s (3.6).
+  - Adds `react-dom` and `@types/react-dom` as exact-pinned root devDependencies (`react`, `@types/react` and `@vitejs/plugin-react` are already there, plugin-react since 3.1), all the same versions as `@multifront/vite`'s (3.6).
 
 ### 3.8 The TypeScript plugin uses the same rules
 
@@ -278,10 +280,10 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules are always handed on untouched, so plugin-vue decides the Vue update (M4 relies on it);
   - nothing relevant: `[]`.
 
-  The cache is updated. The dev scope id does not depend on the source, so it stays stable across edits.
+  The style and class map ids have `Card.ucf` as their path, so Vite lists them under that file; the react id names no file (spec 4.3), so its module is looked up by id (`environment.moduleGraph.getModuleById`). The cache is updated. The dev scope id does not depend on the source, so it stays stable across edits.
 - Deliverable: spec 7's HMR rules for React.
 - Test: `packages/e2e/browser/hmr-react.spec.ts` (area: browser), on a copy of `demo` (`copyApp`). Click Counter to 3.
-  - Edit a declaration in its `<style scoped>`: the computed color changes, the count is still 3, the only requests are for that style module, and no `?target=react` module is requested again.
+  - Edit a declaration in its `<style scoped>`: the computed color changes, the count is still 3, the only requests are for that style module, and no `.ucf.react.tsx` module is requested again.
   - Edit text in `<react>`: the text changes, the count is still 3, no page load event, no style module requested again.
   - Edit the `<vue>` block: no request at all.
 
@@ -306,7 +308,7 @@ Core (`@multifront/core`):
 Vite (`@multifront/vite`):
 
 - `multifront(options): Plugin[]`, the plugins `multifront` (pre) and `multifront:attributes` (post), `MultifrontOptions.importers`. Every later milestone.
-- `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `?target=svelte&lang.svelte`. Milestones 4 and 6 add `load` / `transform`.
+- `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `/abs/Card.ucf.svelte.svelte`. Milestones 4 and 6 add `load` / `transform`.
 - `packages/vite/src/cache.ts` `loadUcf(file): Promise<UcfEntry>`, and core's `buildTarget(split, ctx, target)`. Milestones 4, 5, 6.
 - `packages/vite/src/hmr.ts`, with a target-only branch to fill per target. Milestones 4 and 6.
 
@@ -327,7 +329,7 @@ Tests and fixtures (`packages/e2e`):
 
 1. The demo renders Counter, ScopedPanel with ScopedBadge, and Card. `$style` classes apply (computed styles).
 2. Click Counter to 3. Edit its `<react>` block three times: each edit shows, the count stays 3, no page reload.
-3. Edit a declaration in Counter's `<style scoped>`: the new computed value shows, the count stays 3, and no `?target=react` module is requested again.
+3. Edit a declaration in Counter's `<style scoped>`: the new computed value shows, the count stays 3, and no `.ucf.react.tsx` module is requested again.
 4. ScopedPanel's scoped style reaches ScopedBadge's root span (computed color), and not an inner element.
 5. `vite build` and preview of the same app: the same computed styles; no `with` or `framework` in any output file; each style block's CSS appears once.
 6. The same Card rendered with `react-dom/server` through the SSR module runner: ScopedBadge's root span carries ScopedPanel's `data-v-*`.
@@ -337,7 +339,7 @@ Tests and fixtures (`packages/e2e`):
 1. The exit test passes in the `check` and `react-floor` jobs, and 20 times in a row locally (no flake).
 2. Every `shapes/` fixture renders in dev and preview with its own `data-v-<id>` on every host element and the parent's `data-v-<id>` on its root DOM element (except `FragmentRoot` and `NullRoot`), with no React warning except the expected fragment one.
 3. The fuzz long run (10,000 files, 10 seeds) finds no failure, with no change to the transform after it.
-4. A style-only edit requests no `?target=react` module, and the state stays.
+4. A style-only edit requests no `.ucf.react.tsx` module, and the state stays.
 5. No `with { framework }` is left in any dev, build or SSR output of `imports`, and the build and tsserver agree on every react row.
 
 **No-go when** criterion 2, 3 or the exit test's item 4 cannot be met without one of: data-flow analysis beyond the one `const` hop, a runtime wrapper component around user components, or patching or forking plugin-react. Also no-go when our injected code breaks Fast Refresh (criterion 1 or 4) and cannot be fixed in the module we emit.
@@ -358,8 +360,9 @@ A failure of criterion 5 alone is not a React no-go. It changes the import desig
 
 Risks:
 
-- **plugin-react and query ids.** Fast Refresh must apply to `Card.ucf?target=react&lang.tsx`. plugin-react 6.1 matches `include` with a query allowed, so it should. The spike checks it, and the exit test guards it.
-- **The dependency scanner.** It reads importers before our post rewrite, so it sees `with { framework }` and bare `.ucf` imports. Imports that live only inside `<react>` blocks may be optimized late, which reloads the page once. Spike check 2, and the cold start test in 3.14.
+- **plugin-react and our id.** Fast Refresh must apply to `Card.ucf.react.tsx`. The spike showed it does on plugin-react 6.0.0 to 6.1.1, and that a `.ucf` path with a `lang.tsx` query is parsed without JSX in dev. The exit test guards it.
+- **No file behind the React and Svelte ids.** Vite does not tie `Card.ucf.react.tsx` to `Card.ucf` on disk. `load` adds the `.ucf` file with `addWatchFile`, and `hotUpdate` (3.15) maps a `Card.ucf` change to those modules by id. Vite's own HMR never finds them.
+- **The dependency scanner.** It reads importers before our post rewrite, so it sees `with { framework }` and bare `.ucf` imports, and reads every module from disk unless a scan plugin loads it. Imports that live only inside `<react>` blocks are optimized late (a reload) unless our scan plugin serves the block (3.6). Spike check 2 showed both; the cold start test in 3.14 guards it.
 - **oxc-parser offsets.** If they are not UTF-16, edits land in the wrong place on non-ASCII files. Spike check 3, `Unicode.ucf`, and the fuzz.
 - **Dev class names.** If M1's CSS-module class names hash the CSS text, every module style edit also changes the class map and re-runs the React module. Fast Refresh still keeps state, but "a style edit only reloads CSS" then holds for scoped styles only.
 - **Stamped props on other components.** Third-party components get `data-v-*` as a prop; most pass it on or drop it. Vue does the same with fallthrough attributes. Fragments are skipped, since React warns there.
