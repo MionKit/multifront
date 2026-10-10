@@ -1,0 +1,152 @@
+import {extname} from 'node:path';
+import MagicString from 'magic-string';
+import {Visitor, parseSync} from 'oxc-parser';
+import type {
+  ExportAllDeclaration,
+  ExportNamedDeclaration,
+  Expression,
+  ImportAttribute,
+  ImportDeclaration,
+  ImportExpression,
+  ObjectExpression,
+  ObjectProperty,
+} from 'oxc-parser';
+import {createDiagnostic} from '../diagnostics.ts';
+import type {Diagnostic, SourceMap, UcfImport} from '../types.ts';
+
+type Lang = 'js' | 'jsx' | 'ts' | 'tsx';
+type Span = {start: number; end: number};
+type PlainObject = Omit<ObjectExpression, 'properties'> & {properties: ObjectProperty[]};
+
+const LANGS: Record<string, Lang> = {
+  '.js': 'js',
+  '.mjs': 'js',
+  '.cjs': 'js',
+  '.jsx': 'jsx',
+  '.ts': 'ts',
+  '.mts': 'ts',
+  '.cts': 'ts',
+  '.tsx': 'tsx',
+};
+const VALUE_NOT_LITERAL = "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)";
+const OPTIONS_NOT_LITERAL =
+  'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
+
+/** The path's extension, else a `lang.<ext>` query (`C.vue?vue&type=script&lang.ts`), else ts. */
+function langOf(filename: string): Lang {
+  const queryAt = filename.indexOf('?');
+  const path = queryAt < 0 ? filename : filename.slice(0, queryAt);
+  const fromPath = LANGS[extname(path)];
+  if (fromPath) return fromPath;
+  const fromQuery = queryAt < 0 ? undefined : /[?&]lang\.(\w+)/.exec(filename.slice(queryAt));
+  return (fromQuery && LANGS[`.${fromQuery[1]}`]) ?? 'ts';
+}
+
+/** A string literal, or a template literal without expressions (the TS plugin reads both the same way). */
+function literalValue(node: Expression): string | undefined {
+  if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : undefined;
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0]!.value.cooked ?? undefined;
+  return undefined;
+}
+
+function keyName(key: ObjectProperty['key'] | ImportAttribute['key']): string | undefined {
+  if (key.type === 'Identifier') return key.name;
+  return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
+}
+
+// A spread or a computed key could hold the framework: such an object cannot be read statically.
+function isPlainObject(node: Expression): node is PlainObject {
+  return node.type === 'ObjectExpression' && node.properties.every((prop) => prop.type === 'Property' && !prop.computed);
+}
+
+/** Rewrites `.ucf` imports so `with { framework }` becomes `?framework=<value>` on the specifier (spec 4.4). */
+export function rewriteImportAttributes(
+  code: string,
+  filename: string
+): {code: string; map: SourceMap | null; imports: UcfImport[]; errors: Diagnostic[]} {
+  const imports: UcfImport[] = [];
+  const errors: Diagnostic[] = [];
+  const unchanged = {code, map: null, imports, errors};
+  if (!code.includes('.ucf')) return unchanged;
+  const {program, comments, errors: parseErrors} = parseSync(filename, code, {lang: langOf(filename), sourceType: 'module'});
+  // The importer's own compiler reports its syntax errors.
+  if (parseErrors.length) return unchanged;
+
+  const text = new MagicString(code);
+  const commentEnds = new Map(comments.map((comment) => [comment.start, comment.end]));
+  const nextToken = (from: number): number => {
+    let at = from;
+    while (at < code.length) {
+      if (/\s/.test(code[at]!)) at++;
+      else if (commentEnds.has(at)) at = commentEnds.get(at)!;
+      else break;
+    }
+    return at;
+  };
+  const fail = (node: Span, message: string) =>
+    errors.push(createDiagnostic({filename, source: code}, 'framework-attribute-not-literal', node.start, node.end, message));
+  // The caller removes the whole list instead when `index` is its only item.
+  const removeItem = (items: Span[], index: number) => {
+    const next = items[index + 1];
+    if (next) text.remove(items[index]!.start, next.start);
+    else text.remove(items[index - 1]!.end, items[index]!.end);
+  };
+  const found = (kind: UcfImport['kind'], source: Expression): UcfImport | undefined => {
+    const specifier = literalValue(source);
+    if (!specifier?.endsWith('.ucf')) return undefined;
+    const entry: UcfImport = {kind, specifier, start: source.start, end: source.end};
+    imports.push(entry);
+    return entry;
+  };
+  const moveIntoSpecifier = (entry: UcfImport, framework: string) => {
+    entry.framework = framework;
+    text.appendLeft(entry.end - 1, `?framework=${encodeURIComponent(framework)}`);
+  };
+
+  const fromStatic = (kind: UcfImport['kind']) => (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
+    const entry = node.source && found(kind, node.source);
+    if (!entry) return;
+    const {attributes} = node;
+    const index = attributes.findIndex((attribute) => keyName(attribute.key) === 'framework');
+    if (index < 0) return;
+    moveIntoSpecifier(entry, attributes[index]!.value.value);
+    if (attributes.length > 1) return removeItem(attributes, index);
+    let close = nextToken(attributes[0]!.end);
+    if (code[close] === ',') close = nextToken(close + 1);
+    text.remove(entry.end, close + 1);
+  };
+
+  const fromDynamic = (node: ImportExpression) => {
+    const entry = found('dynamic', node.source);
+    if (!entry || !node.options) return;
+    const {options} = node;
+    if (!isPlainObject(options)) return fail(options, OPTIONS_NOT_LITERAL);
+    const withIndex = options.properties.findIndex((prop) => keyName(prop.key) === 'with');
+    const withValue = options.properties[withIndex]?.value;
+    if (!withValue) return;
+    if (!isPlainObject(withValue)) return fail(withValue, OPTIONS_NOT_LITERAL);
+    const attributes = withValue.properties;
+    const index = attributes.findIndex((prop) => keyName(prop.key) === 'framework');
+    if (index < 0) return;
+    const value = attributes[index]!.value;
+    const framework = literalValue(value);
+    if (framework === undefined) return fail(value, VALUE_NOT_LITERAL);
+    moveIntoSpecifier(entry, framework);
+    if (attributes.length > 1) return removeItem(attributes, index);
+    if (options.properties.length > 1) return removeItem(options.properties, withIndex);
+    // Up to the closing paren, so a trailing comma goes too.
+    text.remove(entry.end, node.end - 1);
+  };
+
+  new Visitor({
+    ImportDeclaration: fromStatic('static'),
+    ExportNamedDeclaration: fromStatic('reexport'),
+    ExportAllDeclaration: fromStatic('reexport'),
+    ImportExpression: fromDynamic,
+  }).visit(program);
+
+  if (!text.hasChanged()) return unchanged;
+  const map = text.generateMap({source: filename, hires: true, includeContent: true});
+  const {sources, sourcesContent, names, mappings} = map;
+  return {code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}, imports, errors};
+}

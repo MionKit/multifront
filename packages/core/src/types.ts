@@ -73,6 +73,7 @@ export type DiagnosticCode =
   | 'missing-target-block'
   | 'target-not-built'
   | 'mixed-frameworks'
+  | 'framework-attribute-not-literal'
   | TargetErrorCode;
 
 /** The errors `resolveTarget` can return. */
@@ -155,3 +156,12 @@ export interface ResolveTargetOptions {
 export type TargetRule = 'block' | 'attribute' | 'importer' | 'default';
 
 export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: TargetErrorCode; message: string}};
+
+/** One `.ucf` import found by `rewriteImportAttributes`. */
+export interface UcfImport {
+  kind: 'static' | 'reexport' | 'dynamic';
+  specifier: string; // as written, before the rewrite
+  framework?: string; // the attribute's value, not checked; unset without one or when it is not a literal
+  start: number; // the specifier literal, quotes included, as offsets into the importer's code
+  end: number;
+}

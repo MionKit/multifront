@@ -1,0 +1,71 @@
+{
+  "code": "const options = {with: {framework: 'react'}};\nconst attributes = {framework: 'vue'};\nconst key = 'framework';\nexport const fromVariable = await import('../../components/Card.ucf', options);\nexport const withVariable = await import('../../components/Card.ucf', {with: attributes});\nexport const spread = await import('../../components/Card.ucf', {with: {...attributes}});\nexport const computed = await import('../../components/Card.ucf', {with: {[key]: 'svelte'}});\n",
+  "imports": [
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 151,
+      "end": 178
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 231,
+      "end": 258
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 316,
+      "end": 343
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 408,
+      "end": 435
+    }
+  ],
+  "errors": [
+    {
+      "code": "framework-attribute-not-literal",
+      "severity": "error",
+      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "filename": "rewrite-edges/not-literal-options.js",
+      "start": 180,
+      "end": 187,
+      "line": 4,
+      "column": 70
+    },
+    {
+      "code": "framework-attribute-not-literal",
+      "severity": "error",
+      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "filename": "rewrite-edges/not-literal-options.js",
+      "start": 267,
+      "end": 277,
+      "line": 5,
+      "column": 77
+    },
+    {
+      "code": "framework-attribute-not-literal",
+      "severity": "error",
+      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "filename": "rewrite-edges/not-literal-options.js",
+      "start": 352,
+      "end": 367,
+      "line": 6,
+      "column": 71
+    },
+    {
+      "code": "framework-attribute-not-literal",
+      "severity": "error",
+      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "filename": "rewrite-edges/not-literal-options.js",
+      "start": 444,
+      "end": 461,
+      "line": 7,
+      "column": 73
+    }
+  ]
+}

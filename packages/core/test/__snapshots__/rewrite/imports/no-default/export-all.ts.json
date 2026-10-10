@@ -1,0 +1,13 @@
+{
+  "code": "export * from '../../../components/Card.ucf?framework=react';\n",
+  "imports": [
+    {
+      "kind": "reexport",
+      "specifier": "../../../components/Card.ucf",
+      "start": 14,
+      "end": 44,
+      "framework": "react"
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,20 @@
+{
+  "code": "import Card from '../../components/Card.ucf?framework=react' /* e */;\nimport Other from '../../components/Card.ucf?framework=vue';\n\nexport {Card, Other};\n",
+  "imports": [
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 17,
+      "end": 44,
+      "framework": "react"
+    },
+    {
+      "kind": "static",
+      "specifier": "../../components/Card.ucf",
+      "start": 136,
+      "end": 163,
+      "framework": "vue"
+    }
+  ],
+  "errors": []
+}

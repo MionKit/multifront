@@ -1,9 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {parse as parseSfc} from '@vue/compiler-sfc';
-import {Visitor, parseSync} from 'oxc-parser';
-import type {Expression, ImportAttribute, ImportAttributeKey, PropertyKey} from 'oxc-parser';
-import {splitBlocks} from '@multifront/core';
-import type {Target} from '@multifront/core';
+import {rewriteImportAttributes, splitBlocks} from '@multifront/core';
+import type {DiagnosticCode, Target} from '@multifront/core';
 
 interface FoundImport {
   specifier: string;
@@ -12,14 +10,14 @@ interface FoundImport {
   block?: Target;
 }
 
-interface Script {
+export interface Script {
   code: string;
   offset: number; // where `code` starts in the file
   lang: 'js' | 'jsx' | 'ts' | 'tsx';
   block?: Target;
 }
 
-function scriptsOf(fileName: string, source: string): Script[] {
+export function scriptsOf(fileName: string, source: string): Script[] {
   if (fileName.endsWith('.ucf')) {
     const split = splitBlocks(source, fileName);
     if (split.errors.length) throw new Error(`${fileName}: ${split.errors[0]!.message}`);
@@ -43,47 +41,34 @@ function scriptsOf(fileName: string, source: string): Script[] {
   return [{code: source, offset: 0, lang: fileName.slice(fileName.lastIndexOf('.') + 1) as Script['lang']}];
 }
 
-function keyName(key: ImportAttributeKey | PropertyKey): string | undefined {
-  if (key.type === 'Identifier') return key.name;
-  return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
+interface FoundError {
+  code: DiagnosticCode;
+  message: string;
+  line: number; // 1-based, in the whole file
 }
 
-function stringValue(node: Expression | undefined): string | undefined {
-  return node?.type === 'Literal' && typeof node.value === 'string' ? node.value : undefined;
+/** A script of a `.ucf`, `.vue` or `.svelte` file names its language in a `lang.<x>` query, like a Vite sub-request. */
+export function scriptName(fileName: string, script: Script): string {
+  return /\.(ucf|vue|svelte)$/.test(fileName) ? `${fileName}?lang.${script.lang}` : fileName;
 }
 
-function property(object: Expression | null | undefined, name: string): Expression | undefined {
-  if (object?.type !== 'ObjectExpression') return undefined;
-  for (const prop of object.properties)
-    if (prop.type === 'Property' && keyName(prop.key) === name) return prop.value as Expression;
-  return undefined;
-}
-
-function staticAttribute(attributes: ImportAttribute[]): string | undefined {
-  return attributes.find((attr) => keyName(attr.key) === 'framework')?.value.value;
-}
-
-/** Only `.ucf` imports; an `import()` counts only with a string literal. */
-export function readImports(fileName: string): FoundImport[] {
+/** Every `.ucf` import of the file and the rewrite's errors, as `rewriteImportAttributes` finds them. */
+export function readImports(fileName: string): {imports: FoundImport[]; errors: FoundError[]} {
   const source = readFileSync(fileName, 'utf8');
-  const found: FoundImport[] = [];
+  const imports: FoundImport[] = [];
+  const errors: FoundError[] = [];
+  const lineAt = (offset: number) => source.slice(0, offset).split('\n').length;
   for (const script of scriptsOf(fileName, source)) {
-    const {program, errors} = parseSync(`script.${script.lang}`, script.code);
-    if (errors.length) throw new Error(`${fileName}: ${errors[0]!.message}`);
-    const add = (sourceNode: Expression | null, attribute: string | undefined) => {
-      const specifier = stringValue(sourceNode ?? undefined);
-      if (!sourceNode || !specifier?.endsWith('.ucf')) return;
-      const line = source.slice(0, script.offset + sourceNode.start).split('\n').length;
-      found.push({specifier, attribute, line, ...(script.block && {block: script.block})});
-    };
-    const fromStatic = (node: {source: Expression | null; attributes: ImportAttribute[]}) =>
-      add(node.source, staticAttribute(node.attributes));
-    new Visitor({
-      ImportDeclaration: fromStatic,
-      ExportNamedDeclaration: fromStatic,
-      ExportAllDeclaration: fromStatic,
-      ImportExpression: (node) => add(node.source, stringValue(property(property(node.options, 'with'), 'framework'))),
-    }).visit(program);
+    const result = rewriteImportAttributes(script.code, scriptName(fileName, script));
+    for (const {specifier, framework, start} of result.imports) {
+      imports.push({
+        specifier,
+        attribute: framework,
+        line: lineAt(script.offset + start),
+        ...(script.block && {block: script.block}),
+      });
+    }
+    for (const {code, message, start} of result.errors) errors.push({code, message, line: lineAt(script.offset + start)});
   }
-  return found;
+  return {imports, errors};
 }

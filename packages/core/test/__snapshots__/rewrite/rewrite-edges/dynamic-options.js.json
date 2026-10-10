@@ -1,0 +1,67 @@
+{
+  "code": "export const kept = await import('../../components/Card.ucf?framework=react', {with: {type: 'x'}});\nexport const options = await import('../../components/Card.ucf?framework=vue', {note: 'kept'});\nexport const after = await import('../../components/Card.ucf?framework=svelte', {note: 'kept'});\nexport const trailing = await import('../../components/Card.ucf?framework=svelte');\nexport const multiline = await import(\n  '../../components/Card.ucf?framework=react');\nexport const template = await import(`../../components/Card.ucf?framework=react`);\nexport const quoted = await import('../../components/Card.ucf?framework=vue');\nexport const noFramework = await import('../../components/Card.ucf', {with: {type: 'x'}});\nexport const noOptions = await import('../../components/Card.ucf');\nexport const notUcf = await import('./target.js', {with: {framework: 'react'}});\n",
+  "imports": [
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 33,
+      "end": 60,
+      "framework": "react"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 140,
+      "end": 167,
+      "framework": "vue"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 246,
+      "end": 273,
+      "framework": "svelte"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 358,
+      "end": 385,
+      "framework": "svelte"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 462,
+      "end": 489,
+      "framework": "react"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 590,
+      "end": 617,
+      "framework": "react"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 685,
+      "end": 712,
+      "framework": "vue"
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 787,
+      "end": 814
+    },
+    {
+      "kind": "dynamic",
+      "specifier": "../../components/Card.ucf",
+      "start": 876,
+      "end": 903
+    }
+  ],
+  "errors": []
+}

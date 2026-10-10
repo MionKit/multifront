@@ -27,8 +27,10 @@ type Completions = ts.server.protocol.CompletionInfo;
 
 const TYPE_ERROR = readComponent('editor/TypeError.ucf');
 const BUTTON = readComponent('Button.ucf');
-// The rows tsserver serves; .vue, .svelte and .jsx importers come with M4 and M6.
-const ROWS = EXPECTED_IMPORTS.filter(({file}) => /\.(tsx?|ucf)$/.test(file) && file !== 'src/mixed.ts');
+// The rows tsserver serves; .vue, .svelte and .jsx importers come with M4 and M6, the rewrite's error with 3.8.
+const ROWS = EXPECTED_IMPORTS.filter(
+  (row) => /\.(tsx?|ucf)$/.test(row.file) && row.file !== 'src/mixed.ts' && row.expect !== 'framework-attribute-not-literal'
+);
 const RULE_REASON: Record<TargetRule, string> = {
   block: 'the block it sits in',
   attribute: 'its framework attribute',
