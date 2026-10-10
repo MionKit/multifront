@@ -35,7 +35,7 @@ describe('createBuildContext on valid fixtures', () => {
     const {filename, source, split, ctx} = await context(name);
     const relativePath = `components/${name}`;
 
-    it('holds the file, its split and its path from the root', () => {
+    it('holds the file, its split and its path from the root with / separators', () => {
       expect(ctx.filename).toBe(filename);
       expect(ctx.split).toBe(split);
       expect(ctx.source).toBe(source);

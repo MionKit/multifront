@@ -36,6 +36,23 @@ jobs:
       - name: Build
         run: pnpm devx build
 
+  # Windows-only behaviour: `\` paths turned into the `/` paths scope ids hash.
+  windows:
+    runs-on: windows-latest
+    steps:
+      # Fixtures keep LF on every OS: offsets, lines and columns are pinned on them.
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `pnpm exec`, not `pnpm devx test`: devx spawns `node_modules/.bin` shims without a shell, which Windows cannot run.
+      - name: Test
+        run: pnpm exec vitest run --project core --reporter verbose packages/core/test/context.spec.ts
+
   commitlint:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
