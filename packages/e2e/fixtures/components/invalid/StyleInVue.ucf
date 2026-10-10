@@ -1,0 +1,25 @@
+<vue>
+  <script setup lang="ts">
+  const decoy = '<style>'
+  const a = 2
+  const b = 1
+  </script>
+  <!-- <style> in a comment is not a block -->
+  <template>
+    <template v-if="a > b">
+      <p class="inside">{{ decoy }}</p>
+    </template>
+    <style>.markup { color: gray; }</style>
+  </template>
+  <style scoped>
+  .inside {
+    color: crimson;
+  }
+  </style>
+</vue>
+
+<style>
+.inside {
+  margin: 0;
+}
+</style>

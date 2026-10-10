@@ -1,0 +1,12 @@
+[
+  {
+    "code": "react-no-default-export",
+    "severity": "error",
+    "message": "<react> has no default export; add export default to the component",
+    "filename": "invalid/ReactNoDefault.ucf",
+    "start": 52,
+    "end": 59,
+    "line": 7,
+    "column": 0
+  }
+]

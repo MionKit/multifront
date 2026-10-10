@@ -15,7 +15,15 @@ function tsxSyntaxErrors(code: string): string[] {
 
 describe('splitBlocks on valid fixtures', () => {
   it('finds every valid fixture', () => {
-    expect(listComponents()).toEqual(['Badge.ucf', 'Button.ucf', 'Card.ucf', 'Hello.ucf', 'Panel.ucf', 'TsxEdges.ucf']);
+    expect(listComponents()).toEqual([
+      'Badge.ucf',
+      'Button.ucf',
+      'Card.ucf',
+      'Hello.ucf',
+      'Panel.ucf',
+      'ReactDefaultSpecifier.ucf',
+      'TsxEdges.ucf',
+    ]);
   });
 
   it('reads every attribute form', () => {
@@ -106,16 +114,21 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'react', 'react', 'style'],
   },
+  // Structurally valid: only checkBlocks reports these.
+  {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [], blocks: ['react', 'style', 'style', 'style']},
   {
     fixture: 'invalid/ReactCloseInString.ucf',
     errors: [{code: 'text-outside-block', line: 3, column: 29}],
     blocks: ['react', 'style'],
   },
+  {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
   {
     fixture: 'invalid/StrayClosingTag.ucf',
     errors: [{code: 'text-outside-block', line: 6, column: 0}],
     blocks: ['react', 'style'],
   },
+  {fixture: 'invalid/StyleInSvelte.ucf', errors: [], blocks: ['svelte', 'style']},
+  {fixture: 'invalid/StyleInVue.ucf', errors: [], blocks: ['vue', 'style']},
   {fixture: 'invalid/StylesOnly.ucf', errors: [{code: 'missing-target', line: 1, column: 0}], blocks: ['style', 'style']},
   {
     fixture: 'invalid/TextOutsideBlock.ucf',
@@ -136,6 +149,7 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['react', 'style'],
   },
+  {fixture: 'invalid/UnknownStyleLang.ucf', errors: [], blocks: ['react', 'style', 'style']},
 ];
 
 describe('splitBlocks on invalid fixtures', () => {

@@ -1,0 +1,12 @@
+[
+  {
+    "code": "duplicate-style-module",
+    "severity": "error",
+    "message": "<style module> injects $style more than once; give each module its own name",
+    "filename": "invalid/DuplicateStyleModule.ucf",
+    "start": 274,
+    "end": 288,
+    "line": 19,
+    "column": 0
+  }
+]
