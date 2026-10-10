@@ -151,7 +151,6 @@ function modelOf({source, blocks}: SplitResult): Model {
   };
 }
 
-// Real HTML comments found between the blocks of the valid fixtures.
 const GAP_COMMENTS = [...BASE_MODELS.values()].flatMap((model) => model.gaps.flatMap((gap) => gap.match(/<!--[^]*?-->/g) ?? []));
 
 // Lines of TsxEdges' <react> block that are a statement on their own and cannot close a block.
@@ -229,7 +228,7 @@ function apply(model: Model, kind: ActionKind, random: Random): void {
   } else model.cut = random.next();
 }
 
-// Replays `actions` on the fixture; an action that no longer applies (the shrinker dropped what it needed) is skipped.
+// Skips an action that no longer applies, so the shrinker can drop an action another one needed.
 function replay(fixture: string, actions: Action[]): {model: Model; applied: ActionKind[]} {
   const base = BASE_MODELS.get(fixture)!;
   const model: Model = {gaps: [...base.gaps], blocks: base.blocks.map((block) => ({...block}))};
@@ -453,7 +452,7 @@ function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean
   return raw(lines);
 }
 
-// `onlyRule` keeps one rule's violations, so a negative control proves that rule on its own.
+// `onlyRule` lets a negative control prove one rule on its own.
 function fuzz(splitter: Splitter, settings: typeof DEFAULT_SETTINGS, onlyRule?: Rule): Failure | undefined {
   const check = (fuzzCase: FuzzCase) =>
     checkCase(fuzzCase, splitter).filter((violation) => !onlyRule || violation.rule === onlyRule);
