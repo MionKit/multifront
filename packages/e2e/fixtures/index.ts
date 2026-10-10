@@ -42,3 +42,8 @@ export function listComponents(folder?: string): string[] {
 export function hasClass(css: string, name: string): boolean {
   return new RegExp(`\\.${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
 }
+
+/** `name` as an `@keyframes` name in `css`, not a prefix of a longer one. */
+export function hasKeyframes(css: string, name: string): boolean {
+  return new RegExp(`@keyframes\\s+${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
+}

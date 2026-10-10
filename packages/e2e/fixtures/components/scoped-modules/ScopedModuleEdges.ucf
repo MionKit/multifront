@@ -1,0 +1,29 @@
+<react>
+  export default function Fader() {
+    return <div className={`${$style.wrap} ${$style.fade}`} />
+  }
+</react>
+
+<style module scoped>
+.wrap :global(.theme-dark) {
+  color: white;
+}
+
+.wrap :deep(.inner) {
+  margin: 0;
+}
+
+.fade {
+  animation: fill 1s;
+}
+
+@keyframes fill {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+</style>
