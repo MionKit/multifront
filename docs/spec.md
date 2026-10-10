@@ -205,7 +205,7 @@ So in a one-framework app, a plain `import Card from './Card.ucf'` just works. T
 
 ### 4.4 Attributes never reach a runtime
 
-Browsers and Node reject import attributes they do not know. A post `transform` on every importer moves the attribute into the module id and removes it. It runs before Vite's import analysis (dev) and before the bundler reads the imports (build), so we do not depend on whether Rolldown forwards attributes to `resolveId`.
+Browsers and Node reject import attributes they do not know. A post `transform` on every importer moves the attribute into the module id and removes it. It runs before Vite's import analysis (dev) and before the bundler reads the imports (build), so we do not depend on whether Rolldown forwards attributes to `resolveId`. A non-literal attribute and an import the target rules reject are errors at that import, in the importer's own source.
 
 ## 5. Types
 
