@@ -107,9 +107,9 @@ None: this is the first milestone. It builds on what the repo already has:
     | `Card.ucf` | vue, react, svelte, `<style module lang="scss">` | the spec section 2 example, verbatim |
     | `Badge.ucf` | react, `<style scoped>` | one target, plain scoped CSS |
     | `Button.ucf` | vue, react, svelte, `<style scoped>`, `<style module='classes'>` | scoped plus a named module; single-quoted attribute |
-    | `Panel.ucf` | vue, react, `<style scoped lang=scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute |
-    | `Hello.ucf` | react only, no style | a file with no `<style>` |
-    | `TsxEdges.ucf` | react, `<style scoped>` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'` |
+    | `Panel.ucf` | vue, react, `<style scoped lang = scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute, spaces around `=` |
+    | `Hello.ucf` | react only, no style | a file with no `<style>`; closing tag `</react >` |
+    | `TsxEdges.ucf` | react, `<style scoped>` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'`, a `'</reactive>'` string, an HTML comment holding `<style>` between blocks |
 
 - Deliverable: `splitBlocks()` returns the right blocks, attributes and offsets for every valid fixture.
 - Test: `packages/core/test/split.spec.ts` (package's own test). For every name from `listComponents()` (read through a relative path to `packages/e2e/fixtures/components/`, no package dependency, so no workspace cycle):
@@ -146,7 +146,7 @@ None: this is the first milestone. It builds on what the repo already has:
     | Code | Where it points | What the splitter does next |
     | --- | --- | --- |
     | `unknown-root-tag` | the `<name` of the tag | skips to its matching `</name>` if there is one |
-    | `unclosed-block` | the opening tag | the block is left out of `blocks` |
+    | `unclosed-block` | the opening tag (also one that never ends cleanly: end of file, `/>`, a quote left open before `>` or a line break) | the block is left out of `blocks` |
     | `duplicate-target` | the second opening tag | both stay in `blocks`; `targets[tag]` is the first |
     | `missing-target` | `start = end = 0` | (no target block in the file) |
     | `text-outside-block` | the stray text run | skips it |
