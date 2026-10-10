@@ -1,0 +1,4 @@
+
+.tag {
+  composes: base from './no-such-file.css';
+}

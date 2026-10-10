@@ -1,0 +1,18 @@
+
+  // <style> in a comment is not a block
+  const identity = <T,>(x: T) => x
+
+  export default function TsxEdges({ a, b, c, d }: { a: number; b: number; c: number; d: number }) {
+    const less = a < b
+    const both = a<b && c>d
+    const open = '<react>'
+    const close = '<\/react>'
+    const longer = '</reactive>'
+    return (
+      <>
+        <span className="edge">{identity(less)}</span>
+        <span>{String(both)}</span>
+        <span>{open + close + longer}</span>
+      </>
+    )
+  }

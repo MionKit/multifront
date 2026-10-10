@@ -1,0 +1,16 @@
+
+  import type { ReactNode } from 'react'
+
+  function ReactTypeOnlyDefaultForms() {
+    return <p>Type-only default exports</p>
+  }
+
+  export { type ReactTypeOnlyDefaultForms as default }
+
+  export default interface Props {
+    label: string
+  }
+
+  type Label = string
+
+  export { Label as default, ReactNode as default }

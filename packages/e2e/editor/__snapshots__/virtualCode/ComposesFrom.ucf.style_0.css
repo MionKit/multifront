@@ -1,0 +1,14 @@
+
+.tag {
+  composes: base from './tag-base.css';
+  color: teal;
+}
+
+.chip {
+  composes: round from '@multifront/e2e/fixtures/components/tag-round.css';
+  composes: base from './tag-base.css';
+}
+
+.pill {
+  composes: base from 'tag-base.css';
+}

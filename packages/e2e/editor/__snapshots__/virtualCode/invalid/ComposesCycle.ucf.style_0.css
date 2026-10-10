@@ -1,0 +1,4 @@
+
+.tag {
+  composes: a from './cycle-a.css';
+}

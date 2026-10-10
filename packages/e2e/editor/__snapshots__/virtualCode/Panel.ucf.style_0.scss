@@ -1,0 +1,10 @@
+
+$pad: 1rem;
+
+.panel {
+  padding: $pad;
+
+  .heading {
+    margin: 0 0 $pad * 0.5;
+  }
+}
