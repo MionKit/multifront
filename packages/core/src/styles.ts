@@ -4,6 +4,7 @@ import {createRequire} from 'node:module';
 import {dirname, isAbsolute, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {decode, encode} from '@jridgewell/sourcemap-codec';
+import type {SFCStyleCompileOptions} from '@vue/compiler-sfc';
 import {createDiagnostic} from './diagnostics.ts';
 import {styleId} from './ids.ts';
 import type {Block, CompiledStyle, Diagnostic, SourceMap, VueCompiler} from './types.ts';
@@ -35,6 +36,15 @@ export function moduleName(block: Block): string | undefined {
   return module === true || module === '' ? '$style' : module;
 }
 
+/** The preprocessing plugin-vue leaves to Vite; the build and the editor pass the same. */
+export function stylePreprocessOptions(block: Block): Pick<SFCStyleCompileOptions, 'preprocessLang' | 'preprocessOptions'> {
+  return {
+    preprocessLang: PREPROCESS_LANGS.find((lang) => lang === block.attrs.lang),
+    // compiler-sfc asks sass for `indentedSyntax`, which sass's `compileString` ignores.
+    preprocessOptions: block.attrs.lang === 'sass' ? {syntax: 'indented'} : undefined,
+  };
+}
+
 /** Passes `compileStyleAsync` the options plugin-vue passes, plus the preprocessing plugin-vue leaves to Vite. */
 export function compileStyles(blocks: Block[], options: CompileStylesOptions): Promise<CompiledStyle[]> {
   return Promise.all(blocks.map((block) => compileStyle(block, options)));
@@ -52,9 +62,7 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
       isProd: production,
       scoped,
       source: block.content,
-      preprocessLang: PREPROCESS_LANGS.find((lang) => lang === block.attrs.lang),
-      // compiler-sfc asks sass for `indentedSyntax`, which sass's `compileString` ignores.
-      preprocessOptions: block.attrs.lang === 'sass' ? {syntax: 'indented'} : undefined,
+      ...stylePreprocessOptions(block),
       modules: module !== undefined,
       modulesOptions: modulesOptions(block, scoped, options),
       inMap: blockMap(block, options),
