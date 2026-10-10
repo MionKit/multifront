@@ -1,0 +1,5 @@
+<vue>
+  <template>
+    <p>Only Vue</p>
+  </template>
+</vue>
