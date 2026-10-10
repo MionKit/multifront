@@ -1,0 +1,36 @@
+<!-- Grammar edges the splitter reads: an attribute over several lines, every lang quote, a lang inside another value. -->
+
+<vue>
+  <script setup>
+  const limit = 2
+  const small = 1
+    < limit
+  </script>
+  <template>
+    <p :title="String(small)">{{ small }}</p>
+  </template>
+</vue>
+
+<svelte>
+  <template>
+    <p>{limit}</p>
+  </template>
+  <p class={$style.edge}>{limit}</p>
+</svelte>
+
+<style
+  module
+  lang="scss"
+>
+$gap: 1rem;
+.edge { padding: $gap; }
+</style>
+
+<style lang='less'>
+@gap: 1rem;
+.less { margin: @gap; }
+</style>
+
+<style title="a lang=scss b">
+.plain { color: red; }
+</style>
