@@ -55,7 +55,7 @@ interface EditorFile extends VirtualFile {
 }
 ```
 
-- **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. `createBuildContext()` in core calls each shared kind's `fillContext`, in registry order. The chosen target reads `ctx`.
+- **Shared blocks run first** and fill `ctx`: the scope id, the `$style` class map and the CSS module ids. `createBuildContext()` in core calls each shared kind's `fillContext`, in registry order. The chosen target reads `ctx`. The editor does the same synchronously: the style row's `editor()` fills `ctx.modules` with the CSS module keys before the target rows' `types()` read them.
 - **Lint and format need no operation of their own.** oxlint and oxfmt run on each block's own text, named with the ending of its `build` file (`.tsx`, `.vue`, `.svelte`) or its style `lang`. They never see generated code, so nothing generated is ever written back into a `.ucf` file.
 - **One rule for the Vue row:** it takes the raw `<style>` blocks into its SFC code, so plugin-vue compiles them itself. React and Svelte use the compiled CSS from `ctx`.
 

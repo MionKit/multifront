@@ -49,7 +49,7 @@ From M1:
 From M2:
 
 - The `@multifront/language-tools` package.
-- `getTypesScript(filename, source, target, options?)` from `@multifront/language-tools`: the `Card.ucf.react.tsx` script of one file, with `$style` typed inside it and `.ucf` import specifiers left as written so we can rewrite them.
+- `getTypesScript(filename, source, target, options?: EditorOptions)` from `@multifront/language-tools` (`EditorOptions = {compiler?: VueCompiler}`; pass `{compiler: loadVueCompiler(root)}` from core, or only plain CSS modules are typed): the `Card.ucf.react.tsx` script of one file, with `$style` typed inside it and `.ucf` import specifiers left as written so we can rewrite them.
 - The editor area harness in `packages/e2e/editor/` that runs real tsserver with `@multifront/language-tools/typescript-plugin` over a fixture file and returns its diagnostics.
 
 From M3:
@@ -158,7 +158,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 - Build: `packages/vite/src/library/types.ts`, called by `buildLibrary` after each JS build when `dts` is on. Each row's `emitTypes(job)`:
   - Stage a copy of `src/` in a fresh folder under the library's own `node_modules/.cache/multifront/` (so `@types/react` and `vue` resolve from the library), deleted after.
-  - React: each `.ucf` becomes `Card.tsx` with the code of `getTypesScript(filename, source, 'react')`. Every `.ucf` specifier (in the staged `.tsx` and in plain `.ts` files like `index.ts`) becomes `./Card.js`. Then real `tsc` with a generated tsconfig: extends the library's `tsconfig.json` when present, `declaration`, `emitDeclarationOnly`, `jsx: react-jsx`, no declaration maps, `files` set to the entries, `outDir` set to `dist/react`.
+  - React: each `.ucf` becomes `Card.tsx` with the code of `getTypesScript(filename, source, 'react', {compiler})`, `compiler` from `loadVueCompiler(root)`. Every `.ucf` specifier (in the staged `.tsx` and in plain `.ts` files like `index.ts`) becomes `./Card.js`. Then real `tsc` with a generated tsconfig: extends the library's `tsconfig.json` when present, `declaration`, `emitDeclarationOnly`, `jsx: react-jsx`, no declaration maps, `files` set to the entries, `outDir` set to `dist/react`.
   - Vue: each `.ucf` becomes `Card.vue` with the code of `buildTarget(split, ctx, 'vue')`. `.ucf` specifiers become `./Card.vue`. Real `vue-tsc` with the same settings. Then rename `Card.vue.d.ts` to `Card.d.ts` and rewrite `./Card.vue` to `./Card.js` in every `.d.ts`.
   - Specifier rewrites use oxc-parser and MagicString, never a regex. A type error in a block fails the build with the `.ucf` file name.
   - `typescript`, `vue-tsc` and `@multifront/language-tools` are optional peers of `@multifront/vite`, loaded only here. A missing one is an error that names the package to install.
