@@ -4,10 +4,12 @@ import {checkBlocks, isTarget, splitBlocks} from '@multifront/core';
 import type {Block, BlockTag, Diagnostic, SplitResult} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {componentPath, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
+import {createRandom, fuzzSettings, mixSeed, replayLine, shrinkActions} from '../../e2e/build/lib/fuzz.ts';
+import type {FuzzSettings, Random, Action as SeededAction} from '../../e2e/build/lib/fuzz.ts';
 import {tsxSyntaxErrors} from './tsx.ts';
 
 const SPEC_PATH = 'packages/core/test/split.fuzz.spec.ts';
-const DEFAULT_SETTINGS = {seed: 2026, runs: 500};
+const DEFAULT_SETTINGS: FuzzSettings = {seed: 2026, runs: 500};
 
 const ACTION_KINDS = [
   'shuffle',
@@ -29,10 +31,7 @@ interface Violation {
   message: string;
 }
 
-interface Action {
-  kind: ActionKind;
-  seed: number;
-}
+type Action = SeededAction<ActionKind>;
 
 interface ModelBlock extends Pick<Block, 'type' | 'content' | 'attrs'> {
   open: string;
@@ -67,62 +66,6 @@ interface Failure {
 }
 
 type Splitter = typeof splitBlocks;
-
-// --- seeded randomness -----------------------------------------------------------------------------------------
-
-function readKnob(name: string, fallback: number, min: number, max: number): number {
-  const raw = process.env[name];
-  if (raw === undefined || raw === '') return fallback;
-  const value = /^\d+$/.test(raw) ? Number(raw) : NaN;
-  if (!(value >= min && value <= max)) throw new Error(`${name} must be an integer from ${min} to ${max}, got '${raw}'`);
-  return value;
-}
-
-function fuzzSettings(): typeof DEFAULT_SETTINGS {
-  return {
-    // mixSeed works on 32 bits: a larger seed would silently replay a smaller one.
-    seed: readKnob('MULTIFRONT_FUZZ_SEED', DEFAULT_SETTINGS.seed, 0, 0xffffffff),
-    runs: readKnob('MULTIFRONT_FUZZ_RUNS', DEFAULT_SETTINGS.runs, 1, Number.MAX_SAFE_INTEGER),
-  };
-}
-
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function mixSeed(base: number, label: string, index: number): number {
-  let hash = base >>> 0;
-  for (const char of label) hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0;
-  return Math.imul(hash ^ index, 0x01000193) >>> 0;
-}
-
-function createRandom(seed: number) {
-  const next = mulberry32(seed);
-  const int = (max: number) => Math.floor(next() * max);
-  return {
-    next,
-    int,
-    pick<Item>(list: readonly Item[]): Item {
-      if (!list.length) throw new Error('pick() from an empty list');
-      return list[int(list.length)]!;
-    },
-    shuffle<Item>(list: readonly Item[]): Item[] {
-      const copy = [...list];
-      for (let index = copy.length - 1; index > 0; index--) {
-        const other = int(index + 1);
-        [copy[index], copy[other]] = [copy[other]!, copy[index]!];
-      }
-      return copy;
-    },
-  };
-}
-type Random = ReturnType<typeof createRandom>;
 
 // --- fixtures --------------------------------------------------------------------------------------------------
 
@@ -423,15 +366,12 @@ function checkCase(fuzzCase: FuzzCase, splitter: Splitter): Violation[] {
 
 // --- shrinker and runner ---------------------------------------------------------------------------------------
 
-function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean): FuzzCase {
-  let {actions} = fuzzCase;
-  for (let index = 0; index < actions.length;) {
-    const fewer = actions.filter((_, other) => other !== index);
+async function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean): Promise<FuzzCase> {
+  // Dropping a truncation lengthens the file: only a failing file no longer than before counts as smaller.
+  const actions = await shrinkActions(fuzzCase.actions, (fewer, current) => {
     const candidate = build(fuzzCase.fixture, fewer);
-    // Dropping a truncation lengthens the file: only a failing file no longer than before counts as smaller.
-    if (candidate.source.length <= build(fuzzCase.fixture, actions).source.length && stillFails(candidate)) actions = fewer;
-    else index++;
-  }
+    return candidate.source.length <= build(fuzzCase.fixture, current).source.length && stillFails(candidate);
+  });
   const smallest = build(fuzzCase.fixture, actions);
   // Raw text has no model, so only a model-free rule can still fail on it.
   const raw = (lines: string[]): FuzzCase => ({
@@ -453,7 +393,7 @@ function shrink(fuzzCase: FuzzCase, stillFails: (candidate: FuzzCase) => boolean
 }
 
 // `onlyRule` lets a negative control prove one rule on its own.
-function fuzz(splitter: Splitter, settings: typeof DEFAULT_SETTINGS, onlyRule?: Rule): Failure | undefined {
+async function fuzz(splitter: Splitter, settings: FuzzSettings, onlyRule?: Rule): Promise<Failure | undefined> {
   const check = (fuzzCase: FuzzCase) =>
     checkCase(fuzzCase, splitter).filter((violation) => !onlyRule || violation.rule === onlyRule);
   for (let runIndex = 0; runIndex < settings.runs; runIndex++) {
@@ -461,7 +401,7 @@ function fuzz(splitter: Splitter, settings: typeof DEFAULT_SETTINGS, onlyRule?: 
     const violations = check(input);
     if (!violations.length) continue;
     const rule = violations[0]!.rule;
-    const shrunk = shrink(input, (candidate) => check(candidate).some((found) => found.rule === rule));
+    const shrunk = await shrink(input, (candidate) => check(candidate).some((found) => found.rule === rule));
     return {seed: settings.seed, runIndex, runSeed: mixSeed(settings.seed, 'run', runIndex), input, shrunk, violations};
   }
   return undefined;
@@ -475,7 +415,7 @@ function describeFailure(failure: Failure): string {
   return [
     `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed})`,
     ...failure.violations.map((violation) => `  [${violation.rule}] ${violation.message}`),
-    `replay: MULTIFRONT_FUZZ_SEED=${failure.seed} MULTIFRONT_FUZZ_RUNS=${failure.runIndex + 1} pnpm devx test ${SPEC_PATH}`,
+    replayLine(failure.seed, failure.runIndex, SPEC_PATH),
     'input:',
     showCase(failure.input),
     'shrunk:',
@@ -486,10 +426,10 @@ function describeFailure(failure: Failure): string {
 // --- tests -----------------------------------------------------------------------------------------------------
 
 describe('splitBlocks fuzz', () => {
-  const settings = fuzzSettings();
+  const settings = fuzzSettings(DEFAULT_SETTINGS);
 
-  it(`holds every rule over ${settings.runs} generated files (seed ${settings.seed})`, () => {
-    const failure = fuzz(splitBlocks, settings);
+  it(`holds every rule over ${settings.runs} generated files (seed ${settings.seed})`, async () => {
+    const failure = await fuzz(splitBlocks, settings);
     if (failure) expect.fail(describeFailure(failure));
   });
 
@@ -526,14 +466,14 @@ describe('splitBlocks fuzz', () => {
     );
   });
 
-  it('shrinks to the fewest actions and lines that still fail', () => {
+  it('shrinks to the fewest actions and lines that still fail', async () => {
     const input = build('Hello.ucf', [
       {kind: 'gap', seed: 1},
       {kind: 'duplicate', seed: 2},
       {kind: 'requote', seed: 3},
       {kind: 'shuffle', seed: 4},
     ]);
-    const shrunk = shrink(input, (candidate) => (candidate.source.match(/<react/g) ?? []).length > 1);
+    const shrunk = await shrink(input, (candidate) => (candidate.source.match(/<react/g) ?? []).length > 1);
     expect(shrunk.applied).toEqual(['duplicate']);
     expect(shrunk.source).toBe('<react>\n<react>\n');
   });
@@ -546,7 +486,7 @@ describe('splitBlocks fuzz', () => {
     it('reads the seed and the run count', () => {
       vi.stubEnv('MULTIFRONT_FUZZ_SEED', '7');
       vi.stubEnv('MULTIFRONT_FUZZ_RUNS', '30');
-      expect(fuzzSettings()).toEqual({seed: 7, runs: 30});
+      expect(fuzzSettings(DEFAULT_SETTINGS)).toEqual({seed: 7, runs: 30});
     });
 
     it.each([
@@ -556,7 +496,7 @@ describe('splitBlocks fuzz', () => {
       ['MULTIFRONT_FUZZ_RUNS', '-3'],
     ])('rejects %s=%s', (name, value) => {
       vi.stubEnv(name, value);
-      expect(() => fuzzSettings()).toThrow(name);
+      expect(() => fuzzSettings(DEFAULT_SETTINGS)).toThrow(name);
     });
   });
 
@@ -643,8 +583,8 @@ describe('splitBlocks fuzz', () => {
       ],
     ];
 
-    it.each(BROKEN)('%s fails rule %s', (_, rule, splitter) => {
-      const failure = fuzz(splitter, DEFAULT_SETTINGS, rule);
+    it.each(BROKEN)('%s fails rule %s', async (_, rule, splitter) => {
+      const failure = await fuzz(splitter, DEFAULT_SETTINGS, rule);
       expect(failure?.violations.map((violation) => violation.rule)).toContain(rule);
       const {input, shrunk, runIndex} = failure!;
       expect(checkCase(shrunk, splitter).map((violation) => violation.rule)).toContain(rule);
@@ -652,7 +592,7 @@ describe('splitBlocks fuzz', () => {
       expect(describeFailure(failure!)).toContain(
         `MULTIFRONT_FUZZ_SEED=${DEFAULT_SETTINGS.seed} MULTIFRONT_FUZZ_RUNS=${runIndex + 1}`
       );
-      const replayed = fuzz(splitter, {seed: DEFAULT_SETTINGS.seed, runs: runIndex + 1}, rule);
+      const replayed = await fuzz(splitter, {seed: DEFAULT_SETTINGS.seed, runs: runIndex + 1}, rule);
       expect(replayed?.input).toEqual(input);
     });
   });
