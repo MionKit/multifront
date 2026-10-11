@@ -421,3 +421,19 @@ Open questions:
 - `v-bind()` in CSS for React (spec 12).
 - A `framework` attribute on a non-`.ucf` import.
 - `mf-tsc`, Svelte markup completions, oxfmt and oxlint for `.ucf` (milestone 7).
+
+## Manual QA
+
+Run from the repo root. Commands that start Vite load `@multifront/vite` from `src/` with `NODE_OPTIONS=--conditions=source` and `--configLoader native`. Marks: **pass**, **fail** (with its issue), **needs a person**.
+
+1. `pnpm devx test packages/e2e/browser/demo-exit.spec.ts`: 9 tests pass (the exit test). **pass**
+2. `pnpm devx check`, four times in a row: every run green. **fail**: `packages/e2e/build/hmr.spec.ts` timed out in 2 of 6 full runs (one `check`, one `test`), and passed alone 3 times out of 3.
+3. `NODE_OPTIONS=--conditions=source pnpm exec vite build packages/e2e/fixtures/apps/demo --configLoader native --outDir /tmp/mf-demo --emptyOutDir`, then `grep -rl framework /tmp/mf-demo`: the build succeeds and grep prints nothing; the one CSS file holds the 6 rules of Counter, ScopedPanel and Card once each. **pass**
+4. `NODE_OPTIONS=--conditions=source pnpm exec vite packages/e2e/fixtures/apps/demo --configLoader native`, open the URL: Counter (purple "Clicks"), the scoped panel with its green badge (the label not underlined), and two Cards. Click Counter to 3, change "Clicks" in the `<react>` block of `packages/e2e/fixtures/components/Counter.ucf`, then the scoped `rgb(120, 40, 160)`: each edit shows, the count stays 3, the page never reloads. Undo with `git checkout packages/e2e/fixtures/components/Counter.ucf`. **needs a person**
+5. Same server, `curl -s localhost:5173/src/App.tsx | grep ucf` and `curl -s localhost:5173/src/card.ts | grep ucf`: each `.ucf` import is a `….ucf.react.tsx` URL, also the `.ts` helper's attribute import, with no `with` left. **pass**
+6. `NODE_OPTIONS=--conditions=source pnpm exec vite packages/e2e/fixtures/apps/react-basic --configLoader native`, then `curl -s localhost:5173/src/errors/missing-block.tsx`: the error page says `../../../../components/imports/VueOnly.ucf has no <react> block; missing-block.tsx imports it as react (missing-target-block)`. **pass**
+7. `pnpm devx test packages/e2e/build/scan-deps.spec.ts`: 2 tests pass, a dependency found only in a `<react>` block is pre-bundled whichever rule picked react. **fail**: the attribute row (`attribute.ts`) does not find `react-dom/client`.
+8. `pnpm devx test packages/e2e/build/fs-allow.spec.ts`: 5 tests pass, every id of a `.ucf` file outside `server.fs.allow` answers 403. **fail**: the React, style and class map modules answer 200.
+9. `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`: 9 tests pass (about 4 minutes). **pass**
+10. The react-scope app in dev (`vite packages/e2e/fixtures/apps/react-scope`, same flags), `?page=shapes`, browser console: exactly one `[multifront] <FragmentRoot> renders a fragment root` warning, no React warning. **needs a person**
+11. `pnpm devx vsix`, install the `.vsix` in VS Code, open `packages/e2e/fixtures/apps/imports/`: `no-default/non-literal.ts` shows `framework-attribute-not-literal` under the `import()`, and go to definition on `./Card.ucf` in `src/App.tsx` lands in Card.ucf's `<react>` block. **needs a person**
