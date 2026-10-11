@@ -92,6 +92,10 @@ describe('milestone 4 exit test', () => {
     const page = await browser!.newPage();
     try {
       await writeFile(join(root, 'index.html'), SSR_HTML);
+      // Production Vue skips class, style and attribute mismatch checks unless this flag is on.
+      const config = join(root, 'vite.config.ts');
+      const plain = await readFile(config, 'utf8');
+      await writeFile(config, plain.replace('vue()', 'vue({features: {prodHydrationMismatchDetails: true}})'));
       // Two processes, as an app's build script runs them.
       for (const args of [
         ['build', '--outDir', 'dist/client'],
