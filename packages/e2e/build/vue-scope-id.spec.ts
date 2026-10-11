@@ -4,10 +4,18 @@ import vue from '@vitejs/plugin-vue';
 import type {Options} from '@vitejs/plugin-vue';
 import {createBuildContext, loadVueCompiler, moduleClassName, scopeId, splitBlocks} from '@multifront/core';
 import {multifront} from '@multifront/vite';
-import {mergeConfig, type CSSModulesOptions, type InlineConfig, type PluginOption, type ViteDevServer} from 'vite';
+import {
+  createBuilder,
+  mergeConfig,
+  type CSSModulesOptions,
+  type InlineConfig,
+  type PluginOption,
+  type Rolldown,
+  type ViteDevServer,
+} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
-import {buildCode, exportedScopeId, withDevServer} from './lib/build.ts';
+import {APP_CONFIG_LOADER, buildCode, exportedScopeId, withDevServer, withNodeEnv} from './lib/build.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
 
@@ -125,6 +133,25 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
     expect(classNamed(asReact.moduleCss, 'button')).toBe(button);
     expect(asVue.module).toContain(`"${button}"`);
     expect(asReact.module).toContain(`"${button}"`);
+  });
+
+  it.each([
+    ['one environment per config', {}],
+    ['shared plugins', {sharedPlugins: true}],
+  ])('gets the same $style.button class name from an app builder with %s', async (_name, options) => {
+    const config = mergeConfig(entry('src/counter-vue.ts'), {
+      root: vueRoot,
+      logLevel: 'silent',
+      configLoader: APP_CONFIG_LOADER,
+      build: {write: false, minify: false},
+      builder: {...options, buildApp: async () => {}},
+    });
+    const css = await withNodeEnv('production', async () => {
+      const builder = await createBuilder(config);
+      const output = (await builder.build(builder.environments.client!)) as Rolldown.RolldownOutput;
+      return output.output.map((file) => (file.type === 'asset' ? String(file.source) : '')).join('\n');
+    });
+    expect(classNamed(css, 'button')).toBe(expected(true).button);
   });
 
   it("keeps both after a dev server restart with the same plugins, and leaves the user's css.modules alone", async () => {
