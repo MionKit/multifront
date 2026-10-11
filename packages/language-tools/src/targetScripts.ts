@@ -59,8 +59,8 @@ function targetScript(main: Language<string>, ucf: string, kind: ServedKind): Ta
 const ucfOf = (fileName: unknown): string | undefined =>
   typeof fileName === 'string' ? parseTargetScriptName(fileName)?.ucf : undefined;
 
-// Volar maps every span it can. A location left in a target script is generated code no editor can open: dropped,
-// or, as Volar does for a `.vue` file, a symbol's definition at 0:0 of the `.ucf` file and a highlight group renamed.
+// A location Volar left in a target script is generated code no editor can open: dropped, or moved to the `.ucf` file.
+// As Volar does for `.vue`: a symbol's definition goes to 0:0, a highlight group takes the `.ucf` name.
 function intoUcf(result: unknown): unknown {
   if (Array.isArray(result)) {
     return result.filter((item) => !ucfOf((item as {fileName?: unknown}).fileName) || 'highlightSpans' in item).map(intoUcf);

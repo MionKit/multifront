@@ -38,7 +38,7 @@ function loadTypeScript(params: InitializeParams, connection: Connection): TypeS
   }
 }
 
-/** No TypeScript service: in hybrid mode tsserver, with our TS plugin, serves every TypeScript feature, `.ucf` files too. */
+/** No TypeScript service: in hybrid mode tsserver, with our TS plugin, serves every TS feature, `.ucf` too. */
 export function startServer(): void {
   const connection = createConnection();
   const server = createServer(connection);
