@@ -18,6 +18,9 @@ interface Update {
   byFile: string[]; // what Vite gave our hook
 }
 
+// Twice the watcher's 50 ms per-file change throttle.
+const WATCHER_THROTTLE_MS = 100;
+
 const SCOPED_STYLE = '<style scoped>\n.counter {\n  color: rgb(120, 40, 160);\n}\n</style>\n';
 const UNCLOSED_MODULE = ['padding: 4px 12px;\n}\n</style>', 'padding: 4px 12px;\n}\n'] as const;
 
@@ -111,10 +114,18 @@ function hmrApp(plugins: () => Plugin[]) {
     }
   }
 
+  // When each file's last update was recorded, which is after the watcher let its change through.
+  const lastUpdate = new Map<string, number>();
+
   async function write(file: string, source: string): Promise<Record<EnvironmentName, Update>> {
+    // Vite's watcher drops a second change of one file within 50 ms (vite 8.2.2 `dist/node/chunks/node.js:10585`).
+    const wait = (lastUpdate.get(file) ?? 0) + WATCHER_THROTTLE_MS - performance.now();
+    if (wait > 0) await new Promise((done) => setTimeout(done, wait));
     records.length = 0;
     await writeFile(file, source);
-    return updated((update) => update.file === file && update.source === source);
+    const updates = await updated((update) => update.file === file && update.source === source);
+    lastUpdate.set(file, performance.now());
+    return updates;
   }
 
   beforeAll(async () => {
