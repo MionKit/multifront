@@ -64,7 +64,7 @@ From **M3** (React target and imports):
 - Every non-Vue id M3 creates either has a path that does not end in `.ucf` (`/abs/Card.ucf.react.tsx`, `/abs/Card.ucf.svelte.svelte`) or has `ucf` in its query (`?ucf&type=style&index=N&lang.css`, the class-map id). Step 4.4's include and exclude patterns rely on it.
 - The per-file split cache, looked up by absolute filename, which holds the split and `ctx`.
 - The post plugin that moves `with { framework }` into the id.
-- The HMR hook, which must leave the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules in the list it returns, so that plugin-vue decides the Vue update.
+- The HMR hook, which must leave the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules in the list it returns (plugin-vue is in every M4 app), so that plugin-vue decides the Vue update.
 - The demo app, `packages/e2e/fixtures/apps/demo/` (the folder M3 creates).
 
 New dependencies, all exact-pinned:

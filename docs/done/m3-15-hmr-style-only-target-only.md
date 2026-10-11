@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 3
 step: 3.15
@@ -79,14 +79,16 @@ environment and looks modules up in `this.environment.moduleGraph`.
 ### `packages/e2e/browser/hmr-react.spec.ts` (browser area)
 
 `copyApp('demo')`, `startDev(appDir)`, one Chromium page with `collectConsole`; every request recorded, `load`
-events counted. Click Counter to `3`. One `it` per edit, in order, each clearing the request list:
+events counted. Click Counter to `3`. One `it` per edit, in order, each clearing the request list. `quiet(ms)` waits
+until no request is in flight and none started or ended for `ms` (Playwright's `networkidle` resolves at once once
+reached); its 500 ms also keeps the next write past chokidar's 50 ms throttle of change events on one file:
 
-1. **Scoped style** `rgb(120, 40, 160)` → `rgb(10, 20, 30)`: poll `.counter`'s computed `color`, `networkidle`. Count
+1. **Scoped style** `rgb(120, 40, 160)` → `rgb(10, 20, 30)`: poll `.counter`'s computed `color`, `quiet(500)`. Count
    `3`; exactly one request, `Counter.ucf?ucf&type=style&index=0&lang.css` (with `t` stripped); no `.ucf.react.tsx`.
-2. **`<react>` text** `Clicks` → `Taps`: poll `.label`. Count `3`; the only request is `Counter.ucf.react.tsx`
+2. **`<react>` text** `Clicks` → `Taps`: poll `.label`, `quiet(500)`. Count `3`; the only request is `Counter.ucf.react.tsx`
    (nothing with `type=style`); one `load` event.
 3. **`<vue>` block** `Clicks` → `Hits`: wait for the dev server watcher's `change` on the file,
-   `waitForRequestsIdle()`, a 1 s window, `networkidle`. No request at all; count `3`, label `Taps`.
+   `waitForRequestsIdle()`, `quiet(1000)`. No request at all; count `3`, label `Taps`.
 
 After all three: one `load` event, no `warning`, `error` or `pageerror`. `removeApp` in `afterAll`.
 
@@ -97,7 +99,8 @@ Runs on this host (Chromium from `MULTIFRONT_CHROMIUM_PATH`) and in CI `check` a
 On a `copyApp('demo')` copy: a real dev server from the app's own config, plus an inline `enforce: 'pre'` recorder
 whose `hotUpdate` (sorted right after ours) records per environment `await read()`, the modules it got and
 `getModulesByFile(file)`. Before each case: the original `Counter.ucf` written back, its update awaited, both
-environments crawled (`transformRequest` of `Counter.ucf.react.tsx` and every `?ucf` module it imports). After each
+environments crawled from `/src/App.tsx` (`transformRequest` of it, `Counter.ucf.react.tsx` and every `?ucf` module
+that imports): Vite ties the react module's watch file to it only when the module was in the graph before it loaded. After each
 edit: wait for a client and an SSR record of the written text. Same set of ours in both environments:
 
 | Edit | Ours returned |

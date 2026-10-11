@@ -302,20 +302,24 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 ### 3.15 HMR: style-only and target-only
 
-- Build: `packages/vite/src/hmr.ts`, the Vite 8 `hotUpdate` hook, per environment, for `.ucf` files. Re-split the new source, compare block by block with the cache, return only what changed:
+- Build: `packages/vite/src/hmr.ts`, `ucfHotUpdate(cache, hasVuePlugin)`, the Vite 8 `hotUpdate` hook of the pre plugin, per environment, for `.ucf` files. The cache (`updateUcf(file, source)`) keeps the version each new source replaced, so every environment diffs one change against the same old split. Compare block by block (content and attributes, offsets ignored, as plugin-vue), return only what changed:
   - a `<style>` changed: its CSS module; plus the class map module if the class names changed;
-  - the `scoped` flag or the number of `<style>` blocks changed: also the react module (stamping and imports change);
+  - the `scoped` flag, the `module` name or the number of `<style>` blocks changed: also the react module (stamping and imports change);
   - `<react>` changed: only the react module (plugin-react's Fast Refresh does the rest);
   - another target block changed: its module only if loaded (none in this milestone);
-  - the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules are always handed on untouched, so plugin-vue decides the Vue update (M4 relies on it);
-  - nothing relevant: `[]`.
+  - a splitter error before or after the edit: every style, class map and target module of the file;
+  - the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules are handed on untouched when plugin-vue is in the app, so plugin-vue decides the Vue update (M4 relies on it). Without plugin-vue the bare module is only the react module's watch edge, and handing it on would re-run the react module, so it is dropped. Every other plugin's module of the file is handed on;
+  - nothing relevant: none of ours.
 
-  The style and class map ids have `Card.ucf` as their path, so Vite lists them under that file; the react id names no file (spec 4.3), so its module is looked up by id (`environment.moduleGraph.getModuleById`). The cache is updated. The dev scope id does not depend on the source, so it stays stable across edits.
+  The style and class map ids have `Card.ucf` as their path, so Vite lists them under that file; the react id names no file (spec 4.3), so its module is looked up by id (`environment.moduleGraph.getModuleById`). The dev scope id does not depend on the source, so it stays stable across edits. The id helpers move to `packages/vite/src/ids.ts`.
+  - `copyApp(name)` copies the shared `fixtures/components/` beside the app (`<tmp>/<name>-x/apps/<name>`, `<tmp>/<name>-x/components`), so the demo's relative `.ucf` imports work in a copy; `removeApp(appDir)` deletes it.
 - Deliverable: spec 7's HMR rules for React.
 - Test: `packages/e2e/browser/hmr-react.spec.ts` (area: browser), on a copy of `demo` (`copyApp`). Click Counter to 3.
   - Edit a declaration in its `<style scoped>`: the computed color changes, the count is still 3, the only requests are for that style module, and no `.ucf.react.tsx` module is requested again.
   - Edit text in `<react>`: the text changes, the count is still 3, no page load event, no style module requested again.
   - Edit the `<vue>` block: no request at all.
+  - Plus `packages/e2e/build/hmr.spec.ts` (area: build): a real dev server on a demo copy and a recorder plugin right after ours. Per edit of `Counter.ucf` (scoped and module declarations, a new module class, `<react>`, `<vue>`, whitespace, the `scoped` flag, a third `<style>`, the `module` name, a new `<svelte>` block, a splitter error), the modules our hook returns, in client and SSR. With plugin-vue in the app, the bare module is handed on.
+- Status: done
 
 ### 3.16 Exit test and the go / no-go verdict
 
@@ -340,7 +344,7 @@ Vite (`@multifront/vite`):
 - `multifront(options): Plugin[]`, the plugins `multifront` (pre) and `multifront:attributes` (post), `MultifrontOptions.importers`. Every later milestone.
 - `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `/abs/Card.ucf.svelte.svelte`. Milestones 4 and 6 add `load` / `transform`.
 - `packages/vite/src/cache.ts` `createUcfCache(contextOptions)` with `loadUcf(file): Promise<UcfEntry>` and `splitUcf(file)`, and core's `buildTarget(split, ctx, target)` (throws `DiagnosticsError`). Milestones 4, 5, 6.
-- `packages/vite/src/hmr.ts`, with a target-only branch to fill per target. Milestones 4 and 6.
+- `packages/vite/src/hmr.ts` `ucfHotUpdate(cache, hasVuePlugin)`: the target-only branch covers react and svelte ids (`VIRTUAL_TARGETS` in `ids.ts`); the bare and `?vue&` modules are handed on when plugin-vue is in the app. Milestones 4 and 6.
 
 Tests and fixtures (`packages/e2e`):
 
