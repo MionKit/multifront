@@ -11,7 +11,7 @@ import type {Block, BlockKind, Diagnostic, SourceMap, SplitResult} from '../type
 const nests = (name: string): boolean => name === 'template';
 const rawAtTop = (name: string): boolean => name !== 'template';
 
-// Spec 4.1, as `react.check` does: plugin-vue inlines some scripts into the bare `.ucf` module, which no post rewrite sees.
+// Spec 4.1, like `react.check`: plugin-vue inlines some scripts into the bare `.ucf` module, which no post rewrite sees.
 function attributesInScripts(block: Block, split: SplitResult, tags: ReturnType<typeof topLevelTags>): Diagnostic[] {
   return tags
     .filter(({name}) => name === 'script')

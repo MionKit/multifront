@@ -9,7 +9,7 @@ import type {MultifrontOptions} from './types.ts';
 
 type Rewrite = ReturnType<typeof rewriteImportAttributes>;
 
-/** The first import of `result` the rules reject; `offset` is in the code `result` read. */
+/** `offset` is in the code `result` read. */
 function importError(result: Rewrite, importer: Importer, options: MultifrontOptions) {
   // No readable framework there; its target rules would only add a second error.
   const [error] = result.errors;
