@@ -17,8 +17,13 @@ const COUNTER = '[data-demo="counter"]';
 const BADGE = '[data-demo="panel"] .panel > span';
 const BADGE_LABEL = '[data-demo="panel"] .badge-label';
 const CARD_TITLES = ['Bare import', 'From the .ts helper'];
-// Every styled demo component, relative to the shared `components/`.
-const STYLED = ['Counter.ucf', 'react/ScopedPanel.ucf', 'Card.ucf'];
+// Every styled demo component, relative to the shared `components/`, and how many targets the demo imports it as.
+// One copy per target: plugin-vue ships its own style modules (spec 4.3).
+const STYLED: [string, number][] = [
+  ['Counter.ucf', 2],
+  ['react/ScopedPanel.ucf', 1],
+  ['Card.ucf', 1],
+];
 const POLL = {timeout: 10_000};
 
 let browser: Browser | undefined;
@@ -166,14 +171,14 @@ describe('milestone 3 exit test (demo app)', () => {
       }
     });
 
-    it("puts each style block's CSS in the output once", async () => {
+    it("puts each style block's CSS in the output once per target", async () => {
       const css = files
         .filter((file) => file.endsWith('.css'))
         .map((file) => readFileSync(file, 'utf8'))
         .join('\n');
       let blocks = 0;
       let selectors = 0;
-      for (const name of STYLED) {
+      for (const [name, targets] of STYLED) {
         const {filename, source} = readComponent(name);
         const split = splitBlocks(source, filename);
         const ctx = await createBuildContext(split, {root: FIXTURE, compiler: loadVueCompiler(FIXTURE), production: true});
@@ -181,7 +186,7 @@ describe('milestone 3 exit test (demo app)', () => {
           blocks++;
           for (const [, rule] of style.code.replaceAll(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
             const selector = rule!.trim();
-            expect({name, selector, count: css.split(selector).length - 1}).toEqual({name, selector, count: 1});
+            expect({name, selector, count: css.split(selector).length - 1}).toEqual({name, selector, count: targets});
             selectors++;
           }
         }
