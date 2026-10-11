@@ -11,7 +11,7 @@ import {
 import type {Diagnostic, Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
-import {targetScriptName} from './targetScripts.ts';
+import {isServedTarget, targetScriptName} from './targetScripts.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
 
 const PLUGIN_NAME = '@multifront/language-tools/typescript-plugin';
@@ -105,12 +105,13 @@ export function resolveUcfImport(
     error = {code: 'missing-target-block', message: missingTargetBlockMessage(importer.fileName, fileName, target)};
   }
   const {isExternalLibraryImport} = resolvedModule;
-  // A `<vue>` block sees the Vue script tsserver serves beside the `.ucf` file's own.
-  if (target === 'vue' && importer.block === 'vue' && !error) {
+  // Another target's script, `Card.ucf.vue.ts`, is served beside the `.ucf` file's own; with no block it does not exist.
+  if (isServedTarget(target)) {
+    if (error) return {resolvedModule: undefined, target, error};
     const resolvedFileName = targetScriptName(fileName, target);
     return {resolvedModule: {resolvedFileName, extension: ts.Extension.Ts, isExternalLibraryImport}, target};
   }
-  // tsserver serves only the main target's script to other importers; vue and svelte get theirs in M4 and M6.
+  // Svelte gets its script in M6.
   if (target !== MAIN_SCRIPT_TARGET) {
     const path = importPath(containingFile, fileName);
     const reason = RULE_REASON[rule];

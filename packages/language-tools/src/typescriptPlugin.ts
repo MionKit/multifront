@@ -5,7 +5,7 @@ import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
-import type {TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
+import type {EditorOptions, TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
 import {serveVueRequests} from './vueRequests.ts';
 
 const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
@@ -81,106 +81,115 @@ function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefi
 const routers = new WeakMap<ts.server.PluginCreateInfo, (languageService: ts.LanguageService) => ts.LanguageService>();
 const afterUpdates = new WeakMap<ts.server.Project, () => void>();
 
-const volarPlugin = createLanguageServicePlugin((ts, info) => {
-  const host = info.languageServiceHost;
-  // tsserver's host is a Project instance: its methods need their `this`.
-  const resolutionHost: ts.ModuleResolutionHost = {
-    fileExists: (fileName) => host.fileExists(fileName),
-    readFile: (fileName) => host.readFile(fileName),
-    directoryExists: host.directoryExists && ((dir) => host.directoryExists!(dir)),
-    realpath: host.realpath && ((path) => host.realpath!(path)),
-    getCurrentDirectory: () => host.getCurrentDirectory(),
-    getDirectories: host.getDirectories && ((path) => host.getDirectories!(path)),
-    useCaseSensitiveFileNames: () => host.useCaseSensitiveFileNames?.() ?? ts.sys.useCaseSensitiveFileNames,
-  };
-  let getSplit: UcfImportOptions['getSplit'] = () => undefined;
-  const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
-    ...entryOptions(compilerOptions),
-    compilerOptions,
-    host: resolutionHost,
-    getSplit,
+/** What a host bundling the plugin sets. */
+type TypeScriptPluginOptions = Pick<EditorOptions, 'vueTypesRoot'>;
+
+const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
+  createLanguageServicePlugin((ts, info) => {
+    const host = info.languageServiceHost;
+    // tsserver's host is a Project instance: its methods need their `this`.
+    const resolutionHost: ts.ModuleResolutionHost = {
+      fileExists: (fileName) => host.fileExists(fileName),
+      readFile: (fileName) => host.readFile(fileName),
+      directoryExists: host.directoryExists && ((dir) => host.directoryExists!(dir)),
+      realpath: host.realpath && ((path) => host.realpath!(path)),
+      getCurrentDirectory: () => host.getCurrentDirectory(),
+      getDirectories: host.getDirectories && ((path) => host.getDirectories!(path)),
+      useCaseSensitiveFileNames: () => host.useCaseSensitiveFileNames?.() ?? ts.sys.useCaseSensitiveFileNames,
+    };
+    let getSplit: UcfImportOptions['getSplit'] = () => undefined;
+    const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
+      ...entryOptions(compilerOptions),
+      compilerOptions,
+      host: resolutionHost,
+      getSplit,
+    });
+
+    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file.
+    const languageService = info.languageService;
+    info.languageService = {
+      ...languageService,
+      getSemanticDiagnostics(fileName) {
+        const diagnostics = languageService.getSemanticDiagnostics(fileName);
+        const program = languageService.getProgram();
+        const sourceFile = program?.getSourceFile(fileName);
+        if (!program || !sourceFile) return diagnostics;
+        const errors = importErrors(ts, sourceFile, importOptions(program.getCompilerOptions()));
+        // "Cannot find module", "no default export": one problem, one error. A warning hides nothing.
+        const covered = (start = -1) =>
+          errors.some(
+            ({diagnostic, node}) =>
+              diagnostic.category === ts.DiagnosticCategory.Error && start >= node.getStart(sourceFile) && start < node.end
+          );
+        const kept = diagnostics.filter(({file, start}) => file !== sourceFile || !covered(start));
+        return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
+      },
+    };
+    const base = info.languageService;
+    const targetScripts = serveTargetScripts(ts, info, base);
+    routers.set(info, targetScripts.route);
+    afterUpdates.set(info.project, targetScripts.afterUpdate);
+
+    const compilerOptions = host.getCompilationSettings();
+    return {
+      languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info), ts, compilerOptions, vueTypesRoot})],
+      setup(language) {
+        targetScripts.setup(language);
+        serveVueRequests(ts, info, language, base);
+        getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+        // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.
+        const resolve = host.resolveModuleNameLiterals?.bind(host);
+        if (!resolve) return;
+        host.resolveModuleNameLiterals = (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
+          const others = literals.filter((literal) => !isUcfSpecifier(literal));
+          if (others.length === literals.length) {
+            return resolve(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
+          }
+          const resolved =
+            others.length > 0 ? resolve(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
+          const options = importOptions(compilerOptions);
+          let next = 0;
+          return literals.map((literal) =>
+            isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
+          );
+        };
+      },
+    };
   });
-
-  // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file.
-  const languageService = info.languageService;
-  info.languageService = {
-    ...languageService,
-    getSemanticDiagnostics(fileName) {
-      const diagnostics = languageService.getSemanticDiagnostics(fileName);
-      const program = languageService.getProgram();
-      const sourceFile = program?.getSourceFile(fileName);
-      if (!program || !sourceFile) return diagnostics;
-      const errors = importErrors(ts, sourceFile, importOptions(program.getCompilerOptions()));
-      // "Cannot find module", "no default export": one problem, one error. A warning hides nothing.
-      const covered = (start = -1) =>
-        errors.some(
-          ({diagnostic, node}) =>
-            diagnostic.category === ts.DiagnosticCategory.Error && start >= node.getStart(sourceFile) && start < node.end
-        );
-      const kept = diagnostics.filter(({file, start}) => file !== sourceFile || !covered(start));
-      return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
-    },
-  };
-  const base = info.languageService;
-  const targetScripts = serveTargetScripts(ts, info, base);
-  routers.set(info, targetScripts.route);
-  afterUpdates.set(info.project, targetScripts.afterUpdate);
-
-  const compilerOptions = host.getCompilationSettings();
-  return {
-    languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info), ts, compilerOptions})],
-    setup(language) {
-      targetScripts.setup(language);
-      serveVueRequests(ts, info, language, base);
-      getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
-      // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.
-      const resolve = host.resolveModuleNameLiterals?.bind(host);
-      if (!resolve) return;
-      host.resolveModuleNameLiterals = (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
-        const others = literals.filter((literal) => !isUcfSpecifier(literal));
-        if (others.length === literals.length) {
-          return resolve(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
-        }
-        const resolved =
-          others.length > 0 ? resolve(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
-        const options = importOptions(compilerOptions);
-        let next = 0;
-        return literals.map((literal) =>
-          isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
-        );
-      };
-    },
-  };
-});
 
 // Symbol.for: one key across module copies, so the extension's pack and a project's own install agree.
 const SERVED = Symbol.for('multifront.typescript-plugin');
+const MODULE_COPY = {};
+
+/** A tsserver plugin with options a host sets; the default export takes none. */
+export function createTypeScriptPlugin(options: TypeScriptPluginOptions = {}): ts.server.PluginModuleFactory {
+  const volarPlugin = createVolarPlugin(options);
+  return (modules) => {
+    const volar = volarPlugin(modules);
+    return {
+      ...volar,
+      // tsserver asks after every program it builds.
+      getExternalFiles(project, updateLevel) {
+        afterUpdates.get(project)?.();
+        return volar.getExternalFiles?.(project, updateLevel) ?? [];
+      },
+      create(info) {
+        // Owner is the module copy: a tsconfig reload calls `create` again but is not another copy.
+        const project = info.project as ts.server.Project & {[SERVED]?: unknown};
+        // First copy loaded serves; tsserver loads the project's own entry before global plugins.
+        if (project[SERVED] && project[SERVED] !== MODULE_COPY) {
+          info.project.projectService.logger.info(
+            'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside'
+          );
+          return info.languageService;
+        }
+        project[SERVED] = MODULE_COPY;
+        const languageService = volar.create(info);
+        return routers.get(info)?.(languageService) ?? languageService;
+      },
+    };
+  };
+}
 
 /** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
-const plugin: ts.server.PluginModuleFactory = (modules) => {
-  const volar = volarPlugin(modules);
-  return {
-    ...volar,
-    // tsserver asks after every program it builds.
-    getExternalFiles(project, updateLevel) {
-      afterUpdates.get(project)?.();
-      return volar.getExternalFiles?.(project, updateLevel) ?? [];
-    },
-    create(info) {
-      // Owner is the module copy: a tsconfig reload calls `create` again but is not another copy.
-      const project = info.project as ts.server.Project & {[SERVED]?: unknown};
-      // First copy loaded serves; tsserver loads the project's own entry before global plugins.
-      if (project[SERVED] && project[SERVED] !== plugin) {
-        info.project.projectService.logger.info(
-          'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside'
-        );
-        return info.languageService;
-      }
-      project[SERVED] = plugin;
-      const languageService = volar.create(info);
-      return routers.get(info)?.(languageService) ?? languageService;
-    },
-  };
-};
-
-export default plugin;
+export default /* @__PURE__ */ createTypeScriptPlugin();

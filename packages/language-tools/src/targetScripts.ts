@@ -2,9 +2,19 @@
 // becomes a program file of its own, `Card.ucf.<target>.ts`, and requests in its block are routed to it.
 import {isTarget} from '@multifront/core';
 import type {Target} from '@multifront/core';
-import {FileMap, createLanguage} from '@volar/language-core';
-import type {Language, LanguagePlugin, VirtualCode} from '@volar/language-core';
+import {
+  FileMap,
+  createLanguage,
+  isDefinitionEnabled,
+  isHighlightEnabled,
+  isImplementationEnabled,
+  isReferencesEnabled,
+  isRenameEnabled,
+  isTypeDefinitionEnabled,
+} from '@volar/language-core';
+import type {CodeInformation, Language, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import {createProxyLanguageService} from '@volar/typescript/lib/node/proxyLanguageService.js';
+import {transformDocumentSpan} from '@volar/typescript/lib/node/transform.js';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
 import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
@@ -15,17 +25,25 @@ type ServedKind = EditorBlockKind & {tag: Target; serviceScript: NonNullable<Edi
 const SERVED_KINDS = EDITOR_BLOCK_KINDS.filter((kind): kind is ServedKind => !!kind.serviceScript && isTarget(kind.tag));
 const TARGET_SCRIPT_NAME = /^(.*\.ucf)\.(\w+)\.ts$/;
 
-// Locations that stay in a target script after Volar's mapping sit in generated code, in a file no editor can open.
-const NAVIGATION = [
+// Their locations in a target script name a file no editor can open: they are moved into the `.ucf` file.
+const NAVIGATION_FILTERS = {
+  getDefinitionAtPosition: isDefinitionEnabled,
+  getDefinitionAndBoundSpan: isDefinitionEnabled,
+  getTypeDefinitionAtPosition: isTypeDefinitionEnabled,
+  getImplementationAtPosition: isImplementationEnabled,
+  getReferencesAtPosition: isReferencesEnabled,
+  findReferences: isReferencesEnabled,
+  getDocumentHighlights: isHighlightEnabled,
+  findRenameLocations: isRenameEnabled,
+} as const satisfies Partial<Record<keyof ts.LanguageService, (info: CodeInformation) => boolean>>;
+type Navigation = keyof typeof NAVIGATION_FILTERS;
+const NAVIGATION = Object.keys(NAVIGATION_FILTERS) as Navigation[];
+const DEFINITIONS: Navigation[] = [
   'getDefinitionAtPosition',
   'getDefinitionAndBoundSpan',
   'getTypeDefinitionAtPosition',
   'getImplementationAtPosition',
-  'getReferencesAtPosition',
-  'findReferences',
-  'getDocumentHighlights',
-  'findRenameLocations',
-] as const satisfies (keyof ts.LanguageService)[];
+];
 // Volar's proxy maps these; each takes the position right after the file name.
 const BY_POSITION = [
   ...NAVIGATION,
@@ -39,6 +57,11 @@ const BY_POSITION = [
   'getCodeFixesAtPosition',
 ] as const satisfies (keyof ts.LanguageService)[];
 const DIAGNOSTICS = ['getSyntacticDiagnostics', 'getSemanticDiagnostics', 'getSuggestionDiagnostics'] as const;
+
+/** A target whose script tsserver serves as `Card.ucf.<target>.ts`; its picks resolve there, from any importer. */
+export function isServedTarget(target: Target): boolean {
+  return SERVED_KINDS.some(({tag}) => tag === target);
+}
 
 /** `Card.ucf.vue.ts`: the tsserver file of a target served beside the `.ucf` file's own script. */
 export function targetScriptName(fileName: string, target: Target): string {
@@ -56,29 +79,7 @@ function targetScript(main: Language<string>, ucf: string, kind: ServedKind): Ta
   return code && kind.serviceScript(code);
 }
 
-const ucfOf = (fileName: unknown): string | undefined =>
-  typeof fileName === 'string' ? parseTargetScriptName(fileName)?.ucf : undefined;
-
-// A location Volar left in a target script is generated code no editor can open: dropped, or moved to the `.ucf` file.
-// As Volar does for `.vue`: a symbol's definition goes to 0:0, a highlight group takes the `.ucf` name.
-function intoUcf(result: unknown): unknown {
-  if (Array.isArray(result)) {
-    return result.filter((item) => !ucfOf((item as {fileName?: unknown}).fileName) || 'highlightSpans' in item).map(intoUcf);
-  }
-  if (!result || typeof result !== 'object') return result;
-  const {fileName, definition, definitions, references, highlightSpans} = result as Record<string, unknown>;
-  if (Array.isArray(highlightSpans)) {
-    const spans = highlightSpans.map((span: {fileName?: string}) => ({...span, fileName: ucfOf(span.fileName) ?? span.fileName}));
-    return {...result, fileName: ucfOf(fileName) ?? fileName, highlightSpans: spans};
-  }
-  if (Array.isArray(definitions)) return {...result, definitions: intoUcf(definitions)};
-  if (!Array.isArray(references)) return result;
-  const ucf = ucfOf((definition as {fileName?: unknown} | undefined)?.fileName);
-  const pointed = ucf
-    ? {...(definition as object), fileName: ucf, textSpan: {start: 0, length: 0}, contextSpan: undefined}
-    : definition;
-  return {...result, definition: pointed, references: intoUcf(references)};
-}
+const ucfOf = (fileName: string): string | undefined => parseTargetScriptName(fileName)?.ucf;
 
 type Served = ReturnType<typeof createProxyLanguageService> & {kind: ServedKind; language?: Language<string>};
 
@@ -168,10 +169,13 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
     if (!main) return [];
     // An imported `.ucf` file is no root: the last program brings it, and the next one its target scripts.
     const imported = project.getFileNames(true, true);
-    const ucfs = new Set([...names, ...imported].filter((name) => name.endsWith('.ucf')));
-    return [...ucfs].flatMap((ucf) =>
+    // A target script brings its `.ucf` file too: in the program, an edit of it marks this project dirty.
+    const reached = [...new Set(imported.flatMap((name) => ucfOf(name) ?? []))].filter((ucf) => !names.includes(ucf));
+    const ucfs = new Set([...names, ...imported, ...reached].filter((name) => name.endsWith('.ucf')));
+    const targets = [...ucfs].flatMap((ucf) =>
       SERVED_KINDS.filter((kind) => targetScript(main!, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag))
     );
+    return [...reached, ...targets];
   };
   host.getScriptFileNames = () => {
     const names = getScriptFileNames();
@@ -204,6 +208,46 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
     });
   };
 
+  // Volar's main proxy leaves a `.ts` importer's locations in a target script; a `.ucf` request's are unmapped ones.
+  // `fallback`: an unmapped span becomes the `.ucf` file itself, as Volar does for a `.vue` file.
+  const intoUcfSpan = <Span extends ts.DocumentSpan>(span: Span, method: Navigation, fallback: boolean): Span | undefined => {
+    const parsed = parseTargetScriptName(span.fileName);
+    if (!parsed) return span;
+    const language = served.find(({kind}) => kind === parsed.kind)?.language;
+    const anyMatch = method !== 'findRenameLocations';
+    const mapped = language && transformDocumentSpan(language, span, anyMatch, NAVIGATION_FILTERS[method]);
+    if (mapped && !ucfOf(mapped.fileName)) return mapped;
+    return fallback ? {...span, fileName: parsed.ucf, textSpan: {start: 0, length: 0}, contextSpan: undefined} : undefined;
+  };
+  // An unmapped definition in the requested file's own script is generated code, dropped.
+  const spansIntoUcf = <Span extends ts.DocumentSpan>(spans: readonly Span[], method: Navigation, from: string): Span[] =>
+    spans.flatMap((span) => intoUcfSpan(span, method, DEFINITIONS.includes(method) && ucfOf(span.fileName) !== from) ?? []);
+  const intoUcf = (result: unknown, method: Navigation, from: string): unknown => {
+    if (!result) return result;
+    // Only a `.ucf` request searches a target script; Volar mapped the spans and kept the group's name.
+    if (method === 'getDocumentHighlights') {
+      return (result as ts.DocumentHighlights[]).map((group) => ({
+        ...group,
+        fileName: ucfOf(group.fileName) ?? group.fileName,
+        highlightSpans: group.highlightSpans.map((span) => ({
+          ...span,
+          fileName: span.fileName && (ucfOf(span.fileName) ?? span.fileName),
+        })),
+      }));
+    }
+    if (method === 'getDefinitionAndBoundSpan') {
+      const info = result as ts.DefinitionInfoAndBoundSpan;
+      return {...info, definitions: info.definitions && spansIntoUcf(info.definitions, method, from)};
+    }
+    if (method === 'findReferences') {
+      return (result as ts.ReferencedSymbol[]).map(({definition, references}) => ({
+        definition: intoUcfSpan(definition, method, true)!,
+        references: spansIntoUcf(references, method, from),
+      }));
+    }
+    return spansIntoUcf(result as ts.DocumentSpan[], method, from);
+  };
+
   return {
     // Runs once a program is built: a file it reached first (a `.ucf` file, a target script) is a script name of the
     // next one, and tsserver builds that only when the project is dirty.
@@ -234,7 +278,7 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
           }
           const service = target?.proxy ?? languageService;
           const result = (service[method] as (...args: unknown[]) => unknown)(fileName, position, ...rest);
-          return (NAVIGATION as readonly string[]).includes(method) ? intoUcf(result) : result;
+          return (NAVIGATION as readonly string[]).includes(method) ? intoUcf(result, method as Navigation, fileName) : result;
         }) as never;
       }
       for (const method of DIAGNOSTICS) {

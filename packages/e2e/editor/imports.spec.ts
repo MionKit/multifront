@@ -8,7 +8,7 @@ import {APP_DIR, CARD, edit, onLine, PLUGIN, readApp} from './lib/cases.ts';
 import {locate, open, startTsserver, tsLocation} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// tsserver serves no .vue or .svelte importer before M4 and M6; mixed.ts has its own cases in tsserver.spec.ts.
+// tsserver serves no .vue or .svelte importer before 4.14 and M6; mixed.ts has its own cases in tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !/\.(vue|svelte)$/.test(row.file) && row.file !== 'src/mixed.ts');
 const FILES = [...new Set(ROWS.map(({file}) => file))];
 const RULE_REASON: Record<TargetRule, string> = {
@@ -54,7 +54,7 @@ describe('the TypeScript plugin on every row of the imports app, as the build re
       expect(diagnostics).toMatchObject([{code: row.expect, source: 'multifront', category: 'error', ...expected}]);
     } else if (!('rule' in row)) {
       expect(diagnostics).toMatchObject([{code: row.expect, source: 'multifront', category: 'error', start: at}]);
-    } else if (row.expect === 'react') {
+    } else if (row.expect === 'react' || row.expect === 'vue') {
       expect(diagnostics).toEqual([]);
       const definitions = await server.request<TsDefinitions>('definition', {
         file: component.filename,

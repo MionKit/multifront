@@ -6,6 +6,9 @@ import {dirname, join} from 'node:path';
 
 export const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..');
 export const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
+// The installed language-core's global types: the unbundled plugin references them, `pnpm devx vsix` copies them.
+const fromLanguageTools = createRequire(createRequire(import.meta.url).resolve('@multifront/language-tools'));
+export const LANGUAGE_CORE_TYPES = join(dirname(fromLanguageTools.resolve('@vue/language-core/package.json')), 'types');
 
 // Untyped; keys every entry by its lowercased path.
 export const {readZip} = createRequire(import.meta.url)('@vscode/vsce/out/zip.js') as {

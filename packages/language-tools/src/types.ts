@@ -36,6 +36,7 @@ export interface EditorOptions {
   compiler?: VueCompiler; // without it, only plain CSS modules are read
   ts?: TypeScript; // without it, no `<vue>` code
   compilerOptions?: ts.CompilerOptions;
+  vueTypesRoot?: string; // folder of language-core's `types/*.d.ts`; default: the installed `@vue/language-core`'s
 }
 
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */

@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "vue"}]
+  },
+  "include": ["."]
+}
