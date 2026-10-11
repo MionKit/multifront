@@ -2,7 +2,7 @@ import {parseAst, Visitor, type ESTree} from 'vite';
 import {expect} from 'vitest';
 import {keyName} from './build.ts';
 
-export interface Reference {
+interface Reference {
   specifier: string;
   keys: string[]; // import attribute keys, or the keys of the options object (and of its `with`)
 }

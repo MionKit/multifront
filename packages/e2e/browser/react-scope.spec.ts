@@ -1,10 +1,9 @@
-import {readFileSync} from 'node:fs';
-import {join, relative, sep} from 'node:path';
+import {join} from 'node:path';
 import type {Browser, Locator, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {scopeId} from '@multifront/core';
 import {FIXTURES_DIR, componentPath} from '../fixtures/index.ts';
 import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
+import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-scope');
@@ -84,9 +83,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-function attributeOf(file: string, production: boolean): string {
-  return `data-v-${scopeId(relative(ROOT, file).split(sep).join('/'), readFileSync(file, 'utf8'), production)}`;
-}
+const attributeOf = (file: string, production: boolean) => scopeAttribute(ROOT, file, production);
 
 async function scopeAttributes(page: Page) {
   const read = (locator: Locator) =>

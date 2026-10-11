@@ -32,8 +32,8 @@ export function computed(locator: Locator, property: string): Promise<string> {
 
 const RENDERED_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
 
-/** Every `#app` descendant: tag, text of a leaf, and `properties` as computed. */
-export function renderedStyles(page: Page, properties = RENDERED_PROPERTIES) {
+/** Every `#app` descendant: tag, text of a leaf, and `RENDERED_PROPERTIES` as computed. */
+export function renderedStyles(page: Page) {
   return page.locator('#app *').evaluateAll(
     (elements, names) =>
       elements.map((element) => {
@@ -44,6 +44,6 @@ export function renderedStyles(page: Page, properties = RENDERED_PROPERTIES) {
           styles: names.map((name) => style.getPropertyValue(name)),
         };
       }),
-    properties
+    RENDERED_PROPERTIES
   );
 }
