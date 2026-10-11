@@ -51,14 +51,6 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       return vueCompiler;
     },
   };
-  // We read the file ourselves, so Vite's own `server.fs.allow` check never runs for our ids of it.
-  function denyOutsideFsAllow(consumer: string, file: string): void {
-    // Vite skips the check for server environments too: the browser is what it guards against.
-    if (config!.command !== 'serve' || consumer !== 'client' || isFileLoadingAllowed(config!, file)) return;
-    // Vite's transform middleware answers this code with the 403 page it gives the file itself.
-    throw Object.assign(new Error(`Denied ID ${file}`), {code: 'ERR_DENIED_ID', id: file});
-  }
-
   const cache = createUcfCache(() => ({root: config!.root, compiler: api.vueCompiler, production: config!.isProduction}));
 
   // Vite's scanner reads every module from disk unless a plugin loads it: these run before its own (spike 3, check 2).
@@ -139,7 +131,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         if (id === `\0${SCOPE_HELPER_ID}`) return scopeHelperCode(!config!.isProduction);
         const {path, query} = splitId(id);
         const file = virtualTarget(path)?.file ?? path;
-        if (file.endsWith('.ucf')) denyOutsideFsAllow(this.environment.config.consumer, file);
+        // We read the file ourselves, so Vite's `server.fs.allow` check would never run; Vite skips it in SSR too.
+        const browser = config!.command === 'serve' && this.environment.config.consumer === 'client';
+        if (browser && file.endsWith('.ucf') && !isFileLoadingAllowed(config!, file)) {
+          // Vite's transform middleware answers this code with the 403 page it gives the file itself.
+          throw Object.assign(new Error(`Denied ID ${file}`), {code: 'ERR_DENIED_ID', id: file});
+        }
         if (query.has('ucf')) {
           if (query.get('type') !== 'style') return undefined;
           const index = Number(query.get('index'));
