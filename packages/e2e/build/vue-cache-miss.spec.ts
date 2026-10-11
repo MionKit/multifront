@@ -2,23 +2,29 @@ import {readFile, readdir, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {rootRelativePath, scopeId} from '@multifront/core';
 import type {Plugin} from 'vite';
-import {beforeEach, describe, expect, it, onTestFinished} from 'vitest';
+import {beforeEach, describe, expect, it} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
 import {hotUpdatesOf, withDevServer} from './lib/build.ts';
-import {runFreshDevServer, startViteCli} from './lib/freshProcess.ts';
+import {runFreshDevServer, startViteCli, STOP_GRACE_MS} from './lib/freshProcess.ts';
 
 const counter = readComponent('Counter.ucf').source;
 const OLD_COLOR = 'rgb(120, 40, 160)';
 
 let root: string;
 let file: string;
+let running: ReturnType<typeof startViteCli>[] = [];
 
 beforeEach(async () => {
   root = await copyApp('vue');
   file = resolve(root, '..', '..', 'components', 'Counter.ucf');
   // The CLI puts its dep cache beside the nearest package.json: this one is removed with the copy.
   await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
-  return () => removeApp(root);
+  return async () => {
+    // Stopped here, not in onTestFinished: that runs after this cleanup, on a removed copy.
+    await Promise.all(running.map((vite) => vite.stop()));
+    running = [];
+    await removeApp(root);
+  };
 });
 
 const devId = () => scopeId(rootRelativePath(root, file), counter, false);
@@ -34,8 +40,7 @@ function cssOf(module: string): string {
 
 function cli(args: string[], env: NodeJS.ProcessEnv) {
   const vite = startViteCli(root, args, env);
-  // Also when a timeout abandons the test.
-  onTestFinished(() => vite.stop());
+  running.push(vite);
   return vite;
 }
 
@@ -142,5 +147,35 @@ describe('vite build --watch', () => {
     expect(idOf(edited)).not.toBe(idOf(counter));
     expect(await read('.css')).toContain(`.counter[data-v-${idOf(edited)}]`);
     expect(await read('.js')).toContain(`data-v-${idOf(edited)}`);
+  });
+});
+
+describe('the vite CLI started by startViteCli()', () => {
+  it('fails a wait for output it never prints with the pattern and the output so far', async () => {
+    const vite = cli(['--port', '0'], {NODE_ENV: 'development'});
+    await vite.waitForOutput(/Local:/);
+    await expect(vite.waitForOutput(/never printed/, 1, 1000)).rejects.toThrow(
+      /^no 1 × \/never printed\/ after 1000 ms:\n[^]*Local:/
+    );
+  });
+
+  it('stops even when its server.close() never settles', async () => {
+    // The interval keeps Node alive: a bare pending promise would let it exit.
+    await writeFile(
+      join(root, 'vite.config.ts'),
+      `import vue from '@vitejs/plugin-vue';
+import {multifront} from '@multifront/vite';
+import {defineConfig} from 'vite';
+
+export default defineConfig({plugins: [vue(), multifront(), {name: 'never-closes', closeBundle: () => new Promise(() => setInterval(() => {}, 1000))}]});
+`
+    );
+    const vite = cli(['--port', '0'], {NODE_ENV: 'development'});
+    await vite.waitForOutput(/Local:/);
+    const start = Date.now();
+    await vite.stop();
+    // Slack for timer and clock rounding; at least the grace period shows the polite stop really stalled.
+    expect(Date.now() - start).toBeGreaterThanOrEqual(STOP_GRACE_MS - 250);
+    expect(Date.now() - start).toBeLessThan(STOP_GRACE_MS + 10_000);
   });
 });

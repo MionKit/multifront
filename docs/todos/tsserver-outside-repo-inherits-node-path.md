@@ -38,3 +38,4 @@ None, because this is test infra only.
 ## Done when
 
 - The case passes however Vitest is started, and the cause is named in the moved spec.
+- The simplify-comments pass ran on every touched source file, committed on its own.
