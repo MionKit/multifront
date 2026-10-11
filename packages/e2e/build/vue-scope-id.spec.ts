@@ -1,3 +1,4 @@
+import {writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import type {Options} from '@vitejs/plugin-vue';
@@ -74,27 +75,34 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
     const asReact = await withDevServer(demoRoot, {}, async (server) => {
       const code = await transform(server, `/@fs${join(demoRoot, COUNTER)}.react.tsx`);
       const scoped = await transformImport(server, code, /[?&]ucf&type=style&index=0&lang\.css$/);
+      const moduleCss = await transformImport(server, code, /[?&]ucf&type=style&index=1&lang\.css$/);
       const module = await transformImport(server, code, /[?&]ucf&type=style&index=1&module&lang\.js$/);
-      return {code, scoped, module};
+      return {code, scoped, moduleCss, module};
     });
     expect(asVue.scopeId).toBe(`data-v-${id}`);
     expect(asReact.code).toContain(`data-v-${id}`);
     expect(counterScopeId(asVue.scoped)).toBe(id);
     expect(counterScopeId(asReact.scoped)).toBe(id);
+    // The Vue request holds the CSS and the class map, the React target has a module for each.
+    expect(classNamed(asVue.module, 'button')).toBe(button);
+    expect(classNamed(asReact.moduleCss, 'button')).toBe(button);
     expect(asVue.module).toContain(`"${button}"`);
     expect(asReact.module).toContain(`"${button}"`);
   });
 
-  it('keeps both after a dev server restart with the same plugins', async () => {
+  it("keeps both after a dev server restart with the same plugins, and leaves the user's css.modules alone", async () => {
     const {id, button} = expected(false);
-    const config: InlineConfig = {configFile: false, plugins: [vue(), multifront()]};
+    const config: InlineConfig = {configFile: false, plugins: [vue(), multifront()], css: {modules: {hashPrefix: 'p'}}};
     const after = await withDevServer(vueRoot, config, async (server) => {
       await server.restart();
       const code = await transform(server, `/@fs${join(vueRoot, COUNTER)}`);
-      return {scopeId: exportedScopeId(code), module: await transformImport(server, code, /lang\.module\.css$/)};
+      // A restart resolves the same inline config again.
+      const userModules = server.config.inlineConfig.css?.modules;
+      return {scopeId: exportedScopeId(code), module: await transformImport(server, code, /lang\.module\.css$/), userModules};
     });
     expect(after.scopeId).toBe(`data-v-${id}`);
-    expect(after.module).toContain(`"${button}"`);
+    expect(classNamed(after.module, 'button')).toBe(button);
+    expect(after.userModules).toEqual({hashPrefix: 'p'});
   });
 });
 
@@ -102,7 +110,11 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
 const USER_SETTINGS: [string, ComponentIdGenerator, CSSModulesOptions][] = [
   ['nothing set', undefined, {}],
   ["'filepath' and a hashPrefix", 'filepath', {hashPrefix: 'p'}],
-  ["'filepath-source' and a string pattern", 'filepath-source', {generateScopedName: '[local]__[hash:base64:5]'}],
+  [
+    "'filepath-source' and a string pattern with a hashPrefix",
+    'filepath-source',
+    {generateScopedName: '[local]__[hash:base64:5]', hashPrefix: 'p'},
+  ],
   [
     'functions',
     (path, text) => `f${path.length}${text.length}`,
@@ -132,14 +144,19 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
     expect(classNamed(alone.css, 'note')).toBeDefined();
   });
 
-  it('serves Plain.vue with the same scope id as plugin-vue alone', async () => {
+  it('serves Plain.vue with the same scope id and module class name as plugin-vue alone', async () => {
     const serve = (withMultifront: boolean) =>
-      withDevServer(vueRoot, {configFile: false, plugins: plugins(withMultifront)}, async (server) =>
-        exportedScopeId(await transform(server, '/src/Plain.vue'))
-      );
+      withDevServer(vueRoot, {configFile: false, plugins: plugins(withMultifront), css: {modules}}, async (server) => {
+        const code = await transform(server, '/src/Plain.vue');
+        return {
+          scopeId: exportedScopeId(code),
+          note: classNamed(await transformImport(server, code, /lang\.module\.css$/), 'note'),
+        };
+      });
     const alone = await serve(false);
-    expect(await serve(true)).toBe(alone);
-    expect(alone).toMatch(/^data-v-/);
+    expect(await serve(true)).toEqual(alone);
+    expect(alone.scopeId).toMatch(/^data-v-/);
+    expect(alone.note).toBeDefined();
   });
 
   it('keeps the .ucf scope id and class names', async () => {
@@ -148,4 +165,19 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
     expect(counterScopeId(css)).toBe(id);
     expect(classNamed(css, 'button')).toBe(button);
   });
+});
+
+it('leaves CSS modules off when the user turned them off', async () => {
+  // plugin-vue's <style module> needs CSS modules, so a plain stylesheet shows it.
+  await writeFile(join(vueRoot, 'src', 'off.module.css'), '.off {\n  color: red;\n}\n');
+  await writeFile(join(vueRoot, 'src', 'off.ts'), "import './off.module.css';\n");
+  const config = (withMultifront: boolean): InlineConfig => ({
+    configFile: false,
+    plugins: [vue(), ...(withMultifront ? [multifront()] : [])],
+    css: {modules: false},
+    build: {rolldownOptions: {input: join(vueRoot, 'src/off.ts')}},
+  });
+  const alone = await buildCode(vueRoot, config(false));
+  expect((await buildCode(vueRoot, config(true))).css).toBe(alone.css);
+  expect(classNamed(alone.css, 'off')).toBe('off');
 });
