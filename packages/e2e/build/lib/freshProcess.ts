@@ -14,12 +14,18 @@ const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules
 // Node itself loads the app's `vite.config.ts`: `source` makes it pick `@multifront/vite`'s `src/`.
 const SOURCE_CONDITION = '--conditions=source';
 export const execNode = promisify(execFile);
+// Both below Vitest's 60 s timeouts, so the case fails with our message instead of a bare timeout.
+const OUTPUT_TIMEOUT_MS = 30_000;
+// Vite's SIGTERM handler awaits `server.close()`, which waits for the dep scan and bundling with no bound.
+const STOP_GRACE_MS = 5_000;
 
 function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   const child = spawn(process.execPath, [SOURCE_CONDITION, ...args], {cwd: root, env: {...process.env, NO_COLOR: '1', ...env}});
   let output = '';
   const waiters = new Set<() => void>();
   const exited = new Promise<number | null>((resolve) => child.once('close', (code) => resolve(code)));
+  // `close` also waits for the stdio pipes, which a grandchild can hold open after a SIGKILL.
+  const gone = new Promise<void>((resolve) => child.once('exit', () => resolve()));
   const append = (chunk: Buffer) => {
     output += chunk.toString();
     for (const check of waiters) check();
@@ -28,15 +34,24 @@ function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   child.stderr.on('data', append);
   return {
     output: () => output,
-    waitForOutput(pattern: RegExp, count = 1): Promise<string> {
+    waitForOutput(pattern: RegExp, count = 1, timeoutMs = OUTPUT_TIMEOUT_MS): Promise<string> {
       return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          waiters.delete(check);
+          reject(new Error(`no ${count} × ${pattern} after ${timeoutMs} ms:\n${output}`));
+        }, timeoutMs);
         const check = () => {
           if ((output.match(new RegExp(pattern, 'g')) ?? []).length < count) return;
           waiters.delete(check);
+          clearTimeout(timer);
           resolve(output);
         };
         waiters.add(check);
-        void exited.then(() => waiters.has(check) && reject(new Error(`process exited before ${pattern}:\n${output}`)));
+        void exited.then(() => {
+          if (!waiters.delete(check)) return;
+          clearTimeout(timer);
+          reject(new Error(`process exited before ${pattern}:\n${output}`));
+        });
         check();
       });
     },
@@ -46,8 +61,11 @@ function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
       return output;
     },
     async stop(): Promise<void> {
-      if (child.exitCode === null && child.signalCode === null) child.kill();
-      await exited;
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      child.kill();
+      const timer = setTimeout(() => child.kill('SIGKILL'), STOP_GRACE_MS);
+      await gone;
+      clearTimeout(timer);
     },
   };
 }
