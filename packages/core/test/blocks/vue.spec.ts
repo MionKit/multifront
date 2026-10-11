@@ -7,7 +7,6 @@ import {readComponent} from '../../../e2e/fixtures/index.ts';
 
 const compiler = loadVueCompiler(import.meta.dirname);
 
-const LINE_BREAK = /\r\n|\r|\n/g;
 const ONLY_BLANKS = /^[ \r\n]*$/;
 
 // Written by hand from the fixture files; `spots` are texts whose first character the map must trace back.
@@ -30,6 +29,14 @@ const CASES: {fixture: string; scriptSetup: boolean; styles: Block['attrs'][]; c
   {fixture: 'imports/Icon.ucf', scriptSetup: false, styles: [{module: true}], cssVars: [], spots: ['$style.icon']},
   // The only one with a <svelte> block to blank.
   {fixture: 'Card.ucf', scriptSetup: true, styles: [{module: true, lang: 'scss'}], cssVars: [], spots: ['{{ title }}']},
+  // A root comment, a <svelte> block and three <style> blocks with multi-line and quoted attributes.
+  {
+    fixture: 'editor/GrammarEdges.ucf',
+    scriptSetup: true,
+    styles: [{module: true, lang: 'scss'}, {lang: 'less'}, {title: 'a lang=scss b'}],
+    cssVars: [],
+    spots: ['{{ small }}', 'const limit', '.less'],
+  },
 ];
 
 function sfcOf(name: string) {
@@ -37,8 +44,6 @@ function sfcOf(name: string) {
   const split = splitBlocks(source, filename);
   return {filename, source, split, ...vueSfcCode(source, split.blocks, filename)};
 }
-
-const lineBreaks = (text: string) => [...text.matchAll(LINE_BREAK)].map((match) => [match.index, match[0]]);
 
 describe('vueSfcCode', () => {
   describe.each(CASES)('$fixture', ({fixture, scriptSetup, styles, cssVars, spots}) => {
@@ -48,16 +53,22 @@ describe('vueSfcCode', () => {
     it('keeps the length and every line break of the .ucf file', () => {
       expect(split.errors).toEqual([]);
       expect(code.length).toBe(source.length);
-      expect(lineBreaks(code)).toEqual(lineBreaks(source));
+      expect(code.replace(/[^\r\n]/g, ' ')).toBe(source.replace(/[^\r\n]/g, ' '));
     });
 
-    it('keeps the <vue> content and every <style> block in place, and blanks the rest of the targets', () => {
+    it('keeps the <vue> content and all text outside the targets in place, and blanks the rest of the targets', () => {
       expect(code.slice(vue.contentStart, vue.contentEnd)).toBe(vue.content);
       expect(code.slice(vue.start, vue.contentStart)).toMatch(ONLY_BLANKS);
       expect(code.slice(vue.contentEnd, vue.end)).toMatch(ONLY_BLANKS);
-      for (const style of split.styles) expect(code.slice(style.start, style.end)).toBe(source.slice(style.start, style.end));
-      const others = split.blocks.filter((block) => block !== vue && isTarget(block.type));
-      for (const block of others) expect(code.slice(block.start, block.end)).toMatch(ONLY_BLANKS);
+      const targets = split.blocks.filter((block) => isTarget(block.type));
+      for (const block of targets.filter((target) => target !== vue))
+        expect(code.slice(block.start, block.end)).toMatch(ONLY_BLANKS);
+      // Root <style> blocks, comments and whitespace between blocks.
+      const outside = [0, ...targets.flatMap((block) => [block.start, block.end]), source.length];
+      for (let index = 0; index < outside.length; index += 2) {
+        const [from, to] = [outside[index], outside[index + 1]];
+        expect(code.slice(from, to)).toBe(source.slice(from, to));
+      }
     });
 
     it("parses with compiler-sfc as an SFC at the .ucf file's lines", () => {
@@ -76,7 +87,7 @@ describe('vueSfcCode', () => {
       const offset = source.indexOf(spot);
       expect(offset).toBeGreaterThan(-1);
       const position = locate(code, offset);
-      const traced = originalPositionFor(new TraceMap(map!), {line: position.line, column: position.column});
+      const traced = originalPositionFor(new TraceMap(map), {line: position.line, column: position.column});
       expect(traced).toMatchObject({source: filename, ...locate(source, offset)});
     });
   });
@@ -98,10 +109,23 @@ describe('vueSfcCode', () => {
     expect(code).toMatch(ONLY_BLANKS);
     const {descriptor, errors} = compiler.parse(code, {filename});
     expect(descriptor.template).toBeNull();
+    expect(descriptor.script).toBeNull();
     expect(descriptor.scriptSetup).toBeNull();
     expect(descriptor.styles).toEqual([]);
     expect(errors.map(String)).toEqual([
       expect.stringContaining('At least one <template> or <script> is required in a single file component.'),
     ]);
+  });
+
+  it('keeps only the first <vue> block and blanks a duplicate', () => {
+    const {filename, split, code} = sfcOf('vue/DuplicateVue.ucf');
+    expect(split.errors.map(({code}) => code)).toEqual(['duplicate-target']);
+    const [first, second] = split.blocks.filter((block) => block.type === 'vue');
+    expect(code.slice(first!.contentStart, first!.contentEnd)).toBe(first!.content);
+    expect(code.slice(second!.start, second!.end)).toMatch(ONLY_BLANKS);
+    const {descriptor, errors} = compiler.parse(code, {filename});
+    expect(errors).toEqual([]);
+    expect(descriptor.template?.content).toContain('first-vue-block');
+    expect(code).not.toContain('second-vue-block');
   });
 });
