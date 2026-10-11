@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 3
 step: 3.16
@@ -42,8 +42,9 @@ Cards (bare and through `card.ts`'s `with { framework: 'react' }`), ScopedPanel 
   - `clear(): void`;
   - `quiet(ms: number, since?: number): Promise<void>`: no request in flight and no activity for `ms`, counting
     from `since` too (the `<vue>` case's "window counts from the change event").
-- `packages/e2e/browser/lib/chromium.ts`: `renderedStyles(page, properties)`: every `#app *` element as
-  `{tag, text (leaf only), styles}`, moved out of `demo.spec.ts` (which then uses it).
+- `packages/e2e/browser/lib/chromium.ts`: `renderedStyles(page, properties?)`: every `#app *` element as
+  `{tag, text (leaf only), styles}`, moved out of `demo.spec.ts` (which then uses it). The properties default to
+  `color`, `padding`, `text-decoration-line`, `font-size`, the list `demo.spec.ts` compared.
 - `packages/e2e/build/lib/references.ts`: `moduleReferences(code)` (every import / re-export / `import()` /
   `__vite_ssr_import__` with its attribute or option keys) and `expectNoAttribute(code)`, moved out of
   `build/imports.spec.ts` (which then imports them). `keyName` stays in `build.ts`.
@@ -87,7 +88,8 @@ every e2e file). No new infra.
 - Exit test 20 times in a row locally: a shell loop of `pnpm devx test packages/e2e/browser/demo-exit.spec.ts`,
   stops at the first failure.
 - Fuzz long run: `MULTIFRONT_FUZZ_SEED=<s> MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`
-  for seeds 1 to 10 (CI keeps 2026).
+  for seeds 1 to 10 (CI keeps 2026), on main's core and Vite plugin.
+- Result: all 10 seeds green (about 220 s each), the exit test 20 / 20, `pnpm devx check` green. Verdict: go.
 - Full `pnpm devx check`.
 - Any failure: fixed in this PR if it is a bug of this step's tests; a failure of the transform or of a go
   criterion → `QUESTION` to the orchestrator with the evidence before any verdict is written.
