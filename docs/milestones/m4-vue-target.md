@@ -69,8 +69,8 @@ From **M3** (React target and imports):
 
 New dependencies, all exact-pinned:
 
-- `@vue/language-core` as a dependency of `@multifront/language-tools`.
-- `@vue/typescript-plugin` (same release line as `@vue/language-core`) and `@vue/server-renderer` as root devDependencies, for tests.
+- `@vue/language-core` 3.3.11, `@vue/language-service` 3.3.11 and `@vue/typescript-plugin` 3.3.11 as dependencies of `@multifront/language-tools`. Spike 2 ran on them, and all three use `@volar/*` 2.4.28 and `volar-service-*` 0.0.71, the versions M2 pins. The server runs `@vue/language-service`'s plugins, and our TypeScript plugin calls `@vue/typescript-plugin`'s request functions (4.12).
+- `@vue/typescript-plugin` (same version) and `@vue/server-renderer` as root devDependencies, for tests: 4.14 loads Vue's plugin from its own install folder.
 
 ## Steps
 
@@ -87,6 +87,8 @@ New dependencies, all exact-pinned:
   - *Question 3 fails* (Vue's services need a `VueVirtualCode` root): step 4.12 ships TypeScript features only (errors, hover, definition, completions inside template expressions, `$style`), plus HTML completions from the HTML service on the template code. Vue tag and directive completions move to M7 and are listed in "Hands".
   - *Question 1 or 2 fails* (no usable code or mappings): the `<vue>` block keeps M2's highlighting only. `types()` builds `Card.ucf.vue.ts` from `compileScript()` of `@vue/compiler-sfc` instead (a `defineComponent` with the `defineProps` types), so importers still get types. Steps 4.12 and the in-block parts of 4.13 move to M7, and spec section 11 is updated.
   - *Question 4 is awkward*: our host writes the global types file the way `vue-tsc` does, and the TypeScript plugin adds it to the project.
+- Verdict: 1 and 2 yes. 3 no with a plain root, yes when the root forwards `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` to the nested code: the path 4.3 and 4.12 build. 4 comes from language-core's own `types/`, which a bundle must ship (4.13). Details in `docs/plan.md`, "Prototype first", item 2.
+- Status: done
 
 ### 4.2 `vueSfcCode()` in core
 
@@ -107,7 +109,12 @@ New dependencies, all exact-pinned:
   - `grammar: {scopeName: 'text.html.vue'}`, the scope name M2's grammar already embeds, so the generated grammar does not change.
   - `check()` adds `vue-empty-block` (no top-level `<template>` or `<script>`). It uses the same raw scan as `splitBlocks`, so core still imports no compiler. Every other Vue error comes from compiler-sfc, already at the right line thanks to the same-length code.
   - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks)}`.
-  - `packages/language-tools/src/blocks/vue.ts` gains the editor half, from the spike's chosen path. `editor()` returns the `VueVirtualCode` of the same SFC code as embedded code. `types()` returns its generated script as `Card.ucf.vue.ts`.
+  - `packages/language-tools/src/blocks/vue.ts` gains the editor half (spike 2):
+    - `editor()` returns the `VueVirtualCode` that `createVueLanguagePlugin(ts, compilerOptions, vueCompilerOptions, asFileName).createVirtualCode(fileName, 'vue', sfcSnapshot)` makes from `vueSfcCode()`, with its `id` set to `vue`. It is embedded under our root code, beside the `react` and `style_N` codes. `editor()` therefore returns a Volar `VirtualCode`, not only `EditorFile`s.
+    - The nested code leaves out Vue's own `style_N` children (an instance getter over `VueVirtualCode`'s `embeddedCodes`). They would share their ids with ours, and the root keeps one code per id. Our `style_N` codes serve the `<style>` blocks.
+    - `vueCompilerOptions` sets `strictCssModules: true`, so `$style.crad` is an error, as it is in the React target.
+    - When a `<vue>` block exists, the root code gets getters `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` that read the nested code. Vue's service plugins read those from the root (4.12).
+    - `types()` returns its generated `script_ts` as `Card.ucf.vue.ts`.
   - Both halves are registered in the two registries.
 - Deliverable: `<vue>` is a full row of the grid. The registry "both halves" test passes with it.
 - Test:
@@ -209,7 +216,7 @@ New dependencies, all exact-pinned:
 ### 4.12 The `<vue>` block in the language server
 
 - Build: in `packages/language-tools/src/blocks/vue.ts` and the server setup:
-  - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code; our server turns on Vue's template services or the HTML service (per the 4.1 outcome) and asks tsserver for type information, as Vue's own server does;
+  - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code. Our server adds `createVueLanguageServicePlugins(ts, client)` from `@vue/language-service`, minus its `css` plugin, because our `volar-service-css` already serves the `<style>` blocks. The plugins run on the nested code through the root's forwarding getters (4.3). `client` asks tsserver for type information, as Vue's own server does. Our TypeScript plugin answers through its own protocol handlers, which call `@vue/typescript-plugin`'s request functions (`getComponentNames`, `getElementNames`, `getElementAttrs`, `getComponentProps`, `getComponentDirectives`) with the nested code. Vue's own `_vue:*` handlers need a `VueVirtualCode` root, so they cannot serve `.ucf` files;
   - `$style` and named modules are typed from the root `<style module>` blocks, which are present in the same-length SFC code, so language-core types them natively;
   - the in-block import rule for `<vue>`: `import Icon from './Icon.ucf'` in a `<vue>` block resolves to `Icon.ucf.vue.ts`.
 - Deliverable: writing a `<vue>` block feels like writing a `.vue` file.
@@ -219,17 +226,20 @@ New dependencies, all exact-pinned:
   - go to definition from the template lands on its declaration in the same `.ucf` file;
   - `$style.crad` is an error, and `$style.card` is not;
   - `<Icon :size="'big'" />` with a number prop is an error at that attribute;
-  - per the spike outcome, either Vue directive completions (`v-if`) work, or the step says they moved to M7.
+  - in the template, completion at `<sp|` lists `span`, `div` and the file's own component, and before an attribute it lists `:id`, `@click` and `v-if`;
+  - no plugin error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`).
 
 ### 4.13 `Card.ucf.vue.ts` for `.ts` importers
 
-- Build: in the TypeScript plugin, `.ucf` imports that `resolveTarget()` sends to `vue` resolve to `Card.ucf.vue.ts`, the `types()` file of 4.3. It exports a Vue `DefineComponent`. Global types are wired as the spike decided.
+- Build: in the TypeScript plugin, `.ucf` imports that `resolveTarget()` sends to `vue` resolve to `Card.ucf.vue.ts`, the `types()` file of 4.3. It exports a Vue `DefineComponent`.
+  - Global types: `Card.ucf.vue.ts` references `<typesRoot>/template-helpers.d.ts` and `props-fallback.d.ts`. `typesRoot` defaults to the `types/` folder of the installed `@vue/language-core`, which works unbundled. `scripts/lib/bundle-vscode.mjs` copies `@vue/language-core/types/*.d.ts` beside the bundle, and the bundled plugin sets `typesRoot` to that copy. Without it, every `__VLS_*` helper type is missing and nothing shows it: those errors sit in unmapped generated code.
 - Deliverable: a `.ts` file that picks Vue for a `.ucf` import gets the real Vue component type.
 - Test: `packages/e2e/editor/vue-types.spec.ts`. Use `startTsserver()` with our plugin on `fixtures/apps/demo/`:
   - in `mountVue.ts`, quick info on `Counter` shows a `DefineComponent` with the `start: number` prop;
   - `h(Counter, {start: 'x'})` is an error;
   - with the plugin option `framework: 'vue'`, a bare import in a `.ts` file resolves the same way;
-  - a React importer of the same file still gets the React type.
+  - a React importer of the same file still gets the React type;
+  - the plugin bundled by `pnpm devx vsix`: `projectInfo` with `needFileNameList` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the copy beside the bundle.
 
 ### 4.14 `.vue` importers beside Vue's TypeScript plugin
 
@@ -253,7 +263,6 @@ New dependencies, all exact-pinned:
 - `vueBlock`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
 - `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
-- If spike 2 moved them: Vue tag and directive completions in the `<vue>` block. Used by **M7**.
 - Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
 - `expectSameComputedStyles()` in `packages/e2e/browser/lib/parity.ts` and `packages/e2e/browser/parity.spec.ts`. Used by **M6** (adds the Svelte counter to the same parity test).
 
@@ -272,7 +281,8 @@ New dependencies, all exact-pinned:
 - **`handleHotUpdate` is on its way out** in Vite in favor of `hotUpdate`. When plugin-vue moves, our override must move with it, because the two hooks get different context objects. The 4.9 test fails first.
 - **CSS twice in a mixed app** (decided: accepted for now, spec 4.3). The Vue target uses plugin-vue's own style modules, React and Svelte use ours, so an app importing one file as Vue and as another framework ships identical rules twice. A later dedupe can answer plugin-vue's style request with the shared module.
 - **Two Volar TypeScript plugins in one tsserver.** If both load from one `@volar/typescript` copy, the second never decorates the host. VS Code loads each from its own extension folder, so it works there. Other editors that hoist both into one `node_modules` may not. 4.14 tests both setups.
-- **Version skew in the editor.** Our pinned `@vue/language-core` may differ from the one inside the user's Vue extension. The generated code is self-contained, but the global types may not be. The spike decides how we ship them.
+- **Version skew in the editor (settled by spike 2).** Our pinned `@vue/language-core` may differ from the one inside the user's Vue extension. That does not matter for `.ucf` files: the generated code and its global types (`template-helpers.d.ts`, `props-fallback.d.ts`) both come from our own copy, which the bundle ships (4.13).
+- **Vue services on a forwarding root.** Vue's service plugins read `ir`, `fileName` and `vueCompilerOptions` from the root code, not from the code they serve. Our root forwards them, so it relies on non-formal API. The 4.12 test fails first if a language-core release moves them. Two `instanceof VueVirtualCode` checks stay off: tag and attribute name casing uses the setting's default instead of the file's, and Vue's initial-indent format options do not apply.
 - **Who resolves the bare `.ucf` id for `vue`**, M3 or this milestone. Listed under "Needs", with 4.4 as the fallback.
 - **Dependency pre-bundling** does not scan inside `.ucf` files. A `vue` import first seen in a `<vue>` block may trigger one late re-bundle and a page reload in dev. Check during 4.4. If it shows, add `.ucf` to the scanner the way M3 does for `<react>`.
 - **Same-length blanking** must keep every `\r`, `\n` and UTF-16 position. `CounterCrlf.ucf` and a non-ASCII string in `Counter.ucf` guard it.
