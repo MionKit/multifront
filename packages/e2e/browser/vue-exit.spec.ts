@@ -41,7 +41,12 @@ async function replaceIn(file: string, pairs: [needle: string, text: string][]):
 /** A `copyApp('vue')` copy; Vite puts its dep cache beside the nearest package.json, removed with the copy. */
 async function vueCopy(): Promise<{root: string; counter: string}> {
   const root = await copyApp('vue');
-  await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
+  try {
+    await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
+  } catch (err) {
+    await removeApp(root);
+    throw err;
+  }
   return {root, counter: resolve(root, '..', '..', 'components', 'Counter.ucf')};
 }
 
@@ -57,8 +62,8 @@ afterAll(async () => {
 
 describe('milestone 4 exit test', () => {
   it('1. a production build of the demo renders Counter.ucf as React and as Vue, same data-v-*, same styles', async () => {
-    const app = await buildAndPreview(DEMO);
     const page = await browser!.newPage();
+    const app = await buildAndPreview(DEMO);
     try {
       const messages = collectConsole(page);
       await page.goto(app.url);
@@ -83,9 +88,9 @@ describe('milestone 4 exit test', () => {
   });
 
   it('2. the Vue app’s SSR build renders the Counter on the server and hydrates with no mismatch warning', async () => {
+    const page = await browser!.newPage();
     const {root, counter} = await vueCopy();
     let server: Awaited<ReturnType<typeof preview>> | undefined;
-    const page = await browser!.newPage();
     try {
       // So `vite build` takes the hydrating entry and keeps the outlet.
       await replaceIn(join(root, 'index.html'), [
@@ -145,9 +150,9 @@ describe('milestone 4 exit test', () => {
   });
 
   it('3. a fresh dev server answers the Vue style sub-request first, then a <template> edit keeps the count', async () => {
+    const page = await browser!.newPage();
     const {root, counter} = await vueCopy();
     const vite = startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'});
-    const page = await browser!.newPage();
     try {
       const url = /Local:\s+(\S+)/.exec(await vite.waitForOutput(/Local:\s+http\S+/))![1]!;
       const scope = scopeAttribute(root, counter, false);
