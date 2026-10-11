@@ -30,10 +30,19 @@ export function handedToVue(file: string, source: string): void {
   handedSources.set(file, source);
 }
 
+// The sub-requests of one file arrive together on a cold cache: they share one warm-up.
+const warmingUp = new Map<string, Promise<unknown>>();
+
 /** Before plugin-vue loads a `.ucf?vue&…` sub-request: on a cache miss it would parse the raw file from disk. */
 export async function warmUpVue(context: Rolldown.PluginContext, file: string, source: string): Promise<void> {
-  // Runs our transform and plugin-vue's main one, which fills its cache.
-  if (handedSources.get(file) !== source) await context.load({id: file});
+  if (handedSources.get(file) === source) return;
+  let pending = warmingUp.get(file);
+  if (!pending) {
+    // Runs our transform and plugin-vue's main one, which fills its cache.
+    pending = context.load({id: file}).finally(() => warmingUp.delete(file));
+    warmingUp.set(file, pending);
+  }
+  await pending;
 }
 
 function addPattern(api: VuePluginApi, key: 'include' | 'exclude', pattern: RegExp): void {
