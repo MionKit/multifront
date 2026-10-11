@@ -1,12 +1,10 @@
 import {resolve} from 'node:path';
-import {moduleClassName, vueSfcCode} from '@multifront/core';
+import {vueSfcCode} from '@multifront/core';
 import type {SplitResult, VueCompiler} from '@multifront/core';
 import type {Options} from '@vitejs/plugin-vue';
 import {normalizePath} from 'vite';
 import type {ResolvedConfig, Rolldown} from 'vite';
-import {viteScopedName} from './cssModules.ts';
-import type {ScopedNameGenerator} from './cssModules.ts';
-import {splitId} from './ids.ts';
+import {composeCssModules} from './cssModules.ts';
 import type {VuePluginApi} from './types.ts';
 import {VUE_PLUGIN_NAME} from './vueCompiler.ts';
 
@@ -44,20 +42,6 @@ function componentIdGenerator(current: ComponentIdGenerator, root: string, scope
   };
   USER_GENERATORS.set(generator, user);
   return generator;
-}
-
-// plugin-vue hands `<style module>` to Vite's CSS modules; their class names must match the other targets'.
-function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: string) => string): void {
-  const {modules} = config.css;
-  if (modules === false) return;
-  const other = viteScopedName(modules ?? {});
-  const generateScopedName: ScopedNameGenerator = (local, filename, css) => {
-    const {path, query} = splitId(filename);
-    if (!VUE_INCLUDE.test(path) || !query.has('vue') || query.get('type') !== 'style') return other(local, filename, css);
-    return moduleClassName(local, scopeIdOf(path), query.get('index') ?? 0);
-  };
-  // A new object: the user's own may be reused by a restart, which must not find ours in it.
-  (config.css as {modules?: typeof modules}).modules = {...modules, generateScopedName};
 }
 
 /** Call from `configResolved`: it runs before plugin-vue's `options` hook, the last moment its setters allow. */
