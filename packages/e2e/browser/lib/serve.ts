@@ -1,6 +1,6 @@
 import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {createServer, preview, type ResolvedServerUrls} from 'vite';
+import {createServer, preview, type Logger, type ResolvedServerUrls} from 'vite';
 import {TMP_DIR} from '../../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildApp} from '../../build/lib/build.ts';
 
@@ -15,8 +15,8 @@ function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
   return url;
 }
 
-/** Edit only a `copyApp()` copy, never the fixture itself. */
-export async function startDev(appDir: string) {
+/** Edit only a `copyApp()` copy, never the fixture itself. `logger` gets every line, whatever `logLevel` says. */
+export async function startDev(appDir: string, {logger}: {logger?: Logger} = {}) {
   // Own cache per server: apps in one package share `node_modules/.vite` otherwise.
   const cacheDir = await tempDir('dev-cache-');
   // Held until close: the dep optimizer hashes NODE_ENV, so `test` back mid-server marks deps outdated and pages 504.
@@ -29,7 +29,14 @@ export async function startDev(appDir: string) {
   };
   let server;
   try {
-    server = await createServer({root: appDir, configLoader: APP_CONFIG_LOADER, cacheDir, logLevel: 'silent', server: {port: 0}});
+    server = await createServer({
+      root: appDir,
+      configLoader: APP_CONFIG_LOADER,
+      cacheDir,
+      logLevel: 'silent',
+      customLogger: logger,
+      server: {port: 0},
+    });
   } catch (err) {
     await restore();
     throw err;
