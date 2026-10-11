@@ -111,7 +111,9 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 and react-dom 19.3.0 with plugin-react 6.1.1 at the top of the range, 19.0.0 with 6.0.0 at the floor). The scope
 transform stays; the CSS-modules-only fallback is not needed. Each go criterion of the milestone document:
 
-1. **Exit test** (`packages/e2e/browser/demo-exit.spec.ts`): 20 local runs in a row, 20 passed.
+1. **Exit test** (`packages/e2e/browser/demo-exit.spec.ts`): all 9 tests green in the `check` and `react-floor`
+   jobs ([CI run 38115548476](https://github.com/MionKit/multifront/actions/runs/38115548476)), and 20 local runs in a
+   row, 20 passed.
 2. **Shapes:** `packages/e2e/browser/react-scope.spec.ts`, dev and preview. Every forwarded shape and branch carries
    the parent's `data-v-<id>` on its root DOM element only; FragmentRoot and NullRoot pass it to no element. The only
    React-side warning is FragmentRoot's, once, in dev. A shape's own stamp shows where it has a scoped style
