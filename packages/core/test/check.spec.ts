@@ -38,6 +38,14 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
   // Only a comment: no <template> or <script> for Vue to compile.
   {fixture: 'vue/Empty.ucf', errors: [{code: 'vue-empty-block', line: 1, column: 0}]},
+  // Both rules on one block: the opening tag's error first.
+  {
+    fixture: 'vue/StyleOnlyInVue.ucf',
+    errors: [
+      {code: 'vue-empty-block', line: 1, column: 0},
+      {code: 'style-inside-target', line: 2, column: 2},
+    ],
+  },
   {
     fixture: 'invalid/UnknownStyleLang.ucf',
     errors: [
