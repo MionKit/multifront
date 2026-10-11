@@ -265,13 +265,15 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   export default function ScopedBadge(__props: Props) {const {label, className = ''} = __props; ... }
   ```
 
-  - The pattern text is moved with MagicString, never re-printed, so defaults, rest and comments stay as written. The type annotation stays on `__props`.
-  - An expression-bodied arrow gets `{ const ... = __props; return ... }`.
-  - A parameter default stays on `__props`. A name clash picks `__props1`, `__props2`, ...
-  - Forwarding then uses `__props`.
-  - Fixtures: `shapes/Destructured.ucf`, `DestructuredArrow.ucf`, `DestructuredDefaults.ucf` (defaults, rest, annotation), `ForwardRefDestructured.ucf`. `packages/e2e/fixtures/components/react/ScopedPanel.ucf` (scoped style on `.badge`) and `ScopedBadge.ucf` (destructures `{label, className}`, root `<span className={className}>`).
+  - The pattern text is moved with MagicString, never re-printed, so defaults, rest and comments stay as written. The type annotation stays on `__props`. The inserts are `const ` and ` = __props;` right after the body's `{`, with no new line.
+  - An expression-bodied arrow gets `{const ... = __props; return ...}`.
+  - A parameter default stays on `__props`. A name clash picks `__props1`, `__props2`, ...: the first name no identifier of the block uses. The `__ref` added inside `forwardRef` follows the same rule.
+  - Forwarding then uses `__props`. It is only rewritten when a root needs it.
+  - No forwarding when the body declares a name the pattern binds or reads (moved into the body, they would meet), when a later parameter reads a name it binds, nor for a rest first parameter. In a body that opens with directives (`'use no memo'`), the `const` goes after them. A TypeScript `this` parameter is skipped when picking the props.
+  - Fixtures: `shapes/Destructured.ucf`, `DestructuredArrow.ucf`, `DestructuredDefaults.ucf` (defaults, rest, annotation, a parameter default, a comment in the pattern), `ForwardRefDestructured.ucf`; built-only edges in `react/forwarding/` (`PropsClash`, `RefClash`, `RedeclaredPattern`, `DefaultReadsBody`, `LaterParamReads`, `RenamedKey`, `DirectiveBody`, `DestructuredFragment`, `ArrayPattern`, `RestParams`, `ThisParam`, `OnlyThis`). `packages/e2e/fixtures/components/react/ScopedPanel.ucf` (scoped style on `.badge`, and on `.badge-label`, which must not reach the badge's inner element) and `ScopedBadge.ucf` (no style of its own, destructures `{label, className = ''}`, root `<span className={className}>` holding `<em className="badge-label">`). `react-scope` renders ScopedPanel on `?page=panel`.
 - Deliverable: forwarding sees every prop, also for destructuring components.
-- Test: snapshots in `packages/core/test/react/scope.spec.ts`. In `react-scope.spec.ts`: ScopedPanel's scoped `.badge` rule colors ScopedBadge's root span; defaults and rest props render as written.
+- Test: snapshots in `packages/core/test/react/scope.spec.ts`, plus per shape: the moved pattern maps back to where it was written. In `react-scope.spec.ts`: ScopedPanel's scoped `.badge` rule colors ScopedBadge's root span, its `.badge-label` rule misses the inner element; the destructuring shapes forward in every branch; defaults and rest props render as written.
+- Status: done
 
 ### 3.13 Fuzz the scope transform
 
