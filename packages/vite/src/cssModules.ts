@@ -13,6 +13,9 @@ const VITE_CSS_PLUGIN = 'vite:css';
 // that file's path only, so the block reaches the generator through the async context.
 const compiling = new AsyncLocalStorage<{file: string; index: string}>();
 
+// A builder with shared plugins and every worker bundle run `configResolved` again on objects already composed.
+const composed = new WeakSet<object>();
+
 // string-hash 1.1.3, which postcss-modules' default generator uses.
 function stringHash(text: string): number {
   let hash = 5381;
@@ -42,13 +45,14 @@ function postcssModules(modules: CSSModulesOptions, scopeIdOf: (file: string) =>
     // postcss-modules also passes the PostCSS node, which Vite's type leaves out.
     return (other as (...args: unknown[]) => string)(local, filename, css, ...rest);
   };
+  composed.add(generateScopedName);
   return {...modules, generateScopedName};
 }
 
 // lightningcss reads `cssModules` once per file, so inside a `.ucf` block its pattern is the block's own names.
 function lightningcssModules(options: LightningcssOptions, scopeIdOf: (file: string) => string): LightningcssOptions {
   const own = options.cssModules;
-  return {
+  const result = {
     ...options,
     get cssModules() {
       const style = compiling.getStore();
@@ -58,6 +62,8 @@ function lightningcssModules(options: LightningcssOptions, scopeIdOf: (file: str
       return {...(typeof own === 'object' ? own : {}), pattern, grid: false, container: false, customIdents: false};
     },
   };
+  composed.add(result);
+  return result;
 }
 
 /** Names the classes of plugin-vue's `.ucf` `<style module>` requests `<local>_<scopeId>_<index>`, as the other targets. */
@@ -66,14 +72,22 @@ export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: stri
   if (!transform || !('handler' in transform)) {
     throw new Error(`multifront: Vite's ${VITE_CSS_PLUGIN} plugin has no transform hook with a handler`);
   }
-  const {handler} = transform;
-  transform.handler = function (code, id, options) {
-    const {path, query} = splitId(id);
-    if (!VUE_INCLUDE.test(path)) return handler.call(this, code, id, options);
-    return compiling.run({file: path, index: query.get('index') ?? '0'}, () => handler.call(this, code, id, options));
-  };
+  if (!composed.has(transform)) {
+    const {handler} = transform;
+    transform.handler = function (code, id, options) {
+      const {path, query} = splitId(id);
+      if (!VUE_INCLUDE.test(path)) return handler.call(this, code, id, options);
+      return compiling.run({file: path, index: query.get('index') ?? '0'}, () => handler.call(this, code, id, options));
+    };
+    composed.add(transform);
+  }
   const {css} = config;
-  if (css.transformer === 'lightningcss') css.lightningcss = lightningcssModules(css.lightningcss ?? {}, scopeIdOf);
+  if (css.transformer === 'lightningcss') {
+    if (!composed.has(css.lightningcss ?? {})) css.lightningcss = lightningcssModules(css.lightningcss ?? {}, scopeIdOf);
+    return;
+  }
+  if (css.modules === false) return;
+  const generator = css.modules?.generateScopedName;
   // A new object: a restart may reuse the user's, which must not find ours in it.
-  else if (css.modules !== false) css.modules = postcssModules(css.modules ?? {}, scopeIdOf);
+  if (typeof generator !== 'function' || !composed.has(generator)) css.modules = postcssModules(css.modules ?? {}, scopeIdOf);
 }
