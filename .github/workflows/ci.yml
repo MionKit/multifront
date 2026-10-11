@@ -74,6 +74,26 @@ jobs:
       - name: Test
         run: pnpm devx test --reporter verbose
 
+  # Every test again on the oldest supported Vue: the bottom of @multifront/vite's vue peer ranges.
+  vue-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Rewrites pnpm-workspace.yaml and the lockfile of this throwaway checkout, and prints the installed floor.
+      - run: pnpm devx peer-floor vue
+      - *vscode-cache
+      - *playwright-version
+      - *playwright-cache
+      - *chromium
+      - name: Test
+        run: pnpm devx test --reporter verbose
+
   # Windows-only behaviour: `\` paths turned into `/` (scope ids, devx package dirs) and devx tool launch.
   windows:
     runs-on: windows-latest
