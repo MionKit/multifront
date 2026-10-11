@@ -21,7 +21,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     initializationOptions: {typescript: {tsdk}},
   };
   client = new LanguageClient('multifront', 'multifront', serverOptions, clientOptions);
+  relayTsserverRequests(client);
   await client.start();
+}
+
+// The server's Vue template services ask tsserver for types; our TypeScript plugin answers in VS Code's tsserver.
+function relayTsserverRequests(languageClient: LanguageClient): void {
+  languageClient.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown]) => {
+    let body: unknown;
+    try {
+      const options = {isAsync: true, lowPriority: true};
+      const result = await vscode.commands.executeCommand<{body?: unknown} | undefined>(
+        'typescript.tsserverRequest',
+        command,
+        args,
+        options
+      );
+      body = result?.body;
+    } catch {
+      // No TypeScript extension: the server must still get an answer, or it waits forever.
+    }
+    await languageClient.sendNotification('tsserver/response', [id, body]);
+  });
 }
 
 export async function deactivate(): Promise<void> {

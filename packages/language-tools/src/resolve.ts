@@ -1,5 +1,6 @@
 import {dirname} from 'node:path';
 import {
+  importerFromId,
   importPath,
   isTarget,
   missingTargetBlockMessage,
@@ -10,6 +11,7 @@ import {
 import type {Diagnostic, Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
+import {targetScriptName} from './targetScripts.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
 
 const PLUGIN_NAME = '@multifront/language-tools/typescript-plugin';
@@ -75,9 +77,10 @@ export function resolveUcfImport(
   options: UcfImportOptions,
   sourceFile: ts.SourceFile // the importer's parse; the build's rewrite reads its text
 ): UcfResolution {
-  // In tsserver a `.ucf` file's own script is its main target's block.
-  const importer: Importer = {fileName: containingFile};
-  if (containingFile.endsWith('.ucf')) importer.block = MAIN_SCRIPT_TARGET;
+  // In tsserver a `.ucf` file's own script is its main target's block; `Card.ucf.vue.ts` is its `<vue>` block.
+  const importer: Importer = containingFile.endsWith('.ucf')
+    ? {fileName: containingFile, block: MAIN_SCRIPT_TARGET}
+    : importerFromId(containingFile);
   // Block imports never go through the rewrite; a file that does not parse gets no rewrite error.
   const notLiteral = importer.block ? undefined : attributeError(literal, sourceFile);
   // The build fails this import, so it stays unresolved.
@@ -99,9 +102,15 @@ export function resolveUcfImport(
   if (source !== undefined) split = splitBlocks(source, fileName);
   let error: UcfResolution['error'];
   if (split && !split.targets[target]) {
-    error = {code: 'missing-target-block', message: missingTargetBlockMessage(containingFile, fileName, target)};
+    error = {code: 'missing-target-block', message: missingTargetBlockMessage(importer.fileName, fileName, target)};
   }
-  // tsserver serves only the main target's script; vue and svelte get theirs in M4 and M6.
+  const {isExternalLibraryImport} = resolvedModule;
+  // A `<vue>` block sees the Vue script tsserver serves beside the `.ucf` file's own.
+  if (target === 'vue' && importer.block === 'vue' && !error) {
+    const resolvedFileName = targetScriptName(fileName, target);
+    return {resolvedModule: {resolvedFileName, extension: ts.Extension.Ts, isExternalLibraryImport}, target};
+  }
+  // tsserver serves only the main target's script to other importers; vue and svelte get theirs in M4 and M6.
   if (target !== MAIN_SCRIPT_TARGET) {
     const path = importPath(containingFile, fileName);
     const reason = RULE_REASON[rule];
@@ -112,7 +121,6 @@ export function resolveUcfImport(
     return {resolvedModule: undefined, target, error};
   }
   // Resolved even without the block, so adding it in an unsaved edit needs no new resolution.
-  const {isExternalLibraryImport} = resolvedModule;
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};
 }
 

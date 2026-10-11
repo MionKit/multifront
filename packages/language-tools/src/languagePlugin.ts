@@ -6,7 +6,7 @@ import type {Block, Target, VirtualFile} from '@multifront/core';
 import type {IScriptSnapshot, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
-import {disposeVueCode} from './blocks/vue.ts';
+import {disposeVueCode, forwardToVueCode} from './blocks/vue.ts';
 import {createEditorContext, editorFiles} from './context.ts';
 import {ALL_FEATURES, stringSnapshot} from './mappings.ts';
 import type {EditorOptions, UcfVirtualCode} from './types.ts';
@@ -49,7 +49,10 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
     return {id: codeId(block), languageId: LANGUAGE_ID_BY_EXT[ext], snapshot: stringSnapshot(code), mappings};
   });
   const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_FEATURES}];
-  return {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
+  const root: UcfVirtualCode = {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
+  const vue = embeddedCodes.find(({id}) => id === 'vue');
+  if (vue) forwardToVueCode(root, vue);
+  return root;
 }
 
 /** The Volar language plugin for `.ucf` files: a root code per file, one embedded code per block a service reads. */

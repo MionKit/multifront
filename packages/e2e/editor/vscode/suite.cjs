@@ -85,6 +85,21 @@ const duplicateTarget = {
   },
 };
 
+// Vue's template services in our server get `@click` from tsserver, through the extension's relay.
+function attributeCompletion(name, wanted) {
+  return {
+    name,
+    async run() {
+      const counter = await show(paths().component('Counter.ucf'));
+      const at = positionOf(counter, 'class="label"');
+      await until(async () => {
+        const list = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider', counter.uri, at);
+        return list.items.some(({label}) => (typeof label === 'string' ? label : label.label) === wanted);
+      }, `${wanted} in the completion list`);
+    },
+  };
+}
+
 const checks = [
   activate,
   {
@@ -146,6 +161,7 @@ const checks = [
     },
   },
   duplicateTarget,
+  attributeCompletion('4.12 completion before an attribute in Counter.ucf\'s <vue> template lists @click, from tsserver through the relay', '@click'),
   {
     name: '5. hover on <Card in src/App.tsx shows the props from Card.ucf',
     async run() {
@@ -212,6 +228,8 @@ const withoutTypescript = [
   activate,
   panelHover,
   duplicateTarget,
+  // No tsserver: the relay still answers, so Vue's own attributes come.
+  attributeCompletion('4.12 completion before an attribute in Counter.ucf\'s <vue> template still lists v-if', 'v-if'),
 ];
 
 function start(selected) {

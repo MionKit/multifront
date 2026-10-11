@@ -3,8 +3,16 @@ import type {LanguageServerHandle} from '@volar/test-utils';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import type {Tsserver} from './tsserver.ts';
+
+/** LSP `window/logMessage`; type 1 is an error, 2 a warning. */
+export interface LogMessage {
+  type: number;
+  message: string;
+}
 
 export interface LanguageServer extends LanguageServerHandle {
+  log: LogMessage[]; // every message the server logged; a plugin that throws logs a warning
   stop(): Promise<void>;
 }
 
@@ -38,13 +46,17 @@ export async function startLanguageServer(workspace: string, options: LanguageSe
       else process.env[name] = value;
     }
   }
+  const log: LogMessage[] = [];
+  // Replaces test-utils' own handler, which only prints.
+  handle.connection.onNotification('window/logMessage', (params: LogMessage) => log.push(params));
   const kill = () => {
     handle.connection.dispose();
     handle.process.kill();
   };
   try {
     await handle.initialize(pathToFileURL(workspace).href, options.initializationOptions ?? {}, {
-      textDocument: {diagnostic: {}},
+      // VS Code's: Vue's template completions are snippets.
+      textDocument: {diagnostic: {}, completion: {completionItem: {snippetSupport: true}}},
       workspace: {diagnostics: {}},
     });
   } catch (err) {
@@ -59,5 +71,13 @@ export async function startLanguageServer(workspace: string, options: LanguageSe
       kill();
     }
   };
-  return Object.assign(handle, {stop});
+  return Object.assign(handle, {log, stop});
+}
+
+/** Links the server to a tsserver the way the extension does: each `tsserver/request` runs there, its body comes back. */
+export function relayTsserver(server: LanguageServer, tsserver: Tsserver): void {
+  server.connection.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown]) => {
+    const body = await tsserver.request(command, args as object).catch(() => undefined);
+    await server.connection.sendNotification('tsserver/response', [id, body]);
+  });
 }

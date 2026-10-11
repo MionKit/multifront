@@ -5,7 +5,15 @@ import type {LanguagePlugin, VirtualCode} from '@volar/language-core';
 import {VueVirtualCode, createVueLanguagePlugin, getDefaultCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
 import {stringSnapshot} from '../mappings.ts';
-import type {EditorBlockKind, EditorContext, EditorFile, EditorOptions, TargetScript, TypeScript} from '../types.ts';
+import type {
+  EditorBlockKind,
+  EditorContext,
+  EditorFile,
+  EditorOptions,
+  TargetScript,
+  TypeScript,
+  VueRootFields,
+} from '../types.ts';
 
 const SERVICE_SCRIPT = /^script_(ts|tsx|js|jsx)$/;
 const STYLE_CODE = /^style_\d+$/;
@@ -78,6 +86,15 @@ export function disposeVueCode(
   {compilerOptions = DEFAULT_COMPILER_OPTIONS}: EditorOptions
 ): void {
   plugins.get(compilerOptions)?.disposeVirtualCode?.(fileName, code as VueVirtualCode);
+}
+
+const ROOT_FIELDS = ['fileName', 'ir', 'vueSfc', 'vueCompilerOptions'] as const satisfies (keyof VueRootFields)[];
+
+/** Vue's service plugins read these from the root code, not from the code they serve (spike 2). */
+export function forwardToVueCode(root: VirtualCode & VueRootFields, code: VirtualCode): void {
+  for (const field of ROOT_FIELDS) {
+    Object.defineProperty(root, field, {get: () => (code as VueVirtualCode)[field], enumerable: true});
+  }
 }
 
 function serviceScript(code: VirtualCode): TargetScript | undefined {

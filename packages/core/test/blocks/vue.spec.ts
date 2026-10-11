@@ -26,7 +26,9 @@ const CASES: {fixture: string; scriptSetup: boolean; styles: Block['attrs'][]; c
     spots: ['{{ count }}', 'const count', 'padding'],
   },
   {fixture: 'vue/VBind.ucf', scriptSetup: true, styles: [{scoped: true}], cssVars: ['color'], spots: ['class="bound"']},
-  {fixture: 'imports/Icon.ucf', scriptSetup: false, styles: [{module: true}], cssVars: [], spots: ['$style.icon']},
+  {fixture: 'imports/Icon.ucf', scriptSetup: true, styles: [{module: true}], cssVars: [], spots: ['$style.icon']},
+  // Template only: no script, no style.
+  {fixture: 'imports/VueOnly.ucf', scriptSetup: false, styles: [], cssVars: [], spots: ['Only Vue']},
   // Blanks both a <react> and a <svelte> block.
   {fixture: 'Card.ucf', scriptSetup: true, styles: [{module: true, lang: 'scss'}], cssVars: [], spots: ['{{ title }}']},
   // A root comment, a <svelte> block and three <style> blocks with multi-line and quoted attributes.
