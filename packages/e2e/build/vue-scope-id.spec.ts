@@ -205,3 +205,25 @@ it('names the classes a .ucf module composes from another file the same as Vue a
   }
   expect(Object.values(ctx.modules.$style!.classes).join(' ')).toContain(moduleClassName('round', ctx.scopeId, 0));
 });
+
+describe("css.transformer: 'lightningcss'", () => {
+  const lightningcss: InlineConfig = {css: {transformer: 'lightningcss'}};
+
+  it('fails a .ucf <style module> built as Vue, naming the file and the setting', async () => {
+    await expect(buildCode(vueRoot, lightningcss)).rejects.toThrow(
+      `${join(vueRoot, COUNTER)}: <style module> in the vue target needs css.transformer 'postcss'`
+    );
+  });
+
+  it('builds Plain.vue as plugin-vue alone does', async () => {
+    const plain = (withMultifront: boolean): InlineConfig => ({
+      ...lightningcss,
+      configFile: false,
+      plugins: [vue(), ...(withMultifront ? [multifront()] : [])],
+      build: {rolldownOptions: {input: join(vueRoot, 'src/Plain.vue'), preserveEntrySignatures: 'strict'}},
+    });
+    const alone = await buildCode(vueRoot, plain(false));
+    expect((await buildCode(vueRoot, plain(true))).css).toBe(alone.css);
+    expect(classNamed(alone.css, 'note')).toBeDefined();
+  });
+});
