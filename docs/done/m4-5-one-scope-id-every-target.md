@@ -39,9 +39,14 @@ with a scratch build of `apps/vue`:
   not a Risks line (AGENTS.md: a related issue is fixed in the same PR). postcss-modules hands the generator only the
   composed file's path, so the `.ucf` block reaches it through an `AsyncLocalStorage` that a wrapper around Vite's
   `vite:css` transform opens for `.ucf` style sub-requests. Core's naming (M1) is unchanged.
-- Q3 (orchestrator, revised after review): lightningcss's one class name pattern for all files cannot give
-  `<local>_<scopeId>_<index>`, so under `css.transformer: 'lightningcss'` a `.ucf` `<style module>` built as Vue is a
-  build error naming the file and the setting, instead of silently different names.
+- Q3 (orchestrator, revised after review): under `css.transformer: 'lightningcss'` the `.ucf` Vue classes get the same
+  names, not a Risks line. A first fix made it a build error; the second review showed Vite reads
+  `css.lightningcss.cssModules` once per file, inside the `.ucf` block's async context, so a getter returns the literal
+  pattern `[local]_<scopeId>_<index>` for that block. lightningcss requires `[local]` last when grid names are hashed,
+  so the getter turns `grid`, `container` and `customIdents` off: postcss-modules (core) leaves those names alone too.
+- Second review: our `vite:css` wrapper, our generator and our lightningcss options are each composed once per object
+  (a `WeakSet`), since a builder with shared plugins and every worker bundle run `configResolved` again on them.
+  `VUE_INCLUDE` moved to `ids.ts`, shared by `index.ts`, `vueTarget.ts` and `cssModules.ts`.
 - Review: `css.modules: false` stays untouched (Vite then fails a Vue `<style module>` on its own, `.vue` files too). The
   `WeakMap` unwrapping our earlier id generator on a restart went: wrapping twice gives the same ids. The disk read in
   `sourceOf` is reached only on a plugin-vue cache miss, which step 4.7's warm-up and tests cover.
@@ -78,7 +83,9 @@ with a scratch build of `apps/vue`:
 - `composeCssModules(config, scopeIdOf)`, unless `css.modules === false` (with the postcss transformer):
   - wraps the `handler` of Vite's `vite:css` transform: a `.ucf` id runs inside
     `AsyncLocalStorage.run({file, index})`, so the block reaches the generator for the files it composes from too;
-    under lightningcss a `.ucf` `.module.*` id is `this.error()` naming the file and `css.transformer 'postcss'`;
+    it throws at `configResolved` when Vite's `vite:css` plugin has no transform hook with a `handler`;
+  - lightningcss: `config.css.lightningcss` becomes a copy whose `cssModules` getter, inside the context, returns the
+    user's options plus `pattern: [local]_<scopeId>_<index>` and `grid`, `container`, `customIdents` off;
   - postcss: `config.css.modules = {...modules, generateScopedName}`, a new object, so the user's inline config is
     never mutated. Inside the context it returns `moduleClassName(local, scopeIdOf(file), index)`; anything else goes
     to `viteScopedName(modules)` with every argument postcss-modules passes.
@@ -118,8 +125,13 @@ Host + CI `check` job (`pnpm devx test`): real `vite.build()` and in-process dev
 4. `css.modules: false`: a plain `.module.css` builds the same with and without `multifront()`.
 5. `vue/ComposesFile.ucf` built as Vue and as React: every class map value core gives (composed names included) is in
    both outputs, and `.base_<id>_0` in both CSS.
-6. `css.transformer: 'lightningcss'`: the vue app fails naming `Counter.ucf` and the setting; `Plain.vue` builds the same
-   with and without `multifront()`.
+6. `css.transformer: 'lightningcss'`: `Counter.ucf` and `ComposesFile.ucf` as Vue get core's names (production, and
+   Counter on the dev server); the React target keeps them; `Plain.vue` builds the same with and without `multifront()`.
+7. `$style.button` is the same in dev SSR, an SSR build, both rebuilds of a watch build (the second after a `<style>`
+   edit, with the new source's id), and an app builder with and without `sharedPlugins`.
+8. `ComposesFile.ucf` as Vue on the dev server gets core's dev names.
+9. An empty `generateScopedName` row; a `[path][local]` pattern with the working directory moved at `buildStart`
+   names `Plain.vue` as Vite does.
 
 ## Docs
 
