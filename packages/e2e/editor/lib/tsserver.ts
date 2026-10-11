@@ -34,8 +34,8 @@ interface TsserverOptions {
 
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
 export const VUE_PLUGIN = '@vue/typescript-plugin';
-// Vue's plugin from its own install folder, as from its VS Code extension: the folder whose node_modules holds it and
-// its dependencies. Real paths only: under `isolated`'s preserved symlinks it cannot find them.
+// Vue's plugin as its VS Code extension loads it: from the folder whose node_modules holds it and its dependencies.
+// Real path: under `isolated`'s preserved symlinks the plugin cannot find them.
 export const VUE_PLUGIN_DIR = join(
   realpathSync(createRequire(import.meta.url).resolve(`${VUE_PLUGIN}/package.json`)),
   '../../../..'

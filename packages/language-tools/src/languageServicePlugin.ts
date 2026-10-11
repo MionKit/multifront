@@ -1,7 +1,6 @@
-// Volar's tsserver quickstart, minus its module-level records. Volar lets one plugin per `@volar/typescript` copy
-// decorate a host, keeps one external-file list per project and caches each diagnostic's transform by object. Vue's
-// plugin shares that copy when both come from one install: whichever loaded second never ran, and a diagnostic one
-// proxy left as is came out of the other untransformed. This one keeps its records per plugin and its own objects.
+// Volar's tsserver quickstart, records kept per plugin. Volar keeps them per `@volar/typescript` copy (host decorated,
+// external files per project, transform cache by diagnostic object), shared with Vue's plugin from one install: the
+// second loaded never ran, and a diagnostic one proxy left as is came out of the other untransformed.
 import {searchExternalFiles} from '@volar/typescript/lib/node/decorateLanguageServiceHost.js';
 import {createProxyLanguageService} from '@volar/typescript/lib/node/proxyLanguageService.js';
 import {createLanguageCommon} from '@volar/typescript/lib/quickstart/languageServicePluginCommon.js';

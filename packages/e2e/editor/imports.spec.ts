@@ -10,8 +10,7 @@ import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
 // tsserver serves no .svelte importer before M6; mixed.ts has its own cases in tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
-// Our plugin alone, as every React-only project runs it; beside Vue's, which reads `.vue` importers as Vue - Official
-// does, on one shared @volar/typescript copy.
+// Alone as React-only projects run it; beside Vue's as Vue - Official reads `.vue` importers, on one shared Volar copy.
 const SETUPS = [
   {name: 'our plugin alone', plugins: [PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.vue'))},
   {name: "our plugin beside Vue's", plugins: [PLUGIN, VUE_PLUGIN], rows: ROWS},
