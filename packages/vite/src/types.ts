@@ -9,13 +9,13 @@ export interface UcfEntry {
   ctx: BuildContext;
 }
 
-/** A split, and its context once something compiled it. */
+/** `entry` is set once something compiled the split. */
 export interface UcfSnapshot {
   split: SplitResult;
   entry?: Promise<UcfEntry>;
 }
 
-/** One content of a file; `previous` is the content it replaced. */
+/** One content of a file; `previous` is the one it replaced. */
 export interface UcfVersion extends UcfSnapshot {
   source: string;
   previous?: UcfSnapshot;
