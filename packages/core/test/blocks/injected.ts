@@ -19,7 +19,10 @@ function forwardingRanges(program: Program): [number, number][] {
   const ranges: [number, number][] = [];
   const params = (node: Function | ArrowFunctionExpression) => {
     const names = node.params.map((param) => (param.type === 'Identifier' ? param.name : ''));
-    if (names[0] === '__props' && names.every((name) => name === '__props' || name === '__ref'))
+    if (
+      /^__props\d*$/.test(names[0] ?? '') &&
+      names.every((name, index) => (index === 0 ? /^__props\d*$/ : /^__ref\d*$/).test(name))
+    )
       ranges.push([node.params[0]!.start, node.params.at(-1)!.end]);
   };
   new Visitor({

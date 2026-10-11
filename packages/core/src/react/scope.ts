@@ -12,7 +12,7 @@ import type {
   ParseResult,
   Program,
 } from 'oxc-parser';
-import {children} from '../ast.ts';
+import {children, walk} from '../ast.ts';
 import {keyName} from '../imports/rewrite.ts';
 import type {Block, BuildContext} from '../types.ts';
 import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
@@ -222,6 +222,21 @@ function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: 
   }
 }
 
+function identifierNames(root: Node): string[] {
+  const names: string[] = [];
+  walk(root, (node) => {
+    if (node.type === 'Identifier' || node.type === 'JSXIdentifier') names.push(node.name);
+  });
+  return names;
+}
+
+// No identifier of the block uses it, so it can neither shadow nor be shadowed.
+function freshName(used: Set<string>, base: string): string {
+  let name = base;
+  for (let index = 1; used.has(name); index++) name = `${base}${index}`;
+  return name;
+}
+
 /** Stamps all but Fragments when scoped; always forwards `data-v-*` props on the default export's roots. */
 export function transformScope(
   text: MagicString,
@@ -248,7 +263,8 @@ export function transformScope(
   const param = first?.type === 'AssignmentPattern' ? first.left : first;
   // A destructured or rest first parameter leaves no name holding every prop.
   if (param && param.type !== 'Identifier') return [];
-  const props = param?.name ?? '__props';
+  const used = new Set(param ? [] : identifierNames(program));
+  const props = param?.name ?? freshName(used, '__props');
 
   const {returns, consts, bound} = ownBody(component);
   // A body redeclaring the props name could hide it from a root; telling which needs scope analysis.
@@ -274,7 +290,7 @@ export function transformScope(
     let at = component.typeParameters?.end ?? component.id?.end ?? component.start;
     while (block.content[at] !== '(' || comments.some(({start, end}) => start <= at && at < end)) at++;
     // React checks a `forwardRef` render function takes zero or two parameters.
-    text.appendLeft(offset + at + 1, forwardRef ? '__props, __ref' : '__props');
+    text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }
   return [SCOPE_ATTRS, WARN_FRAGMENT].filter((helper) => helpers.has(helper));
 }
