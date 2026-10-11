@@ -141,9 +141,17 @@ describe('vite build of the react-basic error entries', () => {
     expect(expected).toContainEqual(err.errors?.[0]?.loc);
   });
 
-  it.each(['vue', 'svelte'])('fails a %s pick with target-not-built', async (target) => {
-    const err = await buildError(`src/errors/${target}-pick.ts`);
-    expect(err.message).toContain(`multifront does not build <${target}> blocks yet (target-not-built)`);
+  it('fails a svelte pick with target-not-built', async () => {
+    const err = await buildError('src/errors/svelte-pick.ts');
+    expect(err.message).toContain('multifront does not build <svelte> blocks yet (target-not-built)');
+  });
+
+  it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {
+    const err = await buildError('src/errors/vue-pick.ts');
+    const importer = join(ROOT, 'src/errors/vue-pick.ts');
+    expect(err.message).toContain(
+      `AllBlocks.ucf (imported by ${importer}): the vue target needs @vitejs/plugin-vue in your Vite plugins`
+    );
   });
 
   it('names the import and its importer on a resolveTarget error', async () => {
@@ -249,10 +257,11 @@ describe('dev server of react-basic', () => {
     expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('react/AllBlocks.ucf'));
   });
 
-  it('answers a request for the Vue id with target-not-built', async () => {
+  it('answers a request for the Vue id, with no plugin-vue in the app, with the plugin-vue error', async () => {
     const client = server!.environments.client;
-    await expect(client.transformRequest(`/@fs${componentPath('react/AllBlocks.ucf')}`)).rejects.toThrow(
-      'multifront does not build <vue> blocks yet (target-not-built)'
+    const file = componentPath('react/AllBlocks.ucf');
+    await expect(client.transformRequest(`/@fs${file}`)).rejects.toThrow(
+      `${file}: the vue target needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 });

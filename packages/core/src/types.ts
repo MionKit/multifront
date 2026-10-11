@@ -93,7 +93,10 @@ export interface Diagnostic {
 }
 
 /** The @vue/compiler-sfc parts multifront calls; hosts pass the one their Vue ships. */
-export type VueCompiler = Pick<typeof CompilerSfc, 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'>;
+export type VueCompiler = Pick<
+  typeof CompilerSfc,
+  'compileScript' | 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'
+>;
 
 export interface SourceMap {
   version: 3;
