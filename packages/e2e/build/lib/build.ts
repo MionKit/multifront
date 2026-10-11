@@ -17,7 +17,6 @@ export async function withNodeEnv<Result>(mode: string, run: () => Promise<Resul
 // The other loaders resolve `@multifront/vite` to its `dist/`, which tests never build.
 export const APP_CONFIG_LOADER = 'native';
 
-/** The error `promise` rejects with; fails if it resolves. */
 export function rejection<Failure>(promise: Promise<unknown>): Promise<Failure> {
   return promise.then(
     () => {
