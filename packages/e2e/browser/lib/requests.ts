@@ -18,7 +18,7 @@ export function trackRequests(page: Page) {
   page.on('requestfinished', settled);
   page.on('requestfailed', settled);
   return {
-    /** Path and query of each request since `clear()`, without Vite's `t=` cache buster. */
+    /** Requests since `clear()`, minus Vite's `t=` cache buster. */
     paths: () =>
       urls.map((url) => {
         const {pathname, searchParams} = new URL(url);
@@ -27,8 +27,7 @@ export function trackRequests(page: Page) {
         return query ? `${pathname}?${query}` : pathname;
       }),
     clear: () => void (urls.length = 0),
-    /** No request in flight and none started or ended for `ms`, nor since `since`. */
-    // `networkidle` resolves at once once reached; this waits for an update's own requests to end.
+    // `networkidle` resolves at once if already reached; this waits for an update's own requests.
     async quiet(ms: number, since = 0) {
       lastActivity = Math.max(lastActivity, since);
       await expect.poll(() => inFlight === 0 && Date.now() - lastActivity >= ms, {timeout: 10_000, interval: 50}).toBe(true);
@@ -36,7 +35,7 @@ export function trackRequests(page: Page) {
   };
 }
 
-/** Replaces `from` (which must be there) with `to` in `file`, after clearing `requests`. */
+/** Clears `requests` before the write, so they count from the edit. */
 export async function editFile(requests: ReturnType<typeof trackRequests>, file: string, from: string, to: string) {
   const source = await readFile(file, 'utf8');
   expect(source).toContain(from);
