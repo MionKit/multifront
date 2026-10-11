@@ -75,14 +75,12 @@ async function transform(server: ViteDevServer, url: string, environment = 'clie
   return result.code;
 }
 
-/** The first import specifier of `code` that matches `pattern`, transformed. */
 async function transformImport(server: ViteDevServer, code: string, pattern: RegExp, environment = 'client') {
   const url = [...code.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]!).find((specifier) => pattern.test(specifier));
   if (!url) throw new Error(`no import matching ${pattern}`);
   return transform(server, url, environment);
 }
 
-/** A `.ucf` module served as Vue, with the `<style module>` request at `index`. */
 async function serveVue(server: ViteDevServer, component: string, index: number, environment = 'client') {
   const code = await transform(server, `/@fs${join(vueRoot, component)}`, environment);
   const module = await transformImport(
@@ -211,7 +209,6 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
   });
 });
 
-// Each row pairs a user componentIdGenerator with a user css.modules setting.
 const USER_SETTINGS: [string, ComponentIdGenerator, CSSModulesOptions][] = [
   ['nothing set', undefined, {}],
   ["'filepath' and a hashPrefix", 'filepath', {hashPrefix: 'p'}],
