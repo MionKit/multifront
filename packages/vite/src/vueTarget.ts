@@ -22,7 +22,7 @@ export const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in yo
 
 const EMPTY_SCAN: Rolldown.SourceDescription = {code: 'export default {}', moduleType: 'js'};
 
-// plugin-vue's descriptor cache lives at its module level, so this record does too: file → source we handed it.
+// Module level, as plugin-vue's descriptor cache is.
 const handedSources = new Map<string, string>();
 
 /** Our transform handed plugin-vue the SFC code of `source`. */
