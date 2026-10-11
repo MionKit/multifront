@@ -25,7 +25,9 @@ const REACT_FLOOR = {
   '@types/react-dom': '19.0.0',
 };
 
-// The react-floor CI job has already added its overrides to the working copy.
+const VUE_FLOOR = {'@vitejs/plugin-vue': '6.0.3', '@vue/compiler-sfc': '3.5.0', vue: '3.5.0'};
+
+// A floor CI job has already added its overrides to the working copy.
 const COMMITTED_WORKSPACE = spawnSync('git', ['show', 'HEAD:pnpm-workspace.yaml'], {cwd: REPO_ROOT, encoding: 'utf8'}).stdout;
 
 const LOCAL_ENV = {...process.env};
@@ -38,6 +40,10 @@ function devx(env: NodeJS.ProcessEnv, ...args: string[]) {
 describe('peer-floor', () => {
   it('reads the bottom of the react peer ranges of @multifront/vite', () => {
     expect(floorOverrides('react')).toEqual(REACT_FLOOR);
+  });
+
+  it('reads the bottom of the vue peer ranges of @multifront/vite, with vue at the compiler-sfc floor', () => {
+    expect(floorOverrides('vue')).toEqual(VUE_FLOOR);
   });
 
   it('reads only ranges that name their lowest version', () => {
@@ -72,9 +78,9 @@ describe('peer-floor', () => {
       ['react'],
       'devx: peer-floor rewrites pnpm-workspace.yaml and the lockfile, so it runs only in CI (CI set), on a throwaway checkout',
     ],
-    ['for an unknown framework', {...process.env, CI: '1'}, ['angular'], 'devx: peer-floor knows react; got angular'],
-    ['for an inherited key', {...process.env, CI: '1'}, ['toString'], 'devx: peer-floor knows react; got toString'],
-    ['with no framework', {...process.env, CI: '1'}, [], 'devx: peer-floor knows react; got nothing'],
+    ['for an unknown framework', {...process.env, CI: '1'}, ['angular'], 'devx: peer-floor knows react, vue; got angular'],
+    ['for an inherited key', {...process.env, CI: '1'}, ['toString'], 'devx: peer-floor knows react, vue; got toString'],
+    ['with no framework', {...process.env, CI: '1'}, [], 'devx: peer-floor knows react, vue; got nothing'],
   ])('refuses to run %s and changes nothing', (_case, env, args, message) => {
     const before = readFileSync(WORKSPACE, 'utf8');
     const result = devx(env, 'peer-floor', ...args);

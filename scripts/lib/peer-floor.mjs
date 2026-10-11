@@ -4,9 +4,11 @@ import {join} from 'node:path';
 import {REPO_ROOT} from './env.mjs';
 import {listPackages} from './workspace.mjs';
 
-// Per framework: its peers in packages/vite/package.json, and each types package with the peer whose floor it takes.
+// Per framework: its peers in packages/vite/package.json, and each package that takes a peer's floor (`follow`).
 const FLOOR_PEERS = {
-  react: {peers: ['react', 'react-dom', '@vitejs/plugin-react'], types: {'@types/react': 'react', '@types/react-dom': 'react-dom'}},
+  react: {peers: ['react', 'react-dom', '@vitejs/plugin-react'], follow: {'@types/react': 'react', '@types/react-dom': 'react-dom'}},
+  // `vue` pins its own compiler-sfc exactly, so the two move together.
+  vue: {peers: ['@vitejs/plugin-vue', '@vue/compiler-sfc'], follow: {vue: '@vue/compiler-sfc'}},
 };
 
 export function floorOverrides(framework) {
@@ -15,7 +17,7 @@ export function floorOverrides(framework) {
   const {peerDependencies = {}} = JSON.parse(readFileSync(join(REPO_ROOT, 'packages', 'vite', 'package.json'), 'utf8'));
   const overrides = {};
   for (const name of row.peers) overrides[name] = lowestVersion(name, peerDependencies[name]);
-  for (const [name, peer] of Object.entries(row.types)) overrides[name] = overrides[peer];
+  for (const [name, peer] of Object.entries(row.follow)) overrides[name] = overrides[peer];
   return overrides;
 }
 

@@ -43,7 +43,7 @@ pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-
 pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
 pnpm devx vsix          # bundle and pack the VS Code extension into packages/vscode/multifront-vscode-<version>.vsix
 pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
-pnpm devx peer-floor react  # CI only: install the oldest versions @multifront/vite supports (rewrites the lockfile)
+pnpm devx peer-floor vue    # CI only: install the oldest react or vue versions @multifront/vite supports (rewrites the lockfile)
 ```
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
@@ -52,7 +52,7 @@ The editor exit test (`packages/e2e/editor/vscode/`) runs a real VS Code. Its fi
 
 The browser tests (`packages/e2e/browser/`) drive Playwright's Chromium: install it once with `pnpm exec playwright install chromium`, or point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
 
-`pnpm devx peer-floor <framework>` writes the bottom of `@multifront/vite`'s peer ranges for that framework as pnpm `overrides` and reinstalls, so the `react-floor` CI job runs every test on the oldest supported React. It rewrites `pnpm-workspace.yaml` and the lockfile, so it refuses to run unless `CI` is set: try it only on a throwaway checkout.
+`pnpm devx peer-floor <framework>` writes the bottom of `@multifront/vite`'s peer ranges for that framework as pnpm `overrides` and reinstalls, so the `react-floor` and `vue-floor` CI jobs run every test on the oldest supported React and Vue. It rewrites `pnpm-workspace.yaml` and the lockfile, so it refuses to run unless `CI` is set: try it only on a throwaway checkout.
 
 Try the extension: `pnpm devx vsix`, then `code --install-extension packages/vscode/multifront-vscode-<version>.vsix`. The command uses the `npm` CLI that ships with Node: vsce lists the plugin pack with `npm list`.
 
