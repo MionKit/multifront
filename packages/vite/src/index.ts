@@ -25,7 +25,7 @@ export {getVueCompiler} from './vueCompiler.ts';
 // After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
 const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 const REACT_ID = /\.ucf\.react\.tsx$/;
-// The import and its resolved `\0` id; the helper id holds no regex metacharacter.
+// Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
 
 function splitId(id: string): {path: string; query: URLSearchParams} {

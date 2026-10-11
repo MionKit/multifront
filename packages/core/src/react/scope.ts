@@ -113,7 +113,6 @@ function calleeName(callee: Expression): string | undefined {
   return callee.property.type === 'Identifier' ? `${callee.object.name}.${callee.property.name}` : undefined;
 }
 
-// Module-level `function X` and `const X = …`, also under `export`.
 function moduleDeclarations(program: Program): Map<string, Node> {
   const found = new Map<string, Node>();
   for (const statement of program.body) {
@@ -135,7 +134,7 @@ function defaultExport(program: Program): Node | undefined {
   return undefined;
 }
 
-/** The default-exported function, through identifiers, `memo` and `forwardRef`; `forwardRef` says one was passed. */
+/** The default-exported function through identifiers, `memo` and `forwardRef`; `forwardRef`: one wrapped it. */
 function findComponent(program: Program): {component: Component; forwardRef: boolean} | undefined {
   const declarations = moduleDeclarations(program);
   const [memo, forwardRef] = WRAPPERS.map((api) => reactNames(program, api));
@@ -173,8 +172,7 @@ function isFunction(node: Node): node is Component {
   return node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression' || node.type === 'ArrowFunctionExpression';
 }
 
-// `returns`: every `return` argument of `component`'s own body, not of nested functions, or its expression body.
-// `consts`: the body's top-level `const x = …`, the only ones every return can see. `bound`: every name it declares.
+// `consts` holds top-level `const`s only: the only ones every `return` can see.
 function ownBody(component: Component): {returns: Expression[]; consts: Map<string, Expression>; bound: Set<string>} {
   const returns: Expression[] = [];
   const consts = new Map<string, Expression>();
@@ -197,7 +195,7 @@ function ownBody(component: Component): {returns: Expression[]; consts: Map<stri
   return {returns, consts, bound};
 }
 
-// Root JSX of each returned expression; `hop` allows one `const x = <jsx>` in the same function.
+// `hop` follows one `const x = <jsx>` of the same function.
 function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: boolean, found: Set<Root>): void {
   switch (expression.type) {
     case 'JSXElement':
@@ -224,10 +222,7 @@ function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: 
   }
 }
 
-/**
- * Stamps every JSX element but React's Fragment (with a scoped style), then forwards the incoming `data-v-*` props
- * on the default-exported component's roots (always). Returns the helper names the edits call.
- */
+/** Stamps all but Fragments when scoped; always forwards `data-v-*` props on the default export's roots. */
 export function transformScope(
   text: MagicString,
   parsed: Pick<ParseResult, 'program' | 'comments'>,
@@ -252,7 +247,7 @@ export function transformScope(
   const props = param?.name ?? '__props';
 
   const {returns, consts, bound} = ownBody(component);
-  // A body that declares the props name again could hide it from a root: which one a root sees needs scopes.
+  // A body redeclaring the props name could hide it from a root; telling which needs scope analysis.
   if (bound.has(props)) return [];
   const roots = new Set<Root>();
   for (const expression of returns) jsxRoots(expression, consts, true, roots);

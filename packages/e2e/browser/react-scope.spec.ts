@@ -15,7 +15,7 @@ const MULTI_RETURN = componentPath('react/shapes/MultiReturn.ucf');
 // The scoped `.shape` rule of Parent.ucf, which reaches a child root only through forwarding.
 const PARENT_COLOR = 'rgb(200, 40, 80)';
 
-// Every `data-case` of Parent.ucf whose child root is a JSX element, so it carries the parent's attribute.
+// `data-case`s of Parent.ucf whose child root is a JSX element.
 const FORWARDED = [
   'MultiReturn:early',
   'MultiReturn:last',
@@ -148,19 +148,19 @@ describe.each([
         expect({name, color: await computed(root, 'color')}).toEqual({name, color: PARENT_COLOR});
         const inner = root.locator('.inner');
         expect({name, inner: await inner.getAttribute(parent)}).toEqual({name, inner: null});
-        // MultiReturn has a scoped style of its own: its stamp sits beside the forwarded one.
+        // MultiReturn has its own scoped style, so its stamp sits beside the forwarded one.
         if (name.startsWith('MultiReturn:')) {
           expect(await root.getAttribute(own)).toBe('');
           expect(await inner.getAttribute(own)).toBe('');
         }
       }
 
-      // The ref of the ForwardRef shape still reaches its root DOM node.
+      // Forwarding must not break the ref.
       expect(await page.locator('[data-case="ForwardRef:only"] > *').getAttribute('data-ref')).toBe('forward-ref');
 
       await page.waitForLoadState('networkidle');
       const reported = messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
-      // Vue's multi-root rule: dev warns once for FragmentRoot, whatever its renders; a build never does.
+      // Dev warns once for FragmentRoot, however often it renders; a build never does.
       expect(reported.map(({type}) => type)).toEqual(production ? [] : ['warning']);
       if (!production) expect(reported[0]!.text).toContain('<FragmentRoot> renders a fragment root');
     } finally {
