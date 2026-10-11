@@ -83,7 +83,13 @@ function byStart(first: {range: Range; code: unknown}, second: {range: Range; co
   return byLine || firstStart.character - secondStart.character || String(first.code).localeCompare(String(second.code));
 }
 
-async function diagnosticsOf(server: LanguageServer, document: Document) {
+type DiagnosticReport = Awaited<ReturnType<LanguageServer['sendDocumentDiagnosticRequest']>>;
+
+/** Every source's diagnostics on the document, as the client pulls them. */
+export async function diagnosticsOf(
+  server: LanguageServer,
+  document: Document
+): Promise<Extract<DiagnosticReport, {items: unknown}>['items']> {
   const report = await server.sendDocumentDiagnosticRequest(document.uri);
   return 'items' in report ? report.items : [];
 }

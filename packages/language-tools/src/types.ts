@@ -10,6 +10,7 @@ import type {
   VueCompiler,
 } from '@multifront/core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
+import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
 
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
@@ -24,10 +25,7 @@ export interface EditorBlockKind {
 export type EditorCode = EditorFile | VirtualCode;
 
 /** What tsserver serves as `Card.ucf.<target>.ts`, beside the `.ucf` file's own script. */
-export interface TargetScript {
-  code: VirtualCode;
-  scriptKind: ts.ScriptKind;
-}
+export type TargetScript = Pick<TypeScriptServiceScript, 'code' | 'scriptKind'>;
 
 /** A v3 source map has no exact spans and no per-span feature flags, so editor files carry Volar mappings. */
 export interface EditorFile extends VirtualFile {

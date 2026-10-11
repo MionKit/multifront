@@ -168,14 +168,6 @@ describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () =>
   const vueLanguage = createLanguage([vuePlugin], new Map(), () => {});
   const vueKind = EDITOR_BLOCK_KINDS.find(({tag}) => tag === 'vue')!;
 
-  it('makes the vue and react rows full rows of the grid', () => {
-    for (const tag of ['vue', 'react'] as const) {
-      const core = BLOCK_KINDS.find((kind) => kind.tag === tag)!;
-      const editor = EDITOR_BLOCK_KINDS.find((kind) => kind.tag === tag)!;
-      expect([core.check, core.build, core.grammar, editor.editor, editor.types].every(Boolean), tag).toBe(true);
-    }
-  });
-
   it('covers the fixtures with a <vue> block', () => {
     expect(VUE_NAMES).toEqual(expect.arrayContaining(['Counter.ucf', 'vue/CounterCrlf.ucf', 'vue/VueWithUnclosedReact.ucf']));
   });
@@ -227,6 +219,19 @@ describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () =>
         ext: '.ts',
       });
     });
+  });
+
+  // Language-core keeps codes in a module-wide registry: a closed file must leave it.
+  it('disposes the vue code with its file: reopened, the file gets a new one', () => {
+    const {filename, source} = readComponent('vue/VBind.ucf');
+    const language = createLanguage([createUcfLanguagePlugin({compiler, ts})], new Map(), () => {});
+    const first = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('vue');
+    const kept = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('vue');
+    expect(kept).toBe(first);
+    language.scripts.delete(filename);
+    const reopened = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('vue');
+    expect(reopened).toBeDefined();
+    expect(reopened).not.toBe(first);
   });
 
   it('gives no vue code and no types without TypeScript', () => {

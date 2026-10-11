@@ -15,12 +15,8 @@ type ServedKind = EditorBlockKind & {tag: Target; serviceScript: NonNullable<Edi
 const SERVED_KINDS = EDITOR_BLOCK_KINDS.filter((kind): kind is ServedKind => !!kind.serviceScript && isTarget(kind.tag));
 const TARGET_SCRIPT_NAME = /^(.*\.ucf)\.(\w+)\.ts$/;
 
-// Volar's proxy maps these; each takes the position right after the file name.
-const BY_POSITION = [
-  'getQuickInfoAtPosition',
-  'getCompletionsAtPosition',
-  'getCompletionEntryDetails',
-  'getSignatureHelpItems',
+// Locations that stay in a target script after Volar's mapping sit in generated code, in a file no editor can open.
+const NAVIGATION = [
   'getDefinitionAtPosition',
   'getDefinitionAndBoundSpan',
   'getTypeDefinitionAtPosition',
@@ -28,27 +24,24 @@ const BY_POSITION = [
   'getReferencesAtPosition',
   'findReferences',
   'getDocumentHighlights',
-  'getRenameInfo',
   'findRenameLocations',
+] as const satisfies (keyof ts.LanguageService)[];
+// Volar's proxy maps these; each takes the position right after the file name.
+const BY_POSITION = [
+  ...NAVIGATION,
+  'getQuickInfoAtPosition',
+  'getCompletionsAtPosition',
+  'getCompletionEntryDetails',
+  'getSignatureHelpItems',
+  'getRenameInfo',
   'getLinkedEditingRangeAtPosition',
   'prepareCallHierarchy',
   'getCodeFixesAtPosition',
 ] as const satisfies (keyof ts.LanguageService)[];
 const DIAGNOSTICS = ['getSyntacticDiagnostics', 'getSemanticDiagnostics', 'getSuggestionDiagnostics'] as const;
-// Locations that stay in a target script after Volar's mapping sit in generated code, in a file no editor can open.
-const NAVIGATION: ReadonlySet<string> = new Set([
-  'getDefinitionAtPosition',
-  'getDefinitionAndBoundSpan',
-  'getTypeDefinitionAtPosition',
-  'getImplementationAtPosition',
-  'getReferencesAtPosition',
-  'findReferences',
-  'getDocumentHighlights',
-  'findRenameLocations',
-]);
 
 /** `Card.ucf.vue.ts`: the tsserver file of a target served beside the `.ucf` file's own script. */
-export function targetScriptName(fileName: string, target: Target): string {
+function targetScriptName(fileName: string, target: Target): string {
   return `${fileName}.${target}.ts`;
 }
 
@@ -63,30 +56,31 @@ function targetScript(main: Language<string>, ucf: string, kind: ServedKind): Ta
   return code && kind.serviceScript(code);
 }
 
-const inTargetScript = (item: unknown): boolean =>
-  typeof (item as {fileName?: unknown}).fileName === 'string' && !!parseTargetScriptName((item as {fileName: string}).fileName);
+const ucfOf = (fileName: unknown): string | undefined =>
+  typeof fileName === 'string' ? parseTargetScriptName(fileName)?.ucf : undefined;
 
-// Definition, reference, highlight and rename results: a list of locations, or symbols / spans holding one.
-function withoutTargetScripts(result: unknown): unknown {
+// Volar maps every span it can. A location left in a target script is generated code no editor can open: dropped,
+// or, as Volar does for a `.vue` file, a symbol's definition at 0:0 of the `.ucf` file and a highlight group renamed.
+function intoUcf(result: unknown): unknown {
   if (Array.isArray(result)) {
-    return result
-      .filter((item) => !inTargetScript(item) && !inTargetScript((item as {definition?: unknown}).definition ?? {}))
-      .map(withoutTargetScripts);
+    return result.filter((item) => !ucfOf((item as {fileName?: unknown}).fileName) || 'highlightSpans' in item).map(intoUcf);
   }
   if (!result || typeof result !== 'object') return result;
-  const {definitions, references, highlightSpans} = result as Record<string, unknown>;
-  if (Array.isArray(definitions)) return {...result, definitions: withoutTargetScripts(definitions)};
-  if (Array.isArray(references)) return {...result, references: withoutTargetScripts(references)};
-  if (Array.isArray(highlightSpans)) return {...result, highlightSpans: withoutTargetScripts(highlightSpans)};
-  return result;
+  const {fileName, definition, definitions, references, highlightSpans} = result as Record<string, unknown>;
+  if (Array.isArray(highlightSpans)) {
+    const spans = highlightSpans.map((span: {fileName?: string}) => ({...span, fileName: ucfOf(span.fileName) ?? span.fileName}));
+    return {...result, fileName: ucfOf(fileName) ?? fileName, highlightSpans: spans};
+  }
+  if (Array.isArray(definitions)) return {...result, definitions: intoUcf(definitions)};
+  if (!Array.isArray(references)) return result;
+  const ucf = ucfOf((definition as {fileName?: unknown} | undefined)?.fileName);
+  const pointed = ucf
+    ? {...(definition as object), fileName: ucf, textSpan: {start: 0, length: 0}, contextSpan: undefined}
+    : definition;
+  return {...result, definition: pointed, references: intoUcf(references)};
 }
 
-interface Served {
-  kind: ServedKind;
-  proxy: ts.LanguageService;
-  initialize(language: Language<string>): void;
-  language?: Language<string>;
-}
+type Served = ReturnType<typeof createProxyLanguageService> & {kind: ServedKind; language?: Language<string>};
 
 // `X.ucf` is only a source here; `X.ucf.vue.ts` is a code mapped into it, so Volar's proxy sends `X.ucf` requests there.
 function createTargetLanguage(main: Language<string>, kind: ServedKind, caseSensitive: boolean): Language<string> {
@@ -219,9 +213,18 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
       const routed: Partial<ts.LanguageService> = {};
       for (const method of BY_POSITION) {
         routed[method] = ((fileName: string, position: number, ...rest: unknown[]) => {
-          const service = (fileName.endsWith('.ucf') && servedAt(fileName, position)?.proxy) || languageService;
+          const target = fileName.endsWith('.ucf') ? servedAt(fileName, position) : undefined;
+          // TypeScript searches only the files the client listed: the target script must be one of them.
+          if (target && method === 'getDocumentHighlights') {
+            const filesToSearch = rest[0] as string[];
+            rest[0] = [
+              ...filesToSearch,
+              ...filesToSearch.filter((name) => name.endsWith('.ucf')).map((ucf) => targetScriptName(ucf, target.kind.tag)),
+            ];
+          }
+          const service = target?.proxy ?? languageService;
           const result = (service[method] as (...args: unknown[]) => unknown)(fileName, position, ...rest);
-          return NAVIGATION.has(method) ? withoutTargetScripts(result) : result;
+          return (NAVIGATION as readonly string[]).includes(method) ? intoUcf(result) : result;
         }) as never;
       }
       for (const method of DIAGNOSTICS) {

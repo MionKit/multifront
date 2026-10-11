@@ -2,16 +2,37 @@
 import {join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, componentPath, readComponent} from '../fixtures/index.ts';
-import {edit, multifrontDiagnostics, PLUGIN} from './lib/cases.ts';
+import {diagnosticsOf, edit, multifrontDiagnostics, PLUGIN} from './lib/cases.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {locate, open, startTsserver, tsLocation} from './lib/tsserver.ts';
-import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
+import type {Component, TsDefinitions, TsLocation, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
+import type * as ts from 'typescript';
 
 const COUNTER = readComponent('Counter.ucf');
 const COUNTER_CRLF = readComponent('vue/CounterCrlf.ucf');
 const UNCLOSED = readComponent('vue/VueWithUnclosedReact.ucf');
 const EMPTY = readComponent('vue/Empty.ucf');
+// A plain `<script setup>`: its script is JavaScript.
+const GRAMMAR_EDGES = readComponent('editor/GrammarEdges.ucf');
+const IMPORT_ERRORS = readComponent('editor/ImportErrors.ucf');
+const VUE_ONLY = readComponent('imports/VueOnly.ucf');
+
+async function diagnosticsAfter(server: Tsserver, component: Component, needle: string, newText: string) {
+  const revert = await edit(server, component, needle, newText);
+  try {
+    return (await server.diagnostics(component.filename)).map(({code, start, end}) => ({code, start, end}));
+  } finally {
+    await revert();
+  }
+}
+
+// Where `text` sits once `needle` became `newText`.
+function spanAfter({source}: Component, needle: string, newText: string, text: string) {
+  const edited = source.replace(needle, newText);
+  const start = edited.indexOf(text, source.indexOf(needle));
+  return {start: tsLocation(edited, start), end: tsLocation(edited, start + text.length)};
+}
 
 describe('tsserver serves the vue script beside the react one', () => {
   let server: Tsserver;
@@ -22,28 +43,12 @@ describe('tsserver serves the vue script beside the react one', () => {
     await server.request('compilerOptionsForInferredProjects', {
       options: {strict: true, module: 'preserve', moduleResolution: 'bundler', target: 'es2022', jsx: 'react-jsx'},
     });
-    await open(server, [COUNTER, COUNTER_CRLF, UNCLOSED]);
+    await open(server, [COUNTER, COUNTER_CRLF, UNCLOSED, GRAMMAR_EDGES]);
   });
 
   afterAll(async () => {
     await server?.stop();
   });
-
-  async function diagnosticsAfter(component: Component, needle: string, newText: string) {
-    const revert = await edit(server, component, needle, newText);
-    try {
-      return (await server.diagnostics(component.filename)).map(({code, start, end}) => ({code, start, end}));
-    } finally {
-      await revert();
-    }
-  }
-
-  // Where `text` sits once `needle` became `newText`.
-  function spanAfter({source}: Component, needle: string, newText: string, text: string) {
-    const edited = source.replace(needle, newText);
-    const start = edited.indexOf(text, source.indexOf(needle));
-    return {start: tsLocation(edited, start), end: tsLocation(edited, start + text.length)};
-  }
 
   it.each([COUNTER, COUNTER_CRLF])('$filename has no diagnostic as written', async ({filename}) => {
     expect(await server.diagnostics(filename)).toEqual([]);
@@ -53,7 +58,7 @@ describe('tsserver serves the vue script beside the react one', () => {
     'a wrong type in a template expression is one TS2345, at its .ucf range',
     async (component) => {
       const [needle, newText] = ['{{ count }}', "{{ count.toFixed('x') }}"];
-      expect(await diagnosticsAfter(component, needle, newText)).toEqual([
+      expect(await diagnosticsAfter(server, component, needle, newText)).toEqual([
         {code: 2345, ...spanAfter(component, needle, newText, "'x'")},
       ]);
     }
@@ -61,7 +66,7 @@ describe('tsserver serves the vue script beside the react one', () => {
 
   it('a $style typo is one TS2551 (strictCssModules), at the name', async () => {
     const [needle, newText] = ['$style.button', '$style.buton'];
-    expect(await diagnosticsAfter(COUNTER, needle, newText)).toEqual([
+    expect(await diagnosticsAfter(server, COUNTER, needle, newText)).toEqual([
       {code: 2551, ...spanAfter(COUNTER, needle, newText, 'buton')},
     ]);
   });
@@ -82,37 +87,122 @@ describe('tsserver serves the vue script beside the react one', () => {
     ]);
   });
 
+  describe('references, highlights and rename on a <script setup> binding stay in the .ucf file', () => {
+    const at = () => ({file: COUNTER.filename, ...locate(COUNTER.source, 'count = ref')});
+    // The declaration, `{{ count }}` and `count++`: Vue's generated uses map back onto them or are dropped.
+    const vueUses = ['count = ref', 'count++', 'count }}'].map((needle) => locate(COUNTER.source, needle));
+    const sorted = (locations: TsLocation[]) =>
+      [...locations].sort((first, second) => first.line - second.line || first.offset - second.offset);
+
+    it('references', async () => {
+      const {refs} = await server.request<ts.server.protocol.ReferencesResponseBody>('references', at());
+      expect(refs.map(({file}) => file)).toEqual(refs.map(() => COUNTER.filename));
+      expect(sorted(refs.map(({start}) => start))).toEqual(sorted(vueUses));
+    });
+
+    it('documentHighlights', async () => {
+      const highlights = await server.request<ts.server.protocol.DocumentHighlightsItem[]>('documentHighlights', {
+        ...at(),
+        filesToSearch: [COUNTER.filename],
+      });
+      // One group per linked position, as Volar gives for a `.vue` file: all in Counter.ucf.
+      expect(new Set(highlights.map(({file}) => file))).toEqual(new Set([COUNTER.filename]));
+      const starts = highlights.flatMap(({highlightSpans}) => highlightSpans.map(({start}) => JSON.stringify(start)));
+      expect(sorted([...new Set(starts)].map((start) => JSON.parse(start) as TsLocation))).toEqual(sorted(vueUses));
+    });
+
+    it('rename', async () => {
+      const {locs} = await server.request<ts.server.protocol.RenameResponseBody>('rename', at());
+      expect(locs.map(({file}) => file)).toEqual([COUNTER.filename]);
+      expect(sorted(locs[0]!.locs.map(({start}) => start))).toEqual(sorted(vueUses));
+    });
+  });
+
+  it('a plain <script setup> is served as JavaScript: no diagnostic, its types inferred', async () => {
+    expect(await server.diagnostics(GRAMMAR_EDGES.filename)).toEqual([]);
+    const at = locate(GRAMMAR_EDGES.source, '{{ small }}', 3);
+    const info = await server.request<TsQuickInfo>('quickinfo', {file: GRAMMAR_EDGES.filename, ...at});
+    expect(info.displayString).toContain('boolean');
+  });
+
   it('an unclosed <react> block reaches neither script: no diagnostic', async () => {
     expect(await server.diagnostics(UNCLOSED.filename)).toEqual([]);
   });
 });
 
-describe('the language server reads the <vue> block', () => {
-  let server: LanguageServer;
+describe('a .ucf file a project reaches only through an import', () => {
+  let server: Tsserver;
 
   beforeAll(async () => {
-    server = await startLanguageServer(join(FIXTURES_DIR, 'components'), {initializationOptions: {typescript: {tsdk: TSDK}}});
+    server = startTsserver({cwd: componentPath('editor'), plugins: [PLUGIN]});
+    await open(server, [IMPORT_ERRORS, VUE_ONLY]);
   });
 
   afterAll(async () => {
     await server?.stop();
   });
 
-  async function allDiagnostics(uri: string) {
-    const report = await server.sendDocumentDiagnosticRequest(uri);
-    return 'items' in report ? report.items : [];
+  it('is served in that project: no root, but its <vue> script is checked', async () => {
+    const projectInfo = () =>
+      server.request<ts.server.protocol.ProjectInfo>('projectInfo', {file: VUE_ONLY.filename, needFileNameList: true});
+    expect((await projectInfo()).configFileName).toBe(componentPath('editor/tsconfig.json'));
+    const [needle, newText] = ['Only Vue', '{{ missing }}'];
+    expect(await diagnosticsAfter(server, VUE_ONLY, needle, newText)).toEqual([
+      {code: 2339, ...spanAfter(VUE_ONLY, needle, newText, 'missing')},
+    ]);
+    // The first program only reached the file; the next one holds its script.
+    expect((await projectInfo()).fileNames).toContain(`${VUE_ONLY.filename}.vue.ts`);
+  });
+});
+
+describe('the language server reads the <vue> block', () => {
+  let server: LanguageServer;
+  // No tsdk an editor could name: the server still answers, with no <vue> code.
+  let badTsdk: LanguageServer;
+
+  beforeAll(async () => {
+    const workspace = join(FIXTURES_DIR, 'components');
+    server = await startLanguageServer(workspace, {initializationOptions: {typescript: {tsdk: TSDK}}});
+    badTsdk = await startLanguageServer(workspace, {initializationOptions: {typescript: {tsdk: join(FIXTURES_DIR, 'none')}}});
+  });
+
+  afterAll(async () => {
+    await Promise.all([server?.stop(), badTsdk?.stop()]);
+  });
+
+  // Volar's own request for the code tree, as its "show virtual files" view uses.
+  async function codeIds(languageServer: LanguageServer, uri: string): Promise<string[]> {
+    type Code = {virtualCodeId: string; embeddedCodes: Code[]};
+    const root = await languageServer.connection.sendRequest<Code | null>('volar/client/virtualFiles', {uri});
+    const ids = (codes: Code[] = []): string[] =>
+      codes.flatMap(({virtualCodeId, embeddedCodes}) => [virtualCodeId, ...ids(embeddedCodes)]);
+    return ids(root?.embeddedCodes);
   }
+
+  it('builds the vue code with TypeScript from the tsdk, and none without it', async () => {
+    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    expect(await codeIds(server, document.uri)).toEqual(expect.arrayContaining(['vue', 'script_ts', 'template']));
+    const withoutTs = await badTsdk.openTextDocument(COUNTER.filename, 'ucf');
+    const ids = await codeIds(badTsdk, withoutTs.uri);
+    expect(ids).not.toContain('vue');
+    expect(ids).toEqual(expect.arrayContaining(['react', 'style_0', 'style_1']));
+  });
+
+  it('a tsdk with no TypeScript leaves the other blocks served', async () => {
+    const document = await badTsdk.openTextDocument(EMPTY.filename, 'ucf');
+    expect((await multifrontDiagnostics(badTsdk, document)).map(({code}) => code)).toEqual(['vue-empty-block']);
+  });
 
   it('Empty.ucf: vue-empty-block on the <vue> line, and nothing else', async () => {
     const document = await server.openTextDocument(EMPTY.filename, 'ucf');
     const diagnostics = await multifrontDiagnostics(server, document);
     expect(diagnostics.map(({code, range}) => ({code, line: range.start.line}))).toEqual([{code: 'vue-empty-block', line: 0}]);
-    expect(await allDiagnostics(document.uri)).toHaveLength(1);
+    expect(await diagnosticsOf(server, document)).toHaveLength(1);
   });
 
   it('VueWithUnclosedReact.ucf: the splitter’s unclosed-block, and nothing from the <react> text', async () => {
     const document = await server.openTextDocument(UNCLOSED.filename, 'ucf');
-    const diagnostics = await allDiagnostics(document.uri);
+    const diagnostics = await diagnosticsOf(server, document);
     expect(diagnostics.map(({source, code}) => ({source, code}))).toEqual([{source: 'multifront', code: 'unclosed-block'}]);
   });
 
@@ -120,11 +210,12 @@ describe('the language server reads the <vue> block', () => {
     const needle = 'color: rgb(120, 40, 160);';
     const source = COUNTER.source.replace(needle, `${needle}\n  colr: red;`);
 
-    it('a CSS error in <style scoped> is one diagnostic', async () => {
+    it('a CSS error in <style scoped> is one CSS diagnostic', async () => {
       const document = await server.openUntitledDocument('ucf', source);
-      const diagnostics = await allDiagnostics(document.uri);
-      const colr = source.indexOf('colr');
-      expect(diagnostics.map(({range}) => document.offsetAt(range.start))).toEqual([colr]);
+      const diagnostics = await diagnosticsOf(server, document);
+      expect(diagnostics.map(({source: from, range}) => ({from, start: document.offsetAt(range.start)}))).toEqual([
+        {from: 'css', start: source.indexOf('colr')},
+      ]);
     });
 
     it('a hover on a property has its docs once', async () => {
