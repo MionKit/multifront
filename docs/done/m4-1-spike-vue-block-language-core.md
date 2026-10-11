@@ -70,7 +70,7 @@ Like spikes 1 and 3: a scratch folder, not a scratch branch, so the PR diff stay
   - `forward-own-styles` (added once the run showed the `style_N` clash): `forward`, with Vue's `style_N` children left
     out of the nested code by an instance getter over `VueVirtualCode`'s `embeddedCodes` (they sit under `root_tags`).
   - It is also a tsserver plugin (`createLanguageServicePlugin`): `getServiceScript` returns the nested `script_ts`.
-    The spike needs one service script; serving React and Vue side by side stays 4.13's job.
+    The spike needs one service script; serving React and Vue side by side is 4.3's job.
   - Protocol handlers `_ucfSpike.getComponentNames`, `getElementNames`, `getComponentProps`, `getElementAttrs`,
     `getComponentDirectives`: find the nested `VueVirtualCode` and call `@vue/typescript-plugin`'s request functions
     with it (the hybrid-mode client Vue's own server uses).
@@ -127,12 +127,15 @@ modes), and exits 1 on any failed assert.
 4. Language-core's own `types/`; a bundle loses them silently (errors only in unmapped code). Fix tested: ship a copy
    beside the bundle and set `typesRoot` to it.
 
-Docs written: `docs/plan.md` item 2; M4 4.1 verdict and status, "New dependencies" (`@vue/language-core`,
-`@vue/language-service`, `@vue/typescript-plugin` 3.3.11 in language-tools), 4.3 (editor half, forwarding root,
-`strictCssModules`, serving the Vue script beside the React one in tsserver, its test through `startTsserver()`), 4.12
-(Vue's service plugins minus their `css` plugin, client through our tsserver handlers, completion tests), 4.13 (bundled
-`typesRoot`, its `projectInfo` test), Hands (the 4.3 serving for M6; the "moved to M7" line removed), Risks; M2 and
-M6 hand-off lines naming 4.3; spec §11; `docs/architecture.md` "Editor and types". No M7 change: nothing moved there.
+Docs written: `docs/plan.md` item 2; M4 4.1 verdict and status, "Needs" (the From-M2 line names 4.3), "New
+dependencies" (`@vue/language-core`, `@vue/language-service`, `@vue/typescript-plugin` 3.3.11 in language-tools), 4.3
+(editor half, `ts` from the tsdk in the server, Vue's `style_N` left out, `strictCssModules`, serving the Vue script
+beside the React one in tsserver; tests through `startTsserver()` in LF and CRLF, `$style.crad`, one CSS answer), 4.12
+(the root's forwarding getters, the server to tsserver relay and its e2e helper, Vue's service plugins minus their `css`
+plugin, client through our tsserver handlers, completion and CRLF tests), 4.13 (bundled `typesRoot`, its `projectInfo`
+test, the `vsix.spec.ts` file list), Hands (the 4.3 serving for M6; the "moved to M7" line removed), Risks (the two `instanceof` gaps decided as accepted); the milestones README's relay infra row; M2 and M6
+hand-off lines naming 4.3; spec §11; `docs/architecture.md` "Editor and types". No M7 change: nothing moved there, and
+`.ucf` formatting is already `mf-fmt`'s (7.6).
 
 ## Tests
 
@@ -153,7 +156,7 @@ None: the code is thrown away; the same-length invariant gets its real tests in 
 ## Out of scope
 
 - Any code, dependency, fixture or CI change in the repo (fixture `<vue>` blocks are filled in 4.2).
-- Serving the React and Vue scripts of one `.ucf` side by side in tsserver (4.13).
+- Serving the React and Vue scripts of one `.ucf` side by side in tsserver (4.3).
 - `vueSfcCode()` itself (4.2) and the real language server wiring (4.12).
 
 ## Decisions

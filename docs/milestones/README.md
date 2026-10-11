@@ -47,6 +47,7 @@ Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only b
 | Windows paths | M1 (1.9) | a `windows-latest` job, LF checkout (`core.autocrlf false`), running `packages/core/test/context.spec.ts` and `packages/e2e/devx/` with `pnpm devx test`; a later Windows-only behaviour adds its test file to that job |
 | Fuzz | M1 (1.5) | the `MULTIFRONT_FUZZ_SEED` / `MULTIFRONT_FUZZ_RUNS` knobs, a fixed seed in CI, the seed printed on failure; later a hand-run soak workflow that takes a seed |
 | Editor: tsserver, LSP, vsix | M2 | nothing: child processes and `pnpm devx vsix` inside the test |
+| Editor: server to tsserver relay | M4 (4.12) | a helper in `packages/e2e/editor/lib/` that links `startLanguageServer()` to `startTsserver()`, the way the extension relays the server's tsserver requests |
 | Editor: real VS Code | M2 (2.11) | the harness starts its own Xvfb on Linux with no display; CI caches the `.vscode-test/` download |
 | Fixture configs from source | M3 (3.6) | fixture apps' `vite.config.ts` load through `configLoader: 'native'` (`buildApp`), in an e2e worker run with `--conditions=source`, so `@multifront/vite` comes from `src/`, never a stale `dist/` |
 | Browser | M3 (3.9) | `pnpm exec playwright install --with-deps chromium` in CI, the browser folder cached by Playwright version |

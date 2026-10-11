@@ -69,8 +69,8 @@ From **M3** (React target and imports):
 
 New dependencies, all exact-pinned:
 
-- `@vue/language-core` 3.3.11, `@vue/language-service` 3.3.11 and `@vue/typescript-plugin` 3.3.11 as dependencies of `@multifront/language-tools`. Spike 2 ran on them, and all three use `@volar/*` 2.4.28 and `volar-service-*` 0.0.71, the versions M2 pins. The server runs `@vue/language-service`'s plugins, and our TypeScript plugin calls `@vue/typescript-plugin`'s request functions (4.12).
-- `@vue/typescript-plugin` (same version) and `@vue/server-renderer` as root devDependencies, for tests: 4.14 loads Vue's plugin from its own install folder.
+- `@vue/language-core` 3.3.11, `@vue/language-service` 3.3.11 and `@vue/typescript-plugin` 3.3.11 as dependencies of `@multifront/language-tools`. Spike 2 ran on them. All three use `@volar/*` 2.4.28, and `@vue/language-service` uses `volar-service-*` 0.0.71: the versions M2 pins. `@vue/typescript-plugin` also brings `vue-component-meta` 3.3.11. The server runs `@vue/language-service`'s plugins, and our TypeScript plugin calls `@vue/typescript-plugin`'s request functions (4.12).
+- `@vue/typescript-plugin` 3.3.11 and `@vue/server-renderer` 3.5.42 (the root `vue` version) as root devDependencies, for tests: 4.14 loads Vue's plugin from its own install folder.
 
 ## Steps
 
@@ -111,9 +111,9 @@ New dependencies, all exact-pinned:
   - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks)}`.
   - `packages/language-tools/src/blocks/vue.ts` gains the editor half (spike 2):
     - `editor()` returns the `VueVirtualCode` that `createVueLanguagePlugin(ts, compilerOptions, vueCompilerOptions, asFileName).createVirtualCode(fileName, 'vue', sfcSnapshot)` makes from `vueSfcCode()`, with its `id` set to `vue`. It is embedded under our root code, beside the `react` and `style_N` codes. `editor()` therefore returns a Volar `VirtualCode`, not only `EditorFile`s.
+    - `ts` and `compilerOptions` reach `editor()` through `EditorOptions`. In tsserver they come from the plugin's `info` (the host's `typescript` and `getCompilationSettings()`). In the language server, which never imports TypeScript, the server loads it from `initializationOptions.typescript.tsdk` (as M2 planned for the first service that needs it) and uses default compiler options.
     - The nested code leaves out Vue's own `style_N` children (an instance getter over `VueVirtualCode`'s `embeddedCodes`). They would share their ids with ours, and the root keeps one code per id. Our `style_N` codes serve the `<style>` blocks.
     - `vueCompilerOptions` sets `strictCssModules: true`, so `$style.crad` is an error, as it is in the React target.
-    - When a `<vue>` block exists, the root code gets getters `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` that read the nested code. Vue's service plugins read those from the root (4.12).
     - `types()` returns its generated `script_ts` as `Card.ucf.vue.ts`.
   - The TypeScript plugin serves a `.ucf` file's Vue script in tsserver **beside** the React one. M2 serves only the React script, because Volar's tsserver plugin has no extra service scripts (spike 1, answer 3). In hybrid mode only tsserver gives TypeScript results inside the `<vue>` block, so this step's test, 4.12 and 4.13 all need it. Spike 2 showed that the Vue `script_ts` works as a `.ucf` file's only tsserver script: 0 false errors, the right quickinfo and definition. What this step adds is serving both at once.
   - Both halves are registered in the two registries.
@@ -121,9 +121,10 @@ New dependencies, all exact-pinned:
 - Test:
   - Fixture `packages/e2e/fixtures/components/vue/Empty.ucf` (a `<vue>` block with only a comment).
   - `packages/e2e/editor/vue-block.spec.ts`:
-    - `startTsserver()` with our plugin opens `Counter.ucf` with a wrong type in a template expression (`{{ count.toFixed('x') }}`). Expect exactly one diagnostic (`TS2345`), at the `.ucf` range of `'x'`.
+    - `startTsserver()` with our plugin opens `Counter.ucf` with a wrong type in a template expression (`{{ count.toFixed('x') }}`). Expect exactly one diagnostic (`TS2345`), at the `.ucf` range of `'x'`. The same edit on `vue/CounterCrlf.ucf` gives the same diagnostic at its CRLF range.
+    - `$style.crad` in the template gives exactly one `TS2551`, at `crad` (`strictCssModules`).
     - In the same file, quickinfo inside `<react>` still shows the React types (both scripts are served).
-    - `startLanguageServer()`: `Empty.ucf` gives `vue-empty-block` at its line.
+    - `startLanguageServer()`: `Empty.ucf` gives `vue-empty-block` at its line. In `Counter.ucf` (it has a `<vue>` block) with a CSS error in its `<style scoped>`, expect exactly one CSS diagnostic there, and exactly one hover result on a property: Vue's `style_N` codes are left out.
 
 ### 4.4 Compose plugin-vue: real path, include, exclude, pre transform
 
@@ -220,6 +221,8 @@ New dependencies, all exact-pinned:
 ### 4.12 The `<vue>` block in the language server
 
 - Build: in `packages/language-tools/src/blocks/vue.ts` and the server setup:
+  - `createRootCode` (`src/languagePlugin.ts`) gives the root code getters `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` that read the nested `vue` code, when the file has one. Vue's service plugins read those from the root, not from the code they serve (spike 2).
+  - The tsserver relay. Our server sends each tsserver request to the client as an LSP notification, as Vue's server does. The extension (`packages/vscode/src/extension.ts`) runs it through VS Code's `typescript.tsserverRequest` command and sends the answer back. `packages/e2e/editor/lib/` gains a helper that links `startLanguageServer()` to `startTsserver()` the same way, so tests use the real relay path;
   - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code, through the Vue script 4.3 serves beside the React one. Our server adds `createVueLanguageServicePlugins(ts, client)` from `@vue/language-service`, minus its `css` plugin, because our `volar-service-css` already serves the `<style>` blocks. The plugins run on the nested code through the root's forwarding getters (4.3). `client` asks tsserver for type information, as Vue's own server does. Our TypeScript plugin answers through its own protocol handlers, which call `@vue/typescript-plugin`'s request functions (`getComponentNames`, `getElementNames`, `getElementAttrs`, `getComponentProps`, `getComponentDirectives`) with the nested code. Vue's own `_vue:*` handlers need a `VueVirtualCode` root, so they cannot serve `.ucf` files;
   - `$style` and named modules are typed from the root `<style module>` blocks, which are present in the same-length SFC code, so language-core types them natively;
   - the in-block import rule for `<vue>`: `import Icon from './Icon.ucf'` in a `<vue>` block resolves to `Icon.ucf.vue.ts`.
@@ -230,8 +233,10 @@ New dependencies, all exact-pinned:
   - go to definition from the template lands on its declaration in the same `.ucf` file;
   - `$style.crad` is an error, and `$style.card` is not;
   - `<Icon :size="'big'" />` with a number prop is an error at that attribute;
+  - hover and go to definition also on `vue/CounterCrlf.ucf`, at the same spots;
   - in the template, completion at `<sp|` lists `span`, `div` and the file's own component, and before an attribute it lists `:id`, `@click` and `v-if`;
-  - no plugin error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`).
+  - no plugin error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`);
+  - in `Counter.ucf`'s `<style scoped>`, completion lists `color` exactly once (Vue's `css` plugin is left out).
 
 ### 4.13 `Card.ucf.vue.ts` for `.ts` importers
 
@@ -243,7 +248,8 @@ New dependencies, all exact-pinned:
   - `h(Counter, {start: 'x'})` is an error;
   - with the plugin option `framework: 'vue'`, a bare import in a `.ts` file resolves the same way;
   - a React importer of the same file still gets the React type;
-  - the plugin bundled by `pnpm devx vsix`: `projectInfo` with `needFileNameList` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the copy beside the bundle.
+  - the plugin bundled by `pnpm devx vsix`: `projectInfo` with `needFileNameList` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the copy beside the bundle;
+  - `packages/e2e/editor/vsix.spec.ts`'s exact list of packed files gains the copied `types/*.d.ts`.
 
 ### 4.14 `.vue` importers beside Vue's TypeScript plugin
 
@@ -287,7 +293,8 @@ New dependencies, all exact-pinned:
 - **CSS twice in a mixed app** (decided: accepted for now, spec 4.3). The Vue target uses plugin-vue's own style modules, React and Svelte use ours, so an app importing one file as Vue and as another framework ships identical rules twice. A later dedupe can answer plugin-vue's style request with the shared module.
 - **Two Volar TypeScript plugins in one tsserver.** If both load from one `@volar/typescript` copy, the second never decorates the host. VS Code loads each from its own extension folder, so it works there. Other editors that hoist both into one `node_modules` may not. 4.14 tests both setups.
 - **Version skew in the editor (settled by spike 2).** Our pinned `@vue/language-core` may differ from the one inside the user's Vue extension. That does not matter for `.ucf` files: the generated code and its global types (`template-helpers.d.ts`, `props-fallback.d.ts`) both come from our own copy, which the bundle ships (4.13).
-- **Vue services on a forwarding root.** Vue's service plugins read `ir`, `fileName` and `vueCompilerOptions` from the root code, not from the code they serve. Our root forwards them, so it relies on non-formal API. The 4.12 test fails first if a language-core release moves them. Two `instanceof VueVirtualCode` checks stay off: tag and attribute name casing uses the setting's default instead of the file's, and Vue's initial-indent format options do not apply.
+- **Vue services on a forwarding root.** Vue's service plugins read `ir`, `fileName` and `vueCompilerOptions` from the root code, not from the code they serve. Our root forwards them, so it relies on non-formal API. The 4.12 test fails first if a language-core release moves them.
+- **Two `instanceof VueVirtualCode` checks stay off** (decided: accepted for M4). First, tag and attribute name casing in completions follows the casing setting (`vue.complete.casing.*`) instead of being detected from the file. The setting still works, only the guess from the file is lost. Second, Vue's `vue.format.*.initialIndent` options do not apply. That loses nothing: `.ucf` files are formatted by M7's `mf-fmt` through oxfmt, which writes block text flush left (7.6), not by Vue's formatter.
 - **Who resolves the bare `.ucf` id for `vue`**, M3 or this milestone. Listed under "Needs", with 4.4 as the fallback.
 - **Dependency pre-bundling** does not scan inside `.ucf` files. A `vue` import first seen in a `<vue>` block may trigger one late re-bundle and a page reload in dev. Check during 4.4. If it shows, add `.ucf` to the scanner the way M3 does for `<react>`.
 - **Same-length blanking** must keep every `\r`, `\n` and UTF-16 position. `CounterCrlf.ucf` and a non-ASCII string in `Counter.ucf` guard it.
