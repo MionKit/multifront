@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.6
@@ -42,34 +42,39 @@ finds. Checked on plugin-vue 6.0.8, Vite 8.2.2, compiler-sfc 3.5.42, with scratc
   The wrapper goes through plugin-vue's public `api.options` only, never its internals (packages/AGENTS.md: compose,
   never fork or deep-import). The fix lands in its own commit, with the two `sourcesContent` checks that fail without it.
 
+- Review: the `getVueCompiler()` unwrap folded into the fix commit; the SFC code and source paired on the split
+  cache's version, not a second table; source text read on use (a watch rebuild after a `<react>`-only edit kept the
+  old text); the dev and watch tests on copies of their own; a test for the restart guard.
+
 ## Plan
 
-1. `packages/vite/src/vueTarget.ts`:
-   - `export type SfcSources = Map<string, {code: string; source: string}>`: per `.ucf` file, the latest SFC code our
-     transform made and the raw source it came from.
-   - `export function wrapVueCompiler(plugins: readonly Plugin[], sfcSources: SfcSources): void`. Reads plugin-vue's
-     `api.options.compiler` (found by `VUE_PLUGIN_NAME`); nothing when plugin-vue or its compiler is missing, or the
-     compiler is already one of ours (a module-level `WeakSet`: an in-process restart runs `buildStart` again on the
-     same plugin instances). Else sets `api.options = {...api.options, compiler: wrapped}`, where `wrapped` is the
-     compiler with:
-     - `parse(source, options)`: calls the real one; when `sfcSources.get(options.filename)?.code === source`, sets
-       `sourcesContent` of every block map (`template`, `script`, `scriptSetup`, `styles`, `customBlocks`) to the raw
-       source, one entry per `sources` item. Mutating is safe: compiler-sfc's parse cache hands back the same
-       descriptor, and the patch is idempotent.
-     - `compileScript(descriptor, options)`: the same on its result's `map`, keyed on `descriptor.filename` and
-       `descriptor.source`.
-     - every other export passed through unchanged (user's own `compiler` option included: we wrap whatever plugin-vue
-       resolved).
-   - `VuePluginApi` (`packages/vite/src/types.ts:25-28`): `compiler` typed as plugin-vue's
-     `NonNullable<Options['compiler']>` where the wrapper needs the full module type, still assignable to core's
-     `VueCompiler` for `getVueCompiler()`.
-2. `packages/vite/src/index.ts`:
-   - `const sfcSources: SfcSources = new Map()` in `multifront()`.
-   - the pre transform (`:189-194`) records `sfcSources.set(id, {code: built.code, source: code})` after building.
-   - the pre plugin gains `buildStart: {order: 'post', handler() { wrapVueCompiler(config!.plugins, sfcSources); }}`
-     (checked in scratch: Rolldown build and Vite dev both run it after plugin-vue's `buildStart`).
-3. No new mapping code: the map from 4.2 already passes through our transform (the step's "passes the map" item holds
-   today; the test proves it).
+1. `packages/vite/src/vueTarget.ts`, `export function wrapVueCompiler(plugins: readonly Plugin[], sourceBehind)`,
+   `sourceBehind(file, code)` giving the raw source behind a file's latest SFC code. Reads plugin-vue's
+   `api.options.compiler` (found by `VUE_PLUGIN_NAME`); nothing when plugin-vue or its compiler is missing, or the
+   compiler is already one of ours (an in-process restart runs `buildStart` again on the same plugin instances). Else
+   sets `api.options = {...api.options, compiler: wrapper}`, typed as plugin-vue's own `NonNullable<Options['compiler']>`
+   (`VuePluginApi.options.compiler` now uses that type too), where `wrapper` is the compiler with:
+   - `parse(code, options)`: calls the real one, then every block map (`template`, `script`, `scriptSetup`, `styles`,
+     `customBlocks`) of a `.ucf` file gets a `sourcesContent` getter.
+   - `compileScript(descriptor, options)`: the same on its result's `map`.
+   - every other export passed through unchanged (a user's own `compiler` option included: we wrap whatever plugin-vue
+     resolved).
+   - The getter returns the raw source, one entry per `sources` item, while `code` is still the file's latest SFC code;
+     else the text compiler-sfc wrote. Read on use, not copied: plugin-vue keeps its `compileScript` result per
+     descriptor, and a same-length `<react>`-only edit leaves the SFC code (so the descriptor) the same while the
+     `.ucf` text changes. A map that already has the getter (compiler-sfc's parse cache hands the same descriptor back)
+     is left alone.
+2. `packages/vite/src/vueCompiler.ts`: `wrappedCompilers`, a `WeakMap` from each wrapper to the compiler plugin-vue
+   resolved. `getVueCompiler()` unwraps through it, so core keeps compiling with that exact compiler (the existing
+   "borrows the compiler plugin-vue resolved" tests); it is also the restart guard.
+3. The split cache (`packages/vite/src/cache.ts`, `types.ts`) keeps the pair, no second table: `UcfVersion.sfc` is the
+   SFC code our pre transform made from that version's `source` (`index.ts`, the transform sets it after `built()`),
+   and `cache.sourceBehind(file, code)` returns `source` while `sfc === code`.
+4. `packages/vite/src/index.ts`: the pre plugin gains `buildStart: {order: 'post', handler() {
+   wrapVueCompiler(config!.plugins, cache.sourceBehind); }}` (Rolldown builds and Vite dev both run it after
+   plugin-vue's `buildStart`).
+5. No new mapping code: the map from 4.2 already passes through our transform (the step's "passes the map" item held
+   already; the test proves it).
 
 ## Tests
 
@@ -88,7 +93,8 @@ a `<div>`.
   - every `sources` entry ending in `Counter.ucf` has `sourcesContent` equal to the file's text (fails today: the
     script sub-module's entry holds the blanked SFC code);
   - no mapping into `Counter.ucf` lands outside the `<vue>` block's content and the root `<style>` blocks.
-- **Dev server** (`withDevServer(root, {css: {devSourcemap: true}}, …)`): transform `/@fs<root>/../../components/Counter.ucf`,
+- **Dev server** (`withDevServer(copy, {css: {devSourcemap: true}}, …)`, on a copy of its own: compiler-sfc's parse
+  cache is keyed on source and filename, so with the build's copy it would hand dev the descriptor the build patched): transform `/@fs<root>/../../components/Counter.ucf`,
   then its `type=style&index=0&scoped=` import; take the CSS from `__vite__css` and its inline `sourceMappingURL` map:
   - the `.counter[data-v-…]` rule traces to `Counter.ucf`, the line of `.counter {` under `<style scoped>`, column 0;
   - that map's `sourcesContent` is the file's text (fails today).
@@ -98,11 +104,17 @@ a `<div>`.
   `TemplateError.ucf:<line>:<column>` of `<span` (Vue's 1-based column), and `errors[0].loc` has the same file, line
   and column.
 
+- **Watch build** (own copy, `build: {watch: {}, sourcemap: true}`): after the first bundle, a same-length edit in the
+  `<react>` block (`Clicks` → `Clocks` there only); every `Counter.ucf` entry of the rebuilt `.js.map` holds the edited
+  text (fails with copied text instead of the getter).
+- **Restart** (`build/vue-compose.spec.ts`, the existing restart test): after `server.restart()`, `getVueCompiler()`
+  still returns `vue/compiler-sfc` itself (fails without the restart guard).
+
 ## Docs
 
 - `docs/milestones/m4-vue-target.md`: 4.6 Build line names `wrapVueCompiler()` and why; `- Status: done`; the "Hands"
   row for `packages/vite/src/vueTarget.ts` gains "the compiler wrapper that gives sub-request maps the `.ucf` text";
-  4.9 gains one line: its `read` override also records the new SFC code in `sfcSources`, so a style-only hot update
+  4.9 gains one line: its `read` override also sets the new version's `sfc`, so a style-only hot update
   (no main re-transform) keeps the `.ucf` text in devtools.
 - `docs/plan.md`, "Building on plugin-vue": new item 5, "Devtools show the `.ucf` file", with the cause and the
   `buildStart` wrapper; item 1 notes the borrowed compiler is the wrapped one.
@@ -119,11 +131,11 @@ deterministically.
 
 - Production CSS source maps (Vite emits none for CSS assets in a build).
 - SSR source maps, browser-level stack trace checks.
-- 4.9's HMR `read` override (only its step text gains the `sfcSources` note).
+- 4.9's HMR `read` override (only its step text gains the `sfc` note).
 
 ## Done when
 
-- `packages/e2e/build/vue-sourcemaps.spec.ts` passes, and its two `sourcesContent` checks fail without the wrapper.
+- `packages/e2e/build/vue-sourcemaps.spec.ts` passes, and its three `sourcesContent` checks fail without the wrapper.
 - `pnpm devx check` passes.
 - Docs above updated; this todo moved to `docs/done/`, matching what shipped.
 - The simplify-comments pass ran on every touched source file, committed on its own.
