@@ -1,0 +1,132 @@
+import {writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {TraceMap, decodedMappings, originalPositionFor} from '@jridgewell/trace-mapping';
+import type {EncodedSourceMap} from '@jridgewell/trace-mapping';
+import {locate, splitBlocks} from '@multifront/core';
+import type {Rolldown} from 'vite';
+import {beforeAll, describe, expect, it} from 'vitest';
+import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {buildApp, withDevServer} from './lib/build.ts';
+
+type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
+
+// The copied app sees the shared components at this path from its root.
+const COUNTER_PATH = '../../components/Counter.ucf';
+const counter = readComponent('Counter.ucf').source;
+const templateError = readComponent('vue/TemplateError.ucf').source;
+
+let root: string;
+
+beforeAll(async () => {
+  root = await copyApp('vue');
+  await writeFile(
+    join(root, 'src', 'template-error.ts'),
+    "export {default} from '../../../components/vue/TemplateError.ucf' with {framework: 'vue'};\n"
+  );
+  return () => removeApp(root);
+});
+
+/** Line 1-based, column 0-based in UTF-16 code units, as source maps count. */
+function positionOf(text: string, search: string, shift = 0): {line: number; column: number} {
+  const offset = text.indexOf(search);
+  if (offset < 0) throw new Error(`not found: ${search}`);
+  return locate(text, offset + shift);
+}
+
+/** A copy of its own: compiler-sfc's parse cache would hand another run's descriptor to the same path. */
+async function withOwnCopy<Result>(run: (copy: string) => Promise<Result>): Promise<Result> {
+  const copy = await copyApp('vue');
+  try {
+    return await run(copy);
+  } finally {
+    await removeApp(copy);
+  }
+}
+
+describe('a production build of the vue app with build.sourcemap', () => {
+  let chunk: Rolldown.OutputChunk;
+  let map: TraceMap;
+
+  beforeAll(async () => {
+    const {chunks} = await buildApp(root, {build: {sourcemap: true}});
+    chunk = chunks.find((candidate) => candidate.moduleIds.includes(join(root, COUNTER_PATH)))!;
+    map = new TraceMap(chunk.map!.toString());
+  });
+
+  const trace = (generated: string, shift = 0) => originalPositionFor(map, positionOf(chunk.code, generated, shift));
+
+  it('maps a template expression to its line and column in Counter.ucf', () => {
+    // After the non-ASCII `title` on the same line: columns count UTF-16 code units.
+    const expected = positionOf(counter, '{{ count }}', '{{ '.length);
+    expect(trace('toDisplayString(count.value)')).toMatchObject({source: expect.stringMatching(/\/Counter\.ucf$/), ...expected});
+  });
+
+  it('maps a <script setup> statement to its line and column in Counter.ucf', () => {
+    const expected = positionOf(counter, 'const count = ref(');
+    expect(trace('const count = /* @__PURE__ */ ref(__props.start')).toMatchObject({
+      source: expect.stringMatching(/\/Counter\.ucf$/),
+      ...expected,
+    });
+  });
+
+  it('maps nothing into the blanked parts of Counter.ucf', () => {
+    const {blocks} = splitBlocks(counter, 'Counter.ucf');
+    const kept = blocks.flatMap((block) => {
+      if (block.type === 'vue') return [[block.contentStart, block.contentEnd]];
+      return block.type === 'style' ? [[block.start, block.end]] : [];
+    });
+    const lineStarts = [0, ...[...counter.matchAll(/\n/g)].map((match) => match.index + 1)];
+    const sources = chunk.map!.sources;
+    const outside: string[] = [];
+    let mapped = 0;
+    for (const line of decodedMappings(map)) {
+      for (const [, sourceIndex, sourceLine, sourceColumn] of line) {
+        if (sourceIndex === undefined || !sources[sourceIndex]!.endsWith('/Counter.ucf')) continue;
+        mapped++;
+        const offset = lineStarts[sourceLine!]! + sourceColumn!;
+        if (!kept.some(([start, end]) => offset >= start! && offset < end!)) outside.push(`${sourceLine! + 1}:${sourceColumn}`);
+      }
+    }
+    expect(mapped).toBeGreaterThan(0);
+    expect(outside).toEqual([]);
+  });
+});
+
+describe('a dev server with css.devSourcemap', () => {
+  it("maps the scoped style sub-module's rule to its line in Counter.ucf", async () => {
+    const css = await withOwnCopy((copy) =>
+      withDevServer(copy, {css: {devSourcemap: true}}, async (server) => {
+        const main = await server.environments.client.transformRequest(`/@fs${join(copy, COUNTER_PATH)}`);
+        const url = /["']([^"']*[?&]type=style&index=0&scoped=[^"']*)["']/.exec(main!.code)![1]!;
+        const style = await server.environments.client.transformRequest(url);
+        return JSON.parse(/const __vite__css = ("(?:[^"\\]|\\.)*")/.exec(style!.code)![1]!) as string;
+      })
+    );
+    const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
+    const raw = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
+    const rule = positionOf(css, '.counter[data-v-');
+    const expected = positionOf(counter, '.counter {');
+    expect(originalPositionFor(new TraceMap(raw), rule)).toMatchObject({
+      source: expect.stringMatching(/\/Counter\.ucf$/),
+      ...expected,
+    });
+  });
+});
+
+describe('a template error', () => {
+  it('fails the build naming TemplateError.ucf at the line and column of the bad tag', async () => {
+    const input = join(root, 'src', 'template-error.ts');
+    const error = (await buildApp(root, {build: {rolldownOptions: {input}}}).then(
+      () => undefined,
+      (err: unknown) => err
+    )) as BuildError | undefined;
+    const {line, column} = positionOf(templateError, '<span>');
+    // Vue counts columns from 1.
+    expect(error?.message).toMatch(new RegExp(`/vue/TemplateError\\.ucf:${line}:${column + 1}\\b`));
+    expect(error?.errors?.[0]?.loc).toEqual({
+      file: join(root, '../../components/vue/TemplateError.ucf'),
+      line,
+      column: column + 1,
+    });
+  });
+});
