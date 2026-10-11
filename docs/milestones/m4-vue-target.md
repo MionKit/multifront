@@ -145,13 +145,20 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - Add `/\.ucf$/` to `api.include`, keeping the user's patterns.
   - Add `/\.ucf\?(?:.*&)?ucf\b/` to `api.exclude`. plugin-vue's transform tests only the path, without the query, so without this it would compile the style and class map modules as SFCs. The exclude goes into its hook filter, which sees the full id. The React and Svelte ids end in `.tsx` / `.svelte`, so `/\.ucf$/` never matches them.
   - Our pre `transform` handles only the bare `.ucf` id (no query). It returns `vueKind.build()` from the cached split, and the `target-not-built` guard 4.3 left in `load` goes.
-  - When a `.ucf` resolves to `vue` and plugin-vue is not in the plugin list, the build fails with "the vue target needs @vitejs/plugin-vue in your Vite plugins", naming the importer.
+  - When a `.ucf` resolves to `vue` and plugin-vue is not in the plugin list, the build fails with "the vue target needs @vitejs/plugin-vue in your Vite plugins", naming the importer. A dev URL of the file (no importer) fails in our transform with the same message, naming the file.
+  - The setters are called only when our pattern is not in the list yet: a second `configResolved` on the same plugins (an in-process `server.restart()`) comes after plugin-vue's `options` hook, where they throw.
+  - The dependency scan follows a vue pick when plugin-vue is in the plugins. It resolves it to `Card.ucf.vue.ts` (scannable as `.ts`, and `importerFromId` puts its imports in the `<vue>` block), and our scan plugin loads it as `vueScanScript()`: `compileScript()` of the SFC code. The compiled script, not the raw one, because TypeScript stripping would drop an import only the template uses. `VueCompiler` gains `compileScript`.
 - Deliverable: `import Counter from './Counter.ucf'` in a Vue app builds and runs.
 - Test: new app `packages/e2e/fixtures/apps/vue/`, with Vite, plugin-vue, `multifront()`, an `App.vue` and a `main.ts`. In `packages/e2e/build/vue-compose.spec.ts`, a real `vite build`, run with plugin-vue listed both before and after `multifront()`. It checks:
   - the output has the compiled render of Counter, and the `useCssVars` call from `VBind.ucf`'s `v-bind()`;
   - a marker string from the `<react>` block is absent;
   - the build without plugin-vue fails with the error above;
-  - a user's own plugin-vue `include` is kept: with `vue({include: [/\.vue$/]})`, the app's `Plain.vue` (a plain SFC, added here) and `Counter.ucf` both compile.
+  - a user's own plugin-vue `include` is kept: with `vue({include: [/\.vue$/]})`, the app's `Plain.vue` (a plain SFC, added here) and `Counter.ucf` both compile;
+  - the exclude: `src/bothTargets.ts` re-exports `Counter.ucf` as vue and as react, and the build with it as an extra entry passes;
+  - a dev server restart with the same plugin instances logs no error and still compiles `Counter.ucf` as Vue.
+
+  Also: `build/react-target.spec.ts` gets the plugin-vue error for a vue pick and a dev URL in react-basic (no plugin-vue); `build/scan-deps.spec.ts` gains `importer.vue`, whose pick of `Mount.ucf`'s `<vue>` block finds `@jridgewell/trace-mapping`, imported there and used only in the template; the `imports/no-default` and `imports/custom-importers` configs gain `vue()` for their vue rows.
+- Status: done
 
 ### 4.5 One scope id for every target
 
@@ -308,7 +315,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 - **Vue services on a forwarding root.** Vue's service plugins read `ir`, `fileName` and `vueCompilerOptions` from the root code, not from the code they serve. Our root forwards them, so it relies on non-formal API. The 4.12 test fails first if a language-core release moves them.
 - **Two `instanceof VueVirtualCode` checks stay off** (decided: accepted for M4). First, tag and attribute name casing in completions follows the casing setting (`vue.complete.casing.*`) instead of being detected from the file. The setting still works, only the guess from the file is lost. Second, Vue's `vue.format.*.initialIndent` options do not apply. That loses nothing: `.ucf` files are formatted by M7's `mf-fmt` through oxfmt, which writes block text flush left (7.6), not by Vue's formatter.
 - **Who resolves the bare `.ucf` id for `vue`**, M3 or this milestone. Listed under "Needs", with 4.4 as the fallback.
-- **Dependency pre-bundling** does not scan inside `.ucf` files. A `vue` import first seen in a `<vue>` block may trigger one late re-bundle and a page reload in dev. Check during 4.4. If it shows, add `.ucf` to the scanner the way M3 does for `<react>`.
+- **Dependency pre-bundling** (settled in 4.4): the scan follows `<vue>` blocks the way M3 does for `<react>`, so a dependency first seen in a `<vue>` block is optimized at startup, with no late re-bundle.
 - **Same-length blanking** must keep every `\r`, `\n` and UTF-16 position. `CounterCrlf.ucf` and a non-ASCII string in `Counter.ucf` guard it.
 
 ## Out of scope
