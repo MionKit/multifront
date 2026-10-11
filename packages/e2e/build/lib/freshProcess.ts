@@ -15,7 +15,6 @@ const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules
 const SOURCE_CONDITION = '--conditions=source';
 export const execNode = promisify(execFile);
 
-/** `node --conditions=source …args` in `root`; `stop()` kills it. */
 function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   const child = spawn(process.execPath, [SOURCE_CONDITION, ...args], {cwd: root, env: {...process.env, NO_COLOR: '1', ...env}});
   let output = '';
@@ -29,7 +28,6 @@ function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   child.stderr.on('data', append);
   return {
     output: () => output,
-    /** Resolves with the output once `pattern` matched `count` times. */
     waitForOutput(pattern: RegExp, count = 1): Promise<string> {
       return new Promise((resolve, reject) => {
         const check = () => {
@@ -42,7 +40,6 @@ function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
         check();
       });
     },
-    /** Resolves with the output on exit code 0, rejects with it otherwise. */
     async finished(): Promise<string> {
       const code = await exited;
       if (code !== 0) throw new Error(`exited with ${code}:\n${output}`);
@@ -55,12 +52,11 @@ function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   };
 }
 
-/** The `vite` CLI in `root`; `stop()` kills it. */
 export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEnv) {
   return startNode(root, [VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], env);
 }
 
-/** The app's own `server.ts` (dev SSR); `url` resolves once it listens. */
+/** `url` resolves once the app's `server.ts` listens. */
 export function startSsrServer(root: string) {
   const server = startNode(root, ['server.ts'], {NODE_ENV: 'development'});
   const url = server.waitForOutput(/ssr server: \S+/).then((output) => /ssr server: (\S+)/.exec(output)![1]!);
