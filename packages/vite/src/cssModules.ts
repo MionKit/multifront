@@ -9,6 +9,10 @@ type TransformHook = Extract<NonNullable<Plugin['transform']>, {handler: unknown
 
 const VITE_CSS_PLUGIN = 'vite:css';
 const UCF_STYLE = /\.ucf$/;
+const CSS_MODULE = /\.module\.\w+$/;
+
+const LIGHTNINGCSS_MODULES =
+  "<style module> in the vue target needs css.transformer 'postcss', Vite's default: lightningcss would name its classes unlike the other targets";
 
 // The `.ucf` `<style>` block Vite's CSS plugin is compiling: postcss-modules names a file it composes from with
 // that file's path only, so the block reaches the generator through the async context.
@@ -29,17 +33,17 @@ function viteScopedName({generateScopedName, hashPrefix = ''}: CSSModulesOptions
     return (local, filename) => genericNames(generateScopedName, {context: process.cwd(), hashPrefix})(local, filename);
   return (local, _filename, css) => {
     const line = css.substring(0, css.indexOf(`.${local}`)).split(/[\r\n]/).length;
-    const hash = stringHash(hashPrefix + css)
-      .toString(36)
-      .slice(0, 5);
-    return `_${local}_${hash}_${line}`;
+    const hash = stringHash(hashPrefix + css).toString(36);
+    return `_${local}_${hash.slice(0, 5)}_${line}`;
   };
 }
 
 /** Names the classes of plugin-vue's `.ucf` `<style module>` requests `<local>_<scopeId>_<index>`, as the other targets. */
 export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: string) => string): void {
-  const {modules} = config.css;
-  if (modules === false) return;
+  const {modules, transformer} = config.css;
+  // lightningcss takes one class name pattern for all files, which cannot give `<local>_<scopeId>_<index>`.
+  const lightningcss = transformer === 'lightningcss';
+  if (modules === false && !lightningcss) return;
   const transform = config.plugins.find((plugin) => plugin.name === VITE_CSS_PLUGIN)?.transform;
   if (!transform || !('handler' in transform))
     throw new Error(`multifront: Vite's ${VITE_CSS_PLUGIN} plugin has no transform hook`);
@@ -47,8 +51,10 @@ export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: stri
   transform.handler = function (code, id, options) {
     const {path, query} = splitId(id);
     if (!UCF_STYLE.test(path)) return handler.call(this, code, id, options);
+    if (lightningcss && CSS_MODULE.test(id)) this.error(`${path}: ${LIGHTNINGCSS_MODULES}`);
     return compiling.run({file: path, index: query.get('index') ?? '0'}, () => handler.call(this, code, id, options));
   };
+  if (lightningcss || modules === false) return;
   const other = viteScopedName(modules ?? {});
   config.css.modules = {
     ...modules,
