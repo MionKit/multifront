@@ -68,14 +68,18 @@ Generic over kinds with `serviceScript` (svelte in M6: `Card.ucf.svelte.ts`).
   `<script setup>` binding through them), `preventLeadingOffset`. Volar's own mapping does the rest.
 - Router over the main proxy: the three diagnostics methods merge main + extras on a `.ucf` file; position requests
   go to the extra proxy whose block content holds the position; the rest to main. Only a target script the program
-  holds is used. Definition, reference, highlight and rename results drop locations left in a target script: Volar
-  keeps an unmapped one (generated code) as a 0:0 span in that file, which no editor can open.
+  holds is used. Volar keeps an unmapped location (generated code) as a 0:0 span in the target script, a file no
+  editor can open: definition, reference and rename results drop it; a referenced symbol's definition points at 0:0
+  of the `.ucf` file and a highlight group is renamed to it, as Volar does for a `.vue` file. `getDocumentHighlights`
+  adds the target scripts to `filesToSearch` (TypeScript asserts the searched file is listed).
+- The root plugin's `disposeVirtualCode` disposes the nested Vue code: language-core keeps codes in a module-wide
+  registry. The server forwards it.
 - Plugin options: `{compiler, ts, compilerOptions: info.languageServiceHost.getCompilationSettings()}`.
 
 ### 5. Language server (`server.ts`)
 
-`initializationOptions.typescript.tsdk` → `loadTsdkByPath(...).typescript`, options `{ts, compilerOptions: {}}`. No
-tsdk → no Vue code.
+`initializationOptions.typescript.tsdk` (a string) → `loadTsdkByPath(...).typescript`, options `{ts}`. No tsdk, or one
+with no TypeScript (a warning in the server log), → no Vue code; every other block is still served.
 
 ### 6. Fixtures
 
@@ -95,16 +99,24 @@ All in `pnpm devx test`, on this host and in CI's `check` job; tsserver and the 
   - `Counter.ucf` and `CounterCrlf.ucf` have no diagnostic as written.
   - quickinfo in `<react>` (`setCount`) and in `<vue>` (`const count`), definition from `{{ count }}` into `Counter.ucf`
     (exactly one location).
+  - references, documentHighlights and rename on `count` in `<script setup>`: every location in `Counter.ucf`, at the
+    declaration, `{{ count }}` and `count++`.
+  - `editor/GrammarEdges.ucf` (plain `<script setup>`, a JavaScript script): no diagnostic, quickinfo infers `boolean`.
   - `vue/VueWithUnclosedReact.ucf`: no tsserver diagnostic.
+  - `imports/VueOnly.ucf` reached only through `editor/ImportErrors.ucf` in the `editor/` project: a template error is
+    one `TS2339`, and the next program lists `VueOnly.ucf.vue.ts`.
+  - Language server: Volar's `volar/client/virtualFiles` shows a `vue` code with a tsdk, none with a tsdk holding no
+    TypeScript, whose server still reports `vue-empty-block`.
   - Language server with a tsdk (`TSDK` moves to `editor/lib/lsp.ts`): `vue/Empty.ucf` → `[vue-empty-block]` at its
     line; `VueWithUnclosedReact.ucf` → `[unclosed-block]` only; `Counter.ucf` with a CSS error → one `css` diagnostic,
     and the hover on `color` holds its docs once.
 - `packages/e2e/editor/virtualCode.spec.ts`: with `ts`, every fixture with a `<vue>` block (recursive, `invalid/`
   included) has a `vue` code, no Vue `style_N`, a snapshot of the same length and line breaks with nothing outside the
-  `<vue>` content and root `<style>` blocks, a `script_ts` that `getTypesScript(..., 'vue')` returns; vue and react are
-  full rows.
+  `<vue>` content and root `<style>` blocks, a `script_<lang>` code (`script_js` for a plain `<script>`) that
+  `getTypesScript(..., 'vue')` returns; the vue code is disposed with its file.
 - Core: `blocks/index.spec.ts` (`target-not-built` svelte only; vue build equals `vueSfcCode`; `Empty.ucf` throws
-  `vue-empty-block`), `check.spec.ts` (`vue/Empty.ucf` case + snapshot).
+  `vue-empty-block`), `check.spec.ts` (`vue/Empty.ucf`, and `vue/StyleOnlyInVue.ucf` with `vue-empty-block` before
+  `style-inside-target`, + snapshots).
 - Existing editor tests on files with a `<vue>` block stay green; a real error in a fixture's `<vue>` block is fixed in
   the fixture, never by loosening a test.
 
@@ -140,6 +152,9 @@ None (decision 5).
 - Negative controls run: without the gap blanking, the virtualCode sweep and the unclosed-`<react>` tsserver case
   fail; without the `style_N` filter, the sweep and the hover case fail.
 - Vite: the guard builds its own `target-not-built` diagnostic at the `<vue>` opening tag, as core did.
+- Review: the Vite guard keeps its hand-built diagnostic (exporting core's `createDiagnostic` for a guard 4.4 removes
+  would leave an export with no user); the target-script machinery stays generic over `serviceScript` kinds (the
+  approved plan, M6 6.10 serves `Card.ucf.svelte.ts` through it).
 
 ## Decisions
 
