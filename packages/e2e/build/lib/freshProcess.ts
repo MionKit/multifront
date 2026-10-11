@@ -13,14 +13,14 @@ type FreshStep = {env: 'client' | 'ssr'; request: string} | {edit: {file: string
 const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules', 'vite', 'bin', 'vite.js');
 // Node itself loads the app's `vite.config.ts`: `source` makes it pick `@multifront/vite`'s `src/`.
 const SOURCE_CONDITION = '--conditions=source';
-const execNode = promisify(execFile);
+export const execNode = promisify(execFile);
 
 /** `node --conditions=source …args` in `root`; `stop()` kills it. */
-export function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
+function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
   const child = spawn(process.execPath, [SOURCE_CONDITION, ...args], {cwd: root, env: {...process.env, NO_COLOR: '1', ...env}});
   let output = '';
   const waiters = new Set<() => void>();
-  const exited = new Promise<number | null>((resolve) => child.once('exit', (code) => resolve(code)));
+  const exited = new Promise<number | null>((resolve) => child.once('close', (code) => resolve(code)));
   const append = (chunk: Buffer) => {
     output += chunk.toString();
     for (const check of waiters) check();
@@ -60,16 +60,11 @@ export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEn
   return startNode(root, [VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], env);
 }
 
-/** The app's own `server.ts` (dev SSR), once it listens. */
-export async function startSsrServer(root: string) {
+/** The app's own `server.ts` (dev SSR); `url` resolves once it listens. */
+export function startSsrServer(root: string) {
   const server = startNode(root, ['server.ts'], {NODE_ENV: 'development'});
-  try {
-    const url = /ssr server: (\S+)/.exec(await server.waitForOutput(/ssr server: \S+/))![1]!;
-    return {...server, url};
-  } catch (err) {
-    await server.stop();
-    throw err;
-  }
+  const url = server.waitForOutput(/ssr server: \S+/).then((output) => /ssr server: (\S+)/.exec(output)![1]!);
+  return {...server, url};
 }
 
 /** Runs `steps` on one dev server of `root`, watcher off, in a fresh process; one code per request step. */

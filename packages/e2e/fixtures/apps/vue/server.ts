@@ -3,6 +3,7 @@
 import {createServer as createHttpServer} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import {createServer} from 'vite';
+import type {render as renderApp} from './src/entry-server.ts';
 
 // `index.html` stays the client-only page: a hydrating entry there would warn on its empty container.
 const TEMPLATE = `<!doctype html>
@@ -37,7 +38,7 @@ httpServer.on('request', (request, response) => {
     }
     try {
       const template = await vite.transformIndexHtml(request.url, TEMPLATE);
-      const {render} = (await vite.ssrLoadModule('/src/entry-server.ts')) as {render: () => Promise<string>};
+      const {render} = (await vite.ssrLoadModule('/src/entry-server.ts')) as {render: typeof renderApp};
       response.setHeader('Content-Type', 'text/html');
       response.end(template.replace('<!--app-html-->', await render()));
     } catch (err) {
