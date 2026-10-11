@@ -388,7 +388,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 Run from the repo root. Commands that start Vite load `@multifront/vite` from `src/` with `NODE_OPTIONS=--conditions=source` and `--configLoader native`. Marks: **pass**, **fail** (with its issue), **needs a person**.
 
-1. `pnpm devx test packages/e2e/browser/vue-exit.spec.ts`: 4 tests pass (the exit test, items 1 to 4). **pass** (missing on `main`: ISSUE_EXIT; the QA PR adds it)
+1. `pnpm devx test packages/e2e/browser/vue-exit.spec.ts`: 4 tests pass (the exit test, items 1 to 4). **pass** (missing on `main`: #81; the QA PR adds it)
 2. `pnpm devx check` with the QA tests: green, 66 test files and 2390 tests run, none skipped. **pass**
 3. `pnpm devx test packages/e2e/build/vue-entry.spec.ts`: 2 tests pass; `Counter.ucf` as a library entry with `multifront({framework: 'vue'})` and `vue()` compiles its `<vue>` block with our scope id and `$style` names, and `ReactOnly.ucf` fails naming the file (the seam M5's Vue package builds on). **pass**
 4. `NODE_OPTIONS=--conditions=source pnpm exec vite build packages/e2e/fixtures/apps/vue --configLoader native --outDir /tmp/mf-vue --emptyOutDir`, then `grep -rlE "framework|useState" /tmp/mf-vue`: the build succeeds, grep prints nothing, and the CSS holds `.counter[data-v-a5afa5a3]`. **pass**
