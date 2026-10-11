@@ -24,7 +24,7 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
 - A fresh process: client request main + style, the `<style scoped>` color changed on disk (watcher off), an
   in-process `server.restart()`, the style URL as first request: the OLD color. plugin-vue's cache outlives the restart
   (module level) and holds the old descriptor.
-- `vite build --watch` then a `<react>` edit: rebuilds fine today, CSS and JS carry the new production scope id. A guard.
+- `vite build --watch` then a `<react>` edit: rebuilt fine before this step, CSS and JS carrying the new production scope id. A guard.
 
 ## Decisions
 
@@ -35,6 +35,16 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
 - Orchestrator, Q2: the record is keyed on the source only, as the step text says. A production build then a dev
   server in one process, or two roots, hit plugin-vue's module-level cache the same way for `.vue` files.
 - Orchestrator: no fuzz test.
+- Review (automatic triage):
+  - Fixed: a test that a current record skips the warm-up (blocking); concurrent warm-ups of one file share one load,
+    with a test; the fresh-process helper reuses `withDevServer` (watcher kept, ignoring every file: Vite's
+    `mergeConfig` drops `watch: null`) and a promisified `execFile` with a 50 s kill, takes no options and exports
+    no type; CLI children stop in `onTestFinished`; the app copy gets a `package.json` so the CLI's dep cache stays in
+    it; the spec names where each result was measured and the `types` → `follow` rename.
+  - Kept: `handedToVue()` / `warmUpVue()` in `vueTarget.ts` (4.9 calls `handedToVue()` too, and the record sits
+    beside the rest of the plugin-vue composition); two floor jobs, not a matrix (the `react-floor` check name stays,
+    and the YAML anchors already share every step); a style-only hot update re-runs the main transform once until
+    4.9's `read` override records the new source (the 4.9 text says so).
 
 ## Plan
 
@@ -46,7 +56,8 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
    - `warmUpVue(context, file, source)`: if `handedSources.get(file) !== source`, `await context.load({id: file})`.
      That runs our load + transform and plugin-vue's `transformMain`, which fills its cache. A file never handed
      (fresh process) or changed on disk since (restart) gets warmed. An error in the main transform becomes the
-     sub-request's error, naming the right `.ucf` line.
+     sub-request's error, naming the right `.ucf` line. The sub-requests of one file arrive together on a cold
+     cache (one per `<style>` block): a module-level map of pending loads makes them share one.
 2. `packages/vite/src/index.ts`, the pre plugin:
    - `load`: after the `server.fs.allow` check (a denied file is never warmed), for `query.has('vue')` on a `.ucf`
      path, `await warmUpVue(this, path, (await cache.splitUcf(path)).source)` and return `undefined`: plugin-vue loads
@@ -56,6 +67,7 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
 3. The `vue-floor` CI job:
    - `scripts/lib/peer-floor.mjs`: a `vue` row in `FLOOR_PEERS`: peers `@vitejs/plugin-vue` and `@vue/compiler-sfc`,
      and `vue` taking the `@vue/compiler-sfc` floor (`vue` pins its own compiler-sfc exactly, so the two move together).
+     The row key for such packages is now `follow` (it was `types`: `vue` is no types package), the react row too.
    - `.github/workflows/ci.yml`: a `vue-floor` job beside `react-floor`: install, `pnpm devx peer-floor vue`, the VS
      Code cache, Chromium, `pnpm devx test --reporter verbose`.
    - `@vitejs/plugin-vue` was `^6.0.0`, but 6.0.0 to 6.0.2 peer `vite ^5 || ^6 || ^7`: no install beside our
@@ -69,37 +81,44 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
      packages and the getting-started page (own commit).
    - `vue-sourcemaps.spec.ts` searched the bundle for `const count = /* @__PURE__ */ ref(`, a mark compiler-sfc adds
      only from 3.5.27: it now finds the statement with or without it (own commit; same position traced).
-   - The full suite passes at the floor (plugin-vue 6.0.3, compiler-sfc and vue 3.5.15): 2173 tests.
+   - Measured locally on this branch (the throwaway worktree): the full suite passes at the floor (plugin-vue 6.0.3,
+     compiler-sfc and vue 3.5.15), 2173 tests. The CI run of `vue-floor` comes with the PR.
 
 ## Tests
 
 `packages/e2e/build/vue-cache-miss.spec.ts`, run by `pnpm devx test` on this host and in CI's `check`, `react-floor` and
 `vue-floor` jobs. No new CI infra beyond `vue-floor`: child processes, as the editor tests use. Each case is a fresh
-process with its own `copyApp('vue')`, removed after. Expected scope ids come from core's
-`scopeId(rootRelativePath(root, file), source, production)`.
+process with its own `copyApp('vue')`, removed after; the copy gets a `package.json`, so the CLI's dep cache lands in
+it. Expected scope ids come from core's `scopeId(rootRelativePath(root, file), source, production)`. "Failed before the
+fix" and "passed before the fix" below were measured on this host, with the tests committed before the fix.
 
 Helper `packages/e2e/build/lib/freshProcess.ts`:
 
 - `startViteCli(root, args, env)`: spawns `node --conditions=source <vite>/bin/vite.js …args` in `root`, with
-  `NO_COLOR=1`; `waitForOutput(pattern, count)`, `output()`, `stop()`.
-- `runFreshDevServer(root, steps, {watch})`: spawns `node --conditions=source` on the same file
-  (`import.meta.main`), which runs `{env, request}`, `{edit: {file, from, to}}` and `{restart: true}` steps on one
-  `createServer()` (`configLoader: 'native'`, middleware mode, no dep discovery) and prints each request's code as
-  JSON. `server.watch: null` goes straight to `createServer` (Vite's `mergeConfig` drops nulls).
+  `NO_COLOR=1`; `waitForOutput(pattern, count)`, `output()`, `stop()`. The spec stops it in `onTestFinished`, so a
+  timed-out test leaves no process behind.
+- `runFreshDevServer(root, steps)`: runs `node --conditions=source` on the same file (`import.meta.main`) through a
+  promisified `execFile`, killed after 50 s. The child runs `{env, request}`, `{edit: {file, from, to}}` and
+  `{restart: true}` steps on one `withDevServer()` whose watcher ignores every file, so no hot update refreshes
+  plugin-vue's cache behind a case's back, and prints each request's code as JSON.
 
 Cases:
 
 - **First dev request** (vite CLI, `--configLoader native --port 0`, `NODE_ENV=development`): fetch the
   `type=style&index=0&scoped=<id>&lang.css` URL of `Counter.ucf` first. 200, its `__vite__css` holds
-  `.counter[data-v-<dev id>]` with `rgb(120, 40, 160)`, no `/error/i` in the server output. Fails today.
-- **First SSR request** (`runFreshDevServer`, one `ssr` step, same URL): resolves, no throw. Fails today. SSR answers
-  a non-inline style with an empty module, so the client case checks the CSS text.
-- **Restart** (`runFreshDevServer`, watcher off): client main, client style, edit `rgb(120, 40, 160)` →
-  `rgb(10, 20, 30)`, restart, client style: the new color, not the old. Watcher off so plugin-vue's HMR cannot race
-  the restart (HMR is 4.9). Fails today (stale CSS).
+  `.counter[data-v-<dev id>]` with `rgb(120, 40, 160)`, no `/error/i` in the server output. Failed before the fix.
+- **First SSR request** (`runFreshDevServer`, one `ssr` step, same URL): resolves, no throw. SSR answers
+  a non-inline style with an empty module, so the client case checks the CSS text. Failed before the fix.
+- **Restart** (`runFreshDevServer`): client main, client style, edit `rgb(120, 40, 160)` → `rgb(10, 20, 30)`,
+  restart, client style: the new color, not the old. No watcher events, so plugin-vue's HMR cannot race the restart
+  (HMR is 4.9). Failed before the fix (stale CSS), with the watcher ignoring every file too.
+- **The record** (in-process `withDevServer` with a plugin counting transforms of the bare `Counter.ucf` id; each
+  copy is a new path, so neither record knows it yet): the module, then its scoped and module style sub-requests,
+  transform it once (3 times with no record); both style sub-requests first and together, once (twice before the
+  shared warm-up).
 - **Watch rebuild** (vite CLI `build --watch`, `NODE_ENV=production`): after the first build, a `<react>`-only edit;
   after the second: no error output, the CSS has `.counter[data-v-<id>]` with `<id> = scopeId(…, edited, true)`,
-  different from the first build's, and the JS holds it too. Guard: passes today.
+  different from the first build's, and the JS holds it too. A guard: it passed before the fix too.
 - `packages/e2e/devx/peer-floor.spec.ts`: the vue floor read from the real manifest (plugin-vue 6.0.3,
   compiler-sfc and vue 3.5.15), and the refusals name both frameworks.
 - `vue-floor` itself is the test of the floor: CI log lines showing the Vue tests ran there go in the PR message.
