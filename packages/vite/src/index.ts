@@ -22,7 +22,7 @@ import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
-import {VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript, wrapVueCompiler} from './vueTarget.ts';
+import {VUE_PLUGIN_MISSING, composeVuePlugin, handedToVue, vueScanScript, warmUpVue, wrapVueCompiler} from './vueTarget.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
@@ -170,6 +170,11 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
           // Vite's transform middleware answers this code with the 403 page it gives the file itself.
           throw Object.assign(new Error(`Denied ID ${file}`), {code: 'ERR_DENIED_ID', id: file});
         }
+        if (query.has('vue')) {
+          // A fresh process or a restart: plugin-vue's cache may lack this content.
+          if (path.endsWith('.ucf')) await warmUpVue(this, path, (await cache.splitUcf(path)).source);
+          return undefined;
+        }
         if (query.has('ucf')) {
           if (query.get('type') !== 'style') return undefined;
           const index = Number(query.get('index'));
@@ -199,6 +204,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const version = cache.updateUcf(id, code);
         const sfc = built(this, await cache.contextOf(version), 'vue');
         version.sfc = sfc.code;
+        handedToVue(id, version.source);
         return sfc;
       },
     },
