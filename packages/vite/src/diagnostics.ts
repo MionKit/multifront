@@ -5,13 +5,9 @@ export function describeDiagnostic({message, code}: Pick<Diagnostic, 'message' |
   return `${message} (${code})`;
 }
 
-/** A `resolveTarget` error on one `.ucf` import; no importer is a build entry. */
-export function importErrorMessage(
-  specifier: string,
-  importerFile: string | undefined,
-  error: Pick<Diagnostic, 'message' | 'code'>
-): string {
-  return `${specifier} (imported by ${importerFile ?? 'a build entry'}): ${describeDiagnostic(error)}`;
+/** An error on one `.ucf` import; no importer is a build entry. */
+export function importErrorMessage(specifier: string, importerFile: string | undefined, message: string): string {
+  return `${specifier} (imported by ${importerFile ?? 'a build entry'}): ${message}`;
 }
 
 /** For `this.error`. */

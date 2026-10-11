@@ -34,7 +34,8 @@ export function attributesPlugin(options: MultifrontOptions): Plugin {
         // Rolldown gives `resolveId` no position; here the error can point at the import.
         for (const entry of result.imports) {
           const choice = resolveTarget(importer, entry.framework, options);
-          if ('error' in choice) fail(entry.start, importErrorMessage(entry.specifier, importer.fileName, choice.error));
+          if ('error' in choice)
+            fail(entry.start, importErrorMessage(entry.specifier, importer.fileName, describeDiagnostic(choice.error)));
         }
         return result.map ? {code: result.code, map: result.map} : undefined;
       },

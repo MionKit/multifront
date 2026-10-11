@@ -7,7 +7,6 @@ import {
   buildTarget,
   getBlockKind,
   importerFromId,
-  locate,
   missingTargetBlockMessage,
   resolveTarget,
   rewriteImportAttributes,
@@ -21,12 +20,16 @@ import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
+import {VUE_INCLUDE, VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript} from './vueTarget.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 const REACT_ID = /\.ucf\.react\.tsx$/;
+// The scan's id of the Vue target: scannable as `.ts`, and `importerFromId` puts its imports in the `<vue>` block.
+const VUE_SCAN_SUFFIX = '.vue.ts';
+const VUE_SCAN_ID = /\.ucf\.vue\.ts$/;
 // Scan id of an HTML file's inline `<script>`.
 const SCAN_SCRIPT = /\.html\?id=\d+$/;
 // Unescaped, as the helper id holds no regex metacharacter.
@@ -58,8 +61,13 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
   const scanPlugin: Rolldown.Plugin = {
     name: 'multifront:scan',
     load: {
-      filter: {id: REACT_ID},
+      filter: {id: [REACT_ID, VUE_SCAN_ID]},
       async handler(id) {
+        if (VUE_SCAN_ID.test(id)) {
+          const file = id.slice(0, -VUE_SCAN_SUFFIX.length);
+          // Not `api.vueCompiler`: the scan may run before plugin-vue lends its compiler to the build.
+          return vueScanScript(await cache.splitUcf(file), getVueCompiler(config!.plugins, config!.root));
+        }
         const split = await cache.splitUcf(id.slice(0, -TARGET_SUFFIX.react.length));
         return {code: split.targets.react?.content ?? '', moduleType: 'tsx'};
       },
@@ -84,6 +92,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     config: () => ({optimizeDeps: {rolldownOptions: {plugins: [scanPlugin]}}}),
     configResolved(resolved) {
       config = resolved;
+      composeVuePlugin(resolved.plugins);
     },
     buildEnd() {
       vueCompiler = undefined;
@@ -113,16 +122,19 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         // In dev Vite resolves the file `load` watches from the module itself: the real file, not an import.
         if (from?.block && from.fileName === file && !query.has('framework')) return file;
         const choice = resolveTarget(from, query.get('framework') ?? undefined, options);
-        // The scan only follows react; the real pipeline reports what it cannot place.
-        if (scan && ('error' in choice || choice.target !== 'react')) return {id: file, external: true};
-        if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, choice.error));
+        const vuePlugin = hasVuePlugin(config!.plugins);
+        // The scan follows react, and vue when plugin-vue builds it; the real pipeline reports what it cannot place.
+        const unscanned = 'error' in choice || choice.target === 'svelte' || (choice.target === 'vue' && !vuePlugin);
+        if (scan && unscanned) return {id: file, external: true};
+        if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, describeDiagnostic(choice.error)));
         const {target} = choice;
         if (!(await cache.splitUcf(file)).targets[target]) {
           if (scan) return {id: file, external: true};
           const message = from ? missingTargetBlockMessage(from.fileName, file, target) : `${file} has no <${target}> block`;
           this.error(describeDiagnostic({code: 'missing-target-block', message}));
         }
-        return file + TARGET_SUFFIX[target];
+        if (target === 'vue' && !vuePlugin) this.error(importErrorMessage(path, from?.fileName, VUE_PLUGIN_MISSING));
+        return file + (scan && target === 'vue' ? VUE_SCAN_SUFFIX : TARGET_SUFFIX[target]);
       },
     },
     load: {
@@ -153,20 +165,28 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const own =
           virtualTarget(path) ?? (path.endsWith('.ucf') && query.size === 0 ? {target: 'vue' as const, file: path} : undefined);
         if (!own) return undefined;
-        const {split, ctx} = await cache.loadUcf(own.file);
-        // The id names no file on disk (spec 4.3).
+        // Vite watches no file behind an id a plugin loads; the react and svelte ids name none (spec 4.3).
         this.addWatchFile(own.file);
-        const vue = split.targets.vue;
-        // Until plugin-vue compiles the SFC code, it would reach Vite as JavaScript.
-        if (own.target === 'vue' && vue) {
-          const message = 'multifront does not build <vue> blocks yet';
-          const {line, column} = locate(split.source, vue.start);
-          const at = {filename: own.file, start: vue.start, end: vue.contentStart, line, column};
-          this.error(rollupError([{code: 'target-not-built', severity: 'error', message, ...at}]));
-        }
+        // The raw source: our transform turns it into SFC code.
+        if (own.target === 'vue') return (await cache.splitUcf(own.file)).source;
+        const {split, ctx} = await cache.loadUcf(own.file);
         try {
           const {code, map} = buildTarget(split, ctx, own.target);
           return {code, map};
+        } catch (err) {
+          if (err instanceof DiagnosticsError) this.error(rollupError(err.diagnostics));
+          throw err;
+        }
+      },
+    },
+    transform: {
+      filter: {id: VUE_INCLUDE},
+      async handler(code, id) {
+        if (!hasVuePlugin(config!.plugins)) this.error(`${id}: ${VUE_PLUGIN_MISSING}`);
+        const {split, ctx} = await cache.contextOf(cache.updateUcf(id, code));
+        try {
+          const {code: sfc, map} = buildTarget(split, ctx, 'vue');
+          return {code: sfc, map};
         } catch (err) {
           if (err instanceof DiagnosticsError) this.error(rollupError(err.diagnostics));
           throw err;

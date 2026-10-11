@@ -1,12 +1,9 @@
 import type {Plugin} from 'vite';
 import {loadVueCompiler} from '@multifront/core';
 import type {VueCompiler} from '@multifront/core';
+import type {VuePluginApi} from './types.ts';
 
-const VUE_PLUGIN_NAME = 'vite:vue';
-
-interface VuePluginApi {
-  options: {compiler?: VueCompiler | null; root: string};
-}
+export const VUE_PLUGIN_NAME = 'vite:vue';
 
 export function hasVuePlugin(plugins: readonly Plugin[]): boolean {
   return plugins.some((plugin) => plugin.name === VUE_PLUGIN_NAME);
