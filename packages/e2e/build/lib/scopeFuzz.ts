@@ -1,7 +1,7 @@
 // The scope transform fuzz generator: real `.ucf` files recombined from the react shapes/ and scope/ fixtures.
 import {writeFileSync} from 'node:fs';
 import {join, relative} from 'node:path';
-import {parseSync, visitorKeys} from 'oxc-parser';
+import {Visitor, parseSync, visitorKeys} from 'oxc-parser';
 import type {Comment, JSXChild, JSXElement, JSXFragment, Node, Program} from 'oxc-parser';
 import {splitBlocks} from '@multifront/core';
 import {TMP_DIR, componentPath, listComponents, readComponent} from '../../fixtures/index.ts';
@@ -29,11 +29,11 @@ export const ACTION_KINDS = [
   'use-client',
   'scoped',
 ] as const;
-export type ActionKind = (typeof ACTION_KINDS)[number];
+type ActionKind = (typeof ACTION_KINDS)[number];
 export type ScopeAction = Action<ActionKind>;
 
 export const OUTCOMES = ['host', 'forwarding-component', 'dropping-component', 'fragment', 'none'] as const;
-export type Outcome = (typeof OUTCOMES)[number];
+type Outcome = (typeof OUTCOMES)[number];
 
 /** What the generator built, so the checks never redo the transform. */
 export interface ScopeCase {
@@ -44,9 +44,7 @@ export interface ScopeCase {
   source: string;
   // Rendered by rule 4; such a case never holds a namespace tag, which React's JSX transform rejects.
   render: boolean;
-  scoped: boolean;
-  props: string;
-  fragments: string[];
+  props: 'props' | '__props';
   branches: {branch?: string; outcome: Outcome}[];
   model: Model;
 }
@@ -92,13 +90,13 @@ interface Return {
 }
 
 interface Wrapper {
-  api: 'memo' | 'forwardRef';
+  api: keyof typeof CALLEES;
   callee: string;
 }
 
 type Props = {kind: 'plain'} | {kind: 'destructured'; variant: number; comment?: string} | {kind: 'none'};
 
-export interface Model {
+interface Model {
   wrappers: Wrapper[]; // innermost first
   refTypes: string; // forwardRef's type arguments
   arrow: boolean;
@@ -138,16 +136,6 @@ function parseBlock(fixture: string): Parsed {
   const {program, comments, errors} = parseSync('Block.tsx', content, {lang: 'tsx', sourceType: 'module'});
   if (errors.length) throw new Error(`${fixture} does not parse`);
   return {content, program, comments};
-}
-
-function childNodes(node: Node): Node[] {
-  const found: Node[] = [];
-  for (const key of visitorKeys[node.type] ?? []) {
-    const child: unknown = (node as unknown as Record<string, unknown>)[key];
-    for (const item of Array.isArray(child) ? child : [child])
-      if (item && typeof item === 'object' && 'type' in item) found.push(item as Node);
-  }
-  return found;
 }
 
 function bindings(node: Node | null): string[] {
@@ -262,7 +250,7 @@ for (const [, parsed] of PARSED)
 for (const node of stampedConsts) addHeader(stamped, node);
 ENV.add('ArrowExpression');
 
-export const ARROW_IMPORT = `import ArrowExpression from '${relative(join(FUZZ_DIR, 'run'), componentPath(ARROW_EXPRESSION)).split('\\').join('/')}'`;
+const ARROW_IMPORT = `import ArrowExpression from '${relative(join(FUZZ_DIR, 'run'), componentPath(ARROW_EXPRESSION)).split('\\').join('/')}'`;
 
 interface Donor {
   fixture: string;
@@ -272,18 +260,14 @@ interface Donor {
 
 const DONORS: Donor[] = [];
 for (const [fixture, parsed] of PARSED) {
-  const visit = (node: Node): void => {
-    if (node.type === 'JSXElement' || node.type === 'JSXFragment') {
-      const free = new Set<string>();
-      freeNames(node, new Set(), free);
-      if ([...free].every((name) => ENV.has(name) || name in globalThis)) {
-        const tree = toTree(node, parsed.content);
-        DONORS.push({fixture, tree, namespaced: hasNamespace(tree)});
-      }
-    }
-    for (const child of childNodes(node)) visit(child);
+  const collect = (node: JSXElement | JSXFragment): void => {
+    const free = new Set<string>();
+    freeNames(node, new Set(), free);
+    if (![...free].every((name) => ENV.has(name) || name in globalThis)) return;
+    const tree = toTree(node, parsed.content);
+    DONORS.push({fixture, tree, namespaced: hasNamespace(tree)});
   };
-  visit(parsed.program);
+  new Visitor({JSXElement: collect, JSXFragment: collect}).visit(parsed.program);
 }
 
 const HOST_TAGS = [...new Set(DONORS.flatMap(({tree}) => elementsOf(tree)).map(({tag}) => tag))]
@@ -301,10 +285,11 @@ const UNICODE_HEADER = [
   ...unicode.program.body.filter((node) => node.type === 'VariableDeclaration').map((node) => sliceOf(unicode, node)),
 ];
 const UNICODE_TEXT: string[] = [];
-(function collectText(node: Node) {
-  if (node.type === 'JSXText' && /[^\p{ASCII}]/u.test(node.value)) UNICODE_TEXT.push(node.value.trim());
-  for (const child of childNodes(node)) collectText(child);
-})(unicode.program);
+new Visitor({
+  JSXText: (node) => {
+    if (/[^\p{ASCII}]/u.test(node.value)) UNICODE_TEXT.push(node.value.trim());
+  },
+}).visit(unicode.program);
 
 // The scoped style of Stamped.ucf: its classes are the ones the donors carry.
 const STYLE = (() => {
@@ -317,14 +302,11 @@ const FORWARD_REF_TYPES = [
   '',
   ...[...PARSED.values()].flatMap((parsed) => {
     const found: string[] = [];
-    const visit = (node: Node): void => {
-      if (node.type === 'CallExpression' && node.typeArguments) {
-        const callee = parsed.content.slice(node.callee.start, node.callee.end);
-        if (callee.endsWith('forwardRef')) found.push(parsed.content.slice(node.typeArguments.start, node.typeArguments.end));
-      }
-      for (const child of childNodes(node)) visit(child);
-    };
-    visit(parsed.program);
+    new Visitor({
+      CallExpression: ({callee, typeArguments}) => {
+        if (typeArguments && sliceOf(parsed, callee).endsWith('forwardRef')) found.push(sliceOf(parsed, typeArguments));
+      },
+    }).visit(parsed.program);
     return found;
   }),
 ];
@@ -334,11 +316,6 @@ const COMPONENT_TAGS = ['ArrowExpression', 'Foo.Bar', 'Ui.Fragment', 'List'];
 
 function donorsFor(render: boolean): Donor[] {
   return DONORS.filter((donor) => !render || !donor.namespaced);
-}
-
-/** The fixtures a case can start from: those with a donor it may use. */
-export function baseFixtures(render: boolean): string[] {
-  return SOURCES.filter((fixture) => donorsFor(render).some((donor) => donor.fixture === fixture));
 }
 
 // --- trees -----------------------------------------------------------------------------------------------------
@@ -606,7 +583,6 @@ function apply(model: Model, kind: ActionKind, random: Random, render: boolean):
     case 'splice-child': {
       const target = random.pick(containers(model));
       target.children.splice(random.int(target.children.length + 1), 0, structuredClone(random.pick(donorsFor(render)).tree));
-      if (target.kind === 'element') target.selfClosing = false;
       return;
     }
     case 'comment': {
@@ -618,7 +594,6 @@ function apply(model: Model, kind: ActionKind, random: Random, render: boolean):
       else {
         const target = random.pick(containers(model));
         target.children.splice(random.int(target.children.length + 1), 0, {kind: 'raw', text: `{${blockComment(text)}}`});
-        if (target.kind === 'element') target.selfClosing = false;
       }
       return;
     }
@@ -629,7 +604,6 @@ function apply(model: Model, kind: ActionKind, random: Random, render: boolean):
       if (random.int(2) === 0 || model.unicodeHeader) {
         const target = random.pick(containers(model));
         target.children.splice(random.int(target.children.length + 1), 0, {kind: 'raw', text: random.pick(UNICODE_TEXT)});
-        if (target.kind === 'element') target.selfClosing = false;
       } else model.unicodeHeader = true;
       return;
     case 'use-client':
@@ -684,9 +658,7 @@ export function buildCase(fixture: string, actions: ScopeAction[], {name, render
     applied,
     source: renderSource(model, name),
     render,
-    scoped: model.scoped,
     props: model.props.kind === 'plain' ? 'props' : '__props',
-    fragments: FRAGMENT_TAGS,
     branches,
     model,
   };
@@ -696,7 +668,8 @@ export function buildCase(fixture: string, actions: ScopeAction[], {name, render
 export function caseAt(seed: number, runIndex: number): ScopeCase {
   const random = createRandom(mixSeed(seed, 'run', runIndex));
   const render = runIndex % 20 === 0;
-  const fixture = random.pick(baseFixtures(render));
+  // A case starts from a fixture with a donor it may use.
+  const fixture = random.pick(SOURCES.filter((source) => donorsFor(render).some((donor) => donor.fixture === source)));
   const actions: ScopeAction[] = [];
   const count = 1 + random.int(8);
   while (actions.length < count)

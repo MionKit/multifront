@@ -5,7 +5,13 @@ import type {Block, BlockTag, Diagnostic, SplitResult} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {componentPath, listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 import {createRandom, fuzzSettings, mixSeed, replayLine, shrinkActions} from '../../e2e/build/lib/fuzz.ts';
-import type {FuzzSettings, Random, Action as SeededAction} from '../../e2e/build/lib/fuzz.ts';
+import type {
+  FuzzSettings,
+  Random,
+  Action as SeededAction,
+  Failure as SeededFailure,
+  Violation as SeededViolation,
+} from '../../e2e/build/lib/fuzz.ts';
 import {tsxSyntaxErrors} from './tsx.ts';
 
 const SPEC_PATH = 'packages/core/test/split.fuzz.spec.ts';
@@ -26,10 +32,7 @@ const DAMAGE: readonly ActionKind[] = ['delete-close', 'close-in-string', 'trunc
 
 type Rule = 'never-throws' | 'positions' | 'structure' | 'untouched' | 'parses' | 'known-outcome';
 
-interface Violation {
-  rule: Rule;
-  message: string;
-}
+type Violation = SeededViolation<Rule>;
 
 type Action = SeededAction<ActionKind>;
 
@@ -56,14 +59,7 @@ interface FuzzCase {
   placed?: PlacedBlock[];
 }
 
-interface Failure {
-  seed: number;
-  runIndex: number;
-  runSeed: number;
-  input: FuzzCase;
-  shrunk: FuzzCase;
-  violations: Violation[];
-}
+type Failure = SeededFailure<FuzzCase, Rule>;
 
 type Splitter = typeof splitBlocks;
 

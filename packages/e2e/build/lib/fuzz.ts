@@ -5,9 +5,23 @@ export interface FuzzSettings {
   runs: number;
 }
 
-export interface Action<Kind extends string = string> {
+export interface Action<Kind extends string> {
   kind: Kind;
   seed: number;
+}
+
+export interface Violation<Rule extends string> {
+  rule: Rule;
+  message: string;
+}
+
+export interface Failure<Case, Rule extends string> {
+  seed: number;
+  runIndex: number;
+  runSeed: number;
+  input: Case;
+  shrunk: Case;
+  violations: Violation<Rule>[];
 }
 
 function readKnob(name: string, fallback: number, min: number, max: number): number {
@@ -27,7 +41,7 @@ export function fuzzSettings(defaults: FuzzSettings): FuzzSettings {
   };
 }
 
-export function mulberry32(seed: number): () => number {
+function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6d2b79f5) | 0;
