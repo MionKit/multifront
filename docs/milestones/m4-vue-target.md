@@ -219,17 +219,21 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 ### 4.9 HMR for the Vue target
 
-- Build: a third plugin in the array `multifront()` returns, `multifront:vue-hmr`, with `enforce: 'pre'` and only a `handleHotUpdate` hook.
-  - For a `.ucf` file with a `<vue>` block, it sets `ctx.read` to return `vueSfcCode()` of the new content, the pattern VitePress uses for `.md`. It also refreshes the split cache first, so the scope id generator sees the new source.
+- Build: a third plugin in the array `multifront()` returns, `multifront:vue-hmr` (`vueHmrPlugin()` in `vueTarget.ts`), with `enforce: 'pre'`, a `handleHotUpdate` hook and a post `transform`.
+  - For a `.ucf` file with a `<vue>` block that our transform handed plugin-vue before, `handleHotUpdate` sets `ctx.read` to return `vueSfcCode()` of the new content, the pattern VitePress uses for `.md`. It refreshes the split cache first (`cache.updateUcf()`), which also gives the split to build from.
   - plugin-vue seeds its HMR cache with our SFC code (`transformMain` does this for non-`.vue` files), so it diffs SFC code against SFC code.
   - It also sets the new split cache version's `sfc` to that SFC code (4.6), so a style-only hot update, which re-transforms no main module, keeps the `.ucf` text in devtools.
-  - It also records the new source as handed to plugin-vue (`handedToVue()`, 4.7), so the sub-requests of a hot update need no warm-up.
+  - plugin-vue re-renders (state kept) only for a `.vue` file: it keeps a previous descriptor of no other file, so a `.ucf` template edit would re-mount the component. `hotChange()` compares the SFC code last handed to plugin-vue with the new one (compiler-sfc `parse()`): only the template changed, and `shouldForceReload()` with the old script's imports is false, means a re-render. Then the post `transform`, after plugin-vue's, appends plugin-vue's own `.vue` line `export const _rerender_only = __VUE_HMR_RUNTIME__.CHANGED_FILE === "<file>"` to the dev client main module.
+  - It records the new version as handed to plugin-vue (`handedToVue()`, 4.7) only when plugin-vue stores the new descriptor (a template or style change), so those sub-requests need no warm-up. After any other edit (a `<react>`-only one) plugin-vue keeps the old descriptor, old positions included, so the next sub-request warms it up.
   - It must be its own plugin: Vite passes `handleHotUpdate` plugins a different context object than `hotUpdate` plugins, and a plugin with `hotUpdate` never has its `handleHotUpdate` called.
 - Deliverable: a `<vue>` edit is a Vue hot update, a `<style>` edit updates CSS only, and a `<react>` edit leaves the Vue component alone.
 - Test: `packages/e2e/browser/vue-hmr.spec.ts`, Playwright on the `apps/vue` dev server, with real edits to a copy of `Counter.ucf`:
   - click the counter to 3, then edit text in the `<template>`: the text changes and the count stays 3 (re-render, no reload);
   - edit a color in the scoped `<style>`: the computed color changes, and the count stays 3;
   - edit the `<react>` block: no page reload and no Vue update (the `vite:beforeUpdate` payload has no `Counter.ucf` Vue module), and the count stays 3.
+
+  Also: in `build/vue-sourcemaps.spec.ts`, the dev style map keeps the `.ucf` text after a `<style>` hot update, and maps to the new line after a `<react>` one that adds a line above the styles; in `build/vue-cache-miss.spec.ts`, the style sub-request of a `<style>` hot update transforms `Counter.ucf` no second time.
+- Status: done
 
 ### 4.10 Imports from and into the Vue target
 
@@ -247,9 +251,11 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 - Build:
   - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue and a Vue island. It mounts `Counter.ucf` as Vue (`import Counter from './Counter.ucf' with { framework: 'vue' }` in `mountVue.ts`) beside the existing React mount of the same file.
   - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
+  - Our hot update keeps the non-Vue modules of a file imported both as Vue and as React. Once plugin-vue holds a descriptor of the file, its `handleHotUpdate` returns only its own picks, which drops the React module and our `?ucf` style modules from the list our `hotUpdate` handed it.
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
 - Test:
   - `packages/e2e/build/mixed-targets.spec.ts`: one `vite build` of the demo. The React chunk has no Vue render code, and the Vue chunk has no JSX runtime import from `Counter.ucf`. No `framework` attribute is left.
+  - `packages/e2e/browser/hmr-react.spec.ts` on the demo keeps passing with the Vue island loaded: a `<react>` and a `<style>` edit still update the React counter.
   - `packages/e2e/browser/parity.spec.ts`: both counters render with the same `data-v-*`. `expectSameComputedStyles()` matches padding, color, font size and border on the root and title elements. Clicking each counter changes only its own count.
 
 ### 4.12 The `<vue>` block in the language server
@@ -322,7 +328,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 ## Risks and open questions
 
-- **plugin-vue behavior we rely on that is not formal API:** the HMR `read` override, the cache-miss read from disk, the hook-filter `exclude` and the moment `api.include` locks. Every one is covered by a test in 4.4, 4.7 or 4.9, run on the CI matrix of supported plugin-vue versions. Worth proposing upstream: a plugin-vue option that hands it the SFC code of non-`.vue` files. That would remove the warm-up and the `read` override.
+- **plugin-vue behavior we rely on that is not formal API:** the HMR `read` override, its `_rerender_only` export and `__VUE_HMR_RUNTIME__.CHANGED_FILE` (4.9), the cache-miss read from disk, the hook-filter `exclude` and the moment `api.include` locks. Every one is covered by a test in 4.4, 4.7 or 4.9, run on the CI matrix of supported plugin-vue versions. Worth proposing upstream: a plugin-vue option that hands it the SFC code of non-`.vue` files. That would remove the warm-up and the `read` override. Also worth proposing: a previous descriptor for non-`.vue` files, so plugin-vue writes `_rerender_only` itself.
 - **Vite's `vite:css` transform hook is wrapped**, not formal API: it runs a `.ucf` style sub-request inside the `AsyncLocalStorage` that names composed classes, and lightningcss reads its per-block pattern from a getter on `css.lightningcss` (4.5). If Vite renames the plugin or its hook loses `handler`, the plugin throws at `configResolved`; the 4.5 test fails first if the context stops reaching postcss-modules.
 - **`handleHotUpdate` is on its way out** in Vite in favor of `hotUpdate`. When plugin-vue moves, our override must move with it, because the two hooks get different context objects. The 4.9 test fails first.
 - **CSS twice in a mixed app** (decided: accepted for now, spec 4.3). The Vue target uses plugin-vue's own style modules, React and Svelte use ours, so an app importing one file as Vue and as another framework ships identical rules twice. A later dedupe can answer plugin-vue's style request with the shared module.

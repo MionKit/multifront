@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.9
@@ -33,6 +33,9 @@ Checked on this host (Vite 8.2.2, plugin-vue 6.0.8, vue 3.5.42) with a throwaway
   modules) of a file imported both as Vue and as React. Fixed in 4.11, where that app first exists: this PR adds it
   to 4.11's Build and Test text.
 - Orchestrator, Q2: no fuzz test.
+- Each new test was checked failing with its piece taken out: no `read` override (the three browser edits), no
+  `_rerender_only` line (count back to 2), no `version.sfc` (style map text), the record always written (style map
+  line after a `<react>` edit), no record (a second transform).
 
 ## Plan
 
@@ -77,6 +80,8 @@ Playwright Chromium (3.9), dev servers and `copyApp()` exist. Each spec uses its
 `packages/e2e/browser/vue-hmr.spec.ts` (new), Playwright on the `apps/vue` dev server (`startDev()`), edits to the
 copy's `Counter.ucf`:
 
+- `apps/vue/index.html` gains `<link rel="icon" href="data:," />`, as the other apps have: Chromium's
+  `/favicon.ico` 404 is a console error;
 - tracks loads, console, requests (`trackRequests()`) and the HMR payloads off Vite's websocket (new
   `trackHmrPayloads(page)` in `browser/lib/requests.ts`, Playwright `framereceived`);
 - click the counter from 2 to 3;
