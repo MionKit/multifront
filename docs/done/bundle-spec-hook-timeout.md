@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-11
 ---
 
@@ -39,7 +39,8 @@ None: no documented behaviour changes.
 - Measured under three full `pnpm devx test` runs (4 cores, 48 files, all green): the "pack alone" `beforeAll` took
   7.6, 7.8 and 8.6 s; the "pack + own plugin" one 5.3 to 6.1 s; the language server start under 0.5 s.
   Close enough to the 10 s default that a busier machine fails it.
-- Every e2e hook starts a real tool (tsserver, the language server, Vite, a browser), so the fix is project-wide:
+- The hooks that start a real tool (tsserver, the language server, Vite, a browser) are spread across the project,
+  so the fix is project-wide:
   `hookTimeout: 60_000` in `packages/e2e/vitest.config.ts`, the same budget as `testTimeout`, with a one-line reason.
 - Hooks that already pass a longer limit (`pnpm devx vsix` pack at 120 s, VS Code at 900 s) keep it.
 - No new test: the change is to the test runner's limit; the gate's full run is its check.
