@@ -2,27 +2,25 @@
  * Vite in a fresh Node process: plugin-vue's descriptor cache lives at its module level, so only a new process
  * starts it empty. Run as a script, this file is the child of `runFreshDevServer()`.
  */
-import {spawn} from 'node:child_process';
+import {execFile, spawn} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
-import {createServer} from 'vite';
-import {APP_CONFIG_LOADER, withNodeEnv} from './build.ts';
+import {promisify} from 'node:util';
+import {APP_CONFIG_LOADER, withDevServer} from './build.ts';
 
-export type FreshStep =
-  | {env: 'client' | 'ssr'; request: string}
-  | {edit: {file: string; from: string; to: string}}
-  | {restart: true};
+type FreshStep = {env: 'client' | 'ssr'; request: string} | {edit: {file: string; from: string; to: string}} | {restart: true};
 
 const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules', 'vite', 'bin', 'vite.js');
-
-function nodeProcess(script: string, args: string[], cwd: string, env: NodeJS.ProcessEnv) {
-  // Node itself loads the app's `vite.config.ts`: `source` makes it pick `@multifront/vite`'s `src/`.
-  return spawn(process.execPath, ['--conditions=source', script, ...args], {cwd, env: {...process.env, NO_COLOR: '1', ...env}});
-}
+// Node itself loads the app's `vite.config.ts`: `source` makes it pick `@multifront/vite`'s `src/`.
+const SOURCE_CONDITION = '--conditions=source';
+const execNode = promisify(execFile);
 
 /** The `vite` CLI in `root`; `stop()` kills it. */
 export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEnv) {
-  const child = nodeProcess(VITE_BIN, ['--configLoader', APP_CONFIG_LOADER, ...args], root, env);
+  const child = spawn(process.execPath, [SOURCE_CONDITION, VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], {
+    cwd: root,
+    env: {...process.env, NO_COLOR: '1', ...env},
+  });
   let output = '';
   const waiters = new Set<() => void>();
   const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
@@ -54,46 +52,32 @@ export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEn
   };
 }
 
-/** Runs `steps` on one dev server of `root` in a fresh process; one code per request step, in order. */
-export async function runFreshDevServer(root: string, steps: FreshStep[], {watch = true} = {}): Promise<string[]> {
-  const child = nodeProcess(import.meta.filename, [JSON.stringify({root, steps, watch})], root, {});
-  let stdout = '';
-  let stderr = '';
-  child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
-  child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
-  const code = await new Promise<number | null>((resolve) => child.once('exit', resolve));
-  if (code !== 0) throw new Error(`fresh dev server failed (${code}):\n${stderr}${stdout}`);
+/** Runs `steps` on one dev server of `root`, watcher off, in a fresh process; one code per request step. */
+export async function runFreshDevServer(...args: Parameters<typeof runSteps>): Promise<string[]> {
+  // Killed before Vitest's 60 s test timeout gives up on it.
+  const {stdout} = await execNode(process.execPath, [SOURCE_CONDITION, import.meta.filename, JSON.stringify(args)], {
+    timeout: 50_000,
+  });
   return JSON.parse(stdout) as string[];
 }
 
-async function runSteps(root: string, steps: FreshStep[], watch: boolean): Promise<string[]> {
-  return withNodeEnv('development', async () => {
-    const server = await createServer({
-      root,
-      logLevel: 'silent',
-      configLoader: APP_CONFIG_LOADER,
-      cacheDir: join(root, '.vite'),
-      // `null` turns the watcher off; Vite's `mergeConfig` would drop it.
-      server: {middlewareMode: true, ws: false, watch: watch ? {} : null},
-      optimizeDeps: {noDiscovery: true},
-    });
+// No watcher events: a hot update would refresh plugin-vue's cache behind the case's back.
+const NO_WATCH = {server: {watch: {ignored: () => true}}};
+
+async function runSteps(root: string, steps: FreshStep[]): Promise<string[]> {
+  return withDevServer(root, NO_WATCH, async (server) => {
     const codes: string[] = [];
-    try {
-      for (const step of steps) {
-        if ('restart' in step) await server.restart();
-        else if ('edit' in step) {
-          const {file, from, to} = step.edit;
-          await writeFile(file, (await readFile(file, 'utf8')).replace(from, to));
-        } else codes.push((await server.environments[step.env].transformRequest(step.request))?.code ?? '');
-      }
-    } finally {
-      await server.close();
+    for (const step of steps) {
+      if ('restart' in step) await server.restart();
+      else if ('edit' in step) {
+        const {file, from, to} = step.edit;
+        await writeFile(file, (await readFile(file, 'utf8')).replace(from, to));
+      } else codes.push((await server.environments[step.env].transformRequest(step.request))?.code ?? '');
     }
     return codes;
   });
 }
 
 if (import.meta.main) {
-  const {root, steps, watch} = JSON.parse(process.argv[2]!) as {root: string; steps: FreshStep[]; watch: boolean};
-  process.stdout.write(JSON.stringify(await runSteps(root, steps, watch)));
+  process.stdout.write(JSON.stringify(await runSteps(...(JSON.parse(process.argv[2]!) as Parameters<typeof runSteps>))));
 }

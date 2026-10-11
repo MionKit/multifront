@@ -1,11 +1,12 @@
 import {readFile, readdir, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {rootRelativePath, scopeId} from '@multifront/core';
-import {beforeEach, describe, expect, it} from 'vitest';
+import type {Plugin} from 'vite';
+import {beforeEach, describe, expect, it, onTestFinished} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {withDevServer} from './lib/build.ts';
 import {runFreshDevServer, startViteCli} from './lib/freshProcess.ts';
 
-// plugin-vue's descriptor cache lives at its module level: each case runs in a process of its own, so it starts empty.
 const counter = readComponent('Counter.ucf').source;
 const OLD_COLOR = 'rgb(120, 40, 160)';
 
@@ -15,32 +16,41 @@ let file: string;
 beforeEach(async () => {
   root = await copyApp('vue');
   file = resolve(root, '..', '..', 'components', 'Counter.ucf');
+  // The CLI puts its dep cache beside the nearest package.json: this one is removed with the copy.
+  await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
   return () => removeApp(root);
 });
 
 const devId = () => scopeId(rootRelativePath(root, file), counter, false);
 // The URL a page open before a restart holds.
-const styleUrl = () => `/@fs${file}?vue&type=style&index=0&scoped=${devId()}&lang.css`;
+const styleUrl = (index = 0) =>
+  index === 0
+    ? `/@fs${file}?vue&type=style&index=0&scoped=${devId()}&lang.css`
+    : `/@fs${file}?vue&type=style&index=${index}&lang.module.css`;
 
 function cssOf(module: string): string {
   return JSON.parse(/const __vite__css = ("(?:[^"\\]|\\.)*")/.exec(module)![1]!) as string;
 }
 
+function cli(args: string[], env: NodeJS.ProcessEnv) {
+  const vite = startViteCli(root, args, env);
+  // Also when a timeout abandons the test.
+  onTestFinished(() => vite.stop());
+  return vite;
+}
+
+// plugin-vue's descriptor cache lives at its module level: each case runs in a process of its own, so it starts empty.
 describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
   it('is the first request to a fresh dev server and returns the scoped CSS', async () => {
-    const vite = startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'});
-    try {
-      const url = /Local:\s+(\S+)/.exec(await vite.waitForOutput(/Local:\s+http\S+/))![1]!;
-      const response = await fetch(new URL(styleUrl(), url));
-      const body = await response.text();
-      expect(response.status, body).toBe(200);
-      const css = cssOf(body);
-      expect(css).toContain(`.counter[data-v-${devId()}]`);
-      expect(css).toContain(OLD_COLOR);
-      expect(vite.output()).not.toMatch(/error/i);
-    } finally {
-      await vite.stop();
-    }
+    const vite = cli(['--port', '0'], {NODE_ENV: 'development'});
+    const url = /Local:\s+(\S+)/.exec(await vite.waitForOutput(/Local:\s+http\S+/))![1]!;
+    const response = await fetch(new URL(styleUrl(), url));
+    const body = await response.text();
+    expect(response.status, body).toBe(200);
+    const css = cssOf(body);
+    expect(css).toContain(`.counter[data-v-${devId()}]`);
+    expect(css).toContain(OLD_COLOR);
+    expect(vite.output()).not.toMatch(/error/i);
   });
 
   it('is the first SSR request of a fresh process', async () => {
@@ -51,21 +61,49 @@ describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
 
   it('serves the new CSS after an in-process restart, when Counter.ucf changed on disk', async () => {
     const newColor = 'rgb(10, 20, 30)';
-    // No watcher: plugin-vue's hot update must not refresh its cache before the restart.
-    const [, before, after] = await runFreshDevServer(
-      root,
-      [
-        {env: 'client', request: `/@fs${file}`},
-        {env: 'client', request: styleUrl()},
-        {edit: {file, from: OLD_COLOR, to: newColor}},
-        {restart: true},
-        {env: 'client', request: styleUrl()},
-      ],
-      {watch: false}
-    );
+    const [, before, after] = await runFreshDevServer(root, [
+      {env: 'client', request: `/@fs${file}`},
+      {env: 'client', request: styleUrl()},
+      {edit: {file, from: OLD_COLOR, to: newColor}},
+      {restart: true},
+      {env: 'client', request: styleUrl()},
+    ]);
     expect(cssOf(before!)).toContain(OLD_COLOR);
     expect(cssOf(after!)).toContain(newColor);
     expect(cssOf(after!)).not.toContain(OLD_COLOR);
+  });
+});
+
+// Each test's copy is a new path, so neither our record nor plugin-vue's cache knows its Counter.ucf yet.
+describe('the warm-up', () => {
+  function transformsOf(target: string): {plugin: Plugin; count: () => number} {
+    let count = 0;
+    const plugin: Plugin = {
+      name: 'count-transforms',
+      transform(_code, id) {
+        if (id === target) count++;
+      },
+    };
+    return {plugin, count: () => count};
+  }
+
+  it('transforms Counter.ucf once when its sub-requests follow the module', async () => {
+    const transforms = transformsOf(file);
+    await withDevServer(root, {plugins: [transforms.plugin]}, async (server) => {
+      await server.environments.client.transformRequest(`/@fs${file}`);
+      await server.environments.client.transformRequest(styleUrl(0));
+      await server.environments.client.transformRequest(styleUrl(1));
+    });
+    expect(transforms.count()).toBe(1);
+  });
+
+  it('transforms Counter.ucf once for sub-requests that come first and together', async () => {
+    const transforms = transformsOf(file);
+    const codes = await withDevServer(root, {plugins: [transforms.plugin]}, (server) =>
+      Promise.all([0, 1].map((index) => server.environments.client.transformRequest(styleUrl(index))))
+    );
+    expect(cssOf(codes[0]!.code)).toContain(OLD_COLOR);
+    expect(transforms.count()).toBe(1);
   });
 });
 
@@ -79,18 +117,14 @@ describe('vite build --watch', () => {
       const name = (await readdir(assets)).find((entry) => entry.endsWith(extension))!;
       return readFile(join(assets, name), 'utf8');
     };
-    const vite = startViteCli(root, ['build', '--watch', '--minify', 'false'], {NODE_ENV: 'production'});
-    try {
-      await vite.waitForOutput(/built in \d+/);
-      expect(await read('.css')).toContain(`.counter[data-v-${idOf(counter)}]`);
-      await writeFile(file, edited);
-      await vite.waitForOutput(/built in \d+/, 2);
-      expect(vite.output()).not.toMatch(/error/i);
-      expect(idOf(edited)).not.toBe(idOf(counter));
-      expect(await read('.css')).toContain(`.counter[data-v-${idOf(edited)}]`);
-      expect(await read('.js')).toContain(`data-v-${idOf(edited)}`);
-    } finally {
-      await vite.stop();
-    }
+    const vite = cli(['build', '--watch', '--minify', 'false'], {NODE_ENV: 'production'});
+    await vite.waitForOutput(/built in \d+/);
+    expect(await read('.css')).toContain(`.counter[data-v-${idOf(counter)}]`);
+    await writeFile(file, edited);
+    await vite.waitForOutput(/built in \d+/, 2);
+    expect(vite.output()).not.toMatch(/error/i);
+    expect(idOf(edited)).not.toBe(idOf(counter));
+    expect(await read('.css')).toContain(`.counter[data-v-${idOf(edited)}]`);
+    expect(await read('.js')).toContain(`data-v-${idOf(edited)}`);
   });
 });
