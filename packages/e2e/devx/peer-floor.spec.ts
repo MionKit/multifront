@@ -25,7 +25,7 @@ const REACT_FLOOR = {
   '@types/react-dom': '19.0.0',
 };
 
-const VUE_FLOOR = {'@vitejs/plugin-vue': '6.0.3', '@vue/compiler-sfc': '3.5.0', vue: '3.5.0'};
+const VUE_FLOOR = {'@vitejs/plugin-vue': '6.0.3', '@vue/compiler-sfc': '3.5.15', vue: '3.5.15'};
 
 // A floor CI job has already added its overrides to the working copy.
 const COMMITTED_WORKSPACE = spawnSync('git', ['show', 'HEAD:pnpm-workspace.yaml'], {cwd: REPO_ROOT, encoding: 'utf8'}).stdout;

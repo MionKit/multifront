@@ -35,7 +35,7 @@
     "oxc-parser": "0.149.0"
   },
   "peerDependencies": {
-    "@vue/compiler-sfc": "^3.5.0"
+    "@vue/compiler-sfc": "^3.5.15"
   },
   "peerDependenciesMeta": {
     "@vue/compiler-sfc": {
