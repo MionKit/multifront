@@ -1,11 +1,10 @@
 import {once} from 'node:events';
-import {readFile, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
 import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
-import {trackRequests, type RequestLog} from './lib/requests.ts';
+import {editFile, trackRequests} from './lib/requests.ts';
 import {startDev} from './lib/serve.ts';
 
 const COUNTER = '[data-demo="counter"]';
@@ -17,15 +16,10 @@ let app: Awaited<ReturnType<typeof startDev>> | undefined;
 let page: Page;
 let counterFile: string;
 let messages: ReturnType<typeof collectConsole>;
-let requests: RequestLog;
+let requests: ReturnType<typeof trackRequests>;
 let loads = 0;
 
-async function edit(from: string, to: string): Promise<void> {
-  const source = await readFile(counterFile, 'utf8');
-  expect(source).toContain(from);
-  requests.clear();
-  await writeFile(counterFile, source.replace(from, to));
-}
+const edit = (from: string, to: string) => editFile(requests, counterFile, from, to);
 
 beforeAll(async () => {
   browser = await launchChromium();

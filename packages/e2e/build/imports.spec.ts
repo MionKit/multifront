@@ -8,7 +8,7 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {FIXTURES_DIR, TMP_DIR, componentPath, filesOf, readComponent} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
-import {expectNoAttribute, moduleReferences, type Reference} from './lib/references.ts';
+import {expectNoAttribute, moduleReferences} from './lib/references.ts';
 
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
 const CARD = componentPath('Card.ucf');
@@ -44,7 +44,7 @@ function urlOf(file: string): string {
 }
 
 // Fast Refresh makes a React module import itself.
-function ucfImports(code: string, url: string): Reference[] {
+function ucfImports(code: string, url: string) {
   return moduleReferences(code).filter(({specifier}) => specifier.includes('.ucf') && specifier !== url);
 }
 

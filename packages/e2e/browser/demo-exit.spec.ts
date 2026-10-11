@@ -1,15 +1,15 @@
 // Milestone 3's exit test: the demo app through real Vite, real plugin-react and Chromium, in dev, build and SSR.
 import {readFileSync, readdirSync} from 'node:fs';
-import {readFile, writeFile} from 'node:fs/promises';
-import {join, relative, resolve, sep} from 'node:path';
-import {createBuildContext, loadVueCompiler, scopeId, splitBlocks} from '@multifront/core';
+import {join, resolve} from 'node:path';
+import {createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Browser, Page} from 'playwright';
 import {isRunnableDevEnvironment} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {FIXTURES_DIR, copyApp, removeApp} from '../fixtures/index.ts';
+import {FIXTURES_DIR, copyApp, readComponent, removeApp} from '../fixtures/index.ts';
 import {expectNoAttribute} from '../build/lib/references.ts';
 import {collectConsole, computed, launchChromium, renderedStyles} from './lib/chromium.ts';
-import {trackRequests, type RequestLog} from './lib/requests.ts';
+import {editFile, trackRequests} from './lib/requests.ts';
+import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const FIXTURE = join(FIXTURES_DIR, 'apps', 'demo');
@@ -26,23 +26,13 @@ let root: string | undefined;
 let app: Awaited<ReturnType<typeof startDev>> | undefined;
 let page: Page;
 let messages: ReturnType<typeof collectConsole>;
-let requests: RequestLog;
+let requests: ReturnType<typeof trackRequests>;
 let loads = 0;
 let devStyles: Awaited<ReturnType<typeof renderedStyles>> | undefined;
 
 const component = (name: string) => resolve(root!, '..', '..', 'components', name);
 
-function scopeAttribute(appRoot: string, file: string): string {
-  return `data-v-${scopeId(relative(appRoot, file).split(sep).join('/'), readFileSync(file, 'utf8'), false)}`;
-}
-
-async function edit(from: string, to: string): Promise<void> {
-  const file = component('Counter.ucf');
-  const source = await readFile(file, 'utf8');
-  expect(source).toContain(from);
-  requests.clear();
-  await writeFile(file, source.replace(from, to));
-}
+const edit = (from: string, to: string) => editFile(requests, component('Counter.ucf'), from, to);
 
 beforeAll(async () => {
   browser = await launchChromium();
@@ -80,7 +70,7 @@ describe('milestone 3 exit test (demo app)', () => {
   });
 
   it("ScopedPanel's scoped style reaches ScopedBadge's root span, and not its inner element", async () => {
-    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'));
+    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'), false);
     expect(await page.locator(BADGE).getAttribute(panel)).toBe('');
     expect(await computed(page.locator(BADGE), 'color')).toBe('rgb(30, 120, 60)');
     expect(await page.locator(BADGE_LABEL).getAttribute(panel)).toBeNull();
@@ -126,7 +116,7 @@ describe('milestone 3 exit test (demo app)', () => {
     if (!isRunnableDevEnvironment(ssr)) throw new Error('the ssr environment has no module runner');
     const {render} = (await ssr.runner.import('/src/entry-server.tsx')) as {render: () => string};
     const html = render();
-    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'));
+    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'), false);
     const rendered = await browser!.newPage();
     try {
       await rendered.setContent(html);
@@ -182,17 +172,21 @@ describe('milestone 3 exit test (demo app)', () => {
         .map((file) => readFileSync(file, 'utf8'))
         .join('\n');
       let blocks = 0;
+      let selectors = 0;
       for (const name of STYLED) {
-        const filename = join(FIXTURES_DIR, 'components', name);
-        const split = splitBlocks(readFileSync(filename, 'utf8'), filename);
+        const {filename, source} = readComponent(name);
+        const split = splitBlocks(source, filename);
         const ctx = await createBuildContext(split, {root: FIXTURE, compiler: loadVueCompiler(FIXTURE), production: true});
         for (const style of ctx.styles) {
-          const selector = style.code.slice(0, style.code.indexOf('{')).trim();
-          expect({name, selector, count: css.split(selector).length - 1}).toEqual({name, selector, count: 1});
           blocks++;
+          for (const [, rule] of style.code.replaceAll(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)) {
+            const selector = rule!.trim();
+            expect({name, selector, count: css.split(selector).length - 1}).toEqual({name, selector, count: 1});
+            selectors++;
+          }
         }
       }
-      expect(blocks).toBe(4);
+      expect({blocks, selectors}).toEqual({blocks: 4, selectors: 6});
     });
   });
 });
