@@ -1,0 +1,9 @@
+<react>
+  // The block uses `__props` and `__props1`, so the build names the props `__props2`.
+  const __props = 'module'
+  const __props1 = 'module too'
+
+  export default function PropsClash({ branch }: { branch?: string }) {
+    return <div className="shape">{__props} {__props1} {branch}</div>
+  }
+</react>

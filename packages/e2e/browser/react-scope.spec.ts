@@ -11,6 +11,7 @@ const ROOT = join(FIXTURES_DIR, 'apps', 'react-scope');
 const STAMPED = componentPath('react/scope/Stamped.ucf');
 const PARENT = join(ROOT, 'Parent.ucf');
 const MULTI_RETURN = componentPath('react/shapes/MultiReturn.ucf');
+const SCOPED_PANEL = componentPath('react/ScopedPanel.ucf');
 
 // The scoped `.shape` rule of Parent.ucf, which reaches a child root only through forwarding.
 const PARENT_COLOR = 'rgb(200, 40, 80)';
@@ -35,7 +36,20 @@ const FORWARDED = [
   'NoParams:only',
   'ConstRoot:only',
   'ComponentRoot:only',
+  'Destructured:only',
+  'DestructuredArrow:only',
+  'DestructuredDefaults:defaults',
+  'DestructuredDefaults:given',
+  'ForwardRefDestructured:only',
 ];
+// Destructuring defaults and rest props, as DestructuredDefaults.ucf renders them.
+const DEFAULTS_TEXT: [string, string][] = [
+  ['DestructuredDefaults:defaults', 'default label / defaults / no note'],
+  ['DestructuredDefaults:given', 'given label / given / rest note'],
+];
+
+// ScopedPanel.ucf's scoped rules: `.badge` reaches ScopedBadge's root, `.badge-label` must not reach its inner element.
+const BADGE_COLOR = 'rgb(30, 120, 60)';
 // Fragment and non-JSX roots: no element of theirs gets it.
 const NOT_FORWARDED = [
   'FragmentRoot:short',
@@ -132,7 +146,7 @@ describe.each([
     try {
       const messages = collectConsole(page);
       await page.goto(`${app!.url}?page=shapes`);
-      await page.locator('[data-case="ForwardRef:only"] [data-ref]').waitFor();
+      await page.locator('[data-case="ForwardRefDestructured:only"] [data-ref]').waitFor();
 
       expect(await page.locator('[data-case]').count()).toBe(FORWARDED.length + NOT_FORWARDED.length);
       for (const name of NOT_FORWARDED) {
@@ -156,13 +170,41 @@ describe.each([
       }
 
       // Forwarding must not break the ref.
-      expect(await page.locator('[data-case="ForwardRef:only"] > *').getAttribute('data-ref')).toBe('forward-ref');
+      for (const name of ['ForwardRef:only', 'ForwardRefDestructured:only']) {
+        const ref = await page.locator(`[data-case="${name}"] > *`).getAttribute('data-ref');
+        expect({name, ref}).toEqual({name, ref: 'forward-ref'});
+      }
+      for (const [name, text] of DEFAULTS_TEXT)
+        expect({name, text: await page.locator(`[data-case="${name}"] .inner`).textContent()}).toEqual({name, text});
 
       await page.waitForLoadState('networkidle');
       const reported = messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
       // Dev warns once for FragmentRoot, however often it renders; a build never does.
       expect(reported.map(({type}) => type)).toEqual(production ? [] : ['warning']);
       if (!production) expect(reported[0]!.text).toContain('<FragmentRoot> renders a fragment root');
+    } finally {
+      await page.close();
+    }
+  });
+  it("forwards ScopedPanel's scope to the root span of the destructuring ScopedBadge, and not to its inner element", async () => {
+    const panel = attributeOf(SCOPED_PANEL, production);
+    const page = await browser!.newPage();
+    try {
+      const messages = collectConsole(page);
+      await page.goto(`${app!.url}?page=panel`);
+      const badge = page.locator('.panel > span');
+      await badge.waitFor();
+
+      expect(await badge.getAttribute(panel)).toBe('');
+      expect(await badge.getAttribute('class')).toBe('badge');
+      expect(await computed(badge, 'color')).toBe(BADGE_COLOR);
+      const label = badge.locator('em.badge-label');
+      expect(await label.textContent()).toBe('new');
+      expect(await label.getAttribute(panel)).toBeNull();
+      expect(await computed(label, 'text-decoration-line')).toBe('none');
+
+      await page.waitForLoadState('networkidle');
+      expect(messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror')).toEqual([]);
     } finally {
       await page.close();
     }

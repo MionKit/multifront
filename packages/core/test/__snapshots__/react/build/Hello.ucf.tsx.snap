@@ -1,4 +1,5 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
 
-  export default function Hello({ name }: { name: string }) {
-    return <p>Hello, {name}!</p>
+  export default function Hello(__props: { name: string }) {const { name } = __props;
+    return <p {...__ucfScopeAttrs(__props)}>Hello, {name}!</p>
   }

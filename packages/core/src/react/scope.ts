@@ -2,6 +2,7 @@ import {basename} from 'node:path';
 import type MagicString from 'magic-string';
 import type {
   ArrowFunctionExpression,
+  Comment,
   Expression,
   Function as FunctionNode,
   JSXElement,
@@ -230,11 +231,29 @@ function identifierNames(root: Node): string[] {
   return names;
 }
 
+// What a moved pattern binds or reads: its names, defaults and computed keys, never a plain key or its type.
+function patternReads(node: Node | null): string[] {
+  if (!node) return [];
+  if (node.type === 'Identifier') return [node.name];
+  if (node.type === 'AssignmentPattern') return [...patternReads(node.left), ...identifierNames(node.right)];
+  if (node.type === 'RestElement') return patternReads(node.argument);
+  if (node.type === 'ArrayPattern') return node.elements.flatMap(patternReads);
+  if (node.type !== 'ObjectPattern') return [];
+  return node.properties.flatMap((prop) => {
+    if (prop.type === 'RestElement') return patternReads(prop.argument);
+    return [...(prop.computed ? identifierNames(prop.key) : []), ...patternReads(prop.value)];
+  });
+}
+
 // No identifier of the block uses it, so it can neither shadow nor be shadowed.
 function freshName(used: Set<string>, base: string): string {
   let name = base;
   for (let index = 1; used.has(name); index++) name = `${base}${index}`;
   return name;
+}
+
+function inComment(comments: Comment[], at: number): boolean {
+  return comments.some(({start, end}) => start <= at && at < end);
 }
 
 /** Stamps all but Fragments when scoped; always forwards `data-v-*` props on the default export's roots. */
@@ -261,14 +280,20 @@ export function transformScope(
   if (hasThis && params.length === 0) return [];
   const first = params[0];
   const param = first?.type === 'AssignmentPattern' ? first.left : first;
-  // A destructured or rest first parameter leaves no name holding every prop.
-  if (param && param.type !== 'Identifier') return [];
-  const used = new Set(param ? [] : identifierNames(program));
-  const props = param?.name ?? freshName(used, '__props');
+  if (param?.type === 'RestElement') return [];
+  const pattern = param?.type === 'ObjectPattern' || param?.type === 'ArrayPattern' ? param : undefined;
+  const used = new Set(param?.type === 'Identifier' ? [] : identifierNames(program));
+  const props = param?.type === 'Identifier' ? param.name : freshName(used, '__props');
 
   const {returns, consts, bound} = ownBody(component);
   // A body redeclaring the props name could hide it from a root; telling which needs scope analysis.
   if (bound.has(props)) return [];
+  if (pattern) {
+    const names = patternNames(pattern);
+    // Moved into the body, the pattern would meet the body's names, and a later parameter would lose the ones it binds.
+    if (patternReads(pattern).some((name) => bound.has(name))) return [];
+    if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
+  }
   const roots = new Set<Root>();
   for (const expression of returns) jsxRoots(expression, consts, true, roots);
   const dev = !ctx.production;
@@ -285,10 +310,29 @@ export function transformScope(
       helpers.add(WARN_FRAGMENT);
     }
   }
+  if (helpers.size === 0) return [];
 
-  if (!param && helpers.size > 0) {
+  if (pattern) {
+    const body = component.body!;
+    // oxc's pattern span takes in its type annotation and `?`; the pattern text ends at its closing bracket.
+    const closing = pattern.type === 'ObjectPattern' ? '}' : ']';
+    let end = pattern.typeAnnotation?.start ?? pattern.end;
+    while (block.content[end - 1] !== closing || inComment(comments, end - 1)) end--;
+    const inBlock = body.type === 'BlockStatement';
+    // After a directive prologue (`'use no memo'`), which only works first; a root means a statement follows it.
+    const prologue = inBlock && body.body[0]?.type === 'ExpressionStatement' && !!body.body[0].directive;
+    const statement = inBlock ? body.body.find((node) => node.type !== 'ExpressionStatement' || !node.directive) : undefined;
+    const at = offset + (!inBlock ? body.start : prologue ? statement!.start : body.start + 1);
+    // Moved, never re-printed: defaults, rest, comments and mappings stay as written.
+    text.appendLeft(offset + pattern.start, props);
+    text.move(offset + pattern.start, offset + end, at);
+    text.appendLeft(at, inBlock ? 'const ' : '{const ');
+    text.appendLeft(offset + end, inBlock ? ` = ${props};` : ` = ${props}; return `);
+    // After the root edits, so a fragment warning's `)` closes first.
+    if (!inBlock) text.appendLeft(offset + body.end, '}');
+  } else if (!param) {
     let at = component.typeParameters?.end ?? component.id?.end ?? component.start;
-    while (block.content[at] !== '(' || comments.some(({start, end}) => start <= at && at < end)) at++;
+    while (block.content[at] !== '(' || inComment(comments, at)) at++;
     // React checks a `forwardRef` render function takes zero or two parameters.
     text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }

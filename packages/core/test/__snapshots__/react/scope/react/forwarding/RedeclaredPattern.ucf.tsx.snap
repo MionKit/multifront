@@ -1,0 +1,6 @@
+
+  // Moved into the body, `{ label }` would meet the `var label` there: no forwarding.
+  export default function RedeclaredPattern({ label }: { label?: string }) {
+    var label = label ?? 'none'
+    return <div className="shape">{label}</div>
+  }

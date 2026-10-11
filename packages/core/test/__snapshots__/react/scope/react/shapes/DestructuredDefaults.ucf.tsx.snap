@@ -1,0 +1,15 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  type Props = { branch?: string; label?: string; note?: string }
+
+  // Rest is read, not spread: spread on the root, it would carry the scope there itself.
+  export default function DestructuredDefaults(__props: Props = {}) {const {
+    /* shown without a label */
+    label = 'default label',
+    branch,
+    ...rest
+  } = __props;
+    return (
+      <section {...__ucfScopeAttrs(__props)} className="shape"><span className="inner">{label} / {branch} / {rest.note ?? 'no note'}</span></section>
+    )
+  }

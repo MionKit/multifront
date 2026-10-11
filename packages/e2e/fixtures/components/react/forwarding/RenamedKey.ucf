@@ -1,0 +1,12 @@
+<react>
+  import { useState } from 'react'
+
+  type Props = { className?: string; onChange?: (value: string) => void }
+
+  // The body's `className` and `value` meet only a plain key and the annotation, which bind nothing: forwarded.
+  export default function RenamedKey({ className: extra, onChange }: Props) {
+    const [value, setValue] = useState('')
+    const className = `shape ${extra ?? ''}`
+    return <div className={className} onClick={() => onChange?.(value)} onDoubleClick={() => setValue('x')}>{value}</div>
+  }
+</react>

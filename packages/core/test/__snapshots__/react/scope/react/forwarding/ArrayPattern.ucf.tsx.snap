@@ -1,0 +1,6 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  // An array pattern, optional, with a comment holding its closing bracket before the annotation.
+  export default function ArrayPattern(__props /* ] */ ?: [string?]) {const [ first ] = __props;
+    return <div {...__ucfScopeAttrs(__props)} className="shape">{first}</div>
+  }

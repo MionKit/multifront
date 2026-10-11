@@ -1,0 +1,5 @@
+
+  // A rest first parameter is no pattern of the props: no forwarding.
+  export default function RestParams(...args: [{ branch?: string }]) {
+    return <div className="shape">{args[0].branch}</div>
+  }
