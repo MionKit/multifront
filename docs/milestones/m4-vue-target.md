@@ -177,11 +177,14 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ### 4.6 Source maps and error locations
 
 - Build: no new mapping code is expected, thanks to the same-length SFC code. This step is the proof, plus any fix it finds. It also passes the map from 4.2 through our transform, so Vite chains it.
+  - Fix found: plugin-vue's sub-request maps (the build's `lang="ts"` script, every style) start from the SFC code it parsed, so devtools showed `Counter.ucf` with its other targets blanked. `wrapVueCompiler()` in `vueTarget.ts`, from our `buildStart` ordered after plugin-vue's (where it resolves its compiler), hands it back that compiler wrapped: `parse` and `compileScript` give their maps of a `.ucf` file a `sourcesContent` getter that reads the raw source from the split cache (`UcfVersion.sfc`, the SFC code our transform made from that version), read on use because plugin-vue keeps its compiled script across a same-length `<react>`-only edit. `getVueCompiler()` unwraps it. Positions do not change.
 - Deliverable: devtools, stack traces and build errors point at `Counter.ucf`.
 - Test: `packages/e2e/build/vue-sourcemaps.spec.ts`, with fixture `fixtures/components/vue/TemplateError.ucf` (an unclosed tag on a known line).
   - A production build with `build.sourcemap: true`: trace a template expression and a `<script setup>` statement with `@jridgewell/trace-mapping`. Both land on `Counter.ucf` at the original line and column.
   - A dev server with `css.devSourcemap: true`: the map of the scoped style sub-module points at the `<style>` line in `Counter.ucf`.
   - Building `TemplateError.ucf` fails, and the error names `TemplateError.ucf:<line>:<column>` of the bad tag.
+  - Also: no mapping lands outside the `<vue>` content and the `<style>` blocks, and every map's source text for `Counter.ucf` is the file itself: in the build, in the dev style map, and in a watch rebuild after a `<react>`-only edit; a dev server restart wraps plugin-vue's compiler once.
+- Status: done
 
 ### 4.7 plugin-vue cache misses: warm-up before sub-requests
 
@@ -211,6 +214,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 - Build: a third plugin in the array `multifront()` returns, `multifront:vue-hmr`, with `enforce: 'pre'` and only a `handleHotUpdate` hook.
   - For a `.ucf` file with a `<vue>` block, it sets `ctx.read` to return `vueSfcCode()` of the new content, the pattern VitePress uses for `.md`. It also refreshes the split cache first, so the scope id generator sees the new source.
   - plugin-vue seeds its HMR cache with our SFC code (`transformMain` does this for non-`.vue` files), so it diffs SFC code against SFC code.
+  - It also sets the new split cache version's `sfc` to that SFC code (4.6), so a style-only hot update, which re-transforms no main module, keeps the `.ucf` text in devtools.
   - It must be its own plugin: Vite passes `handleHotUpdate` plugins a different context object than `hotUpdate` plugins, and a plugin with `hotUpdate` never has its `handleHotUpdate` called.
 - Deliverable: a `<vue>` edit is a Vue hot update, a `<style>` edit updates CSS only, and a `<react>` edit leaves the Vue component alone.
 - Test: `packages/e2e/browser/vue-hmr.spec.ts`, Playwright on the `apps/vue` dev server, with real edits to a copy of `Counter.ucf`:
@@ -292,7 +296,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 - `vueSfcCode(source, blocks, filename)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
 - `vueKind` and `vueEditorKind`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`, `serviceScript`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
-- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up; `cssModules.ts` beside it sets `css.modules.generateScopedName`), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
+- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up, `wrapVueCompiler()` giving sub-request maps the `.ucf` text; `cssModules.ts` beside it sets `css.modules.generateScopedName`), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - The way 4.3 serves a second target script of a `.ucf` file in tsserver, beside the React one: `packages/language-tools/src/targetScripts.ts` serves every editor kind with a `serviceScript` as `targetScriptName(file, tag)`. Used by **M6** (`Card.ucf.svelte.ts`, 6.10: `svelteEditorKind` gains `serviceScript`).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
 - Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `DuplicateVue.ucf`, `Empty.ucf`, `StyleOnlyInVue.ucf`, `VueWithUnclosedReact.ucf`, `TemplateError.ucf`, `AttrInside.ucf`, `ComposesFile.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
