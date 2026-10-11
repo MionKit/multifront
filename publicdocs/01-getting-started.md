@@ -1,29 +1,31 @@
 # Getting Started
 
-Add the multifront Vite plugin to a React app, then import `.ucf` files like any React component.
+Add the multifront Vite plugin to a React or Vue app, then import `.ucf` files like any other component.
 
 ## Setting Up Vite
 
-Add `multifront()` from `@multifront/vite` to the plugins, next to `react()`.
+Add `multifront()` from `@multifront/vite` to the plugins, next to `react()`, `vue()` or both.
 
 `vite.config.ts`
 
 ```ts
 import react from '@vitejs/plugin-react';
+import vue from '@vitejs/plugin-vue';
 import {multifront} from '@multifront/vite';
 import {defineConfig} from 'vite';
 
-export default defineConfig({plugins: [react(), multifront()]});
+export default defineConfig({plugins: [react(), vue(), multifront()]});
 ```
 
 The app also needs these packages:
 
 | Package | Version | For |
 | --- | --- | --- |
-| `vite` | `^8.0.0` | the build |
-| `@vitejs/plugin-react` | `^6.0.0` | compiling the `<react>` block |
-| `react`, `react-dom` | `^19.0.0` | rendering it |
-| `vue` or `@vue/compiler-sfc` | `^3.5.15` | compiling the `<style>` blocks |
+| `vite` | `^8.0.0` | every app |
+| `vue` or `@vue/compiler-sfc` | `^3.5.15` | every app, to compile the `<style>` blocks |
+| `@vitejs/plugin-react` | `^6.0.0` | React apps |
+| `react`, `react-dom` | `^19.0.0` | React apps |
+| `@vitejs/plugin-vue` | `^6.0.3` | Vue apps |
 
 ## Writing a First Component
 
@@ -76,14 +78,52 @@ export default function App() {
 }
 ```
 
-> **Note:** The component works the same in the dev server, the production build and server rendering with `react-dom/server`.
+## Adding a Vue Version
+
+Add a `<vue>` block to the same file. It shares the `<style>` blocks, so `$style.button` and the scoped `.counter` style it too.
+
+`Counter.ucf`
+
+```html
+<vue>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const props = defineProps<{start?: number}>()
+  const count = ref(props.start ?? 0)
+  </script>
+
+  <template>
+    <div class="counter">
+      <button :class="$style.button" @click="count++">{{ count }}</button>
+    </div>
+  </template>
+</vue>
+```
+
+Then import it from a `.vue` file.
+
+`App.vue`
+
+```vue
+<script setup lang="ts">
+import Counter from '../../../components/Counter.ucf';
+</script>
+
+<template>
+  <Counter :start="2" />
+</template>
+```
+
+> **Note:** Both versions work the same in the dev server, the production build and server rendering, with `react-dom/server` or `vue/server-renderer`.
 
 ## Editing While the Dev Server Runs
 
-An edit to a `.ucf` file updates only what changed, so the component keeps its state.
+An edit to a `.ucf` file updates only the components it changes.
 
-| You edit | The page |
-| --- | --- |
-| A `<style>` block | Swaps that CSS only |
-| The `<react>` block | Updates the component with React Fast Refresh |
-| A `<vue>` or `<svelte>` block | Does not change |
+| You edit | React component | Vue component |
+| --- | --- | --- |
+| A `<style>` block | Swaps that CSS only | Swaps that CSS only |
+| The `<react>` block | Updates with React Fast Refresh | Does not change |
+| The `<vue>` block | Does not change | Updates as a `.vue` file does: a `<template>` edit keeps the state |
+| The `<svelte>` block | Does not change | Does not change |

@@ -38,9 +38,22 @@ export {default as VueCard} from '../../../components/Card.ucf' with {framework:
 export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
 ```
 
-> **Note:** An import that picks vue needs `@vitejs/plugin-vue` in your Vite plugins. multifront does not build `<svelte>` blocks, and in the editor TypeScript has types for react and vue picks only: a svelte pick gives the error `target-not-built`.
+> **Note:** An import that picks vue needs `@vitejs/plugin-vue` in your Vite plugins, or the build fails. multifront does not build `<svelte>` blocks, and in the editor TypeScript has types for react and vue picks only: a svelte pick gives the error `target-not-built`.
 
 > **Tip:** In one file, TypeScript gives every import of the same path the type of the last one. To use a component as two frameworks, import each from its own small file that re-exports it.
+
+## Using Both Frameworks in One App
+
+A React app can also render a `.ucf` file as Vue: add `vue()` to its Vite plugins and pick vue in the import.
+
+`mountVue.ts`
+
+```ts
+import {createApp} from 'vue';
+import Counter from '../../../components/Counter.ucf' with {framework: 'vue'};
+
+createApp(Counter).mount('#vue');
+```
 
 ## Setting the Default Framework
 

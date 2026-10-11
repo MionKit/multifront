@@ -4,7 +4,7 @@ The `<style>` blocks of a `.ucf` file style every framework block in it.
 
 ## Style Blocks
 
-Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style), with `scoped`, `module` and `lang`.
+Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style), with `scoped`, `module` and `lang`. In `<vue>` they work exactly as in a `.vue` file, and `v-bind()` works there only.
 
 `AllBlocks.ucf`
 
@@ -33,6 +33,10 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 | `<style scoped>` | Styles only the elements this file renders |
 | `<style module>` | Class names in `$style` |
 | `<style module="classes">` | Class names in `classes` |
+
+## Same Look in Every Framework
+
+The Vue and the React component of one file get the same scoped `data-v-*` attribute and the same `$style` class names. So they look the same, also side by side in one app.
 
 ## Styling a Child Component
 

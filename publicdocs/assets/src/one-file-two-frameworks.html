@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../docs/assets/src/theme.css">
+<style>
+  .card-one-file-two-frameworks { width: 1200px; }
+  .card-one-file-two-frameworks .row { display: grid; grid-template-columns: 420px 90px 1fr; align-items: center; margin-top: 36px; }
+  .card-one-file-two-frameworks .file { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card-one-file-two-frameworks .name { font: 700 18px/1 var(--mono); margin-bottom: 4px; }
+  .card-one-file-two-frameworks .blk { border-radius: 12px; padding: 12px 16px; font: 700 15px/1 var(--mono); border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 9%, var(--panel)); }
+  .card-one-file-two-frameworks .blk span { font: 400 13px/1 var(--sans); color: var(--muted); margin-left: 10px; }
+  .card-one-file-two-frameworks .arrow { height: 2px; margin: 0 14px; background: #3b4b60; position: relative; }
+  .card-one-file-two-frameworks .arrow::after { content: ''; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left: 9px solid #3b4b60; border-right: 0; }
+  .card-one-file-two-frameworks .outs { display: flex; flex-direction: column; gap: 18px; }
+  .card-one-file-two-frameworks .out { border-radius: 14px; padding: 18px 20px; border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 12%, var(--panel)); }
+  .card-one-file-two-frameworks .out .t { font: 800 19px/1 var(--sans); }
+  .card-one-file-two-frameworks .out .t em { font: 500 14px/1 var(--sans); font-style: normal; color: var(--muted); margin-left: 10px; }
+  .card-one-file-two-frameworks .out pre { margin-top: 12px; font: 14px/1.6 var(--mono); color: #b8c4d2; }
+  .card-one-file-two-frameworks .out pre b { color: var(--style-hi); font-weight: 600; }
+</style></head>
+<body>
+<div class="canvas card-one-file-two-frameworks">
+  <div class="eyebrow">multifront</div>
+  <h1>One file, a component per framework</h1>
+  <p class="sub">Each import of Counter.ucf gets the component for its framework. Both use the same style blocks, so they render the same classes.</p>
+  <div class="row">
+    <div class="file card">
+      <div class="name">Counter.ucf</div>
+      <div class="blk k-vue">&lt;vue&gt;<span>script setup and template</span></div>
+      <div class="blk k-react">&lt;react&gt;<span>a TSX component</span></div>
+      <div class="blk k-style">&lt;style scoped&gt;</div>
+      <div class="blk k-style">&lt;style module&gt;</div>
+    </div>
+    <div class="arrow"></div>
+    <div class="outs">
+      <div class="out k-vue"><div class="t">Vue component<em>imported from a .vue file</em></div>
+<pre>&lt;div class="counter" <b>data-v-a5afa5a3</b>&gt;
+  &lt;button class="<b>button_a5afa5a3_1</b>"&gt;</pre></div>
+      <div class="out k-react"><div class="t">React component<em>imported from a .tsx file</em></div>
+<pre>&lt;div class="counter" <b>data-v-a5afa5a3</b>&gt;
+  &lt;button class="<b>button_a5afa5a3_1</b>"&gt;</pre></div>
+    </div>
+  </div>
+</div>
+</body></html>
