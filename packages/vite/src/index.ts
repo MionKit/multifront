@@ -25,9 +25,8 @@ export {getVueCompiler} from './vueCompiler.ts';
 // After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
 const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 const REACT_ID = /\.ucf\.react\.tsx$/;
-// The helper id holds no regex metacharacter.
-const SCOPE_HELPER = new RegExp(`^${SCOPE_HELPER_ID}$`);
-const SCOPE_HELPER_MODULE = new RegExp(`^\\0${SCOPE_HELPER_ID}$`);
+// The import and its resolved `\0` id; the helper id holds no regex metacharacter.
+const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
 
 function splitId(id: string): {path: string; query: URLSearchParams} {
   const queryStart = id.indexOf('?');
@@ -122,7 +121,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       },
     },
     load: {
-      filter: {id: [/\.ucf/, SCOPE_HELPER_MODULE]},
+      filter: {id: [/\.ucf/, SCOPE_HELPER]},
       async handler(id) {
         // Dev exports the fragment warning too, as `react.build` calls it only in dev.
         if (id === `\0${SCOPE_HELPER_ID}`) return scopeHelperCode(!config!.isProduction);

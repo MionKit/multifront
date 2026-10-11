@@ -1,0 +1,10 @@
+<react>
+  // The body declares `props` again, so a spread at a root could read the wrong one: no forwarding.
+  export default function ShadowedProps(props: { branch?: string }) {
+    if (props.branch === 'inner') {
+      const props = { branch: 'shadow' }
+      return <div className="shape">{props.branch}</div>
+    }
+    return <p className="shape">outer</p>
+  }
+</react>

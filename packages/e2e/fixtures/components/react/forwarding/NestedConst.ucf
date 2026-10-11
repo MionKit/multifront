@@ -1,0 +1,15 @@
+<react>
+  function track(value: unknown) {
+    return value
+  }
+
+  // Only a top-level `const` is followed: the `root` this return reads is the `let`, not the nested `const`.
+  export default function NestedConst(props: { branch?: string }) {
+    let root = <p className="shape">let</p>
+    if (props.branch === 'nested') {
+      const root = <span className="inner">nested</span>
+      track(root)
+    }
+    return root
+  }
+</react>

@@ -9,8 +9,6 @@ import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-scope');
 const STAMPED = componentPath('react/scope/Stamped.ucf');
-const RELATIVE = relative(ROOT, STAMPED).split(sep).join('/');
-const SOURCE = readFileSync(STAMPED, 'utf8');
 const PARENT = join(ROOT, 'Parent.ucf');
 const MULTI_RETURN = componentPath('react/shapes/MultiReturn.ucf');
 
@@ -91,7 +89,7 @@ describe.each([
   ['dev', startDev, false],
   ['preview', buildAndPreview, true],
 ] as const)('react-scope in %s', (_mode, serve, production) => {
-  const attribute = `data-v-${scopeId(RELATIVE, SOURCE, production)}`;
+  const attribute = attributeOf(STAMPED, production);
   let app: {url: string; close(): Promise<void>} | undefined;
 
   beforeAll(async () => {

@@ -1,0 +1,10 @@
+import "<fixtures>/components/react/forwarding/ClassRoot.ucf?ucf&type=style&index=0&lang.css";
+
+  import { Component } from 'react'
+
+  // Class components are stamped but not forwarded.
+  export default class ClassRoot extends Component<{ branch?: string }> {
+    render() {
+      return <div data-v-66f3d1ed="" className="shape"><span data-v-66f3d1ed="" className="inner">class</span></div>
+    }
+  }
