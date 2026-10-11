@@ -12,7 +12,7 @@ How we build [the spec](spec.md). How the pieces fit: [architecture.md](architec
 | `packages/vscode` | The VS Code extension (Marketplace and Open VSX, not npm). Bundles `language-tools`; the one package not built by plain `tsc`. | exists |
 | `packages/e2e` | Private, never published or built: the cross-package e2e tests, one folder per area, and the shared fixtures. | milestone 1 |
 
-`@multifront/vite` also gets the library build (milestone 5): it is one Vite build per target, so it needs the plugin anyway.
+`@multifront/vite` also gets the library build (milestone 6): it is one Vite build per target, so it needs the plugin anyway.
 
 **Why this split.** Packages follow who installs them and why. A package is added only when its milestone starts and needs it:
 
@@ -60,7 +60,7 @@ Three unknowns can change the design. Each gets a throwaway spike before its mil
 
    **Answers** (milestone 3.1, run on Vite 8.2.2, `@vitejs/plugin-react` 6.1.1, `@vitejs/plugin-vue` 6.0.8 with Vue 3.5.42, Svelte 5.57.0 with `@sveltejs/vite-plugin-svelte` 7.3.0, oxc-parser 0.149.0, Node 26.11.1). A recording post plugin read the code each importer reaches post plugins with:
 
-   1. **Every compiler keeps the attribute.** `a.ts` and `b.tsx` (Oxc, plus plugin-react), `C.vue` (`<script setup lang="ts">` and a sibling `<script lang="ts">`), `D.vue` (plain `<script>`) and `E.svelte` (`<script lang="ts">` and `<script module lang="ts">`) keep `with { framework: 'react' }` on a static import, `export … from`, `export * from` and `import()`, in dev (`transformRequest`), dev SSR, a build and an SSR build. No change to spec 4.4, the architecture or M4 / M6: the post rewrite sees every importer kind. In a build, `C.vue`'s script reaches post plugins as `C.vue?vue&type=script&setup=true&lang.ts`, which 3.7's "with or without a query" covers.
+   1. **Every compiler keeps the attribute.** `a.ts` and `b.tsx` (Oxc, plus plugin-react), `C.vue` (`<script setup lang="ts">` and a sibling `<script lang="ts">`), `D.vue` (plain `<script>`) and `E.svelte` (`<script lang="ts">` and `<script module lang="ts">`) keep `with { framework: 'react' }` on a static import, `export … from`, `export * from` and `import()`, in dev (`transformRequest`), dev SSR, a build and an SSR build. No change to spec 4.4, the architecture or M4 / M5: the post rewrite sees every importer kind. In a build, `C.vue`'s script reaches post plugins as `C.vue?vue&type=script&setup=true&lang.ts`, which 3.7's "with or without a query" covers.
    2. **The rewrite is needed even where Vite seems to cope.** Without it, Vite's import analysis drops the attribute of static imports and re-exports, but keeps `{ with: { framework } }` on `import()` in the dev output, client and SSR: the browser and Node would get it.
    3. **Check 1 fails: Vite cannot compile `/abs/Card.ucf?target=react&lang.tsx` in dev.** With plugin-react (6.0.0, 6.0.5, 6.1.0, 6.1.1), dev and dev SSR fail with `[PARSE_ERROR] Unexpected JSX expression`. Vite's `getModifiedOxcTransformOptions` (`dist/node/chunks/node.js:4145`) sets `lang: 'js'` for an id that matches plugin-react's `jsxRefreshInclude` (query allowed) while its path is not a JS file. Adding `/\.ucf$/` to plugin-react's `include` changes nothing; builds work. **Decision:** the React id is `/abs/Card.ucf.react.tsx` (spec 4.3), the same name as the editor's virtual script. It gets JSX and Fast Refresh in dev on every plugin-react 6.x, so the peer range starts at 6.0.0. The Svelte id follows for the same reason: plugin-svelte 7.3.0 leaves `/abs/Card.ucf?target=svelte&lang.svelte` uncompiled and compiles `/abs/Card.ucf.svelte.svelte` with its default filter. Cost: these ids name no file on disk, so `load` adds the `.ucf` file as a watch file and `hotUpdate` maps a change to the modules by id.
    4. **Check 2: the scanner needs a scan plugin.** Our `resolveId` gets `options.scan === true`. Returning `/abs/Card.ucf.react.tsx` during the scan, the scanner reads that path from disk and fails ("Failed to scan for dependencies"); returning it as external, a bare import found only in a `<react>` block is optimized after the first load ("dependency optimized: react-dom/client", a reload). **Decision:** our plugin adds an `optimizeDeps.rolldownOptions.plugins` entry whose `load` serves the `<react>` block as `moduleType: 'tsx'` for `/\.ucf\.react\.tsx$/` (those plugins run before Vite's scan plugins). Then the dep is optimized at startup and nothing is optimized late (3.6, 3.14). The scan's `resolveId` gets no import attributes from Rolldown, so the same entry's `transform` runs `rewriteImportAttributes` on importers first: a `.ucf` picked only by `with { framework }` is scanned too.
@@ -146,18 +146,20 @@ transform stays; the CSS-modules-only fallback is not needed. Each go criterion 
 - Tests: dev, build, SSR, a cache miss after restart, and one app importing the same file as React and Vue.
 - Every test also runs at the bottom of the Vue ranges (`vue-floor` CI job).
 
-### 5. Library build
+### 5. Svelte target
+
+- `Card.ucf.svelte.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
+- Editor: `Card.ucf.svelte.ts` through `svelte2tsx`, for `.svelte` importers and the `<svelte>` block's types.
+
+### 6. Library build
+
+Comes after every target exists, so the per-target table is designed once for React, Vue and Svelte.
 
 - In `@multifront/vite`: one Vite library build per target with `framework` set, one JS file per component, real CSS files plus a combined `styles.css`.
 - `"use client"` re-added per output file when the component uses hooks or event handlers.
 - Types: `.d.ts` per target from the per-target virtual scripts. Writes each target's `package.json` with exports, types and peer deps only.
-- Exit check: the packed React build works in a fresh Next.js App Router app and a fresh Vite React app.
-
-### 6. Svelte target
-
-- `Card.ucf.svelte.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
-- Editor: `Card.ucf.svelte.ts` through `svelte2tsx`, for `.svelte` importers and the `<svelte>` block's types.
-- Library output: uncompiled `.svelte` files + processed CSS + `.d.ts`.
+- Svelte output: uncompiled `.svelte` files + processed CSS + `.d.ts`, the `svelte-package` layout.
+- Exit check: the packed packages work in a fresh Next.js App Router app, fresh Vite React and Vue apps, and a fresh SvelteKit app.
 
 ### 7. Full editor support
 

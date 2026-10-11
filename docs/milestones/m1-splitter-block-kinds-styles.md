@@ -273,7 +273,7 @@ None: this is the first milestone. It builds on what the repo already has:
       grammar: BlockGrammar;
       check(block: Block, split: SplitResult): Diagnostic[];
       fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
-      build?(block: Block, ctx: BuildContext): VirtualFile;           // style now; react in M3, vue in M4, svelte in M6
+      build?(block: Block, ctx: BuildContext): VirtualFile;           // style now; react in M3, vue in M4, svelte in M5
     }
 
     export interface VirtualFile {
@@ -341,24 +341,24 @@ None: this is the first milestone. It builds on what the repo already has:
 
 | Name | Exact shape or location | Used by |
 | --- | --- | --- |
-| `splitBlocks(source, filename): SplitResult` | `@multifront/core` | M2 (language plugin), M3 (Vite plugin, cached per file), M4, M6, M7 (`mf-fmt`, `mf-lint`) |
+| `splitBlocks(source, filename): SplitResult` | `@multifront/core` | M2 (language plugin), M3 (Vite plugin, cached per file), M4, M5, M7 (`mf-fmt`, `mf-lint`) |
 | `checkBlocks(split): Diagnostic[]` | `@multifront/core` | M2 (server diagnostics), M3 (Vite build errors), M7 (`mf-tsc`) |
 | `Block`, `BlockTag`, `BlockRole`, `SplitResult` | types in 1.2 | M2 to M7 |
-| `Diagnostic`, `DiagnosticCode` | type in 1.3. Later milestones add codes to the same union (for example M3's `framework` attribute error) | M2, M3, M4, M6, M7 |
-| `BlockKind`, `BLOCK_KINDS`, `getBlockKind(tag)` | `packages/core/src/blocks/index.ts`, order `style, vue, react, svelte` | M2 (grammar generation, the language-tools registry with the same tags), M3, M4, M6 (fill `build`) |
-| Empty `build` slots | `blocks/react.ts` (M3), `blocks/vue.ts` (M4), `blocks/svelte.ts` (M6). Once M6 lands, `build` may become required | M3, M4, M6 |
+| `Diagnostic`, `DiagnosticCode` | type in 1.3. Later milestones add codes to the same union (for example M3's `framework` attribute error) | M2, M3, M4, M5, M7 |
+| `BlockKind`, `BLOCK_KINDS`, `getBlockKind(tag)` | `packages/core/src/blocks/index.ts`, order `style, vue, react, svelte` | M2 (grammar generation, the language-tools registry with the same tags), M3, M4, M5 (fill `build`) |
+| Empty `build` slots | `blocks/react.ts` (M3), `blocks/vue.ts` (M4), `blocks/svelte.ts` (M5). Once M5 lands, `build` may become required | M3, M4, M5 |
 | `BlockGrammar`, `GrammarScope` | `kind.grammar` with `scopeName`, `languageId`, `byLang` (1.6) | M2 (TextMate grammar and `embeddedLanguages` of `packages/vscode`) |
-| `VirtualFile`, `SourceMap` | types in 1.8 and 1.9, `packages/core/src/types.ts` | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M6 |
-| `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.ucf` source | M3, M6 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.ucf` path and `.ucf` source, ignoring the SFC code plugin-vue passes) |
+| `VirtualFile`, `SourceMap` | types in 1.8 and 1.9, `packages/core/src/types.ts` | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M5 |
+| `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.ucf` source | M3, M5 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.ucf` path and `.ucf` source, ignoring the SFC code plugin-vue passes) |
 | `compileStyles(blocks, options): Promise<CompiledStyle[]>` | `@multifront/core`, 1.8 | through `createBuildContext` in M3, M5, M6; M2 may call it for `$style` class names |
-| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `filename`, `split`, `relativePath`, `source`, `production`, `compiler`, `scopeId`, `hasScoped`, `styles`, `modules` of `StyleModule`); types in `types.ts` | M3 (React build), M5 (CSS files), M6 (Svelte build) |
-| `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M6 |
-| `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
+| `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `filename`, `split`, `relativePath`, `source`, `production`, `compiler`, `scopeId`, `hasScoped`, `styles`, `modules` of `StyleModule`); types in `types.ts` | M3 (React build), M5 (Svelte build), M6 (CSS files) |
+| `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M5 |
+| `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M6, M5 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |
 | `oxc-parser` | exact-pinned dependency of `@multifront/core` (`0.149.0`) | M3 (scope transform) |
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2), `hasClass(css, name)` (1.10, a class selector check shared with core's style tests) | M2 to M7 |
-| Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (library build input), M6 (`<svelte>` blocks of Card, Button) |
+| Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (`<svelte>` blocks of Card, Button), M6 (library build input) |
 | Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ReactTypeOnlyDefault`, `ReactTypeOnlyDefaultForms`, `ScssSyntaxError`, `CssSyntaxError`, `ScssPartialError` (with `_broken-partial.scss`), `MissingPreprocessor` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
 | Style lang components | `fixtures/components/langs/`: `SassIndented.ucf`, `PostcssPlain.ucf` (style langs the other fixtures do not use) | M2 (style grammars), M3, M5, M6 (CSS builds) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
@@ -398,7 +398,7 @@ None: this is the first milestone. It builds on what the repo already has:
 - `types` and `editor` halves, `packages/language-tools`, `packages/vscode` (milestone 2 and later).
 - HMR, SSR and the browser area (milestone 3 onward).
 - `v-bind()` in CSS for React and Svelte, `<style src="…">`, target-only `<style>` (open questions in the spec).
-- The library build and the consumer area (milestone 5).
+- The library build and the consumer area (milestone 6).
 
 ## Manual QA
 

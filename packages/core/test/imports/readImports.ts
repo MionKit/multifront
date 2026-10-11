@@ -33,7 +33,7 @@ export function scriptsOf(fileName: string, source: string): Script[] {
       .map((script) => ({code: script.content, offset: script.loc.start.offset, lang: script.lang === 'tsx' ? 'tsx' : 'ts'}));
   }
   if (fileName.endsWith('.svelte')) {
-    // svelte/compiler arrives with the Svelte target (M6); the instance script is all an import can sit in.
+    // svelte/compiler arrives with the Svelte target (M5); the instance script is all an import can sit in.
     const script = /<script\b[^>]*>([\s\S]*?)<\/script>/.exec(source);
     if (!script) return [];
     const lang = /\blang=["']ts["']/.test(script[0]) ? 'ts' : 'js';

@@ -10,8 +10,8 @@ What we build: [../spec.md](../spec.md). How the pieces fit: [../architecture.md
 | 2. Editor basics | [m2-editor-basics.md](m2-editor-basics.md) |
 | 3. React target and imports (go / no-go) | [m3-react-and-imports.md](m3-react-and-imports.md) |
 | 4. Vue target | [m4-vue-target.md](m4-vue-target.md) |
-| 5. Library build | [m5-library-build.md](m5-library-build.md) |
-| 6. Svelte target | [m6-svelte-target.md](m6-svelte-target.md) |
+| 5. Svelte target | [m5-svelte-target.md](m5-svelte-target.md) |
+| 6. Library build | [m6-library-build.md](m6-library-build.md) |
 | 7. Full editor support | [m7-full-editor-support.md](m7-full-editor-support.md) |
 
 ## Testing rules
@@ -52,7 +52,7 @@ Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only b
 | Fixture configs from source | M3 (3.6) | fixture apps' `vite.config.ts` load through `configLoader: 'native'` (`buildApp`), in an e2e worker run with `--conditions=source`, so `@multifront/vite` comes from `src/`, never a stale `dist/` |
 | Browser | M3 (3.9) | `pnpm exec playwright install --with-deps chromium` in CI, the browser folder cached by Playwright version |
 | Oldest supported framework | M3 (3.9) | `pnpm devx peer-floor <framework>` and one CI job per framework (`react-floor` first, `vue-floor` in M4 4.7) running `pnpm devx test` on the bottom of the peer range |
-| Consumer | M5 | a job that builds and packs once and hands the tarballs to the consumer jobs, a shared pnpm store; later a local registry for packed packages that depend on each other |
+| Consumer | M6 | a job that builds and packs once and hands the tarballs to the consumer jobs, a shared pnpm store; later a local registry for packed packages that depend on each other |
 
 The reference for all of it is [MionKit/mion](https://github.com/MionKit/mion)'s `.github/workflows/`: the same tooling, already solving most of this (packed tarballs through a local verdaccio registry, fuzz soak runs with a printed seed, jobs that pass artifacts). Copy its pattern before inventing one. Neither repo runs a browser or VS Code in CI yet: those two are new.
 
@@ -64,7 +64,7 @@ Decided when the seven documents were checked against each other. Where a docume
 
 - **Fixture names are unique** across `fixtures/components/`, so a name always means one file. Edge cases for one target live in that target's folder (`react/`, `vue/`, `svelte/`).
 - **Shared fixtures grow a block at a time.** `Card.ucf`, `Panel.ucf` (M1), `Counter.ucf` (M3) and `imports/` (`Icon`, `UsesIcon`, `VueOnly`, `ReactOnly`) get a new target block in the milestone that adds that target. That milestone updates the snapshots the file feeds.
-- **One imports fixture set:** `fixtures/apps/imports/` with `expected.ts` (M2). M3, M4 and M6 add rows and sub-projects; the build and the editor must both match every row.
+- **One imports fixture set:** `fixtures/apps/imports/` with `expected.ts` (M2). M3, M4 and M5 add rows and sub-projects; the build and the editor must both match every row.
 - **Test helpers** live in `<area>/lib/` (`editor/lib/`, `browser/lib/`, `consumer/lib/`). Temp copies come from M1's `copyApp()`, with the shared `components/` beside the app so relative `.ucf` imports work; `removeApp()` deletes one.
 - **Test tools are root devDependencies** (AGENTS.md), never `packages/e2e` ones.
 - **Core names:** `BuildContext` (M1, with `split`), `buildTarget(split, ctx, target)` (M3), `resolveTarget(importer, attribute, options)` with `Importer` and `TargetChoice` (M2, extended by M3), `importerFromId(id)` (M3), `getTypesScript()` (M2), `classMapId()` / `styleId()` (M1).

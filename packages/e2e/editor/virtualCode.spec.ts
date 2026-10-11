@@ -139,7 +139,7 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
       else expect([textOf(script.code), script.code.mappings]).toEqual(['export {};\n', []]);
     });
 
-    // M5 emits `.d.ts` files with getTypesScript: they must be what the editor shows.
+    // M6 emits `.d.ts` files with getTypesScript: they must be what the editor shows.
     it('getTypesScript gives the react code and its mappings', () => {
       const react = byId.get('react');
       const types = getTypesScript(filename, source, 'react', {compiler});

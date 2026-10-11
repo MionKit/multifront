@@ -8,7 +8,7 @@ import {APP_DIR, CARD, edit, onLine, PLUGIN, readApp} from './lib/cases.ts';
 import {E2E_DIR, locate, open, startTsserver, tsLocation, VUE_PLUGIN, VUE_PLUGIN_DIR} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// tsserver serves no .svelte importer before M6; mixed.ts has its own cases in tsserver.spec.ts.
+// tsserver serves no .svelte importer before M5; mixed.ts has its own cases in tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
 // Alone as React-only projects run it; beside Vue's as Vue - Official reads `.vue` importers, on one shared Volar copy.
 const SETUPS = [

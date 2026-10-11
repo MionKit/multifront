@@ -111,7 +111,7 @@ export function resolveUcfImport(
     const resolvedFileName = targetScriptName(fileName, target);
     return {resolvedModule: {resolvedFileName, extension: ts.Extension.Ts, isExternalLibraryImport}, target};
   }
-  // Svelte gets its script in M6.
+  // Svelte gets its script in M5.
   if (target !== MAIN_SCRIPT_TARGET) {
     const path = importPath(containingFile, fileName);
     const reason = RULE_REASON[rule];
