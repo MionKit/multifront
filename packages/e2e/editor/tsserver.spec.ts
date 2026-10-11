@@ -18,7 +18,7 @@ import {
   PLUGIN,
   readApp,
 } from './lib/cases.ts';
-import {inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
+import {E2E_DIR, inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
 type Completions = ts.server.protocol.CompletionInfo;
@@ -180,7 +180,15 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
     await copyFile(CARD.filename, card.filename);
     importer = {filename: join(dir, 'default.ts'), source: "import Card from './Card.ucf';\n\nexport {Card};\n"};
     await writeFile(importer.filename, importer.source);
-    server = startTsserver({cwd: dir, plugins: [PLUGIN]});
+    // As pnpm's bin shim sets it: the tsserver must not inherit this way into the repo's packages.
+    const nodePath = process.env.NODE_PATH;
+    process.env.NODE_PATH = join(E2E_DIR, '..', '..', 'node_modules', '.pnpm', 'node_modules');
+    try {
+      server = startTsserver({cwd: dir, plugins: [PLUGIN]});
+    } finally {
+      if (nodePath === undefined) delete process.env.NODE_PATH;
+      else process.env.NODE_PATH = nodePath;
+    }
     await open(server, [card, importer]);
   });
 
