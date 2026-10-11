@@ -1,6 +1,7 @@
+import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
-import {multifront} from '@multifront/vite';
+import {getVueCompiler, multifront} from '@multifront/vite';
 import {createLogger, createServer, type InlineConfig, type PluginOption} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
@@ -79,6 +80,8 @@ it('still compiles the .ucf file as Vue after a dev server restart with the same
     const result = await server.environments.client.transformRequest(`/@fs${counter}`);
     expect(errors).toEqual([]);
     expect(result?.code).toMatch(/__name: ["']Counter["']/);
+    // The restart's `buildStart` must not wrap plugin-vue's compiler a second time.
+    expect(getVueCompiler(server.config.plugins, root)).toBe(createRequire(import.meta.url)('vue/compiler-sfc'));
   } finally {
     await server.close();
   }

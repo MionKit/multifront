@@ -22,7 +22,7 @@ import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
-import {VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript} from './vueTarget.ts';
+import {VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript, wrapVueCompiler} from './vueTarget.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
@@ -108,6 +108,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       config = resolved;
       composeVuePlugin(resolved, ucfScopeId);
     },
+    buildStart: {
+      order: 'post',
+      handler() {
+        wrapVueCompiler(config!.plugins, cache.sourceBehind);
+      },
+    },
     buildEnd() {
       vueCompiler = undefined;
     },
@@ -190,7 +196,10 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       filter: {id: VUE_INCLUDE},
       async handler(code, id) {
         if (!hasVuePlugin(config!.plugins)) this.error(`${id}: ${VUE_PLUGIN_MISSING}`);
-        return built(this, await cache.contextOf(cache.updateUcf(id, code)), 'vue');
+        const version = cache.updateUcf(id, code);
+        const sfc = built(this, await cache.contextOf(version), 'vue');
+        version.sfc = sfc.code;
+        return sfc;
       },
     },
     api,
