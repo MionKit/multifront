@@ -66,7 +66,7 @@ function withSource(map: SfcMap, file: string | undefined, code: string, sourceB
   });
 }
 
-/** Call from a `buildStart` after plugin-vue's: its sub-request maps hold the blanked SFC code, devtools need the `.ucf`. */
+/** After plugin-vue's `buildStart`: its sub-request maps hold the blanked SFC code; devtools need the `.ucf`. */
 export function wrapVueCompiler(plugins: readonly Plugin[], sourceBehind: SourceBehind): void {
   const api = plugins.find((plugin) => plugin.name === VUE_PLUGIN_NAME)?.api as VuePluginApi | undefined;
   const compiler = api?.options.compiler;

@@ -38,7 +38,7 @@ export function createUcfCache(contextOptions: () => BuildContextOptions) {
     },
     // The source Vite's `hotUpdate` read.
     updateUcf: store,
-    // For plugin-vue's maps: the source behind `code` while it is the file's latest SFC code.
+    // For plugin-vue's source maps.
     sourceBehind(file: string, code: string): string | undefined {
       const latest = files.get(file);
       return latest?.sfc === code ? latest.source : undefined;
