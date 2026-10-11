@@ -24,7 +24,6 @@ beforeEach(async () => {
   return () => removeApp(root);
 });
 
-/** The dev client main module of `file` after each save in `sources` hot-updated it: its code, or its error message. */
 function mainAfterSaves(file: string, sources: string[], config: InlineConfig = {}) {
   const hot = hotUpdatesOf(file);
   return withDevServer(root, mergeConfig(config, {plugins: [hot.plugin]}), async (server) => {

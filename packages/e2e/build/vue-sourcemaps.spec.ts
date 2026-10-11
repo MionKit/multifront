@@ -101,7 +101,6 @@ describe('a production build of the vue app with build.sourcemap', () => {
   });
 });
 
-/** The scoped style sub-module's CSS on a dev server with `css.devSourcemap`, after `edit` hot-updated Counter.ucf. */
 function devStyleCss(copy: string, edit?: (source: string) => string): Promise<string> {
   const file = join(copy, COUNTER_PATH);
   const hot = hotUpdatesOf(file);
@@ -119,7 +118,6 @@ function devStyleCss(copy: string, edit?: (source: string) => string): Promise<s
   });
 }
 
-/** The rule `.counter` of `css` maps to its line in `source`, which is the map's text. */
 function expectRuleMapped(css: string, source: string): void {
   const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
   const raw = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;

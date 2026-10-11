@@ -192,7 +192,7 @@ export function vueHmrPlugin(cache: UcfCache, vueOf: () => {compiler: VueCompile
       const version = cache.updateUcf(file, await ctx.read());
       const sfc = vueSfcCode(version.source, version.split.blocks, file).code;
       version.sfc = sfc;
-      // plugin-vue's hook runs next on this same context (and so does every later `handleHotUpdate`).
+      // plugin-vue's hook and every later `handleHotUpdate` run next on this same context.
       ctx.read = () => sfc;
       const change = hotChange(vue.compiler, vue.options, file, before, sfc);
       if (change.rerenderOnly) rerenderOnly.add(file);

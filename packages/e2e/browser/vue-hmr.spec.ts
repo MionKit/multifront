@@ -105,7 +105,6 @@ describe('HMR of a Vue .ucf component (apps/vue, Counter clicked to 3)', () => {
     await expect.poll(() => page.locator(`${COUNTER} .label`).textContent(), POLL).toBe('function');
     await requests.quiet(500);
 
-    // Mounted again from its start of 2.
     expect(await count()).toBe('2');
     expect(payloads.updatedPaths()).toEqual([counterUrl]);
     expect(payloads.fullReloads()).toBe(0);

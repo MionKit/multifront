@@ -79,7 +79,6 @@ function hmrApp(plugins: () => Plugin[]) {
       if (id === `${state.file}?raw`) return 'raw';
       const match = /^.*\?ucf&type=style&index=(\d+)(&module)?&lang\.(css|js)$/.exec(id);
       if (match) return `${match[2] ? 'map' : 'css'}${match[1]}`;
-      // plugin-vue's own style sub-module.
       const vueStyle = /^.*\?vue&type=style&index=(\d+)&/.exec(id);
       return vueStyle ? `vue-css${vueStyle[1]}` : id;
     });
