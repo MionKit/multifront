@@ -70,7 +70,7 @@ From **M3** (React target and imports):
 New dependencies, all exact-pinned. Each one arrives with the step that first imports it:
 
 - `@vue/language-core` 3.3.11 (4.3), `@vue/language-service` 3.3.11 and `@vue/typescript-plugin` 3.3.11 (4.12) as dependencies of `@multifront/language-tools`. Spike 2 ran on them. All three use `@volar/*` 2.4.28, and `@vue/language-service` uses `volar-service-*` 0.0.71: the versions M2 pins. `@vue/typescript-plugin` also brings `vue-component-meta` 3.3.11. The server runs `@vue/language-service`'s plugins, and our TypeScript plugin calls `@vue/typescript-plugin`'s request functions (4.12).
-- `@vue/server-renderer` 3.5.42 (the root `vue` version, 4.8) and `@vue/typescript-plugin` 3.3.11 (4.14) as root devDependencies, for tests: 4.14 loads Vue's plugin from its own install folder.
+- `@vue/typescript-plugin` 3.3.11 (4.14) as a root devDependency, for tests: 4.14 loads Vue's plugin from its own install folder. SSR (4.8) needs none: `vue/server-renderer` ships inside the root `vue`, so the `vue-floor` job renders with the floor's own copy.
 
 ## Steps
 
@@ -206,13 +206,16 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 ### 4.8 SSR
 
-- Build: `packages/e2e/fixtures/apps/vue/` gains `entry-server.ts` (`createSSRApp` and `renderToString` from `vue/server-renderer`), `entry-client.ts` (hydrate) and a small `server.ts` in Vite middleware mode. No change to `@multifront/vite` is expected. Any fix found here lands in this step.
+- Build: `packages/e2e/fixtures/apps/vue/` gains `entry-server.ts` (`createSSRApp` and `renderToString` from `vue/server-renderer`), `entry-client.ts` (hydrate) and a small `server.ts` in Vite middleware mode. No change to `@multifront/vite` was needed.
+  - `server.ts` (run as `node --conditions=source server.ts`) serves dev SSR only: `GET /` renders through `ssrLoadModule()` into a template inline in `server.ts`, its HMR websocket shares the server's port, and it prints `ssr server: <url>` once it listens on port 0. `index.html` and `src/main.ts` stay the client-only app (a hydrating entry there would warn on its empty container).
+  - `build/lib/freshProcess.ts` gains `startNode()` (under `startViteCli()`), `finished()` on its handle (exit code 0) and `startSsrServer(root)`.
 - Deliverable: the Vue target renders on the server and hydrates on the client.
 - Test:
   - `packages/e2e/build/vue-ssr.spec.ts`:
-    - dev SSR through `server.ssrLoadModule()` in a fresh process: the HTML holds the Counter markup with the same `data-v-*` as the client build;
-    - a production client build and an SSR build (`vite build --ssr`), as two separate processes: render the SSR bundle with Node, and check that its `data-v-*` matches the client CSS.
-  - `packages/e2e/browser/vue-hydration.spec.ts`: Playwright loads the SSR page and clicks the counter. The count goes up, and the console has no hydration mismatch warning.
+    - dev SSR through `server.ssrLoadModule()` in a fresh process (`startSsrServer()`, `GET /` first): the HTML holds the Counter markup with the same `data-v-*` as the client module App.vue imports;
+    - a production client build and an SSR build (`vite build --ssr`), as two separate processes: render the SSR bundle with Node, and check that its `data-v-*` and `$style.button` class match the client CSS.
+  - `packages/e2e/browser/vue-hydration.spec.ts`: Playwright loads the SSR page from `server.ts` (the markup is in the response) and clicks the counter. The count goes up, and the console has no warning or error (a hydration mismatch is both).
+- Status: done
 
 ### 4.9 HMR for the Vue target
 

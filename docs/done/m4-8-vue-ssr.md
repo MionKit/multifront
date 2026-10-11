@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.8
@@ -23,8 +23,7 @@ Checked on this host (Vite 8.2.2, plugin-vue 6.0.8, vue 3.5.42) with throwaway p
 - Production: `build({build: {ssr: 'src/App.vue'}})` + a client `build()`, rendered with plain Node: `data-v-a5afa5a3`
   in the HTML, `.counter[data-v-a5afa5a3]` in the client CSS.
 
-So no `@multifront/vite` change is expected. Hydration in a real browser was not run yet; a fix it needs lands here
-(own commit, own test).
+Hydration in Chromium passed on the first run too: no `@multifront/vite` change was needed.
 
 ## Decisions
 
@@ -56,7 +55,6 @@ So no `@multifront/vite` change is expected. Hydration in a real browser was not
    - the handle gains `finished()`: resolves with the output on exit code 0, rejects with it otherwise;
    - new `startSsrServer(root)`: `startNode(root, ['server.ts'], {NODE_ENV: 'development'})`, waits for the
      `ssr server: (\S+)` line, returns the handle plus `url`.
-5. Any fix found: in `packages/vite/src/`, own commit, own test.
 
 ## Tests
 
@@ -68,7 +66,8 @@ child processes (4.7) and Playwright Chromium (3.9) are there. Each spec uses it
 `packages/e2e/build/vue-ssr.spec.ts`:
 
 - **Dev SSR in a fresh process**: `startSsrServer(copy)`; the first request is `GET /` (`ssrLoadModule()` on a cold
-  plugin-vue cache), then `GET /@fs<copy>/…/Counter.ucf` (the client module). 200; the HTML has
+  plugin-vue cache), then the client module: the `Counter.ucf` URL Vite wrote into the served `/src/App.vue` (a bare
+  `GET /@fs/…/Counter.ucf`, with no `?import`, gets the raw file as a static asset). 200; the HTML has
   `<div class="counter" data-v-<id>>` and the button with `2` (App passes `:start="2"`); `<id>` equals
   `exportedScopeId()` of the client module and the dev `scopeId()`; no `/error/i` in the server output.
 - **Production, two processes**: `vite build --outDir dist/client` and
@@ -83,7 +82,8 @@ child processes (4.7) and Playwright Chromium (3.9) are there. Each spec uses it
   Counter markup with the dev `data-v-*` and `2` (server-rendered, not a client render);
 - wait until `#app` has `__vue_app__` (Vue sets it on mount in every build); click: `expect.poll` sees `3`;
 - no `warning`, `error` or `pageerror` in the console (Vue's dev hydration mismatch is a `[Vue warn]` warning plus a
-  `console.error` "Hydration completed but contains mismatches.").
+  `console.error` "Hydration completed but contains mismatches."). Measured live: a throwaway copy whose
+  `entry-server.ts` rendered `Clucks` for `Clicks` failed on exactly those two entries.
 
 ## Docs
 
@@ -100,6 +100,5 @@ child processes (4.7) and Playwright Chromium (3.9) are there. Each spec uses it
 ## Done when
 
 - Both specs pass on this host and in CI; CI log lines show them executing.
-- Any fix found has its own commit and a test that fails without it.
 - `pnpm devx check` green; milestone doc updated; todo moved to `docs/done/`.
 - The simplify-comments pass ran on every touched source file, committed on its own.
