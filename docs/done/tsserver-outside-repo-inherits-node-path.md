@@ -44,12 +44,20 @@ None, because this is test infra only.
 
 - `startTsserver` in `packages/e2e/editor/lib/tsserver.ts` spawns tsserver with `env: {...process.env, NODE_PATH: undefined}`,
   for every case: no in-repo case needs `NODE_PATH`, as `pnpm devx test` and CI already run without it.
-- Other helpers that spawn a process outside the repo (`devx/launch.spec.ts`, `editor/lib/vsix.ts`, `editor/vsix.spec.ts`)
-  checked: devx finds tools by file path, never through `NODE_PATH`, and they pass under the bin shim. No change.
+- Other helpers that spawn a process outside the repo:
+  - `editor/lib/lsp.ts`: `@volar/test-utils` forks the language server with `process.env`, and `bundle.spec.ts` runs the
+    bundled server from a `.vsix` unpacked in `os.tmpdir()`, so a missing bundled dependency could hide behind `NODE_PATH`.
+    `startLanguageServer` now drops `NODE_PATH` around the fork (save and restore, like its `NODE_OPTIONS`).
+  - `editor/lib/vscode.ts`: `runTests` spawns VS Code with `{...process.env, ...extensionTestsEnv}` for an extension in
+    `os.tmpdir()`; `extensionTestsEnv` now sets `NODE_PATH: undefined`.
+  - `devx/launch.spec.ts`, `editor/lib/vsix.ts`, `editor/vsix.spec.ts`: devx finds tools by file path, never through
+    `NODE_PATH`. No change.
+- Review finding: CI starts Vitest without the shim, so nothing failed there without the fix. The outside-repo case now
+  sets `NODE_PATH` as the shim does around `startTsserver`, so it fails under `pnpm devx test` when the fix is reverted.
 
 ## What shipped
 
 - Cause: `node_modules/.bin/vitest` (pnpm's bin shim) exports `NODE_PATH=…/node_modules/.pnpm/node_modules:…`; the spawned
   tsserver inherited it, so the project in `os.tmpdir()` resolved `@vue/compiler-sfc`.
-- Fix as planned. The case passes under `pnpm vitest run --project e2e packages/e2e/editor/tsserver.spec.ts` and
+- Fix as planned, in `tsserver.ts`, `lsp.ts` and `vscode.ts`. The case passes under `pnpm vitest run --project e2e packages/e2e/editor/tsserver.spec.ts` and
   `pnpm devx test`; the other tsserver suites (`bundle`, `imports`, `blockImports`) pass under the bin shim too.
