@@ -1,4 +1,4 @@
-// Milestone 4's exit test: Counter.ucf as Vue through real Vite, plugin-vue, Chromium and tsserver with Vue's plugin.
+// Milestone 4 exit test: Counter.ucf as Vue through real Vite, plugin-vue, Chromium and tsserver.
 import {readFileSync, writeFileSync} from 'node:fs';
 import {readFile, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
@@ -21,14 +21,14 @@ import {buildAndPreview, localUrl} from './lib/serve.ts';
 const DEMO = join(FIXTURES_DIR, 'apps', 'demo');
 const COUNTERS = {react: '#app [data-demo="counter"] > .counter', vue: '#vue > .counter'};
 const PROPERTIES = ['padding', 'color', 'font-size', 'border'];
-// Counter's root, its title and its button.
+// Counter's root, label and button.
 const PARTS = ['', ' .label', ' button'];
 const POLL = {timeout: 10_000};
 
 const problems = (messages: ReturnType<typeof collectConsole>) =>
   messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
 
-/** Rewrites a copy's file; a needle that is gone fails here, not as a test of the file unchanged. */
+/** Throws on a missing needle, so no test runs against the file unchanged. */
 async function replaceIn(file: string, pairs: [needle: string, text: string][]): Promise<void> {
   let source = await readFile(file, 'utf8');
   for (const [needle, text] of pairs) {
@@ -38,7 +38,7 @@ async function replaceIn(file: string, pairs: [needle: string, text: string][]):
   await writeFile(file, source);
 }
 
-/** A `copyApp('vue')` copy; Vite puts its dep cache beside the nearest package.json, removed with the copy. */
+/** The package.json keeps Vite's dep cache inside the copy, so `removeApp` deletes it. */
 async function vueCopy(): Promise<{root: string; counter: string}> {
   const root = await copyApp('vue');
   try {
@@ -73,7 +73,7 @@ describe('milestone 4 exit test', () => {
       const scope = scopeAttribute(DEMO, componentPath('Counter.ucf'), true);
       expect(await page.locator(COUNTERS.react).getAttribute(scope)).toBe('');
       expect(await page.locator(COUNTERS.vue).getAttribute(scope)).toBe('');
-      // Hand-read from Counter.ucf: two unstyled elements would match each other too.
+      // Literal values: parity alone also passes when both are unstyled.
       expect(await computed(page.locator(COUNTERS.vue), 'color')).toBe('rgb(120, 40, 160)');
       expect(await computed(page.locator(`${COUNTERS.vue} button`), 'padding')).toBe('4px 12px');
       for (const part of PARTS) {
@@ -127,12 +127,12 @@ describe('milestone 4 exit test', () => {
       const messages = collectConsole(page);
       const response = await page.goto(localUrl(server.resolvedUrls, root));
       const html = await response!.text();
-      // Server-rendered with the production scope id: the markup is in the page before any script runs.
+      // Raw response HTML: the markup is there before any script runs.
       expect(html).toContain(`<div class="counter" ${scopeAttribute(root, counter, true)}>`);
       expect(html).toMatch(/<button [^>]*>2<\/button>/);
 
       await expect.poll(() => page.locator('#app').evaluate((element) => '__vue_app__' in element), POLL).toBe(true);
-      // `createApp()` would mount over the markup and set it; `createSSRApp()` hydrates and does not.
+      // `createApp()` sets `data-v-app` on mount; hydrating `createSSRApp()` does not.
       expect(await page.locator('#app').getAttribute('data-v-app')).toBeNull();
       expect(await computed(page.locator('.counter'), 'color')).toBe('rgb(120, 40, 160)');
       const button = page.locator('.counter button');
@@ -178,7 +178,7 @@ describe('milestone 4 exit test', () => {
       await expect.poll(() => page.locator('.counter .label').textContent(), POLL).toBe('Hits');
       await requests.quiet(500);
       expect(await count()).toBe('3');
-      // One Vue update of the main module; its URL has no `/@fs` when the warm-up created the module first.
+      // The URL has no `/@fs` when the style request's warm-up created the module first.
       expect(payloads.updatedPaths().map((path) => path.replace(/^\/@fs/, ''))).toEqual([counter]);
       expect(payloads.fullReloads()).toBe(0);
       expect(loads).toBe(1);
