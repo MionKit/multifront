@@ -40,9 +40,11 @@ interface BlockKind {
 // Language-tools half: packages/language-tools/src/blocks/index.ts, same tags, same order
 interface EditorBlockKind {
   tag: 'react' | 'vue' | 'svelte' | 'style';
-  types?(block, ctx): EditorFile;    // the file TypeScript reads: what the module exports
-  editor?(block, ctx): EditorFile[]; // embedded codes for tsserver (TypeScript) and our language server (the rest)
+  types?(block, ctx): EditorFile | undefined; // the file TypeScript reads: what the module exports
+  editor?(block, ctx): EditorCode[];  // embedded codes for tsserver (TypeScript) and our language server (the rest)
+  serviceScript?(code): TargetScript | undefined; // the script tsserver serves as Card.ucf.<tag>.ts (vue, svelte)
 }
+type EditorCode = EditorFile | VirtualCode; // <vue>: a VueVirtualCode from @vue/language-core
 
 interface VirtualFile {
   ext: '.tsx' | '.vue' | '.svelte' | '.css' | '.scss' | '.ts';
@@ -103,7 +105,7 @@ What the Vite plugin does when an app imports a `.ucf` file. Only the chosen tar
 - **Highlighting:** VS Code TextMate grammars can embed another language between a begin and an end tag; Vue's extension does this for `<style lang="scss">`. Our grammar is generated from the registry, one rule per tag. The extension bundles pinned copies of the Vue and Svelte grammars (both MIT), so it works without their extensions installed. The copies are served under our own scopes (`source.ucf.vue`, `source.ucf.svelte`, `source.ucf.vue.vue.*`), so they never clash with those extensions. VS Code reads injections only from the document's root grammar, so their injections move to `source.ucf`, each one limited to its own block.
 - **Hybrid mode:** VS Code's own tsserver, with our TypeScript plugin, does every TypeScript job, inside `.ucf` files too. So there is one TypeScript program: unsaved edits reach importers at once, and rename and references cross file kinds. Our language server does the rest.
 - **Inside a `.ucf` file:** each block's `editor()` codes go to tsserver (TypeScript) and to our language server (CSS, template HTML), which asks tsserver when it needs types. The `<vue>` block's code is a real `VueVirtualCode` from `@vue/language-core`, nested under our root code, so Vue's own template services run on it.
-- **Importing a `.ucf` file:** TypeScript never reads import attributes, so our TypeScript plugin resolves `./Card.ucf` with `resolveTarget()`, the same function the build uses (and reads a non-literal attribute as an error with the build's `rewriteImportAttributes()`), and points it at that target's `types()` script. tsserver serves one script per `.ucf` file (Volar's tsserver plugin has no extra scripts), so in M2 the React script is the `.ucf` file's own; M4 serves the Vue script beside it another way.
+- **Importing a `.ucf` file:** TypeScript never reads import attributes, so our TypeScript plugin resolves `./Card.ucf` with `resolveTarget()`, the same function the build uses (and reads a non-literal attribute as an error with the build's `rewriteImportAttributes()`), and points it at that target's `types()` script. Volar's tsserver plugin serves one script per `.ucf` file, the React one. Every other target with a `serviceScript` becomes a program file of its own, `Card.ucf.vue.ts`, that our plugin serves through the project host. Requests inside that block, and its diagnostics, go to it through a second Volar language whose code maps into the `.ucf` file.
 - **Packaging:** `pnpm devx vsix` bundles the extension, the language server and the TypeScript plugin, so the `.vsix` needs nothing else installed. Core parses `<react>` with oxc-parser, which the bundles load through its wasm binding: one `.vsix` serves every platform. tsserver finds a plugin only in an extension's own `node_modules`, so the plugin ships there as a pack (a file that loads the bundle). When a project also lists its own installed plugin and VS Code runs the workspace TypeScript, both copies load: the first one in a project serves it, the other steps aside.
 
 ## Where the code lives
