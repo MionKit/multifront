@@ -146,12 +146,12 @@ describe('a .ucf file a project reaches only through an import', () => {
     const projectInfo = () =>
       server.request<ts.server.protocol.ProjectInfo>('projectInfo', {file: VUE_ONLY.filename, needFileNameList: true});
     expect((await projectInfo()).configFileName).toBe(componentPath('editor/tsconfig.json'));
+    // No edit yet: the program that first reached the file asked for the next one, which holds its script.
+    expect((await projectInfo()).fileNames).toContain(`${VUE_ONLY.filename}.vue.ts`);
     const [needle, newText] = ['Only Vue', '{{ missing }}'];
     expect(await diagnosticsAfter(server, VUE_ONLY, needle, newText)).toEqual([
       {code: 2339, ...spanAfter(VUE_ONLY, needle, newText, 'missing')},
     ]);
-    // The first program only reached the file; the next one holds its script.
-    expect((await projectInfo()).fileNames).toContain(`${VUE_ONLY.filename}.vue.ts`);
   });
 });
 

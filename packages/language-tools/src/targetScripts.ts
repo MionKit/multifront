@@ -163,16 +163,19 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
   const getScriptVersion = host.getScriptVersion.bind(host);
   const getScriptKind = host.getScriptKind?.bind(host);
   const fileExists = host.fileExists?.bind(host);
-  host.getScriptFileNames = () => {
-    const names = getScriptFileNames();
-    if (!main) return names;
+  // Script names the project itself does not list, read from the last program.
+  const addedScriptNames = (names: readonly string[]): string[] => {
+    if (!main) return [];
     // An imported `.ucf` file is no root: the last program brings it, and the next one its target scripts.
     const imported = project.getFileNames(true, true);
     const ucfs = new Set([...names, ...imported].filter((name) => name.endsWith('.ucf')));
-    const targets = [...ucfs].flatMap((ucf) =>
+    return [...ucfs].flatMap((ucf) =>
       SERVED_KINDS.filter((kind) => targetScript(main!, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag))
     );
-    return [...names, ...targets];
+  };
+  host.getScriptFileNames = () => {
+    const names = getScriptFileNames();
+    return [...names, ...addedScriptNames(names)];
   };
   host.getScriptSnapshot = (fileName) => {
     const script = scriptOf(fileName);
@@ -202,6 +205,13 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
   };
 
   return {
+    // Runs once a program is built: a file it reached first (a `.ucf` file, a target script) is a script name of the
+    // next one, and tsserver builds that only when the project is dirty.
+    afterUpdate(): void {
+      const inProgram = new Set(project.getFileNames(true, true));
+      const stale = addedScriptNames(getScriptFileNames()).some((name) => !inProgram.has(ts.server.toNormalizedPath(name)));
+      if (stale) (project as ts.server.Project & {markAsDirty(): void}).markAsDirty();
+    },
     setup(language: Language<string>): void {
       main = language;
       for (const target of served) {

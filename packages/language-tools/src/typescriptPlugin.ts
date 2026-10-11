@@ -79,6 +79,7 @@ function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefi
 
 // Volar's proxy, wrapped once its callback ran: requests in a target's block go to that target's script.
 const routers = new WeakMap<ts.server.PluginCreateInfo, (languageService: ts.LanguageService) => ts.LanguageService>();
+const afterUpdates = new WeakMap<ts.server.Project, () => void>();
 
 const volarPlugin = createLanguageServicePlugin((ts, info) => {
   const host = info.languageServiceHost;
@@ -123,6 +124,7 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
   const base = info.languageService;
   const targetScripts = serveTargetScripts(ts, info, base);
   routers.set(info, targetScripts.route);
+  afterUpdates.set(info.project, targetScripts.afterUpdate);
 
   const compilerOptions = host.getCompilationSettings();
   return {
@@ -159,6 +161,11 @@ const plugin: ts.server.PluginModuleFactory = (modules) => {
   const volar = volarPlugin(modules);
   return {
     ...volar,
+    // tsserver asks after every program it builds.
+    getExternalFiles(project, updateLevel) {
+      afterUpdates.get(project)?.();
+      return volar.getExternalFiles?.(project, updateLevel) ?? [];
+    },
     create(info) {
       // Owner is the module copy: a tsconfig reload calls `create` again but is not another copy.
       const project = info.project as ts.server.Project & {[SERVED]?: unknown};
