@@ -17,6 +17,16 @@ export async function withNodeEnv<Result>(mode: string, run: () => Promise<Resul
 // The other loaders resolve `@multifront/vite` to its `dist/`, which tests never build.
 export const APP_CONFIG_LOADER = 'native';
 
+/** The error `promise` rejects with; fails if it resolves. */
+export function rejection<Failure>(promise: Promise<unknown>): Promise<Failure> {
+  return promise.then(
+    () => {
+      throw new Error('did not fail');
+    },
+    (err: Failure) => err
+  );
+}
+
 /** Uses the app's own `vite.config.ts` unless `config` sets `configFile: false`. */
 export async function buildApp(root: string, config: InlineConfig = {}) {
   // Vitest sets NODE_ENV=test and Vite keeps it, which would give plugin-vue's dev scope id, not a real build's.
