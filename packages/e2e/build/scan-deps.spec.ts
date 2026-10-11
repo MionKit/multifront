@@ -2,7 +2,7 @@
 // at startup, whichever rule of spec 4.2 picked react for the importer.
 import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {createLogger, createServer} from 'vite';
+import {createLogger, createServer, type ViteDevServer} from 'vite';
 import {describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, TMP_DIR} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER} from './lib/build.ts';
@@ -22,15 +22,16 @@ describe('dependency scan of scan-deps', () => {
     logger.error = (message) => void errors.push(message);
     await mkdir(TMP_DIR, {recursive: true});
     const cacheDir = await mkdtemp(join(TMP_DIR, 'scan-deps-cache-'));
-    const server = await createServer({
-      root: ROOT,
-      configLoader: APP_CONFIG_LOADER,
-      cacheDir,
-      customLogger: logger,
-      server: {middlewareMode: true, ws: false},
-      optimizeDeps: {entries: [entry]},
-    });
+    let server: ViteDevServer | undefined;
     try {
+      server = await createServer({
+        root: ROOT,
+        configLoader: APP_CONFIG_LOADER,
+        cacheDir,
+        customLogger: logger,
+        server: {middlewareMode: true, ws: false},
+        optimizeDeps: {entries: [entry]},
+      });
       const optimizer = server.environments.client.depsOptimizer!;
       await optimizer.scanProcessing;
       expect({entry, errors}).toEqual({entry, errors: []});
@@ -40,8 +41,8 @@ describe('dependency scan of scan-deps', () => {
       });
     } finally {
       try {
-        await server.environments.client.waitForRequestsIdle();
-        await server.close();
+        await server?.environments.client.waitForRequestsIdle();
+        await server?.close();
       } finally {
         await rm(cacheDir, {recursive: true, force: true});
       }
