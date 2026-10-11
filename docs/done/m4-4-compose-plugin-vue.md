@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.4
@@ -72,12 +72,14 @@ and with a scratch build:
 ### 4. Fixture app `packages/e2e/fixtures/apps/vue/` (new)
 
 - `index.html`, `vite.config.ts` (`[vue(), multifront()]`), `src/main.ts`, `src/App.vue` (bare imports of `Counter.ucf`,
-  `vue/VBind.ucf`, `./Plain.vue`), `src/Plain.vue`, `src/bothTargets.ts` (`Counter.ucf` as vue and as react).
+  `vue/VBind.ucf`, `./Plain.vue`), `src/Plain.vue`, `src/bothTargets.ts` (re-exports `Counter.ucf` as vue and as
+  react; the test keeps an entry's exports with `preserveEntrySignatures: 'strict'`, as an app build drops them).
 
 ### 5. Existing fixtures and tests
 
 - `apps/imports/no-default` and `apps/imports/custom-importers` configs gain `vue()` (their vue rows need it now).
-- `react-target.spec.ts`: `target-not-built` for svelte only; the vue pick in react-basic gets the plugin-vue error.
+- `react-target.spec.ts`: `target-not-built` for svelte only; the vue pick and the dev URL of the Vue id in
+  react-basic (no plugin-vue) get the plugin-vue error.
 - `apps/scan-deps`: config gains `vue()`; `Mount.ucf` gains a `<vue>` block importing `TraceMap` from
   `@jridgewell/trace-mapping`, used only in the template; new entry `importer.vue`.
 
@@ -90,7 +92,8 @@ All in `pnpm devx test` (real `vite.build()` / `createServer()`), on this host a
     `setCount` (`<react>` marker) absent, scoped CSS of both `.ucf` files present;
   - `vue({include: [/\.vue$/]})`: `Plain.vue` and `Counter.ucf` both compile;
   - `index.html` + `src/bothTargets.ts` builds (the exclude);
-  - no plugin-vue: `src/bothTargets.ts` fails naming `Counter.ucf` and its importer; a dev URL of `Counter.ucf` fails;
+  - no plugin-vue: `src/bothTargets.ts` fails naming `Counter.ucf` and its importer (the dev URL case is the updated
+    react-basic dev test, which already requested the Vue id with no plugin-vue);
   - `server.restart()` with inline plugins: no logged error, `Counter.ucf` still compiles as Vue.
 - `packages/e2e/build/scan-deps.spec.ts`: `importer.vue` discovers `@jridgewell/trace-mapping`; each entry finds only
   its own block's dependency.
