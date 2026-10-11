@@ -61,12 +61,13 @@ A file with no `<vue>` block gets code that is only blanks plus its styles; comp
 - `imports/Icon.ucf`: gains a `<vue>` block first, the same markup as its React block, with
   `aria-label="icon-vue-marker"`.
 - `imports/ReactOnly.ucf` (new): a `<react>` block only, mirror of `VueOnly.ucf`.
+- `vue/DuplicateVue.ucf` (new, from review): two `<vue>` blocks with different template text.
 
 ### 4. Existing tests the fixtures feed
 
-- Counter's positions and scope id change: core `split` / `styles` / `react/scope` snapshots, e2e
-  `editor/__snapshots__/virtualCode/Counter.ucf.*` and the grammar token snapshots are updated in this PR, each diff
-  read: only positions, scope ids and the new fixture text change.
+- Counter's positions and scope id change: core `split` / `styles` / `react/scope` snapshots and e2e
+  `editor/__snapshots__/virtualCode/Counter.ucf.react.tsx` are updated in this PR (the style codes and the grammar
+  tests hold no Counter positions), each diff read: only positions, scope ids and the new fixture text change.
 - `packages/e2e/build/react-target.spec.ts`: `OTHER_MARKERS` gains `'icon-vue-marker'`.
 - `packages/core/test/react/scope.spec.ts` lists every fixture with a `<react>` block and a scoped style, so its
   `SCOPED` table gains `vue/CounterCrlf.ucf` (found while building): the React build of the CRLF copy gets its own
@@ -82,12 +83,13 @@ line and "Hands to later milestones". No other milestone doc names `vueSfcCode`.
 `packages/core/test/blocks/vue.spec.ts`, real fixtures through the real `@vue/compiler-sfc` `parse()`
 (`loadVueCompiler(import.meta.dirname)`) and `@jridgewell/trace-mapping` (root devDependency).
 
-Rows: `Counter.ucf`, `vue/CounterCrlf.ucf`, `vue/VBind.ucf`, `imports/Icon.ucf`, `Card.ucf` (only fixture with a
-`<svelte>` block to blank, and `lang="scss"`). Each row:
+Rows: `Counter.ucf`, `vue/CounterCrlf.ucf`, `vue/VBind.ucf`, `imports/Icon.ucf`, `Card.ucf` (a `<svelte>` block to
+blank, and `lang="scss"`), `editor/GrammarEdges.ucf` (from review: a root comment, a `<svelte>` block, three styles with
+multi-line and quoted attributes). Each row:
 
 - `code.length === source.length`; `\r` / `\n` at the same offsets;
-- the `<vue>` content and every `<style>` block byte-identical at the same offsets; the `<vue>` tags and every other
-  target block only spaces and line breaks;
+- the `<vue>` content and all text outside the target blocks (root `<style>` blocks, comments, whitespace)
+  byte-identical at the same offsets; the `<vue>` tags and every other target block only spaces and line breaks;
 - `parse(code)`: no errors; a template whose `loc.start.line` is the `<template` line in the `.ucf` file; script setup
   as the row says; `descriptor.styles` attrs equal the splitter's `split.styles` attrs; no `customBlocks`; `cssVars`
   as the row says (`['color']` for VBind);
@@ -96,7 +98,8 @@ Rows: `Counter.ucf`, `vue/CounterCrlf.ucf`, `vue/VBind.ucf`, `imports/Icon.ucf`,
 
 Plus: `CounterCrlf.ucf` equals `Counter.ucf` with CRLF (no drift); `Counter.ucf`'s `<react>` block holds a two-unit
 character (the guard can't be edited away silently); `imports/ReactOnly.ucf` gives only blanks, the same length, no
-template / script / styles, and compiler-sfc's "At least one `<template>` or `<script>` is required" error.
+template / script / styles, and compiler-sfc's "At least one `<template>` or `<script>` is required" error;
+`vue/DuplicateVue.ucf` keeps the first `<vue>` block, blanks the second, and parses to one template with no error.
 
 Runs in `pnpm devx test` on this host and in CI (`check`, `react-floor`). No new infra.
 
