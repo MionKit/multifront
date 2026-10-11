@@ -1,0 +1,9 @@
+<react>
+  import { forwardRef } from 'react'
+
+  // The block uses `__props` and `__ref`, so the parameters the build adds are `__props1` and `__ref1`.
+  const __props = 'module'
+  const __ref = 'module too'
+
+  export default forwardRef<HTMLDivElement>(() => <div className="shape">{__props} {__ref}</div>)
+</react>

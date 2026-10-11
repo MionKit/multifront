@@ -132,6 +132,12 @@ const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: num
   {fixture: 'react/forwarding/ExportAsDefault.ucf', roots: ['div']},
   {fixture: 'react/forwarding/LetExport.ucf', roots: []},
   {fixture: 'react/forwarding/NestedConst.ucf', roots: []},
+  {
+    fixture: 'react/forwarding/RefClash.ucf',
+    roots: ['div'],
+    props: '__props1',
+    signature: '<HTMLDivElement>((__props1, __ref1) =>',
+  },
   {fixture: 'react/forwarding/ShadowedProps.ucf', roots: []},
   {fixture: 'react/forwarding/ThisParam.ucf', roots: ['div']},
   {fixture: 'react/forwarding/WrappedExport.ucf', roots: ['div']},
