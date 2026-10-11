@@ -12,13 +12,13 @@ import {
   rewriteImportAttributes,
   scopeHelperCode,
 } from '@multifront/core';
-import type {VueCompiler} from '@multifront/core';
+import type {Target, VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
 import {ucfHotUpdate} from './hmr.ts';
 import {JS_LIKE, TARGET_SUFFIX, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
-import type {MultifrontOptions} from './types.ts';
+import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
 import {VUE_INCLUDE, VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript} from './vueTarget.ts';
 
@@ -34,6 +34,16 @@ const VUE_SCAN_ID = /\.ucf\.vue\.ts$/;
 const SCAN_SCRIPT = /\.html\?id=\d+$/;
 // Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
+
+function built(context: Rolldown.PluginContext, {split, ctx}: UcfEntry, target: Target) {
+  try {
+    const {code, map} = buildTarget(split, ctx, target);
+    return {code, map};
+  } catch (err) {
+    if (err instanceof DiagnosticsError) context.error(rollupError(err.diagnostics));
+    throw err;
+  }
+}
 
 function isUrlImporter(importer: string | undefined, root: string): boolean {
   return importer === undefined || normalizePath(importer) === `${root}/index.html`;
@@ -169,28 +179,14 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         this.addWatchFile(own.file);
         // The raw source: our transform turns it into SFC code.
         if (own.target === 'vue') return (await cache.splitUcf(own.file)).source;
-        const {split, ctx} = await cache.loadUcf(own.file);
-        try {
-          const {code, map} = buildTarget(split, ctx, own.target);
-          return {code, map};
-        } catch (err) {
-          if (err instanceof DiagnosticsError) this.error(rollupError(err.diagnostics));
-          throw err;
-        }
+        return built(this, await cache.loadUcf(own.file), own.target);
       },
     },
     transform: {
       filter: {id: VUE_INCLUDE},
       async handler(code, id) {
         if (!hasVuePlugin(config!.plugins)) this.error(`${id}: ${VUE_PLUGIN_MISSING}`);
-        const {split, ctx} = await cache.contextOf(cache.updateUcf(id, code));
-        try {
-          const {code: sfc, map} = buildTarget(split, ctx, 'vue');
-          return {code: sfc, map};
-        } catch (err) {
-          if (err instanceof DiagnosticsError) this.error(rollupError(err.diagnostics));
-          throw err;
-        }
+        return built(this, await cache.contextOf(cache.updateUcf(id, code)), 'vue');
       },
     },
     api,

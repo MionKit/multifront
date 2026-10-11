@@ -19,6 +19,7 @@ const ENTRIES: [string, string, string, string][] = [
   ['inline.html', 'attribute', REACT_DEPENDENCY, VUE_DEPENDENCY],
   ['tsx-script.vue', 'attribute', REACT_DEPENDENCY, VUE_DEPENDENCY],
   ['importer.vue', 'importer', VUE_DEPENDENCY, REACT_DEPENDENCY],
+  ['vue-edges.vue', 'importer', VUE_DEPENDENCY, REACT_DEPENDENCY],
 ];
 
 describe('dependency scan of scan-deps', () => {

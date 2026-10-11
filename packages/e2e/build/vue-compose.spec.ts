@@ -1,20 +1,15 @@
-import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import {multifront} from '@multifront/vite';
 import {createLogger, createServer, type InlineConfig, type PluginOption} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {TMP_DIR, copyApp, removeApp} from '../fixtures/index.ts';
+import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp} from './lib/build.ts';
 
-const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in your Vite plugins';
-
 let root: string;
-let counter: string;
 
 beforeAll(async () => {
   root = await copyApp('vue');
-  counter = join(root, '..', '..', 'components', 'Counter.ucf');
   return () => removeApp(root);
 });
 
@@ -28,15 +23,6 @@ function inline(plugins: PluginOption[], input?: string[]): InlineConfig {
 async function buildOutput(config: InlineConfig = {}) {
   const {chunks, css} = await buildApp(root, config);
   return {code: chunks.map((chunk) => chunk.code).join('\n'), css: css.join('\n')};
-}
-
-async function rejection(promise: Promise<unknown>): Promise<Error> {
-  try {
-    await promise;
-  } catch (err) {
-    return err as Error;
-  }
-  throw new Error('did not fail');
 }
 
 describe('vite build of the vue app', () => {
@@ -61,6 +47,11 @@ describe('vite build of the vue app', () => {
     expect(code).toContain('__name: "Counter"');
   });
 
+  it("keeps the user's own plugin-vue exclude", async () => {
+    const config = inline([vue({exclude: [/VBind\.ucf$/]}), multifront()], ['index.html']);
+    await expect(buildApp(root, config)).rejects.toThrow(/VBind\.ucf/);
+  });
+
   it('keeps plugin-vue off our style ids when one file is imported as vue and as react', async () => {
     const {code} = await buildOutput(inline([vue(), multifront()], ['index.html', 'src/bothTargets.ts']));
     expect(code).toContain('__name: "Counter"');
@@ -68,36 +59,32 @@ describe('vite build of the vue app', () => {
   });
 
   it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {
-    const err = await rejection(buildApp(root, inline([multifront()], ['src/bothTargets.ts'])));
     const importer = join(root, 'src', 'bothTargets.ts');
-    expect(err.message).toContain(`../../../components/Counter.ucf (imported by ${importer}): ${VUE_PLUGIN_MISSING}`);
+    await expect(buildApp(root, inline([multifront()], ['src/bothTargets.ts']))).rejects.toThrow(
+      `../../../components/Counter.ucf (imported by ${importer}): the vue target needs @vitejs/plugin-vue in your Vite plugins`
+    );
   });
 });
 
 it('still compiles the .ucf file as Vue after a dev server restart with the same plugins', async () => {
-  await mkdir(TMP_DIR, {recursive: true});
-  const cacheDir = await mkdtemp(join(TMP_DIR, 'vue-compose-cache-'));
   const errors: string[] = [];
   const logger = createLogger('silent');
   logger.error = (message) => void errors.push(message);
   const server = await createServer({
     ...inline([vue(), multifront()]),
     root,
-    cacheDir,
+    cacheDir: join(root, '.vite'),
     customLogger: logger,
     server: {middlewareMode: true, ws: false},
     optimizeDeps: {noDiscovery: true},
   });
   try {
     await server.restart();
+    const counter = join(root, '..', '..', 'components', 'Counter.ucf');
     const result = await server.environments.client.transformRequest(`/@fs${counter}`);
     expect(errors).toEqual([]);
     expect(result?.code).toMatch(/__name: ["']Counter["']/);
   } finally {
-    try {
-      await server.close();
-    } finally {
-      await rm(cacheDir, {recursive: true, force: true});
-    }
+    await server.close();
   }
 });
