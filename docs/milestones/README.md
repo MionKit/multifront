@@ -64,7 +64,7 @@ Decided when the seven documents were checked against each other. Where a docume
 - **Fixture names are unique** across `fixtures/components/`, so a name always means one file. Edge cases for one target live in that target's folder (`react/`, `vue/`, `svelte/`).
 - **Shared fixtures grow a block at a time.** `Card.ucf`, `Panel.ucf` (M1), `Counter.ucf` (M3) and `imports/` (`Icon`, `UsesIcon`, `VueOnly`, `ReactOnly`) get a new target block in the milestone that adds that target. That milestone updates the snapshots the file feeds.
 - **One imports fixture set:** `fixtures/apps/imports/` with `expected.ts` (M2). M3, M4 and M6 add rows and sub-projects; the build and the editor must both match every row.
-- **Test helpers** live in `<area>/lib/` (`editor/lib/`, `browser/lib/`, `consumer/lib/`). Temp copies come from M1's `copyApp()`.
+- **Test helpers** live in `<area>/lib/` (`editor/lib/`, `browser/lib/`, `consumer/lib/`). Temp copies come from M1's `copyApp()`, with the shared `components/` beside the app so relative `.ucf` imports work; `removeApp()` deletes one.
 - **Test tools are root devDependencies** (AGENTS.md), never `packages/e2e` ones.
 - **Core names:** `BuildContext` (M1, with `split`), `buildTarget(split, ctx, target)` (M3), `resolveTarget(importer, attribute, options)` with `Importer` and `TargetChoice` (M2, extended by M3), `importerFromId(id)` (M3), `getTypesScript()` (M2), `classMapId()` / `styleId()` (M1).
 - **One code per error.** `framework-in-block` (not `framework-attribute-in-block`). Codes join M1's `DiagnosticCode` union.
