@@ -92,7 +92,7 @@ New dependencies, all exact-pinned:
 
 ### 4.2 `vueSfcCode()` in core
 
-- Build: `packages/core/src/blocks/vue.ts` exports `vueSfcCode(source, blocks): {code, map}`. It returns the same-length SFC code described in "Goal", with MagicString edits and a hires map back to the `.ucf` file. Exported from `@multifront/core`.
+- Build: `packages/core/src/blocks/vue.ts` exports `vueSfcCode(source, blocks, filename): {code, map}`. It returns the same-length SFC code described in "Goal", with MagicString edits and a hires map back to the `.ucf` file (`filename` is the map's source, as in the React build). Exported from `@multifront/core`.
 - Deliverable: one function that turns a split `.ucf` into SFC code that plugin-vue and language-core can both read.
 - Test: `packages/core/test/blocks/vue.spec.ts`. Fixtures (fixture names stay unique across `fixtures/components/`):
   - the shared `fixtures/components/Counter.ucf` (M3 made it with `<react>` and a `<vue>` block; this step fills its `<vue>` block for real), plus a CRLF copy, `vue/CounterCrlf.ucf`;
@@ -101,6 +101,7 @@ New dependencies, all exact-pinned:
   - `imports/ReactOnly.ucf`: no `<vue>` block.
 
   Each SFC code goes through the real `parse()` of `@vue/compiler-sfc`. The test checks that the descriptor has the template, the script setup and both styles with their original attributes, and no custom blocks. It also checks `code.length === source.length`, and that `descriptor.template.loc.start.line` equals the template's line in the `.ucf` file.
+- Status: done
 
 ### 4.3 The `<vue>` block kind, both halves
 
@@ -108,7 +109,7 @@ New dependencies, all exact-pinned:
   - `packages/core/src/blocks/vue.ts` gains `vueBlock: BlockKind`, with `tag: 'vue'` and `role: 'target'`.
   - `grammar: {scopeName: 'text.html.vue'}`, the scope name M2's grammar already embeds, so the generated grammar does not change.
   - `check()` adds `vue-empty-block` (no top-level `<template>` or `<script>`). It uses the same raw scan as `splitBlocks`, so core still imports no compiler. Every other Vue error comes from compiler-sfc, already at the right line thanks to the same-length code.
-  - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks)}`.
+  - `build(block, ctx)` returns `{ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks, ctx.filename)}`.
   - `packages/language-tools/src/blocks/vue.ts` gains the editor half (spike 2):
     - `editor()` returns the `VueVirtualCode` that `createVueLanguagePlugin(ts, compilerOptions, vueCompilerOptions, asFileName).createVirtualCode(fileName, 'vue', sfcSnapshot)` makes from `vueSfcCode()`, with its `id` set to `vue`. It is embedded under our root code, beside the `react` and `style_N` codes. `editor()` therefore returns a Volar `VirtualCode`, not only `EditorFile`s.
     - `ts` and `compilerOptions` reach `editor()` through `EditorOptions`. In tsserver they come from the plugin's `info` (the host's `typescript` and `getCompilationSettings()`). In the language server, which never imports TypeScript, the server loads it from `initializationOptions.typescript.tsdk` (as M2 planned for the first service that needs it) and uses default compiler options.
@@ -269,7 +270,7 @@ New dependencies, all exact-pinned:
 
 ## Hands to later milestones
 
-- `vueSfcCode(source, blocks)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
+- `vueSfcCode(source, blocks, filename)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
 - `vueBlock`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
 - `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - The way 4.3 serves a second target script of a `.ucf` file in tsserver, beside the React one. Used by **M6** (`Card.ucf.svelte.ts`, 6.10).
