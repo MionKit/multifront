@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.13
@@ -38,8 +38,11 @@ block's own `.ucf` imports resolve to it. Every other vue pick still fails:
   stays: both are gaps this step's resolution creates.
 - Q2, orchestrator: the `framework: 'vue'` check is a `vue-default/` sub-project of the imports set, with an
   `expected.ts` row.
-- Q3, orchestrator: the bundled `typesRoot` check stays in `vue-types.spec.ts`, as the step's Test line says, with its
-  own pack (no pack cache added).
+- Q3, orchestrator: first "keep the bundled check in `vue-types.spec.ts`", then reversed after review: it moved into
+  `bundle.spec.ts`'s "plugin pack alone" describe, which reuses its one pack, with a `DefineComponent` check there too.
+- Review: `TypeScriptPluginOptions` stays private to `typescriptPlugin.ts`; the default export is `/* @__PURE__ */`
+  so the bundle drops it. Copying the types to where language-core's default looks was declined (Q4: the step's Build
+  line asks the bundled plugin to set `typesRoot`).
 - Q4, orchestrator: the bundle sets `typesRoot` through an explicit `createTypeScriptPlugin({vueTypesRoot})`.
 - No fuzz test: no cheap oracle.
 
@@ -55,24 +58,31 @@ block's own `.ucf` imports resolve to it. Every other vue pick still fails:
 
 ### 2. The `.ucf` file joins the importer's program (`targetScripts.ts`, `getScriptFileNames`)
 
-- Every target script the last program reached brings its `.ucf` file as a script file name too. tsserver then
-  attaches the `.ucf` ScriptInfo to the project, so an edit of `Card.ucf` marks a project with only a vue pick of it
-  dirty.
+- Every target script the last program reached brings its `.ucf` file as a script file name too (`addedScriptNames`).
+  tsserver then attaches the `.ucf` ScriptInfo to the project, so an edit of `Card.ucf` marks a project with only a vue
+  pick of it dirty.
+- Found while building: tsserver builds the next program only for a dirty project, so a file the program reached first
+  never made it in until some other edit. `afterUpdate()` (from the plugin's `getExternalFiles`, which tsserver calls
+  after every program) marks the project dirty once when a script name we add is not in the program yet. This also
+  covers 4.3's target script of a `.ucf` file first reached through an import.
 
 ### 3. Locations in a target script map into the `.ucf` file (`targetScripts.ts`, `intoUcf`)
 
 - For every `NAVIGATION` result, from any file: a location in `Card.ucf.<tag>.ts` goes through that served target's
   language with Volar's `transformDocumentSpan`, with the matching `@volar/language-core` filter.
-- Unmapped: a definition goes to the `.ucf` file at 0:0, as Volar does for a `.vue` import. Every other unmapped
-  location is dropped, as today.
+- Unmapped: a definition in another file than the one asked about goes to the `.ucf` file at 0:0, as Volar does for a
+  `.vue` import. One in the asked file's own script is generated code, dropped. Every other unmapped location is
+  dropped, as before; a referenced symbol's definition still falls back to the `.ucf` file.
+- Highlight groups keep 4.3's handling (only a `.ucf` request searches a target script, and Volar has mapped those).
 
 ### 4. `typesRoot` for the bundle
 
-- `EditorOptions` gains `vueTypesRoot?: string`; `vuePlugin()` sets `typesRoot` from it. Unset: the installed
-  `@vue/language-core`'s own.
+- `EditorOptions` gains `vueTypesRoot?: string`; `vuePlugin()` sets `typesRoot` from it, cached per compiler options
+  and root. Unset: the installed `@vue/language-core`'s own.
 - `src/typescriptPlugin.ts` exports `createTypeScriptPlugin(options?: {vueTypesRoot?: string})`. The default export is
   `createTypeScriptPlugin()`. The "first copy serves" owner check compares a module-level token.
-- `packages/vscode/src/typescriptPlugin.ts`: `createTypeScriptPlugin({vueTypesRoot: <bundle folder>/vue-types})`.
+- `packages/vscode/src/typescriptPlugin.ts`: `createTypeScriptPlugin({vueTypesRoot: join(import.meta.dirname,
+  'vue-types')})`; the CJS bundle writes `__dirname`.
 - `scripts/lib/bundle-vscode.mjs` copies every `*.d.ts` of language-core's `types/` into
   `packages/vscode/dist/vue-types/`.
 - The language server bundle keeps the default: it never type-checks.
@@ -90,19 +100,33 @@ All in `pnpm devx test`, on this host and in CI's `check` and `vue-floor` jobs. 
 
 `packages/e2e/editor/vue-types.spec.ts` (new):
 
-- demo, `mountVue.ts`: no diagnostic as written. Quick info on `Counter` shows `DefineComponent` with the `start` prop.
-- demo: an unsaved `h(Counter, {start: 'x'})` gives exactly one error.
+- demo, `mountVue.ts`: no diagnostic as written. A binding of `Counter` is `const counter: DefineComponent<…>`, and
+  `start` in `h(Counter, {start: 1})` is `start?: number | undefined`. Quick info on the import itself reads
+  `import Counter`: language-core exports an expression, `{} as typeof __VLS_export`.
+- demo: an unsaved `h(Counter, {start: 'x'})` gives exactly one `TS2769`, at `start`.
 - demo, `App.tsx`: `Counter` still has the React type.
-- demo: definition on `Counter` in `mountVue.ts` lands in `Counter.ucf`.
-- `imports/vue-default/bare.ts`: the bare import gets the `DefineComponent`. An edit of `Card.ucf`'s prop type reaches
-  it.
-- `projectInfo` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the installed language-core. From the
-  plugin bundled by `pnpm devx vsix`, it lists them from the copy beside the bundle.
+- demo: definition on `Counter` in `mountVue.ts` is `Counter.ucf` at 1:1.
+- Definition on `start` in `h(Counter, {start: 1})` lands on `start?: number` in `Counter.ucf`; rename of it edits
+  `mountVue.ts` and `Counter.ucf` only (`props.start` and the declaration).
+- `imports/vue-default/bare.ts`, `custom-importers/view.tsx`, `no-default/importer.mts`,
+  `no-default/attribute-over-importer.tsx`: a binding of the import is a `DefineComponent`.
+- `getTypesScript()` with a `vueTypesRoot` references the global types there, and without one (same compiler
+  options, same module copy) the installed ones: the plugin cache is per root.
+- A fresh tsserver with `bare.ts` opened using `h(Card, {title: 1})`: one `TS2769`, none after an unsaved edit of
+  `Card.ucf`'s prop to `title: number`. Fails without `afterUpdate()`.
+- `projectInfo` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the installed language-core.
 
-`vsix.spec.ts`: the exact packed list gains `dist/vue-types/*.d.ts`.
+`bundle.spec.ts`, "plugin pack alone": a vue pick (`no-default/attribute-over-importer.tsx`) gets a
+`DefineComponent`, and `projectInfo` lists the two files from `dist/vue-types/`, none from language-core.
 
-Updated: `imports.spec.ts` vue rows resolve; `mixed.ts` cases in `tsserver.spec.ts` and `bundle.spec.ts` lose their
-`target-not-built`.
+`vue-block.spec.ts`: before any edit, a `.ucf` file a project reaches only through an import has its Vue script in
+the program (fails without `afterUpdate()`).
+
+`vsix.spec.ts`: the exact packed list gains `dist/vue-types/*.d.ts`. `LANGUAGE_CORE_TYPES` in `editor/lib/vsix.ts`.
+
+Updated: `imports.spec.ts` vue rows resolve with no error and definition on `Card.ucf`; `mixed.ts` cases in
+`tsserver.spec.ts` and `bundle.spec.ts` lose their `target-not-built`. The core rewrite snapshot of the new
+`vue-default/bare.ts` is added.
 
 ## Docs
 
