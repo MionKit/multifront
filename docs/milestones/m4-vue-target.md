@@ -383,3 +383,18 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 - A `<style>` inside the `<vue>` block (stays the `style-inside-target` error).
 - Vue custom elements (`.ce`), Vapor mode, Nuxt, and Vue custom blocks inside `<vue>` (they pass through to plugin-vue, but are not tested).
 - Other editors than VS Code (only their tsserver setup is covered, by 4.14).
+
+## Manual QA
+
+Run from the repo root. Commands that start Vite load `@multifront/vite` from `src/` with `NODE_OPTIONS=--conditions=source` and `--configLoader native`. Marks: **pass**, **fail** (with its issue), **needs a person**.
+
+1. `pnpm devx test packages/e2e/browser/vue-exit.spec.ts`: 4 tests pass (the exit test, items 1 to 4). **pass** (missing on `main`: ISSUE_EXIT; the QA PR adds it)
+2. `pnpm devx check` with the QA tests: green, 66 test files and 2390 tests run, none skipped. **pass**
+3. `pnpm devx test packages/e2e/build/vue-entry.spec.ts`: 2 tests pass; `Counter.ucf` as a library entry with `multifront({framework: 'vue'})` and `vue()` compiles its `<vue>` block with our scope id and `$style` names, and `ReactOnly.ucf` fails naming the file (the seam M5's Vue package builds on). **pass**
+4. `NODE_OPTIONS=--conditions=source pnpm exec vite build packages/e2e/fixtures/apps/vue --configLoader native --outDir /tmp/mf-vue --emptyOutDir`, then `grep -rlE "framework|useState" /tmp/mf-vue`: the build succeeds, grep prints nothing, and the CSS holds `.counter[data-v-a5afa5a3]`. **pass**
+5. The same build of `packages/e2e/fixtures/apps/demo` to `/tmp/mf-demo`, then `grep -rl framework /tmp/mf-demo`: nothing, and the CSS holds the same `.counter[data-v-a5afa5a3]` as the Vue app. **pass**
+6. `cd packages/e2e/fixtures/apps/vue && NODE_ENV=development node --conditions=source server.ts`, then `curl -s` the URL it prints: the HTML holds `<div class="counter" data-v-c4f952ac>` and `<button class="button_c4f952ac_1" …>2</button>`, rendered on the server. **pass**
+7. `NODE_OPTIONS=--conditions=source pnpm exec vite packages/e2e/fixtures/apps/vue --configLoader native --port 5191`, then `curl -s localhost:5191/src/App.vue | grep -c "with {"`: `0`, and the three `.ucf` imports are `/@fs/…/*.ucf?import` URLs. **pass**
+8. Same server, open the URL: Counter shows 2 in purple. Click to 3, change "Clicks" in the `<vue>` template of `packages/e2e/fixtures/components/Counter.ucf`, then the scoped `rgb(120, 40, 160)`, then "Clicks" in the `<react>` block: the first two show at once with the count still 3 and no page reload, the third changes nothing. In devtools Sources, `Counter.ucf` shows the whole file, `<react>` block included. Undo with `git checkout packages/e2e/fixtures/components/Counter.ucf`. **needs a person**
+9. `NODE_OPTIONS=--conditions=source pnpm exec vite packages/e2e/fixtures/apps/demo --configLoader native`, open the URL: the React and the Vue counter look the same, and each counts its own clicks. **needs a person**
+10. `pnpm devx vsix`, install the `.vsix` and Vue - Official in VS Code, open `packages/e2e/fixtures/apps/vue/`. In `Counter.ucf`: hover on `count` in `{{ count }}` shows its `Ref` type, `$style.buton` is red, completion after `<span ` lists `v-if` and `@click`. In `src/App.vue`: `<Counter :start="'x'" />` is red at `start`, and go to definition on `<Counter` opens `Counter.ucf`. **needs a person**
