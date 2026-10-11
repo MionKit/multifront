@@ -13,6 +13,8 @@ const ROOT = join(FIXTURES_DIR, 'apps', 'scan-deps');
 const ENTRIES: [string, string][] = [
   ['bare.tsx', 'importer'],
   ['attribute.ts', 'attribute'],
+  ['inline.html', 'attribute'],
+  ['tsx-script.vue', 'attribute'],
 ];
 
 describe('dependency scan of scan-deps', () => {

@@ -26,6 +26,8 @@ export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 const REACT_ID = /\.ucf\.react\.tsx$/;
+// The scan's id of an inline `<script>` of an HTML file.
+const SCAN_SCRIPT = /\.html\?id=\d+$/;
 // Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
 
@@ -71,10 +73,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     },
     // Rolldown passes `resolveId` no import attributes: the scan must read `?framework=` from the specifier.
     transform: {
-      filter: {id: JS_LIKE, code: /\.ucf/},
-      handler(code, id) {
+      filter: {id: [JS_LIKE, SCAN_SCRIPT], code: /\.ucf/},
+      handler(code, id, {moduleType}) {
+        // A script the scan cut out of `C.vue` or `index.html` names its language only in its module type.
+        const lang = `${id.includes('?') ? '&' : '?'}lang.${moduleType}`;
         // Errors are left to the real pipeline, which can point at the import.
-        const {code: rewritten, map} = rewriteImportAttributes(code, id);
+        const {code: rewritten, map} = rewriteImportAttributes(code, id + lang);
         return map ? rewritten : undefined;
       },
     },
