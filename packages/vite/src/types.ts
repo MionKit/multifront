@@ -1,4 +1,4 @@
-import type {Api} from '@vitejs/plugin-vue';
+import type {Api, Options} from '@vitejs/plugin-vue';
 import type {BuildContext, ResolveTargetOptions, SplitResult, VueCompiler} from '@multifront/core';
 
 /** `frameworks` (default all), `framework` (the default of spec 4.2) and `importers` (extension → framework). */
@@ -23,4 +23,6 @@ export interface UcfVersion extends UcfSnapshot {
 }
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
-export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {options: {compiler?: VueCompiler | null; root: string}};
+export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {
+  options: {compiler?: VueCompiler | null; root: string; features?: Options['features']};
+};

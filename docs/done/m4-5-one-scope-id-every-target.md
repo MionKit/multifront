@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.5
@@ -40,6 +40,8 @@ with a scratch build of `apps/vue`:
 - Q3 (orchestrator): `css.transformer: 'lightningcss'` is accepted for now, as a Risks line: Vite ignores
   `css.modules`, so `.ucf` Vue classes get lightningcss names.
 - No fuzz test: the new inputs are configs and generator options, no cheap oracle beyond the fixture equality.
+- The tests pair each user `componentIdGenerator` with one user `css.modules` setting (four rows), so every variant
+  runs once in production and once on the dev server without a build per combination.
 
 ## Plan
 
@@ -94,10 +96,9 @@ Host + CI `check` job (`pnpm devx test`): real `vite.build()` and in-process dev
 
 1. Counter as Vue and as React, production and dev server: same `data-v-X` (CSS selector, Vue `__scopeId`, React
    stamp), equal to `scopeId(path, source, production)`; same `button_X_1` module class in CSS and JS.
-2. `Plain.vue` keeps its `__scopeId` with and without `multifront()` for each `componentIdGenerator` (unset,
-   `'filepath'`, `'filepath-source'`, a function), production and dev; Counter keeps `data-v-X` in each. `Plain.vue`'s
-   `.note` class is the same with and without `multifront()` for each `css.modules` (unset, `{hashPrefix}`, a string
-   pattern, a function); Counter keeps `button_X_1` in each.
+2. Four rows, each a user `componentIdGenerator` (unset, `'filepath'`, `'filepath-source'`, a function) paired with a
+   user `css.modules` (unset, `{hashPrefix}`, a string pattern, a function): `Plain.vue` keeps its `__scopeId` (production
+   and dev server) and its `.note` class with and without `multifront()`; Counter keeps `data-v-X` and `button_X_1`.
 3. After `server.restart()`: Counter still `data-v-X` and `button_X_1`.
 
 ## Docs

@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@jridgewell/trace-mapping": "0.3.31",
-    "@multifront/core": "workspace:*"
+    "@multifront/core": "workspace:*",
+    "generic-names": "4.0.0"
   },
   "peerDependencies": {
     "@vitejs/plugin-react": "^6.0.0",

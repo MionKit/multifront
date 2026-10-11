@@ -1,14 +1,12 @@
-import {relative, sep} from 'node:path';
 import {BLOCK_KINDS} from './blocks/index.ts';
-import {scopeId} from './scopeId.ts';
+import {rootRelativePath, scopeId} from './scopeId.ts';
 import type {BuildContext, BuildContextOptions, SplitResult} from './types.ts';
 
 /** Runs no checks: hosts call `checkBlocks` first. */
 export async function createBuildContext(split: SplitResult, options: BuildContextOptions): Promise<BuildContext> {
   const {root, compiler, production} = options;
   const {filename, source} = split;
-  // plugin-vue hashes `normalizePath(relative(root, filename))`.
-  const relativePath = relative(root, filename).split(sep).join('/');
+  const relativePath = rootRelativePath(root, filename);
   const ctx: BuildContext = {
     filename,
     split,
