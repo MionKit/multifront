@@ -26,6 +26,7 @@
     "syntaxes/vendor/sources.json",
     "icons",
     "language-configuration.json",
+    "README.md",
     "LICENSE"
   ],
   "activationEvents": ["onLanguage:ucf"],
