@@ -47,7 +47,8 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
         `--extensions-dir=${join(temp, 'extensions')}`,
         ...args,
       ],
-      extensionTestsEnv: {MULTIFRONT_VSCODE_RESULTS: results, ...(display && {DISPLAY: display.value})},
+      // NODE_PATH from pnpm's bin shim would let the extension find the repo's packages.
+      extensionTestsEnv: {MULTIFRONT_VSCODE_RESULTS: results, NODE_PATH: undefined, ...(display && {DISPLAY: display.value})},
       stdout: stream,
       stderr: stream,
     });

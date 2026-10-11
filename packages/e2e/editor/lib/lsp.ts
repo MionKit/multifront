@@ -24,17 +24,18 @@ interface LanguageServerOptions {
 
 /** Pulls diagnostics as VS Code does. */
 export async function startLanguageServer(workspace: string, options: LanguageServerOptions = {}): Promise<LanguageServer> {
+  // test-utils forks with `process.env` and replaces execArgv: the env is the only way in.
+  const saved = {NODE_OPTIONS: process.env.NODE_OPTIONS, NODE_PATH: process.env.NODE_PATH};
+  // pnpm's bin shim sets NODE_PATH into the repo's packages: a bundle missing a dependency would still find it.
+  delete process.env.NODE_PATH;
+  if (!options.server) process.env.NODE_OPTIONS = `${saved.NODE_OPTIONS ?? ''} --conditions=source`.trim();
   let handle: LanguageServerHandle;
-  if (options.server) handle = forkLanguageServer(options.server, workspace);
-  else {
-    // test-utils forks with `process.env` and replaces execArgv: NODE_OPTIONS is the only way in.
-    const nodeOptions = process.env.NODE_OPTIONS;
-    process.env.NODE_OPTIONS = `${nodeOptions ?? ''} --conditions=source`.trim();
-    try {
-      handle = forkLanguageServer(SERVER_BIN, workspace);
-    } finally {
-      if (nodeOptions === undefined) delete process.env.NODE_OPTIONS;
-      else process.env.NODE_OPTIONS = nodeOptions;
+  try {
+    handle = forkLanguageServer(options.server ?? SERVER_BIN, workspace);
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
     }
   }
   const kill = () => {
