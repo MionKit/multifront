@@ -15,8 +15,18 @@ import type * as ts from 'typescript';
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
 export interface EditorBlockKind {
   tag: BlockTag;
-  types?(block: Block, ctx: EditorContext): EditorFile; // what an importer sees: Card.ucf.<target><ext>
-  editor?(block: Block, ctx: EditorContext): EditorFile[]; // embedded codes for the language services
+  types?(block: Block, ctx: EditorContext): EditorFile | undefined; // what an importer sees: Card.ucf.<target><ext>
+  editor?(block: Block, ctx: EditorContext): EditorCode[]; // embedded codes for the language services
+  serviceScript?(code: VirtualCode): TargetScript | undefined; // inside the code editor() made
+}
+
+/** A file the row turns into a code, or a Volar code it builds itself (`<vue>`: a `VueVirtualCode`). */
+export type EditorCode = EditorFile | VirtualCode;
+
+/** What tsserver serves as `Card.ucf.<target>.ts`, beside the `.ucf` file's own script. */
+export interface TargetScript {
+  code: VirtualCode;
+  scriptKind: ts.ScriptKind;
 }
 
 /** A v3 source map has no exact spans and no per-span feature flags, so editor files carry Volar mappings. */
@@ -26,6 +36,8 @@ export interface EditorFile extends VirtualFile {
 
 export interface EditorOptions {
   compiler?: VueCompiler; // without it, only plain CSS modules are read
+  ts?: TypeScript; // without it, no `<vue>` code
+  compilerOptions?: ts.CompilerOptions;
 }
 
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */

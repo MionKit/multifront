@@ -4,8 +4,8 @@ import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript} from '@mult
 import {createLanguage} from '@volar/language-core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import ts from 'typescript';
-import {readFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {readdirSync, readFileSync} from 'node:fs';
+import {join, sep} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
@@ -153,5 +153,85 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
         await expect(textOf(code)).toMatchFileSnapshot(`__snapshots__/virtualCode/${name}.${code.id}${EXTS[code.languageId]}`);
       }
     });
+  });
+});
+
+// Every real fixture, broken ones included: the <vue> code is what Vue's parser and tsserver read.
+const VUE_NAMES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
+  .filter((name) => name.endsWith('.ucf'))
+  .map((name) => name.split(sep).join('/'))
+  .filter((name) => readComponent(name).source.includes('<vue'))
+  .sort();
+
+describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () => {
+  const vuePlugin = createUcfLanguagePlugin({compiler, ts});
+  const vueLanguage = createLanguage([vuePlugin], new Map(), () => {});
+  const vueKind = EDITOR_BLOCK_KINDS.find(({tag}) => tag === 'vue')!;
+
+  it('makes the vue and react rows full rows of the grid', () => {
+    for (const tag of ['vue', 'react'] as const) {
+      const core = BLOCK_KINDS.find((kind) => kind.tag === tag)!;
+      const editor = EDITOR_BLOCK_KINDS.find((kind) => kind.tag === tag)!;
+      expect([core.check, core.build, core.grammar, editor.editor, editor.types].every(Boolean), tag).toBe(true);
+    }
+  });
+
+  it('covers the fixtures with a <vue> block', () => {
+    expect(VUE_NAMES).toEqual(expect.arrayContaining(['Counter.ucf', 'vue/CounterCrlf.ucf', 'vue/VueWithUnclosedReact.ucf']));
+  });
+
+  describe.each(VUE_NAMES)('%s', (name) => {
+    const {filename, source} = readComponent(name);
+    const script = vueLanguage.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!;
+    const split = splitBlocks(source, filename);
+    const vue = split.targets.vue;
+    const code = script.generated!.embeddedCodes.get('vue');
+    const ids = (codes: VirtualCode[] = []): string[] => codes.flatMap(({id, embeddedCodes}) => [id, ...ids(embeddedCodes)]);
+
+    it('has a vue code exactly when the splitter kept the block', () => {
+      expect(code?.languageId).toBe(vue ? 'vue' : undefined);
+    });
+
+    it.runIf(vue)('keeps only our style codes: Vue’s own are left out', () => {
+      expect(ids(code!.embeddedCodes).filter((id) => /^style_\d+$/.test(id))).toEqual([]);
+      const ours = [...script.generated!.embeddedCodes.keys()].filter((id) => /^style_\d+$/.test(id));
+      expect(ours).toEqual(expectedCodes(split.styles, undefined).map(({id}) => id));
+    });
+
+    it.runIf(vue)('is the source, same length and line breaks, blank outside the <vue> content and root <style>s', () => {
+      const text = textOf(code!);
+      expect(text.length).toBe(source.length);
+      const kept = [vue!, ...split.styles].map((block) =>
+        block === vue ? [block.contentStart, block.contentEnd] : [block.start, block.end]
+      );
+      for (let offset = 0; offset < source.length; offset++) {
+        const inside = kept.some(([start, end]) => offset >= start! && offset < end!);
+        const char = source[offset]!;
+        const expected = inside || char === '\r' || char === '\n' ? char : ' ';
+        if (text[offset] !== expected) expect(text[offset], `offset ${offset}`).toBe(expected);
+      }
+    });
+
+    it.runIf(vue)('serves its script code to tsserver, the same file getTypesScript gives importers', () => {
+      const served = vueKind.serviceScript!(code!)!;
+      // As in a `.vue` file: a `<script>` with no lang is JavaScript, no `<script>` at all TypeScript.
+      const lang = vue!.content.includes('<script') ? (/<script[^>]*\blang="(\w+)"/.exec(vue!.content)?.[1] ?? 'js') : 'ts';
+      expect(served.code.id).toBe(`script_${lang}`);
+      expect(served.scriptKind).toBe({js: ts.ScriptKind.JS, ts: ts.ScriptKind.TS}[lang]);
+      const types = getTypesScript(filename, source, 'vue', {compiler, ts})!;
+      // Feature flags hold closures, new per run: compare the mappings as data.
+      const data = (mappings: CodeMapping[]) => JSON.parse(JSON.stringify(mappings)) as unknown;
+      expect({code: types.code, mappings: data(types.mappings), ext: types.ext}).toEqual({
+        code: textOf(served.code),
+        mappings: data(served.code.mappings),
+        ext: '.ts',
+      });
+    });
+  });
+
+  it('gives no vue code and no types without TypeScript', () => {
+    const {filename, source} = readComponent('Counter.ucf');
+    expect(load('Counter.ucf').byId.has('vue')).toBe(false);
+    expect(getTypesScript(filename, source, 'vue', {compiler})).toBeUndefined();
   });
 });
