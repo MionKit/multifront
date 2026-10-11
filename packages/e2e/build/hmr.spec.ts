@@ -49,13 +49,17 @@ const EDITS: [string, string, string, string[]][] = [
 function recorder(records: Update[]): Plugin {
   return {
     name: 'hmr-recorder',
-    // After ours, as the config file's plugins come first: it gets exactly what our hook returned.
+    // Post like ours, after it as the config file's plugins come first: it gets exactly what our hook returned.
     enforce: 'pre',
-    async hotUpdate({type, file, modules, read}) {
-      const environment: DevEnvironment = this.environment;
-      const byFile = [...(environment.moduleGraph.getModulesByFile(file) ?? [])].flatMap((mod) => mod.id ?? []);
-      const source = type === 'update' ? await read() : undefined;
-      records.push({environment: environment.name, type, file, source, given: modules.flatMap((mod) => mod.id ?? []), byFile});
+    hotUpdate: {
+      order: 'post',
+      async handler({type, file, modules, read}) {
+        const environment: DevEnvironment = this.environment;
+        const byFile = [...(environment.moduleGraph.getModulesByFile(file) ?? [])].flatMap((mod) => mod.id ?? []);
+        const source = type === 'update' ? await read() : undefined;
+        const given = modules.flatMap((mod) => mod.id ?? []);
+        records.push({environment: environment.name, type, file, source, given, byFile});
+      },
     },
   };
 }
@@ -74,7 +78,10 @@ function hmrApp(plugins: () => Plugin[]) {
       if (id === state.file) return 'bare';
       if (id === `${state.file}?raw`) return 'raw';
       const match = /^.*\?ucf&type=style&index=(\d+)(&module)?&lang\.(css|js)$/.exec(id);
-      return match ? `${match[2] ? 'map' : 'css'}${match[1]}` : id;
+      if (match) return `${match[2] ? 'map' : 'css'}${match[1]}`;
+      // plugin-vue's own style sub-module.
+      const vueStyle = /^.*\?vue&type=style&index=(\d+)&/.exec(id);
+      return vueStyle ? `vue-css${vueStyle[1]}` : id;
     });
 
   async function updated(matches: (update: Update) => boolean): Promise<Record<EnvironmentName, Update>> {
@@ -222,6 +229,24 @@ describe('hotUpdate with plugin-vue in the app', () => {
     ['a scoped declaration', 'rgb(120, 40, 160)', 'rgb(10, 20, 30)', ['bare', 'css0']],
   ])('%s hands the bare module on to plugin-vue', async (_what, from, to, expected) => {
     expect(returned(app, await app.edit(from, to))).toEqual(inBoth([...expected, 'raw']));
+  });
+});
+
+describe('hotUpdate with plugin-vue holding Counter.ucf as Vue and the page holding it as React', () => {
+  const app = hmrApp(() => [vue()]);
+
+  beforeEach(async () => {
+    await app.restore();
+    // As a Vue importer would: plugin-vue now holds a descriptor and decides the Vue modules of each change.
+    for (const name of ENVIRONMENTS) await app.state.server!.environments[name].transformRequest(`/@fs${app.state.file}`);
+  });
+
+  // plugin-vue hands on only its own modules: `raw`, another plugin's, is its to drop.
+  it.each([
+    ['<react> text', '<span className="label">Clicks</span>', '<span className="label">Taps</span>', ['react'], ['react']],
+    ['a scoped declaration', 'rgb(120, 40, 160)', 'rgb(10, 20, 30)', ['css0', 'vue-css0'], ['css0', 'vue-css0']],
+  ])("%s keeps our modules beside plugin-vue's", async (_what, from, to, client, ssr) => {
+    expect(returned(app, await app.edit(from, to))).toEqual({client: client.sort(), ssr: ssr.sort()});
   });
 });
 

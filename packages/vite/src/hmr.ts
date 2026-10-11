@@ -58,8 +58,10 @@ async function changedIds(file: string, before: UcfSnapshot, after: UcfVersion, 
   return ids;
 }
 
+type HotUpdate = Extract<NonNullable<Plugin['hotUpdate']>, Function>;
+
 /** Spec 7: a `<style>` edit updates its style module, a target block edit only that target's module. */
-export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean): Plugin['hotUpdate'] {
+export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean): HotUpdate {
   // Every environment's hook of one change gets its timestamp: one read, so a later save never splits them.
   const changes = new Map<string, {timestamp: number; before: UcfSnapshot | undefined; after: UcfVersion}>();
   return async function hotUpdate({type, file, modules, read, timestamp}) {
