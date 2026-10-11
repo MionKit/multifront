@@ -45,6 +45,7 @@ From milestone 4:
 - The Vue target in the same Vite app (for mixed apps and the three-target parity check).
 - The computed-style parity helper from the browser area.
 - What our plugin does with the bare `/abs/Card.ucf` id when `vue` is not in `targets` (step 6.5 depends on it).
+- The way M4 (4.3) serves a second target script of a `.ucf` file in tsserver beside the React one. 6.10 serves `Card.ucf.svelte.ts` the same way.
 
 From milestone 5 (exact names as milestone 5 ships them):
 

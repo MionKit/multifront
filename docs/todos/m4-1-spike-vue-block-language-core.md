@@ -1,7 +1,7 @@
 ---
 type: docs
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.1
@@ -66,7 +66,9 @@ Like spikes 1 and 3: a scratch folder, not a scratch branch, so the PR diff stay
   - both: root code (`id: 'root'`, `languageId: 'ucf'`, identity mapping) with embedded codes `react` (as M2) and the
     `createVueLanguagePlugin(...).createVirtualCode(fileName, 'vue', sfcSnapshot)` result, given the id `vue`;
   - `nested`: that root as is (the milestone's shape);
-  - `forward`: the same root plus `fileName`, `ir`, `vueSfc`, `vueCompilerOptions` getters reading the nested code.
+  - `forward`: the same root plus `fileName`, `ir`, `vueSfc`, `vueCompilerOptions` getters reading the nested code;
+  - `forward-own-styles` (added once the run showed the `style_N` clash): `forward`, with Vue's `style_N` children left
+    out of the nested code by an instance getter over `VueVirtualCode`'s `embeddedCodes` (they sit under `root_tags`).
   - It is also a tsserver plugin (`createLanguageServicePlugin`): `getServiceScript` returns the nested `script_ts`.
     The spike needs one service script; serving React and Vue side by side stays 4.13's job.
   - Protocol handlers `_ucfSpike.getComponentNames`, `getElementNames`, `getComponentProps`, `getElementAttrs`,
@@ -75,7 +77,10 @@ Like spikes 1 and 3: a scratch folder, not a scratch branch, so the PR diff stay
 
 ### 2. `run.mjs`: the spike's test (asserts, prints one table per question)
 
-A real tsserver over stdio, as spike 1's `run.mjs` (`--globalPlugins`, `--pluginProbeLocations`, verbose log).
+A real tsserver over stdio, as spike 1's `run.mjs` (`--globalPlugins`, `--pluginProbeLocations`, verbose log). As
+built, `run.mjs` drives `run-ts.mjs` (questions 1, 2, 4, per root mode and per plugin build), `bundle.mjs` (the Vite
+bundle), `probe2.mjs` (`$style` typo with `strictCssModules` off and on) and `run-services.mjs` (question 3, three root
+modes), and exits 1 on any failed assert.
 
 1. **Codes build?** Per fixture: embedded code tree (id, languageId, length, nesting), no exception, `vueSfc.errors`
    empty. tsserver `syntacticDiagnosticsSync` + `semanticDiagnosticsSync`: 0 on `Card.ucf`, `Counter.ucf`,
@@ -112,6 +117,23 @@ A real tsserver over stdio, as spike 1's `run.mjs` (`--globalPlugins`, `--plugin
 - `docs/architecture.md` "Editor and types": one line on how the `<vue>` block is served, only if the chosen path
   changes it. Graphics re-rendered only if one becomes wrong.
 
+## What the spike found (as shipped)
+
+1. Yes: 0 diagnostics on the three clean files, one `TS2345` at `'x'` (LF and CRLF).
+2. Yes: every spot round-trips to the same offset; template expressions also map Vue's `__VLS_ctx.` prefix.
+3. `nested` no (`vue-template`, `vue-compiler-dom-errors` throw on `info.root.ir`); `forward` yes (tag, attribute,
+   directive, component completions, hover, no error). Vue's `style_N` shadow ours in the id map (13 ids, 15 codes):
+   chosen path `forward-own-styles`. `$style.buton` is an error only with `strictCssModules: true`: our host sets it.
+4. Language-core's own `types/`; a bundle loses them silently (errors only in unmapped code). Fix tested: ship a copy
+   beside the bundle and set `typesRoot` to it.
+
+Docs written: `docs/plan.md` item 2; M4 4.1 verdict and status, "New dependencies" (`@vue/language-core`,
+`@vue/language-service`, `@vue/typescript-plugin` 3.3.11 in language-tools), 4.3 (editor half, forwarding root,
+`strictCssModules`, serving the Vue script beside the React one in tsserver, its test through `startTsserver()`), 4.12
+(Vue's service plugins minus their `css` plugin, client through our tsserver handlers, completion tests), 4.13 (bundled
+`typesRoot`, its `projectInfo` test), Hands (the 4.3 serving for M6; the "moved to M7" line removed), Risks; M2 and
+M6 hand-off lines naming 4.3; spec §11; `docs/architecture.md` "Editor and types". No M7 change: nothing moved there.
+
 ## Tests
 
 - The spike's `run.mjs` is the test: it asserts the round-trip offsets (question 2), the diagnostic counts (question
@@ -140,6 +162,7 @@ None: the code is thrown away; the same-length invariant gets its real tests in 
   `forward` works, Vue tag and directive completions stay in M4).
 - No fuzz test (orchestrator: code thrown away, 4.2 tests the same-length invariant).
 - Scratch folder instead of a scratch branch (orchestrator: the point is "not merged").
+- Serving the Vue script beside the React one in tsserver moves from 4.13 into 4.3 (orchestrator: 4.3's and 4.12's tests are tsserver results, and steps build only on the steps before them; 4.13 keeps importer resolution and the global types wiring).
 
 ## Done when
 
