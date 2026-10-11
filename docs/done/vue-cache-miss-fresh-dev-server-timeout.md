@@ -49,3 +49,30 @@ None, because this is test infra only.
   URL, and its cleanup always settles.
 - Repeated full `pnpm devx test` runs pass here and in CI.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: bound the fresh-process waits (approved 2026-10-11)
+
+Automatic mode, delegated session: the plan was decided without a user.
+
+- `waitForOutput(pattern, count, timeoutMs = 30 s)` in `freshProcess.ts` rejects with the pattern, the count and the
+  output so far, so a CLI that never prints its URL fails in 30 s with a clear message.
+- `stop()` sends SIGTERM, then SIGKILL after a 5 s grace, and awaits the child's `exit`, not `close`: `close` also
+  waits for stdio pipes a grandchild can hold.
+- New `packages/e2e/build/fresh-process.spec.ts`: a real Vite CLI waits for output it never prints, and a real Vite
+  CLI whose `server.close()` never settles (a `closeBundle` hook that never resolves and keeps a timer alive) is
+  stopped. Both cases time out at 60 s without the fix.
+
+## What shipped
+
+**Root cause.** The test body passed in about 0.6 s; the 60 s went to the `vite.stop()` cleanup hook. `stop()` sent
+one SIGTERM and awaited `close` with no bound. Vite's SIGTERM handler awaits `server.close()` before it exits, and that
+waits with no bound for the dependency scan, the dependency bundling it started after the first request, in-flight
+requests and the plugins' `buildEnd` / `closeBundle` hooks. Measured on the cloud host: 0.4 s alone, up to 3 s with
+10 copies of the case and 8 busy loops in parallel. The 60 s stall itself did not reproduce in 2 full e2e runs, 2
+full e2e runs under CPU load and 40 direct SIGTERM trials at varied delays, so which wait stalled stays unknown. The
+fix does not depend on it: `stop()` now force-kills after 5 s.
+
+- Built as planned. The `fetch` in the case got no bound of its own: Vitest's 60 s test timeout already fails it with
+  the test's name, and with `stop()` settling, that failure is now reported instead of a hook timeout.
+- Found on the way, unrelated: the tsserver "project outside the repo" cases inherit pnpm's `NODE_PATH` when Vitest
+  starts through pnpm's bin shim, and one of them fails. Filed as a guidelines todo in this PR.
