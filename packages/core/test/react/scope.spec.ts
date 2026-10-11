@@ -228,8 +228,8 @@ const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: num
   {fixture: 'react/shapes/NoParams.ucf', roots: ['div'], props: '__props', signature: 'function NoParams /* () */ (__props) {'},
   {fixture: 'react/shapes/NullRoot.ucf', roots: []},
   {fixture: 'react/shapes/Ternary.ucf', roots: ['div', 'p']},
-  // Only `content` warns, at its return: `mixed` would also warn on renders that return the div.
-  {fixture: 'react/fuzz-found/ConstFragment.ucf', roots: ['div'], fragments: 1},
+  // `content` warns at each return naming it; `mixed`, a ternary, never warns.
+  {fixture: 'react/fuzz-found/ConstFragment.ucf', roots: ['div'], fragments: 2},
 ];
 
 it('has a row for every forwarding/, shapes/ and fuzz-found/ fixture', () => {

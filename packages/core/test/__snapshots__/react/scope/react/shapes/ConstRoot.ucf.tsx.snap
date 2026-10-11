@@ -4,5 +4,7 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
     const root = (
       <article {...__ucfScopeAttrs(props)} className="shape"><span className="inner">const {props.branch}</span></article>
     )
+    // The same const returned twice still gets one spread.
+    if (props.branch === 'again') return root
     return root
   }
