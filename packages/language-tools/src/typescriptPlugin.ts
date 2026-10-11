@@ -1,8 +1,8 @@
 import {loadVueCompiler} from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
-import {createLanguageServicePlugin} from '@volar/typescript/lib/quickstart/createLanguageServicePlugin.js';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
+import {createLanguageServicePlugin} from './languageServicePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
 import type {EditorOptions, TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
@@ -137,22 +137,35 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
         targetScripts.setup(language);
         serveVueRequests(ts, info, language, base);
         getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
-        // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.
         const resolve = host.resolveModuleNameLiterals?.bind(host);
         if (!resolve) return;
-        host.resolveModuleNameLiterals = (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
-          const others = literals.filter((literal) => !isUcfSpecifier(literal));
-          if (others.length === literals.length) {
-            return resolve(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
-          }
-          const resolved =
-            others.length > 0 ? resolve(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
-          const options = importOptions(compilerOptions);
-          let next = 0;
-          return literals.map((literal) =>
-            isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
-          );
-        };
+        type Resolve = typeof resolve;
+        const wrapResolve =
+          (inner: Resolve): Resolve =>
+          (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
+            const others = literals.filter((literal) => !isUcfSpecifier(literal));
+            if (others.length === literals.length) {
+              return inner(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
+            }
+            const resolved =
+              others.length > 0 ? inner(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
+            const options = importOptions(compilerOptions);
+            let next = 0;
+            return literals.map((literal) =>
+              isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
+            );
+          };
+        // Outermost in any load order: a Volar plugin loaded later (Vue's) resolves a batch holding a `.vue` import
+        // itself, `.ucf` ones included. Its wrapper gets ours on top again; inner copies of ours then see no `.ucf`.
+        let current = wrapResolve(resolve);
+        Object.defineProperty(host, 'resolveModuleNameLiterals', {
+          configurable: true,
+          enumerable: true,
+          get: () => current,
+          set: (next: Resolve) => {
+            current = wrapResolve(next.bind(host));
+          },
+        });
       },
     };
   });
