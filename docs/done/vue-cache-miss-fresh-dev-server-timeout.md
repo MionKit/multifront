@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-11
 ---
 
@@ -58,7 +58,7 @@ Automatic mode, delegated session: the plan was decided without a user.
   output so far, so a CLI that never prints its URL fails in 30 s with a clear message.
 - `stop()` sends SIGTERM, then SIGKILL after a 5 s grace, and awaits the child's `exit`, not `close`: `close` also
   waits for stdio pipes a grandchild can hold.
-- New `packages/e2e/build/fresh-process.spec.ts`: a real Vite CLI waits for output it never prints, and a real Vite
+- New cases: a real Vite CLI waits for output it never prints, and a real Vite
   CLI whose `server.close()` never settles (a `closeBundle` hook that never resolves and keeps a timer alive) is
   stopped. Both cases time out at 60 s without the fix.
 
@@ -72,7 +72,16 @@ requests and the plugins' `buildEnd` / `closeBundle` hooks. Measured on the clou
 full e2e runs under CPU load and 40 direct SIGTERM trials at varied delays, so which wait stalled stays unknown. The
 fix does not depend on it: `stop()` now force-kills after 5 s.
 
-- Built as planned. The `fetch` in the case got no bound of its own: Vitest's 60 s test timeout already fails it with
+- Changed from the plan after review: `stop()` still awaits `close`: Vite spawns no grandchild that could hold the pipes,
+  and awaiting `exit` had no test that would fail without it. The two cases live in `vue-cache-miss.spec.ts`, which
+  already has the app copy and the `cli()` helper.
+- Also fixed: Vitest runs `beforeEach`'s cleanup before `onTestFinished`, so the case removed the app copy while its
+  Vite CLI still ran. The cleanup now stops every CLI the case started, then removes the copy. 24 trials that removed
+  the copy under a running CLI did not hang it either, so this is not shown to be the stall's trigger.
+- Partial on one point, on purpose: which wait inside Vite's `server.close()` stalled for 60 s stays unknown, because
+  the stall never reproduced. No follow-up spec: with a bounded `stop()` such a stall can no longer fail a test, and
+  without a reproduction there is nothing to plan from.
+- The `fetch` in the case got no bound of its own: Vitest's 60 s test timeout already fails it with
   the test's name, and with `stop()` settling, that failure is now reported instead of a hook timeout.
 - Found on the way, unrelated: the tsserver "project outside the repo" cases inherit pnpm's `NODE_PATH` when Vitest
   starts through pnpm's bin shim, and one of them fails. Filed as a guidelines todo in this PR.
