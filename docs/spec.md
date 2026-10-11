@@ -112,6 +112,9 @@ The full picture, with graphics: [architecture.md](architecture.md).
      - `props` is the first parameter (a TypeScript `this` parameter is skipped). With none, the build adds `__props` (`(__props, __ref)` inside `forwardRef`, which React checks for zero or two parameters). A body that declares that name again gets no forwarding.
      - The warning is dev only, once per component, named by the file's base name (`<FragmentRoot>`), and only when a parent passed a `data-v-*` prop.
   4. If the component destructures props in its parameter, rewrite to `(__props)` + `const {...} = __props` so the forward has access to all props.
+     - The pattern text moves as written (defaults, rest, comments) into `const <pattern> = __props;` right after the body's `{` (after its directives, such as `'use no memo'`, which must stay first). An expression-bodied arrow gets `{const <pattern> = __props; return <body>}`. The type annotation and a parameter default stay on `__props`.
+     - `__props` (and `__ref`, added in `forwardRef`) takes the first of `__props`, `__props1`, `__props2`, ... that no identifier of the block uses.
+     - No forwarding when the body declares a name the pattern binds or reads (its defaults and computed keys; moved into the body, they would meet), when a later parameter reads a name it binds, nor for a rest first parameter (`(...args)`).
 - `__ucfScopeAttrs` is a helper of a few lines, served by the Vite plugin as a virtual module, so it is bundled once and shipped components get no runtime dependency.
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
 - Third-party components don't forward scope attributes; document `className` + CSS modules as the way to style them.

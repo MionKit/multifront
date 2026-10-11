@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 3
 step: 3.12
@@ -77,7 +77,7 @@ the child root. Most real components destructure, and so do many fixtures (`Card
   `.badge { color: rgb(30, 120, 60) }`, `.badge-label { text-decoration: underline }` (must not reach the inner `em`).
   The pair 3.14's demo and the exit test use.
 - `packages/e2e/fixtures/apps/react-scope/Parent.ucf`: new cases `Destructured:only`, `DestructuredArrow:only`,
-  `DestructuredDefaults:defaults` (no props), `DestructuredDefaults:given` (`label="given label" note="rest note"`),
+  `DestructuredDefaults:defaults` (`branch` only), `DestructuredDefaults:given` (`label="given label" note="rest note"`),
   `ForwardRefDestructured:only` (second `useRef`; the effect sets `data-ref` on both refs).
 - `react-scope/src/main.tsx`: `?page=panel` renders `<ScopedPanel />` (its own console), other pages unchanged.
 
@@ -151,3 +151,26 @@ None here: 3.13 owns the scope fuzz (its generator already toggles "destructured
 - Orchestrator (approved): a rest first parameter keeps no forwarding, documented.
 - Orchestrator (approved): ScopedPanel renders on its own page, `?page=panel`.
 - Orchestrator (approved): no fuzz oracle here; 3.13 owns the scope fuzz.
+
+## As shipped
+
+- `forwarding/RestParams.ucf` pins the rest first parameter (no forwarding); the code check for it existed before.
+- 3.5's `react.spec.ts` gained `ScopedBadge` and `ScopedPanel` rows (its table must list every `react/` fixture);
+  its "adds nothing else" test now also strips stamps, as `ScopedPanel` is the first scoped `react/` fixture there.
+  The `ScopedBadge` token row pins the moved pattern's mapping.
+- `react-scope`'s shapes page now waits for `ForwardRefDestructured`'s ref, set in the same effect as `ForwardRef`'s.
+- Review fixes:
+  - The unsafe-move check compares the body's names with what the moved text binds or reads (`patternReads`: its
+    names, defaults and computed keys), never a plain key or the annotation, so `{className: extra}` beside a body
+    `const className` still forwards (`forwarding/RenamedKey.ucf`).
+  - A later parameter that reads a pattern name (`({size}, scale = size)`) gets no forwarding
+    (`forwarding/LaterParamReads.ucf`).
+  - In a body that opens with directives (`'use no memo'`), `const ` goes before the first other statement, so the
+    directive stays first (`forwarding/DirectiveBody.ucf`).
+  - The fresh-name fix for the added `__props` / `__ref` is its own commit, with `forwarding/RefClash.ucf`
+    (`(__props1, __ref1)`).
+  - More edges pinned: `forwarding/OnlyThis.ucf`, `forwarding/ArrayPattern.ucf` (array, optional, a `]` in a comment
+    before the annotation), `forwarding/DestructuredFragment.ucf` (moved in dev for the warning, left in place in
+    production), and `DestructuredDefaults.ucf`'s pattern spans lines.
+  - The SHAPES rows derive the moved pattern from their `signature`; 3.5's "adds nothing else" strips stamps only
+    for a scoped case.
