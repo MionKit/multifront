@@ -1,0 +1,11 @@
+<vue>
+  <template>
+    <p>first-vue-block</p>
+  </template>
+</vue>
+
+<vue>
+  <template>
+    <p>second-vue-block</p>
+  </template>
+</vue>
