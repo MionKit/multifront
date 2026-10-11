@@ -7,6 +7,7 @@ import {
   buildTarget,
   getBlockKind,
   importerFromId,
+  locate,
   missingTargetBlockMessage,
   resolveTarget,
   rewriteImportAttributes,
@@ -155,6 +156,14 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const {split, ctx} = await cache.loadUcf(own.file);
         // The id names no file on disk (spec 4.3).
         this.addWatchFile(own.file);
+        const vue = split.targets.vue;
+        // Until plugin-vue compiles the SFC code, it would reach Vite as JavaScript.
+        if (own.target === 'vue' && vue) {
+          const message = 'multifront does not build <vue> blocks yet';
+          const {line, column} = locate(split.source, vue.start);
+          const at = {filename: own.file, start: vue.start, end: vue.contentStart, line, column};
+          this.error(rollupError([{code: 'target-not-built', severity: 'error', message, ...at}]));
+        }
         try {
           const {code, map} = buildTarget(split, ctx, own.target);
           return {code, map};
