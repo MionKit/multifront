@@ -48,4 +48,9 @@ describe('dev server of react-basic with server.fs.allow set to the app folder',
     const response = await fetch(base + path);
     expect({path, status: response.status}).toEqual({path, status: 403});
   });
+
+  it('still loads its React module in SSR, which Vite does not check either', async () => {
+    const result = await server!.environments.ssr.transformRequest(`${CARD}.react.tsx`);
+    expect(result?.code).toContain('function Card(');
+  });
 });
