@@ -1,5 +1,10 @@
 import type {Block} from '@multifront/core';
-import type {CodeInformation, CodeMapping} from '@volar/language-core';
+import type {CodeInformation, CodeMapping, IScriptSnapshot} from '@volar/language-core';
+
+/** A generated text as Volar reads it; no change range, so every edit is a full reparse. */
+export function stringSnapshot(text: string): IScriptSnapshot {
+  return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
+}
 
 /** Every language feature on: the generated text is the user's own. */
 export const ALL_FEATURES: CodeInformation = {

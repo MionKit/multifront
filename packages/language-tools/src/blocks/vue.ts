@@ -1,9 +1,11 @@
 import {vueSfcCode} from '@multifront/core';
 import type {Block, SplitResult} from '@multifront/core';
+import {forEachEmbeddedCode} from '@volar/language-core';
 import type {LanguagePlugin, VirtualCode} from '@volar/language-core';
 import {VueVirtualCode, createVueLanguagePlugin, getDefaultCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
-import type {EditorBlockKind, EditorContext, EditorFile, TargetScript, TypeScript} from '../types.ts';
+import {stringSnapshot} from '../mappings.ts';
+import type {EditorBlockKind, EditorContext, EditorFile, EditorOptions, TargetScript, TypeScript} from '../types.ts';
 
 const SERVICE_SCRIPT = /^script_(ts|tsx|js|jsx)$/;
 const STYLE_CODE = /^style_\d+$/;
@@ -62,24 +64,26 @@ function ownStylesOnly(code: VueVirtualCode): VueVirtualCode {
 
 function vueCode({split, ts: typescript, compilerOptions = DEFAULT_COMPILER_OPTIONS}: EditorContext): VirtualCode | undefined {
   if (!typescript) return undefined;
-  const text = editorSfcCode(split);
-  const snapshot: ts.IScriptSnapshot = {
-    getText: (start, end) => text.slice(start, end),
-    getLength: () => text.length,
-    getChangeRange: () => undefined,
-  };
+  const snapshot = stringSnapshot(editorSfcCode(split));
   const code = vuePlugin(typescript, compilerOptions).createVirtualCode?.(split.filename, 'vue', snapshot, {
     getAssociatedScript: () => undefined,
   });
   return code && ownStylesOnly(code);
 }
 
+/** Language-core keeps every file's code in a module-wide registry until it is disposed. */
+export function disposeVueCode(
+  fileName: string,
+  code: VirtualCode,
+  {compilerOptions = DEFAULT_COMPILER_OPTIONS}: EditorOptions
+): void {
+  plugins.get(compilerOptions)?.disposeVirtualCode?.(fileName, code as VueVirtualCode);
+}
+
 function serviceScript(code: VirtualCode): TargetScript | undefined {
-  for (const child of code.embeddedCodes ?? []) {
+  for (const child of forEachEmbeddedCode(code)) {
     const lang = SERVICE_SCRIPT.exec(child.id)?.[1] as keyof typeof SCRIPT_KINDS | undefined;
     if (lang) return {code: child, scriptKind: SCRIPT_KINDS[lang]};
-    const found = serviceScript(child);
-    if (found) return found;
   }
   return undefined;
 }

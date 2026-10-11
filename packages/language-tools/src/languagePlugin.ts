@@ -6,8 +6,9 @@ import type {Block, Target, VirtualFile} from '@multifront/core';
 import type {IScriptSnapshot, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
+import {disposeVueCode} from './blocks/vue.ts';
 import {createEditorContext, editorFiles} from './context.ts';
-import {ALL_FEATURES} from './mappings.ts';
+import {ALL_FEATURES, stringSnapshot} from './mappings.ts';
 import type {EditorOptions, UcfVirtualCode} from './types.ts';
 
 const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
@@ -34,10 +35,6 @@ function emptyScript(root: VirtualCode): VirtualCode {
   return code;
 }
 
-function stringSnapshot(text: string): IScriptSnapshot {
-  return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
-}
-
 function codeId(block: Block): string {
   return isTarget(block.type) ? block.type : `${block.type}_${block.index}`;
 }
@@ -61,6 +58,10 @@ export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePl
     getLanguageId: (fileName) => (fileName.endsWith('.ucf') ? 'ucf' : undefined),
     createVirtualCode: (fileName, languageId, snapshot) =>
       languageId === 'ucf' ? createRootCode(fileName, snapshot, options) : undefined,
+    disposeVirtualCode(fileName, root) {
+      const vue = root.embeddedCodes?.find(({id}) => id === 'vue');
+      if (vue) disposeVueCode(fileName, vue, options);
+    },
     typescript: {
       extraFileExtensions: [{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
       getServiceScript(root): TypeScriptServiceScript {

@@ -122,7 +122,7 @@ describe('getTypesScript types $style with the class names the build finds', () 
 
   it('has no script for a target without a block or without types yet', () => {
     const card = readComponent('Card.ucf');
-    expect(getTypesScript(card.filename, card.source, 'vue', {compiler})).toBeUndefined();
+    expect(getTypesScript(card.filename, card.source, 'svelte', {compiler})).toBeUndefined();
     const stylesOnly = readComponent('invalid/StylesOnly.ucf');
     expect(getTypesScript(stylesOnly.filename, stylesOnly.source, 'react', {compiler})).toBeUndefined();
   });
