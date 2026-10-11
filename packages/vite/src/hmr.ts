@@ -1,9 +1,10 @@
 import {classMapId, styleId} from '@multifront/core';
+import type {Block} from '@multifront/core';
 import type {Plugin} from 'vite';
 import {TARGET_SUFFIX, VIRTUAL_TARGETS, splitId} from './ids.ts';
 import type {UcfCache, UcfEntry, UcfSnapshot, UcfVersion} from './types.ts';
 
-type BlockText = {content: string; attrs: Record<string, unknown>};
+type BlockText = Pick<Block, 'content' | 'attrs'>;
 
 function sameRecord(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
   const keys = Object.keys(left);

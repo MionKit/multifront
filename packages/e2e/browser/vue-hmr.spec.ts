@@ -99,6 +99,18 @@ describe('HMR of a Vue .ucf component (apps/vue, Counter clicked to 3)', () => {
     expect(await page.locator(`${COUNTER} .label`).textContent()).toBe('Hits');
   });
 
+  it('a <template> edit that starts using a script import reloads the component', async () => {
+    await edit('<span class="label">Hits</span>', '<span class="label">{{ typeof ref }}</span>');
+    // A re-render would keep the old setup, which returns no `ref`: the text would read `undefined`.
+    await expect.poll(() => page.locator(`${COUNTER} .label`).textContent(), POLL).toBe('function');
+    await requests.quiet(500);
+
+    // Mounted again from its start of 2.
+    expect(await count()).toBe('2');
+    expect(payloads.updatedPaths()).toEqual([counterUrl]);
+    expect(payloads.fullReloads()).toBe(0);
+  });
+
   it('loaded the page once and logged no warning or error', () => {
     expect(loads).toBe(1);
     expect(messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror')).toEqual([]);

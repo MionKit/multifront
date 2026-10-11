@@ -119,14 +119,10 @@ function devStyleCss(copy: string, edit?: (source: string) => string): Promise<s
   });
 }
 
-function cssMap(css: string): EncodedSourceMap {
-  const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
-  return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
-}
-
 /** The rule `.counter` of `css` maps to its line in `source`, which is the map's text. */
 function expectRuleMapped(css: string, source: string): void {
-  const raw = cssMap(css);
+  const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
+  const raw = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
   expect(originalPositionFor(new TraceMap(raw), positionOf(css, '.counter[data-v-'))).toMatchObject({
     source: expect.stringMatching(/\/Counter\.ucf$/),
     ...positionOf(source, '.counter {'),

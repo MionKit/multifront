@@ -1,6 +1,7 @@
 import {readFile, writeFile} from 'node:fs/promises';
 import {expect} from 'vitest';
 import type {Page} from 'playwright';
+import type {HotPayload} from 'vite';
 
 export function trackRequests(page: Page) {
   const urls: string[] = [];
@@ -43,20 +44,18 @@ export async function editFile(requests: ReturnType<typeof trackRequests>, file:
   await writeFile(file, source.replace(from, to));
 }
 
-type HmrPayload = {type: string; updates?: {type: string; path: string}[]};
-
 /** Vite's HMR messages to the page, read off its websocket. */
 export function trackHmrPayloads(page: Page) {
-  const payloads: HmrPayload[] = [];
+  const payloads: HotPayload[] = [];
   page.on('websocket', (socket) => {
     socket.on('framereceived', ({payload}) => {
-      if (typeof payload === 'string') payloads.push(JSON.parse(payload) as HmrPayload);
+      if (typeof payload === 'string') payloads.push(JSON.parse(payload) as HotPayload);
     });
   });
   return {
     clear: () => void (payloads.length = 0),
     /** The paths of every `update` since `clear()`. */
-    updatedPaths: () => payloads.flatMap((payload) => (payload.type === 'update' ? payload.updates!.map(({path}) => path) : [])),
+    updatedPaths: () => payloads.flatMap((payload) => (payload.type === 'update' ? payload.updates.map(({path}) => path) : [])),
     fullReloads: () => payloads.filter((payload) => payload.type === 'full-reload').length,
   };
 }

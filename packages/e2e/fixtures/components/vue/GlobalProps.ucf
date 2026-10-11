@@ -1,0 +1,9 @@
+<vue>
+  <script setup lang="ts">
+  const props = defineProps<GlobalLabelProps>()
+  </script>
+
+  <template>
+    <p class="global">{{ props.label }}</p>
+  </template>
+</vue>
