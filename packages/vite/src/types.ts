@@ -1,5 +1,5 @@
 import type {Api, Options} from '@vitejs/plugin-vue';
-import type {BuildContext, ResolveTargetOptions, SplitResult, VueCompiler} from '@multifront/core';
+import type {BuildContext, ResolveTargetOptions, SplitResult} from '@multifront/core';
 
 /** `frameworks` (default all), `framework` (the default of spec 4.2) and `importers` (extension → framework). */
 export type MultifrontOptions = ResolveTargetOptions;
@@ -19,10 +19,11 @@ export interface UcfSnapshot {
 /** One content of a file; `previous` is the one it replaced. */
 export interface UcfVersion extends UcfSnapshot {
   source: string;
+  sfc?: string; // the SFC code our transform made from `source`
   previous?: UcfSnapshot;
 }
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
 export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {
-  options: {compiler?: VueCompiler | null; root: string; features?: Options['features']};
+  options: {compiler?: Options['compiler'] | null; root: string; features?: Options['features']};
 };

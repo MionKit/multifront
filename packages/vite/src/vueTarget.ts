@@ -3,14 +3,17 @@ import {vueSfcCode} from '@multifront/core';
 import type {SplitResult, VueCompiler} from '@multifront/core';
 import type {Options} from '@vitejs/plugin-vue';
 import {normalizePath} from 'vite';
-import type {ResolvedConfig, Rolldown} from 'vite';
+import type {Plugin, ResolvedConfig, Rolldown} from 'vite';
 import {composeCssModules} from './cssModules.ts';
 import {VUE_INCLUDE} from './ids.ts';
 import type {VuePluginApi} from './types.ts';
-import {VUE_PLUGIN_NAME} from './vueCompiler.ts';
+import {VUE_PLUGIN_NAME, wrappedCompilers} from './vueCompiler.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
 type IdFunction = Extract<ComponentIdGenerator, Function>;
+type FullCompiler = NonNullable<Options['compiler']>;
+type SfcMap = ReturnType<FullCompiler['compileScript']>['map'];
+type SourceBehind = (file: string, code: string) => string | undefined;
 
 // plugin-vue's transform tests only the path, so its hook filter must drop our style and class map ids.
 const UCF_SUB_REQUEST = /\.ucf\?(?:.*&)?ucf\b/;
@@ -46,6 +49,47 @@ export function composeVuePlugin(config: ResolvedConfig, scopeIdOf: (file: strin
   const generator = componentIdGenerator(features?.componentIdGenerator, config.root, scopeIdOf);
   api.options = {...api.options, features: {...features, componentIdGenerator: generator}};
   composeCssModules(config, scopeIdOf);
+}
+
+function withSource(map: SfcMap, file: string | undefined, code: string, sourceBehind: SourceBehind): void {
+  // compiler-sfc's parse cache hands back a descriptor already patched.
+  if (!map || !file || !VUE_INCLUDE.test(file) || Object.getOwnPropertyDescriptor(map, 'sourcesContent')?.get) return;
+  const parsed = map.sourcesContent;
+  // Read on use: plugin-vue keeps its compiled script while a `<react>`-only edit leaves the SFC code the same.
+  Object.defineProperty(map, 'sourcesContent', {
+    configurable: true,
+    enumerable: true,
+    get: () => {
+      const source = sourceBehind(file, code);
+      return source === undefined ? parsed : map.sources.map(() => source);
+    },
+  });
+}
+
+/** Call from a `buildStart` after plugin-vue's: its sub-request maps hold the blanked SFC code, devtools need the `.ucf`. */
+export function wrapVueCompiler(plugins: readonly Plugin[], sourceBehind: SourceBehind): void {
+  const api = plugins.find((plugin) => plugin.name === VUE_PLUGIN_NAME)?.api as VuePluginApi | undefined;
+  const compiler = api?.options.compiler;
+  // A restart runs `buildStart` again on the same plugin-vue instance.
+  if (!api || !compiler || wrappedCompilers.has(compiler)) return;
+  const wrapper: FullCompiler = {
+    ...compiler,
+    parse(code, options) {
+      const result = compiler.parse(code, options);
+      const {template, script, scriptSetup, styles, customBlocks} = result.descriptor;
+      for (const block of [template, script, scriptSetup, ...styles, ...customBlocks]) {
+        withSource(block?.map, options?.filename, code, sourceBehind);
+      }
+      return result;
+    },
+    compileScript(descriptor, options) {
+      const result = compiler.compileScript(descriptor, options);
+      withSource(result.map, descriptor.filename, descriptor.source, sourceBehind);
+      return result;
+    },
+  };
+  wrappedCompilers.set(wrapper, compiler);
+  api.options = {...api.options, compiler: wrapper};
 }
 
 /** The `<vue>` block as the dependency scan reads it; errors are left to the real pipeline. */
