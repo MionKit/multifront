@@ -1,5 +1,5 @@
-// A `.ts` importer that picks vue for a `.ucf` import gets `Card.ucf.vue.ts`: the real Vue `DefineComponent`, with the
-// global types it references. The plugin `pnpm devx vsix` bundles has its own checks in bundle.spec.ts.
+// A `.ts` importer picking vue gets `Card.ucf.vue.ts`: the real `DefineComponent`, with the global types it references.
+// The bundled plugin's own checks are in bundle.spec.ts.
 import {dirname, join, resolve} from 'node:path';
 import {getTypesScript} from '@multifront/language-tools';
 import type {EditorOptions} from '@multifront/language-tools';
@@ -31,7 +31,6 @@ const BY_IMPORTER = [
 const quickInfo = (server: Tsserver, {filename, source}: Component, needle: string, shift = 0) =>
   server.request<TsQuickInfo>('quickinfo', {file: filename, ...locate(source, needle, shift)});
 
-/** A binding of the import is a `DefineComponent`: an unsaved `const picked = <name>;` at the end. */
 async function expectDefineComponent(server: Tsserver, component: Component, name: string): Promise<void> {
   const last = component.source.trimEnd().split('\n').at(-1)!;
   const added = `${last}\nconst picked = ${name};`;
@@ -61,7 +60,6 @@ describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts'
     await server?.stop();
   });
 
-  /** mountVue.ts with `h` imported and `uses` after the import, as an unsaved edit undone after `check`. */
   async function withUses(uses: string, check: (edited: Component) => Promise<void>): Promise<void> {
     const added = `${IMPORT_H}\n${uses}`;
     const revert = await edit(server, MOUNT_VUE, IMPORT_VUE, added);

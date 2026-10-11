@@ -249,8 +249,7 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
   };
 
   return {
-    // Runs once a program is built: a file it reached first (a `.ucf` file, a target script) is a script name of the
-    // next one, and tsserver builds that only when the project is dirty.
+    // A file a program reached first (`.ucf`, target script) is a root of the next, built only once the project is dirty.
     afterUpdate(): void {
       const inProgram = new Set(project.getFileNames(true, true));
       const stale = addedScriptNames(getScriptFileNames()).some((name) => !inProgram.has(ts.server.toNormalizedPath(name)));
