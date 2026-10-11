@@ -16,7 +16,7 @@ import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
 import {expectSameComputedStyles} from './lib/parity.ts';
 import {editFile, trackHmrPayloads, trackRequests} from './lib/requests.ts';
 import {scopeAttribute} from './lib/scope.ts';
-import {buildAndPreview} from './lib/serve.ts';
+import {buildAndPreview, localUrl} from './lib/serve.ts';
 
 const DEMO = join(FIXTURES_DIR, 'apps', 'demo');
 const COUNTERS = {react: '#app [data-demo="counter"] > .counter', vue: '#vue > .counter'};
@@ -124,10 +124,8 @@ describe('milestone 4 exit test', () => {
         build: {outDir: 'dist/client'},
         preview: {port: 0},
       });
-      const url = server.resolvedUrls?.local[0];
-      if (!url) throw new Error(`no local URL for ${root}`);
       const messages = collectConsole(page);
-      const response = await page.goto(url);
+      const response = await page.goto(localUrl(server.resolvedUrls, root));
       const html = await response!.text();
       // Server-rendered with the production scope id: the markup is in the page before any script runs.
       expect(html).toContain(`<div class="counter" ${scopeAttribute(root, counter, true)}>`);

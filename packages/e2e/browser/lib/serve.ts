@@ -9,7 +9,7 @@ async function tempDir(prefix: string): Promise<string> {
   return mkdtemp(join(TMP_DIR, prefix));
 }
 
-function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
+export function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
   const url = urls?.local[0];
   if (!url) throw new Error(`no local URL for ${appDir}`);
   return url;
