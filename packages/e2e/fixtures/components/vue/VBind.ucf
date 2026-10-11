@@ -1,0 +1,17 @@
+<vue>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const color = ref('rgb(10, 120, 60)')
+  </script>
+
+  <template>
+    <p class="bound">Bound</p>
+  </template>
+</vue>
+
+<style scoped>
+.bound {
+  color: v-bind(color);
+}
+</style>

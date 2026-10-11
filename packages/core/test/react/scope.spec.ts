@@ -34,6 +34,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'react/scope/Stamped.ucf', unstamped: ['Fragment', 'Fragment', 'Frag', 'React.Fragment']},
   {fixture: 'react/shapes/MultiReturn.ucf'},
   {fixture: 'scoped-modules/ScopedModuleEdges.ucf'},
+  {fixture: 'vue/CounterCrlf.ucf'},
 ];
 const CASES = [
   ...SCOPED.map((row) => ({...row, scoped: true})),

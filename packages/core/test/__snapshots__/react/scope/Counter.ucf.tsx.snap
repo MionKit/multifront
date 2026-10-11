@@ -10,7 +10,7 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
     return (
       <div data-v-fda655b1="" {...__ucfScopeAttrs(__props)} className="counter">
         <span data-v-fda655b1="" className="label">Clicks</span>
-        <button data-v-fda655b1="" className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
+        <button data-v-fda655b1="" className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
       </div>
     )
   }

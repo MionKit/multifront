@@ -1,5 +1,17 @@
 <vue>
-  <template><div class="counter"><span class="label">Clicks</span></div></template>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const props = defineProps<{start?: number}>()
+  const count = ref(props.start ?? 0)
+  </script>
+
+  <template>
+    <div class="counter">
+      <span class="label">Clicks</span>
+      <button :class="$style.button" title="Zähler 𝄞" @click="count++">{{ count }}</button>
+    </div>
+  </template>
 </vue>
 
 <react>
@@ -10,7 +22,7 @@
     return (
       <div className="counter">
         <span className="label">Clicks</span>
-        <button className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
+        <button className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
       </div>
     )
   }

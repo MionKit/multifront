@@ -1,3 +1,11 @@
+<vue>
+  <template>
+    <svg :class="$style.icon" viewBox="0 0 16 16" aria-label="icon-vue-marker">
+      <circle cx="8" cy="8" r="6" />
+    </svg>
+  </template>
+</vue>
+
 <react>
   export default function Icon() {
     return (
