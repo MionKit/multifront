@@ -7,6 +7,7 @@ import type {
   ImportDeclaration,
   ImportExpression,
   OxcError,
+  ParseResult,
   Program,
   Span,
 } from 'oxc-parser';
@@ -90,8 +91,20 @@ function frameworkAttributes(program: Program): Span[] {
   return found;
 }
 
+// buildTarget checks then builds the same Block: one parse serves both.
+const parses = new WeakMap<Block, ParseResult>();
+
+function parseBlock(block: Block, filename: string): ParseResult {
+  let parsed = parses.get(block);
+  if (!parsed) {
+    parsed = parseSync(filename, block.content, {lang: 'tsx', sourceType: 'module'});
+    parses.set(block, parsed);
+  }
+  return parsed;
+}
+
 function check(block: Block, split: SplitResult): Diagnostic[] {
-  const {program, errors} = parseSync(split.filename, block.content, {lang: 'tsx', sourceType: 'module'});
+  const {program, errors} = parseBlock(block, split.filename);
   // A recovered program says nothing sure about exports or imports.
   if (errors.length > 0) return errors.map((error) => syntaxError(block, split, error));
   const diagnostics = frameworkAttributes(program).map(({start, end}) =>
@@ -123,7 +136,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
-  const parsed = parseSync(ctx.filename, block.content, {lang: 'tsx', sourceType: 'module'});
+  const parsed = parseBlock(block, ctx.filename);
   const helpers = transformScope(text, parsed, block, ctx);
   // JSON quoting keeps any path a valid string.
   const imports = [
