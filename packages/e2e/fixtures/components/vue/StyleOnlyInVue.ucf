@@ -1,0 +1,5 @@
+<vue>
+  <style>
+  p { color: red; }
+  </style>
+</vue>
