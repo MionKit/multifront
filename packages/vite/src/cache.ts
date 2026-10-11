@@ -1,22 +1,7 @@
 import {readFile} from 'node:fs/promises';
 import {createBuildContext, splitBlocks} from '@multifront/core';
-import type {BuildContext, BuildContextOptions, SplitResult} from '@multifront/core';
-
-/** One `.ucf` file, split and with its shared kinds run. */
-export interface UcfEntry {
-  split: SplitResult;
-  ctx: BuildContext;
-}
-
-/** One content of a file; `previous` is the content it replaced, for `hotUpdate`. */
-export interface UcfVersion {
-  source: string;
-  split: SplitResult;
-  entry?: Promise<UcfEntry>;
-  previous?: Pick<UcfVersion, 'split' | 'entry'>;
-}
-
-export type UcfCache = ReturnType<typeof createUcfCache>;
+import type {BuildContextOptions, SplitResult} from '@multifront/core';
+import type {UcfEntry, UcfVersion} from './types.ts';
 
 /** Splits once per file content; options are read on the first `loadUcf`, after plugin-vue lent its compiler. */
 export function createUcfCache(contextOptions: () => BuildContextOptions) {
@@ -46,7 +31,7 @@ export function createUcfCache(contextOptions: () => BuildContextOptions) {
     async loadUcf(file: string): Promise<UcfEntry> {
       return contextOf(store(file, await readFile(file, 'utf8')));
     },
-    // The source Vite's `hotUpdate` read; the same source again keeps `previous`, so every environment sees one diff.
+    // The source Vite's `hotUpdate` read.
     updateUcf: store,
     contextOf,
   };

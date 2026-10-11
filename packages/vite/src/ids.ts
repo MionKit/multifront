@@ -16,12 +16,3 @@ export function virtualTarget(path: string): {target: Target; file: string} | un
   const target = VIRTUAL_TARGETS.find((candidate) => path.endsWith(`.ucf${TARGET_SUFFIX[candidate]}`));
   return target && {target, file: path.slice(0, -TARGET_SUFFIX[target].length)};
 }
-
-export function targetId(file: string, target: Target): string {
-  return file + TARGET_SUFFIX[target];
-}
-
-/** The style and class map ids: a `ucf` query key. */
-export function isOwnId(id: string): boolean {
-  return splitId(id).query.has('ucf');
-}
