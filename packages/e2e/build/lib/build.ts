@@ -1,5 +1,14 @@
 import {join} from 'node:path';
-import {build, createServer, mergeConfig, type ESTree, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
+import {
+  build,
+  createServer,
+  mergeConfig,
+  type ESTree,
+  type InlineConfig,
+  type Plugin,
+  type Rolldown,
+  type ViteDevServer,
+} from 'vite';
 
 /** plugin-vue picks its dev or production scope id from NODE_ENV. */
 export async function withNodeEnv<Result>(mode: string, run: () => Promise<Result>): Promise<Result> {
@@ -55,6 +64,19 @@ export async function withDevServer<Result>(root: string, config: InlineConfig, 
       await server.close();
     }
   });
+}
+
+/** A post plugin: `next()` settles once every other plugin's hot update hook ran for a change to `file`. */
+export function hotUpdatesOf(file: string) {
+  let settle: (() => void) | undefined;
+  const plugin: Plugin = {
+    name: 'hot-updated',
+    enforce: 'post',
+    handleHotUpdate(ctx) {
+      if (ctx.file === file) settle?.();
+    },
+  };
+  return {plugin, next: () => new Promise<void>((resolve) => void (settle = resolve))};
 }
 
 /** plugin-vue's `__scopeId` in a component module; matches dev and build output. */

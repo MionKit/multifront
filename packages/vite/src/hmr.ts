@@ -1,11 +1,9 @@
 import {classMapId, styleId} from '@multifront/core';
-import type {Block} from '@multifront/core';
 import type {Plugin} from 'vite';
-import type {createUcfCache} from './cache.ts';
 import {TARGET_SUFFIX, VIRTUAL_TARGETS, splitId} from './ids.ts';
-import type {UcfEntry, UcfSnapshot, UcfVersion} from './types.ts';
+import type {UcfCache, UcfEntry, UcfSnapshot, UcfVersion} from './types.ts';
 
-type UcfCache = ReturnType<typeof createUcfCache>;
+type BlockText = {content: string; attrs: Record<string, unknown>};
 
 function sameRecord(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
   const keys = Object.keys(left);
@@ -13,8 +11,8 @@ function sameRecord(left: Record<string, unknown>, right: Record<string, unknown
 }
 
 // Offsets ignored, as plugin-vue's `isEqualBlock`: a block that only moved keeps its module.
-function sameBlock(left: Block | undefined, right: Block | undefined): boolean {
-  if (!left || !right) return left === right;
+export function sameBlock(left: BlockText | null | undefined, right: BlockText | null | undefined): boolean {
+  if (!left || !right) return !left && !right;
   return left.content === right.content && sameRecord(left.attrs, right.attrs);
 }
 

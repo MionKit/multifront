@@ -6,7 +6,7 @@ import {locate, splitBlocks} from '@multifront/core';
 import {build, mergeConfig, type Rolldown} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER, buildApp, withDevServer, withNodeEnv} from './lib/build.ts';
+import {APP_CONFIG_LOADER, buildApp, hotUpdatesOf, withDevServer, withNodeEnv} from './lib/build.ts';
 
 type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
 
@@ -101,25 +101,55 @@ describe('a production build of the vue app with build.sourcemap', () => {
   });
 });
 
+/** The scoped style sub-module's CSS on a dev server with `css.devSourcemap`, after `edit` hot-updated Counter.ucf. */
+function devStyleCss(copy: string, edit?: (source: string) => string): Promise<string> {
+  const file = join(copy, COUNTER_PATH);
+  const hot = hotUpdatesOf(file);
+  return withDevServer(copy, {css: {devSourcemap: true}, plugins: [hot.plugin]}, async (server) => {
+    const main = await server.environments.client.transformRequest(`/@fs${file}`);
+    const url = /["']([^"']*[?&]type=style&index=0&scoped=[^"']*)["']/.exec(main!.code)![1]!;
+    await server.environments.client.transformRequest(url);
+    if (edit) {
+      const updated = hot.next();
+      await writeFile(file, edit(counter));
+      await updated;
+    }
+    const style = await server.environments.client.transformRequest(url);
+    return JSON.parse(/const __vite__css = ("(?:[^"\\]|\\.)*")/.exec(style!.code)![1]!) as string;
+  });
+}
+
+function cssMap(css: string): EncodedSourceMap {
+  const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
+  return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
+}
+
+/** The rule `.counter` of `css` maps to its line in `source`, which is the map's text. */
+function expectRuleMapped(css: string, source: string): void {
+  const raw = cssMap(css);
+  expect(originalPositionFor(new TraceMap(raw), positionOf(css, '.counter[data-v-'))).toMatchObject({
+    source: expect.stringMatching(/\/Counter\.ucf$/),
+    ...positionOf(source, '.counter {'),
+  });
+  expect(raw.sourcesContent).toEqual([source]);
+}
+
 describe('a dev server with css.devSourcemap', () => {
   it("maps the scoped style sub-module's rule to its line in Counter.ucf, with the file's text", async () => {
-    const css = await withOwnCopy((copy) =>
-      withDevServer(copy, {css: {devSourcemap: true}}, async (server) => {
-        const main = await server.environments.client.transformRequest(`/@fs${join(copy, COUNTER_PATH)}`);
-        const url = /["']([^"']*[?&]type=style&index=0&scoped=[^"']*)["']/.exec(main!.code)![1]!;
-        const style = await server.environments.client.transformRequest(url);
-        return JSON.parse(/const __vite__css = ("(?:[^"\\]|\\.)*")/.exec(style!.code)![1]!) as string;
-      })
-    );
-    const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
-    const raw = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
-    const rule = positionOf(css, '.counter[data-v-');
-    const expected = positionOf(counter, '.counter {');
-    expect(originalPositionFor(new TraceMap(raw), rule)).toMatchObject({
-      source: expect.stringMatching(/\/Counter\.ucf$/),
-      ...expected,
-    });
-    expect(raw.sourcesContent).toEqual([counter]);
+    expectRuleMapped(await withOwnCopy((copy) => devStyleCss(copy)), counter);
+  });
+
+  it('keeps the text of Counter.ucf after a <style> hot update', async () => {
+    const edit = (source: string) => source.replace('rgb(120, 40, 160)', 'rgb(10, 20, 30)');
+    const css = await withOwnCopy((copy) => devStyleCss(copy, edit));
+    expect(css).toContain('rgb(10, 20, 30)');
+    expectRuleMapped(css, edit(counter));
+  });
+
+  it('maps to the new line after a <react> hot update that adds one above the styles', async () => {
+    const edit = (source: string) => source.replace('  export default function', '  // one more line\n  export default function');
+    expect(edit(counter)).not.toBe(counter);
+    expectRuleMapped(await withOwnCopy((copy) => devStyleCss(copy, edit)), edit(counter));
   });
 });
 

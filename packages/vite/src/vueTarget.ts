@@ -6,7 +6,8 @@ import {normalizePath} from 'vite';
 import type {Plugin, ResolvedConfig, Rolldown} from 'vite';
 import {composeCssModules} from './cssModules.ts';
 import {VUE_INCLUDE} from './ids.ts';
-import type {VuePluginApi} from './types.ts';
+import {sameBlock} from './hmr.ts';
+import type {UcfCache, UcfVersion, VuePluginApi} from './types.ts';
 import {VUE_PLUGIN_NAME, wrappedCompilers} from './vueCompiler.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
@@ -23,11 +24,11 @@ export const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in yo
 const EMPTY_SCAN: Rolldown.SourceDescription = {code: 'export default {}', moduleType: 'js'};
 
 // Module level, as plugin-vue's descriptor cache is.
-const handedSources = new Map<string, string>();
+const handedVersions = new Map<string, UcfVersion>();
 
-/** Our transform handed plugin-vue the SFC code of `source`. */
-export function handedToVue(file: string, source: string): void {
-  handedSources.set(file, source);
+/** plugin-vue's descriptor cache holds the SFC code of `version`. */
+export function handedToVue(file: string, version: UcfVersion): void {
+  handedVersions.set(file, version);
 }
 
 // The sub-requests of one file arrive together on a cold cache: they share one warm-up.
@@ -35,7 +36,7 @@ const warmingUp = new Map<string, Promise<unknown>>();
 
 /** Before plugin-vue loads a `.ucf?vue&…` sub-request: on a cache miss it would parse the raw file from disk. */
 export async function warmUpVue(context: Rolldown.PluginContext, file: string, source: string): Promise<void> {
-  if (handedSources.get(file) === source) return;
+  if (handedVersions.get(file)?.source === source) return;
   let pending = warmingUp.get(file);
   if (!pending) {
     // Runs our transform and plugin-vue's main one, which fills its cache.
@@ -129,4 +130,81 @@ export function vueScanScript(split: SplitResult, compiler: VueCompiler): Rolldo
   } catch {
     return EMPTY_SCAN;
   }
+}
+
+type Descriptor = ReturnType<VueCompiler['parse']>['descriptor'];
+
+const RERENDER_EXPORT = 'export const _rerender_only';
+
+function sameBlocks(left: Descriptor['customBlocks'], right: Descriptor['customBlocks']): boolean {
+  return left.length === right.length && left.every((block, index) => sameBlock(block, right[index]));
+}
+
+// Dev setup returns only the imports its template uses (TypeScript): a template starting to use one needs the script.
+function needsScript(compiler: VueCompiler, file: string, before: Descriptor, after: Descriptor): boolean {
+  if (!before.script && !before.scriptSetup) return false;
+  try {
+    const {imports} = compiler.compileScript(before, {id: file});
+    return imports !== undefined && after.shouldForceReload(imports);
+  } catch {
+    return true;
+  }
+}
+
+/** What plugin-vue makes of a hot update: a re-render only, and whether it stores the new descriptor. */
+function hotChange(compiler: VueCompiler, file: string, before: string, after: string) {
+  const prev = compiler.parse(before, {filename: file});
+  const next = compiler.parse(after, {filename: file});
+  if (prev.errors.length > 0 || next.errors.length > 0) return {rerenderOnly: false, stored: false};
+  const {descriptor: old} = prev;
+  const {descriptor: now} = next;
+  const template = !sameBlock(old.template, now.template);
+  const style = now.styles.some((block, index) => !sameBlock(old.styles[index], block));
+  const rerenderOnly =
+    template &&
+    !!now.template &&
+    sameBlock(old.script, now.script) &&
+    sameBlock(old.scriptSetup, now.scriptSetup) &&
+    sameBlocks(old.styles, now.styles) &&
+    sameBlocks(old.customBlocks, now.customBlocks) &&
+    !needsScript(compiler, file, old, now);
+  // plugin-vue's `handleHotUpdate` stores the new descriptor only for a template or style update.
+  return {rerenderOnly, stored: template || style};
+}
+
+/** Its own plugin: Vite calls `handleHotUpdate` only on plugins without `hotUpdate`, with a context of its own. */
+export function vueHmrPlugin(cache: UcfCache, compilerOf: () => VueCompiler | undefined): Plugin {
+  const rerenderOnly = new Map<string, boolean>();
+  return {
+    name: 'multifront:vue-hmr',
+    enforce: 'pre',
+    async handleHotUpdate(ctx) {
+      const {file} = ctx;
+      const compiler = compilerOf();
+      const before = handedVersions.get(file)?.sfc;
+      // Never handed: plugin-vue holds no descriptor of the file and skips it.
+      if (!compiler || !VUE_INCLUDE.test(file) || before === undefined) return;
+      const version = cache.updateUcf(file, await ctx.read());
+      if (!version.split.targets.vue) return;
+      const sfc = vueSfcCode(version.source, version.split.blocks, file).code;
+      version.sfc = sfc;
+      // plugin-vue's hook runs next on this same context: it diffs SFC code against SFC code.
+      ctx.read = () => sfc;
+      const change = hotChange(compiler, file, before, sfc);
+      rerenderOnly.set(file, change.rerenderOnly);
+      // Else its cache keeps the old positions: the next sub-request must warm it up.
+      if (change.stored) handedToVue(file, version);
+    },
+    transform: {
+      // After plugin-vue's; only its dev client main module carries the HMR runtime.
+      order: 'post',
+      filter: {id: VUE_INCLUDE, code: '__VUE_HMR_RUNTIME__'},
+      handler(code, id) {
+        if (!rerenderOnly.get(id) || code.includes(RERENDER_EXPORT)) return undefined;
+        // plugin-vue writes this line for `.vue` files only: it keeps a previous descriptor of no other file.
+        const line = `${RERENDER_EXPORT} = __VUE_HMR_RUNTIME__.CHANGED_FILE === ${JSON.stringify(id)}`;
+        return {code: `${code}\n${line}`, map: null};
+      },
+    },
+  };
 }

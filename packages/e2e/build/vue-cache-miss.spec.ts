@@ -4,7 +4,7 @@ import {rootRelativePath, scopeId} from '@multifront/core';
 import type {Plugin} from 'vite';
 import {beforeEach, describe, expect, it, onTestFinished} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
-import {withDevServer} from './lib/build.ts';
+import {hotUpdatesOf, withDevServer} from './lib/build.ts';
 import {runFreshDevServer, startViteCli} from './lib/freshProcess.ts';
 
 const counter = readComponent('Counter.ucf').source;
@@ -103,6 +103,22 @@ describe('the warm-up', () => {
       Promise.all([0, 1].map((index) => server.environments.client.transformRequest(styleUrl(index))))
     );
     expect(cssOf(codes[0]!.code)).toContain(OLD_COLOR);
+    expect(transforms.count()).toBe(1);
+  });
+
+  it('has nothing to do for the style sub-request of a <style> hot update', async () => {
+    const newColor = 'rgb(10, 20, 30)';
+    const transforms = transformsOf(file);
+    const hot = hotUpdatesOf(file);
+    const after = await withDevServer(root, {plugins: [transforms.plugin, hot.plugin]}, async (server) => {
+      await server.environments.client.transformRequest(`/@fs${file}`);
+      await server.environments.client.transformRequest(styleUrl(0));
+      const updated = hot.next();
+      await writeFile(file, counter.replace(OLD_COLOR, newColor));
+      await updated;
+      return server.environments.client.transformRequest(styleUrl(0));
+    });
+    expect(cssOf(after!.code)).toContain(newColor);
     expect(transforms.count()).toBe(1);
   });
 });
