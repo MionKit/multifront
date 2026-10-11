@@ -226,13 +226,23 @@ describe('a .ucf module that composes from other files', () => {
 });
 
 describe("css.transformer: 'lightningcss'", () => {
-  it('fails a .ucf <style module> built as Vue, naming the file and the setting', async () => {
-    await expect(buildCode(vueRoot, LIGHTNINGCSS)).rejects.toThrow(
-      `${join(vueRoot, COUNTER)}: <style module> in the vue target needs css.transformer 'postcss'`
-    );
+  it('gives the .ucf module the class names core gives it, as Vue', async () => {
+    const {css, code} = await buildCode(vueRoot, mergeConfig(entry('src/counter-vue.ts'), LIGHTNINGCSS));
+    expect(classNamed(css, 'button')).toBe(expected(true).button);
+    expect(code).toContain(`"${expected(true).button}"`);
+    const served = await withDevServer(vueRoot, LIGHTNINGCSS, (server) => serveVue(server, COUNTER, 1));
+    expect(classNamed(served.module, 'button')).toBe(expected(false).button);
   });
 
-  it('builds Plain.vue as plugin-vue alone does', async () => {
+  it('gives a module that composes from other files the class names core gives it, as Vue', async () => {
+    const classes = await composedClasses(true);
+    const {code} = await buildCode(vueRoot, mergeConfig(entry('src/composes-vue.ts'), LIGHTNINGCSS));
+    for (const names of classes) expect(code).toContain(`"${names}"`);
+  });
+
+  it('leaves the React target and Plain.vue as they are without multifront', async () => {
+    const {css} = await buildCode(demoRoot, LIGHTNINGCSS);
+    expect(classNamed(css, 'button')).toBe(expected(true).button);
     const plain = (withMultifront: boolean): InlineConfig =>
       mergeConfig(entry('src/Plain.vue'), {
         ...LIGHTNINGCSS,
