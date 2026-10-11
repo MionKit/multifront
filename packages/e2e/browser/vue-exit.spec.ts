@@ -24,23 +24,19 @@ const PROPERTIES = ['padding', 'color', 'font-size', 'border'];
 // Counter's root, its title and its button.
 const PARTS = ['', ' .label', ' button'];
 const POLL = {timeout: 10_000};
-// The SSR page: `index.html` of a copy, so `vite build` takes the hydrating entry and keeps the outlet.
-const SSR_HTML = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>vue ssr build</title>
-    <link rel="icon" href="data:," />
-  </head>
-  <body>
-    <div id="app"><!--app-html--></div>
-    <script type="module" src="/src/entry-client.ts"></script>
-  </body>
-</html>
-`;
 
 const problems = (messages: ReturnType<typeof collectConsole>) =>
   messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
+
+/** Rewrites a copy's file; a needle that is gone fails here, not as a test of the file unchanged. */
+async function replaceIn(file: string, pairs: [needle: string, text: string][]): Promise<void> {
+  let source = await readFile(file, 'utf8');
+  for (const [needle, text] of pairs) {
+    if (!source.includes(needle)) throw new Error(`no ${needle} in ${file}`);
+    source = source.replace(needle, text);
+  }
+  await writeFile(file, source);
+}
 
 /** A `copyApp('vue')` copy; Vite puts its dep cache beside the nearest package.json, removed with the copy. */
 async function vueCopy(): Promise<{root: string; counter: string}> {
@@ -91,11 +87,13 @@ describe('milestone 4 exit test', () => {
     let server: Awaited<ReturnType<typeof preview>> | undefined;
     const page = await browser!.newPage();
     try {
-      await writeFile(join(root, 'index.html'), SSR_HTML);
+      // So `vite build` takes the hydrating entry and keeps the outlet.
+      await replaceIn(join(root, 'index.html'), [
+        ['<div id="app"></div>', '<div id="app"><!--app-html--></div>'],
+        ['/src/main.ts', '/src/entry-client.ts'],
+      ]);
       // Production Vue skips class, style and attribute mismatch checks unless this flag is on.
-      const config = join(root, 'vite.config.ts');
-      const plain = await readFile(config, 'utf8');
-      await writeFile(config, plain.replace('vue()', 'vue({features: {prodHydrationMismatchDetails: true}})'));
+      await replaceIn(join(root, 'vite.config.ts'), [['vue()', 'vue({features: {prodHydrationMismatchDetails: true}})']]);
       // Two processes, as an app's build script runs them.
       for (const args of [
         ['build', '--outDir', 'dist/client'],
