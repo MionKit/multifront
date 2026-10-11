@@ -27,6 +27,10 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   'Card.ucf': [{scoped: false, module: '$style'}],
   'ComposesFrom.ucf': [{scoped: false, module: '$style'}],
   'ComposesScoped.ucf': [{scoped: true, module: '$style'}],
+  'Counter.ucf': [
+    {scoped: true, module: undefined},
+    {scoped: false, module: '$style'},
+  ],
   'Hello.ucf': [],
   'Panel.ucf': [
     {scoped: true, module: undefined},
