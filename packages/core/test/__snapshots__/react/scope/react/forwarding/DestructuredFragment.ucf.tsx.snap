@@ -1,0 +1,10 @@
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
+
+  // A fragment root: dev reads the props for its warning, production leaves the pattern in place.
+  export default function DestructuredFragment(__props: { branch?: string }) {const { branch } = __props;
+    return (
+      (__ucfWarnFragment(__props, "DestructuredFragment"), <>
+        <p className="shape">{branch}</p>
+      </>)
+    )
+  }

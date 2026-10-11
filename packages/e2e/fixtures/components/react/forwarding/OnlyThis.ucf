@@ -1,0 +1,6 @@
+<react>
+  // Only a TypeScript `this` parameter: no props to forward, and no `__props` to add.
+  export default function OnlyThis(this: void) {
+    return <div className="shape">only this</div>
+  }
+</react>

@@ -1,0 +1,8 @@
+<react>
+  type Props = { label: string; className?: string }
+
+  // No style of its own: a parent's scoped style reaches its root through forwarding only.
+  export default function ScopedBadge({label, className = ''}: Props) {
+    return <span className={className}><em className="badge-label">{label}</em></span>
+  }
+</react>

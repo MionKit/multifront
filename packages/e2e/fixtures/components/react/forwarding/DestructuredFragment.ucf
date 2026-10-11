@@ -1,0 +1,10 @@
+<react>
+  // A fragment root: dev reads the props for its warning, production leaves the pattern in place.
+  export default function DestructuredFragment({ branch }: { branch?: string }) {
+    return (
+      <>
+        <p className="shape">{branch}</p>
+      </>
+    )
+  }
+</react>

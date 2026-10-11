@@ -170,6 +170,27 @@ const BUILD_CASES: {
     directives: ['use client', 'use strict'],
   },
   {
+    // The moved pattern still maps to where it was written.
+    fixture: 'react/ScopedBadge.ucf',
+    css: [],
+    modules: {},
+    tokens: [
+      {text: 'ScopedBadge(', line: 5, column: 26},
+      {text: "{label, className = ''}", line: 5, column: 38},
+      {text: '{label}</em>', line: 6, column: 67},
+    ],
+  },
+  {
+    fixture: 'react/ScopedPanel.ucf',
+    css: [0],
+    modules: {},
+    tokens: [
+      {text: 'ScopedPanel(', line: 4, column: 26},
+      {text: 'className="panel"', line: 6, column: 15},
+      {text: '<ScopedBadge', line: 8, column: 8},
+    ],
+  },
+  {
     fixture: 'react/Unicode.ucf',
     css: [0],
     modules: {$style: 0},
@@ -197,7 +218,7 @@ async function build(name: string) {
   const split = splitBlocks(source, filename);
   const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: true});
   const block = split.targets.react!;
-  return {filename, source, split, block, diagnostics: react.check(block, split), file: react.build!(block, ctx)};
+  return {filename, source, split, ctx, block, diagnostics: react.check(block, split), file: react.build!(block, ctx)};
 }
 
 describe('react.build', () => {
@@ -207,7 +228,7 @@ describe('react.build', () => {
   });
 
   describe.each(BUILD_CASES)('$fixture', async ({fixture, css, modules, tokens, directives = [], foreign}) => {
-    const {filename, source, split, block, diagnostics, file} = await build(fixture);
+    const {filename, source, split, ctx, block, diagnostics, file} = await build(fixture);
     const {program, errors} = parseSync('Block.tsx', file.code, {lang: 'tsx', sourceType: 'module'});
     const injected = program.body.filter(isInjected);
 
@@ -230,8 +251,9 @@ describe('react.build', () => {
       ]);
     });
 
-    it('adds nothing else: without its imports the code is the block content', () => {
-      expect(withoutInjected(file.code, program)).toBe(block.content);
+    it('adds nothing else: without its imports and stamps the code is the block content', () => {
+      const code = withoutInjected(file.code, program);
+      expect(ctx.hasScoped ? code.replaceAll(` data-v-${ctx.scopeId}=""`, '') : code).toBe(block.content);
       for (const text of foreign ?? []) {
         expect(source).toContain(text);
         expect(file.code).not.toContain(text);

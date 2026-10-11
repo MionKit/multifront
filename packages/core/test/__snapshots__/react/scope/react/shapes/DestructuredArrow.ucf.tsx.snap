@@ -1,0 +1,5 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  export default (__props: { branch?: string }) => {const { branch } = __props; return (
+    <p {...__ucfScopeAttrs(__props)} className="shape"><span className="inner">destructured arrow {branch}</span></p>
+  )}

@@ -1,0 +1,9 @@
+<react>
+  // The default reads the module's `fallback`; moved into the body, it would read the body's: no forwarding.
+  const fallback = 'module'
+
+  export default function DefaultReadsBody({ tone = fallback }: { tone?: string }) {
+    const fallback = 'body'
+    return <div className="shape">{tone} {fallback}</div>
+  }
+</react>

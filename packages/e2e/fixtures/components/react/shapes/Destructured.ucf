@@ -1,0 +1,7 @@
+<react>
+  type Props = { branch?: string }
+
+  export default function Destructured({ branch }: Props) {
+    return <div className="shape"><span className="inner">destructured {branch}</span></div>
+  }
+</react>

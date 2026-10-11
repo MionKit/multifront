@@ -4,8 +4,12 @@
   import ArrowExpression from '../../components/react/shapes/ArrowExpression.ucf'
   import ComponentRoot from '../../components/react/shapes/ComponentRoot.ucf'
   import ConstRoot from '../../components/react/shapes/ConstRoot.ucf'
+  import Destructured from '../../components/react/shapes/Destructured.ucf'
+  import DestructuredArrow from '../../components/react/shapes/DestructuredArrow.ucf'
+  import DestructuredDefaults from '../../components/react/shapes/DestructuredDefaults.ucf'
   import ExportIdentifier from '../../components/react/shapes/ExportIdentifier.ucf'
   import ForwardRef from '../../components/react/shapes/ForwardRef.ucf'
+  import ForwardRefDestructured from '../../components/react/shapes/ForwardRefDestructured.ucf'
   import FragmentRoot from '../../components/react/shapes/FragmentRoot.ucf'
   import Memo from '../../components/react/shapes/Memo.ucf'
   import MemoForwardRef from '../../components/react/shapes/MemoForwardRef.ucf'
@@ -18,8 +22,10 @@
   // Each shape once per branch; `data-case` names the shape and branch the test reads.
   export default function Parent() {
     const ref = useRef<HTMLDivElement>(null)
+    const destructuredRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
       ref.current?.setAttribute('data-ref', 'forward-ref')
+      destructuredRef.current?.setAttribute('data-ref', 'forward-ref')
     }, [])
     return (
       <main className="parent">
@@ -41,6 +47,11 @@
         <div data-case="NoParams:only"><NoParams /></div>
         <div data-case="ConstRoot:only"><ConstRoot branch="only" /></div>
         <div data-case="ComponentRoot:only"><ComponentRoot branch="only" /></div>
+        <div data-case="Destructured:only"><Destructured branch="only" /></div>
+        <div data-case="DestructuredArrow:only"><DestructuredArrow branch="only" /></div>
+        <div data-case="DestructuredDefaults:defaults"><DestructuredDefaults branch="defaults" /></div>
+        <div data-case="DestructuredDefaults:given"><DestructuredDefaults branch="given" label="given label" note="rest note" /></div>
+        <div data-case="ForwardRefDestructured:only"><ForwardRefDestructured branch="only" ref={destructuredRef} /></div>
         <div data-case="FragmentRoot:short"><FragmentRoot branch="short" /></div>
         <div data-case="FragmentRoot:named"><FragmentRoot branch="named" /></div>
         <div data-case="NullRoot:null"><NullRoot branch="null" /></div>
