@@ -9,14 +9,15 @@ import {scopeAttribute} from './lib/scope.ts';
 
 let browser: Browser | undefined;
 let root: string | undefined;
-let server: Awaited<ReturnType<typeof startSsrServer>> | undefined;
+let server: ReturnType<typeof startSsrServer> | undefined;
 
 beforeAll(async () => {
   browser = await launchChromium();
   root = await copyApp('vue');
   // Vite puts its dep cache beside the nearest package.json: this one is removed with the copy.
   await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
-  server = await startSsrServer(root);
+  server = startSsrServer(root);
+  await server.url;
 });
 
 afterAll(async () => {
@@ -29,7 +30,7 @@ it('hydrates the server-rendered Counter.ucf, counts a click, and logs no warnin
   const page = await browser!.newPage();
   try {
     const messages = collectConsole(page);
-    const response = await page.goto(server!.url);
+    const response = await page.goto(await server!.url);
     const html = await response!.text();
     const scope = scopeAttribute(root!, resolve(root!, '..', '..', 'components', 'Counter.ucf'), false);
     // Server-rendered: the markup is in the page before any script runs.
@@ -38,6 +39,8 @@ it('hydrates the server-rendered Counter.ucf, counts a click, and logs no warnin
 
     // Vue sets it on the container when the mount is done, in every build.
     await expect.poll(() => page.locator('#app').evaluate((element) => '__vue_app__' in element)).toBe(true);
+    // `createApp()` would mount over the markup and set it; `createSSRApp()` hydrates and does not.
+    expect(await page.locator('#app').getAttribute('data-v-app')).toBeNull();
     const button = page.locator('.counter button');
     await button.click();
     await expect.poll(() => button.textContent()).toBe('3');
