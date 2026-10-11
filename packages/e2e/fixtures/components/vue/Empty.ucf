@@ -1,0 +1,9 @@
+<vue>
+  <!-- the template comes later -->
+</vue>
+
+<style>
+.empty {
+  margin: 0;
+}
+</style>
