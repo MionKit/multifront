@@ -44,7 +44,6 @@ export async function editFile(requests: ReturnType<typeof trackRequests>, file:
   await writeFile(file, source.replace(from, to));
 }
 
-/** Vite's HMR messages to the page, read off its websocket. */
 export function trackHmrPayloads(page: Page) {
   const payloads: HotPayload[] = [];
   page.on('websocket', (socket) => {
@@ -54,7 +53,6 @@ export function trackHmrPayloads(page: Page) {
   });
   return {
     clear: () => void (payloads.length = 0),
-    /** The paths of every `update` since `clear()`. */
     updatedPaths: () => payloads.flatMap((payload) => (payload.type === 'update' ? payload.updates.map(({path}) => path) : [])),
     fullReloads: () => payloads.filter((payload) => payload.type === 'full-reload').length,
   };

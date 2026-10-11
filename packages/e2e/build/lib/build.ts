@@ -58,7 +58,7 @@ export async function withDevServer<Result>(root: string, config: InlineConfig, 
   });
 }
 
-/** Last of every hot update hook: `next()` settles with the client module ids of the next change to `file`. */
+/** `next()` settles with the final client module ids of the next change to `file`. */
 export function hotUpdatesOf(file: string) {
   let settle: ((ids: string[]) => void) | undefined;
   const plugin: Plugin = {
