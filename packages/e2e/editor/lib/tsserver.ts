@@ -76,7 +76,9 @@ export function startTsserver(options: TsserverOptions): Tsserver {
   ];
   if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','), '--pluginProbeLocations', probeLocations.join(','));
   if (logFile) args.push('--logVerbosity', 'normal', '--logFile', logFile);
-  const child = spawn(process.execPath, args, {cwd, stdio: ['pipe', 'pipe', 'inherit']});
+  // pnpm's bin shim sets NODE_PATH into the repo's packages: a project outside the repo would resolve them.
+  const env = {...process.env, NODE_PATH: undefined};
+  const child = spawn(process.execPath, args, {cwd, env, stdio: ['pipe', 'pipe', 'inherit']});
   const pending = new Map<number, {resolve(body: unknown): void; reject(err: Error): void}>();
   let seq = 0;
   let buffer = Buffer.alloc(0);

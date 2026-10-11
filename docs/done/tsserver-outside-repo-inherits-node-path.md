@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-11
 ---
 
@@ -39,3 +39,17 @@ None, because this is test infra only.
 
 - The case passes however Vitest is started, and the cause is named in the moved spec.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: drop NODE_PATH from the spawned tsserver (approved 2026-10-11, automatic mode, delegated session)
+
+- `startTsserver` in `packages/e2e/editor/lib/tsserver.ts` spawns tsserver with `env: {...process.env, NODE_PATH: undefined}`,
+  for every case: no in-repo case needs `NODE_PATH`, as `pnpm devx test` and CI already run without it.
+- Other helpers that spawn a process outside the repo (`devx/launch.spec.ts`, `editor/lib/vsix.ts`, `editor/vsix.spec.ts`)
+  checked: devx finds tools by file path, never through `NODE_PATH`, and they pass under the bin shim. No change.
+
+## What shipped
+
+- Cause: `node_modules/.bin/vitest` (pnpm's bin shim) exports `NODE_PATH=…/node_modules/.pnpm/node_modules:…`; the spawned
+  tsserver inherited it, so the project in `os.tmpdir()` resolved `@vue/compiler-sfc`.
+- Fix as planned. The case passes under `pnpm vitest run --project e2e packages/e2e/editor/tsserver.spec.ts` and
+  `pnpm devx test`; the other tsserver suites (`bundle`, `imports`, `blockImports`) pass under the bin shim too.
