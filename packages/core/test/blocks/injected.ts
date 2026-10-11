@@ -15,7 +15,6 @@ export function isCallTo(node: Expression, name: string): boolean {
   return node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === name;
 }
 
-// The [start, end) ranges root forwarding inserted: spreads, the dev fragment warning, `__props` / `__ref`.
 function forwardingRanges(program: Program): [number, number][] {
   const ranges: [number, number][] = [];
   const params = (node: Function | ArrowFunctionExpression) => {
@@ -39,7 +38,7 @@ function forwardingRanges(program: Program): [number, number][] {
   return ranges;
 }
 
-/** `code` without everything `react.build` adds but stamps: header imports with their newline, and forwarding. */
+/** `code` without what `react.build` adds, stamps aside. */
 export function withoutInjected(code: string, program: Program): string {
   const imports = program.body.filter((node) => isInjected(node) || isHelperImport(node));
   const ranges: [number, number][] = imports.map(({start, end}) => (code[end] === '\n' ? [start, end + 1] : [start - 1, end]));

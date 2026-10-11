@@ -24,8 +24,8 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'invalid/CssSyntaxError.ucf'},
   {fixture: 'langs/PostcssPlain.ucf'},
   {fixture: 'langs/SassIndented.ucf'},
-  // The const, parameter and arrow parameter that shadow `Fragment` and `React` get stamped.
   {fixture: 'react/forwarding/ClassRoot.ucf'},
+  // The const, parameter and arrow parameter that shadow `Fragment` and `React` get stamped.
   {fixture: 'react/scope/FragmentImports.ucf', unstamped: ['R.Fragment', 'Quoted', 'Fragment', 'React.Fragment']},
   {fixture: 'react/scope/Namespaced.ucf'},
   {fixture: 'react/scope/Stamped.ucf', unstamped: ['Fragment', 'Fragment', 'Frag', 'React.Fragment']},
@@ -124,9 +124,8 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   });
 });
 
-// Hand-read from the fixtures: `roots` are the opening elements that get the spread, in source order;
-// `fragments` the fragment roots; `props` the spread's argument; `signature` the parameters the build adds.
-// `forwarding/` holds the built-only edges: no component found, or no name every root can read the props by.
+// Hand-read from the fixtures: `roots` get the spread, in source order; `signature` is the parameters the build adds.
+// `forwarding/` holds build-only edges: no component found, or no name every root can read the props by.
 const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: number; signature?: string}[] = [
   {fixture: 'react/forwarding/ClassRoot.ucf', roots: []},
   {fixture: 'react/forwarding/Cyclic.ucf', roots: []},

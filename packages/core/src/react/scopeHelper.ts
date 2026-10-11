@@ -13,7 +13,7 @@ const SCOPE_ATTRS_CODE = `export function ${SCOPE_ATTRS}(props) {
 }
 `;
 
-// Vue's multi-root warning: once per component, and only when a parent passed a scope attribute.
+// Mirrors Vue's multi-root warning.
 const WARN_FRAGMENT_CODE = `const warned = new Set();
 export function ${WARN_FRAGMENT}(props, name) {
   if (warned.has(name)) return;
