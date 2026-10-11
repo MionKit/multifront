@@ -326,6 +326,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 - Build: `packages/e2e/browser/demo-exit.spec.ts` (below). Run the fuzz long run. Write the verdict in `docs/plan.md`, milestone 3: the result for each go criterion, and go or no-go. On no-go, the fallback below becomes the next steps, filed one todo per step.
 - Deliverable: the decision, with evidence.
 - Test: the exit test.
+- Status: done
 
 ## Hands to later milestones
 
@@ -348,9 +349,9 @@ Vite (`@multifront/vite`):
 
 Tests and fixtures (`packages/e2e`):
 
-- `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, and Chromium in CI. Milestones 4, 5, 6.
+- `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, `renderedStyles(page)` (every `#app` element's computed styles), `trackRequests(page)` (the requests of an HMR update), and Chromium in CI. Milestones 4, 5, 6.
 - `pnpm devx peer-floor <framework>` and the `react-floor` CI job: milestone 4 adds `vue-floor`, milestone 6 `svelte-floor`.
-- `fixtures/apps/demo/`: milestone 4 renders the Vue Card beside the React one, and adds visual parity.
+- `fixtures/apps/demo/` with its SSR entry `src/entry-server.tsx` (`render()`): milestone 4 renders the Vue Card beside the React one, and adds visual parity.
 - `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows (`packages/e2e/editor/imports.spec.ts`).
 - `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 6 a Svelte row.
@@ -367,12 +368,12 @@ Tests and fixtures (`packages/e2e`):
 3. Edit a declaration in Counter's `<style scoped>`: the new computed value shows, the count stays 3, and no `.ucf.react.tsx` module is requested again.
 4. ScopedPanel's scoped style reaches ScopedBadge's root span (computed color), and not an inner element.
 5. `vite build` and preview of the same app: the same computed styles; no `with` or `framework` in any output file; each style block's CSS appears once.
-6. The same Card rendered with `react-dom/server` through the SSR module runner: ScopedBadge's root span carries ScopedPanel's `data-v-*`.
+6. The demo's `App` (`src/entry-server.tsx`) rendered with `react-dom/server` through the SSR module runner: both Cards are there, and ScopedBadge's root span carries ScopedPanel's `data-v-*`.
 
 **Go when all of these hold on CI (Linux, Chromium):**
 
 1. The exit test passes in the `check` and `react-floor` jobs, and 20 times in a row locally (no flake).
-2. Every `shapes/` fixture renders in dev and preview with its own `data-v-<id>` on every host element and the parent's `data-v-<id>` on its root DOM element (except `FragmentRoot` and `NullRoot`), with no React warning except the expected fragment one.
+2. Every `shapes/` fixture renders in dev and preview with its own `data-v-<id>` on every host element when it has a scoped style, and the parent's `data-v-<id>` on its root DOM element (except `FragmentRoot` and `NullRoot`), with no React warning except the expected fragment one.
 3. The fuzz long run (10,000 files, 10 seeds) finds no failure, with no change to the transform after it.
 4. A style-only edit requests no `.ucf.react.tsx` module, and the state stays.
 5. No `with { framework }` is left in any dev, build or SSR output of `imports`, and the build and tsserver agree on every react row.
