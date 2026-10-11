@@ -1,0 +1,41 @@
+<vue>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const props = defineProps<{start?: number}>()
+  const count = ref(props.start ?? 0)
+  </script>
+
+  <template>
+    <div class="counter">
+      <span class="label">Clicks</span>
+      <button :class="$style.button" title="Zähler 𝄞" @click="count++">{{ count }}</button>
+    </div>
+  </template>
+</vue>
+
+<react>
+  import { useState } from 'react'
+
+  export default function Counter({start = 0}: {start?: number}) {
+    const [count, setCount] = useState(start)
+    return (
+      <div className="counter">
+        <span className="label">Clicks</span>
+        <button className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
+      </div>
+    )
+  }
+</react>
+
+<style scoped>
+.counter {
+  color: rgb(120, 40, 160);
+}
+</style>
+
+<style module>
+.button {
+  padding: 4px 12px;
+}
+</style>

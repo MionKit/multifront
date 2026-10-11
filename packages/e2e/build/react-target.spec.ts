@@ -14,7 +14,7 @@ import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
 const COMPONENTS = ['react/AllBlocks.ucf', 'imports/Icon.ucf', 'imports/UsesIcon.ucf'];
 const REACT_MARKERS = ['all-blocks-react-marker', 'icon-react-marker', 'uses-icon-react-marker'];
-const OTHER_MARKERS = ['all-blocks-vue-marker', 'all-blocks-svelte-marker'];
+const OTHER_MARKERS = ['all-blocks-vue-marker', 'all-blocks-svelte-marker', 'icon-vue-marker'];
 
 type BuildError = Error & {errors?: {loc?: unknown}[]};
 

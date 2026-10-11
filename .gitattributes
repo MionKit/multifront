@@ -1,0 +1,3 @@
+# The CRLF twin of Counter.ucf and its snapshot guard same-length blanking; git must never normalize them.
+packages/e2e/fixtures/components/vue/CounterCrlf.ucf -text
+packages/core/test/__snapshots__/react/scope/vue/CounterCrlf.ucf.tsx.snap -text

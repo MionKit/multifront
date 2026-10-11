@@ -1,0 +1,5 @@
+<react>
+  export default function ReactOnly() {
+    return <p>Only React</p>
+  }
+</react>
