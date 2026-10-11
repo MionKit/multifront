@@ -54,16 +54,16 @@ From M4 (Vue target):
 - That `Card.ucf.vue.ts` holds the template type-check code too (what `@vue/language-core` generates), not only the export shape. Otherwise `mf-tsc` cannot see a template error.
 - The fixture app that imports the same `.ucf` file as React and as Vue.
 
-From M5 (library build):
-
-- The pack-and-install helper of `packages/e2e/consumer/` (packs a workspace package into a tarball and installs it into a fresh real project). Step 7.12 reuses it for `@multifront/language-tools`.
-
-From M6 (Svelte target):
+From M5 (Svelte target):
 
 - `Card.ucf.svelte.ts` through `svelte2tsx`, from `types(block, ctx)`, with the markup expressions in it (what `svelte2tsx` generates) and a mapping back to the `<svelte>` block.
 - `packages/language-tools/src/blocks/svelte.ts` `editor(block, ctx)`, returning the `svelte2tsx` TypeScript code as embedded code.
 - The Svelte fixture app, and `svelte` installed in `packages/e2e` (oxfmt needs `svelte/compiler` to format Svelte, step 7.7).
-- `fixtures/components/Card.ucf` with all three target blocks and its `<style module>` (M1 made it; M4 and M6 fill its `<vue>` and `<svelte>` blocks). The exit test uses it.
+- `fixtures/components/Card.ucf` with all three target blocks and its `<style module>` (M1 made it; M4 and M5 fill its `<vue>` and `<svelte>` blocks). The exit test uses it.
+
+From M6 (library build):
+
+- The pack-and-install helper of `packages/e2e/consumer/` (packs a workspace package into a tarball and installs it into a fresh real project). Step 7.12 reuses it for `@multifront/language-tools`.
 
 Outside the milestones (new pinned devDependencies, added in the step that needs them, subject to the 30-day release age rule):
 
@@ -75,7 +75,7 @@ Outside the milestones (new pinned devDependencies, added in the step that needs
 
 ### 7.1 `mf-tsc` for the React target and its importers
 
-- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`). It calls `runTsc` from `@volar/typescript` with `extraSupportedExtensions: ['.ucf']`, our Volar language plugin, and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). Check only: an emit flag (`--declaration`, `--outDir` without `--noEmit`) is an error that points to the library build of M5. Output and exit codes are the same as `tsc`.
+- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`). It calls `runTsc` from `@volar/typescript` with `extraSupportedExtensions: ['.ucf']`, our Volar language plugin, and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). Check only: an emit flag (`--declaration`, `--outDir` without `--noEmit`) is an error that points to the library build of M6. Output and exit codes are the same as `tsc`.
 - Deliverable: `mf-tsc -p tsconfig.json` type-checks `.ts` / `.tsx` files that import `.ucf` files, and the `<react>` block of every `.ucf` file the tsconfig includes. Errors print with `.ucf` lines and columns.
 - Test: area Editor, `packages/e2e/editor/tsc/react.spec.ts`. New fixture app `packages/e2e/fixtures/apps/types-every-target/` (valid) and `packages/e2e/fixtures/apps/types-broken/` with `ReactBreaks.ucf` (a `<react>` block that passes a number to a `string` prop) and `main.tsx` passing a wrong prop to a valid `.ucf`. The test spawns the real `mf-tsc` on both: exit 0 on the valid app; on the broken one, exit 1 and the exact `file(line,col): error TSxxxx` lines. Each reported position is checked against the fixture text (the slice at that line and column is the bad expression).
 
@@ -94,7 +94,7 @@ Outside the milestones (new pinned devDependencies, added in the step that needs
 ### 7.4 Svelte markup completions: tags, Svelte elements, directives, blocks
 
 - Build: in `packages/language-tools/src/blocks/svelte.ts`, `editor(block, ctx)` adds an `html` embedded code: the block text with `<script>` contents and every `{...}` expression replaced by spaces, so offsets stay 1:1. Its mapping turns on completion only (no HTML diagnostics, no HTML formatting). The server adds `volar-service-html` with a Svelte data table (`packages/language-tools/src/blocks/svelteHtmlData.ts`): the `svelte:*` elements (`svelte:window`, `svelte:document`, `svelte:body`, `svelte:head`, `svelte:element`, `svelte:boundary`, `svelte:options`) and the directive prefixes (`bind:`, `class:`, `style:`, `use:`, `transition:`, `in:`, `out:`, `animate:`). A small service plugin (`multifront-svelte-markup`) completes the template blocks after `{#`, `{@` and `{:` (`{#if}`, `{#each}`, `{#await}`, `{#key}`, `{#snippet}`, `{@render}`, `{@html}`, `{@const}`, `{@debug}`, `{:else}`, `{:then}`, `{:catch}`).
-- Deliverable: typing in the `<svelte>` markup completes HTML tags and attributes, Svelte elements, directives and blocks. Expressions inside `{...}` keep their TypeScript completions from M6's `svelte2tsx` code.
+- Deliverable: typing in the `<svelte>` markup completes HTML tags and attributes, Svelte elements, directives and blocks. Expressions inside `{...}` keep their TypeScript completions from M5's `svelte2tsx` code.
 - Test: area Editor, `packages/e2e/editor/server/svelte-markup.spec.ts`. New fixture `packages/e2e/fixtures/apps/svelte-markup/Toolbar.ucf`. Through the real server over LSP the test types real edits (`didChange`) and asks for completions: `<sv` lists `svelte:window`, `<input bi` lists `bind:value`, `{#` lists `if` and `each`, `{ti` inside markup lists the `title` prop (that one comes from tsserver with our plugin, hybrid mode; the rest from our server). Each suggested item is then inserted into a copy of the block and parsed with the real `svelte/compiler` `parse`, which must not throw, so we never suggest invalid Svelte.
 
 ### 7.5 Svelte component props in markup
@@ -111,7 +111,7 @@ Outside the milestones (new pinned devDependencies, added in the step that needs
   1. Each formatted block equals what the real oxfmt CLI prints for the same text (`oxfmt --stdin-filepath <block file path>` in the same folder), so our config handling matches the CLI.
   2. The `<svelte>` block and everything outside the blocks are unchanged.
   3. A second run changes nothing, and `--check` exits 0.
-  4. The formatted copy still passes the real `mf-tsc`, and the real Vite build of each target (M3, M4, M6 plugins) still succeeds.
+  4. The formatted copy still passes the real `mf-tsc`, and the real Vite build of each target (M3, M4, M5 plugins) still succeeds.
   5. `--check` on the untouched fixture exits 1 and names `Messy.ucf`.
 
   A loop over `BLOCK_KINDS` checks that `blockFile` names a file for every tag, so a new block kind cannot skip it.
@@ -122,7 +122,7 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 
 - Build: `formatUcf` adds `.svelte` to the endings it sends when the resolved config turns `svelte` on. If `svelte/compiler` cannot be loaded, `mf-fmt` prints one warning per run and leaves the `<svelte>` blocks as written. Updates spec 6.1, whose "not Svelte" line is out of date.
 - Deliverable: a project that turns on oxfmt's Svelte formatting gets its `<svelte>` blocks formatted too; any other project keeps them as written.
-- Test: area Editor, `packages/e2e/editor/format/svelte.spec.ts`. New fixture `packages/e2e/fixtures/apps/lint-format-svelte/` with `.oxfmtrc.json` `{"svelte": true}` and a copy of `Messy.ucf`. Real `mf-fmt` on a temp copy: the `<svelte>` block now equals the real oxfmt CLI output for the same text (`--stdin-filepath Messy.ucf.svelte.svelte`), and the real Svelte build (M6) of the result still succeeds. The `lint-format/` fixture, without the option, keeps it as written (7.6 test still green).
+- Test: area Editor, `packages/e2e/editor/format/svelte.spec.ts`. New fixture `packages/e2e/fixtures/apps/lint-format-svelte/` with `.oxfmtrc.json` `{"svelte": true}` and a copy of `Messy.ucf`. Real `mf-fmt` on a temp copy: the `<svelte>` block now equals the real oxfmt CLI output for the same text (`--stdin-filepath Messy.ucf.svelte.svelte`), and the real Svelte build (M5) of the result still succeeds. The `lint-format/` fixture, without the option, keeps it as written (7.6 test still green).
 
 ### 7.8 `mf-lint`: per-block files through oxlint, positions mapped back
 
@@ -161,7 +161,7 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 - Build:
   - `packages/e2e/fixtures/tsconfig.fixtures.json`: includes every valid fixture component and app, leaves out `types-broken/`, `lint-format/`, `lint-format-svelte/`, `components/invalid/` and `components/react/fuzz-found/`.
   - `packages/e2e/editor/gate.spec.ts`: runs the real `mf-tsc -p packages/e2e/fixtures/tsconfig.fixtures.json` and the real `mf-lint` over the same valid fixtures with the repo's `.oxlintrc.json`. Both must exit 0; on failure the test prints the tool output. A type or lint error found in an earlier milestone's fixture is fixed in this PR (AGENTS.md: found issues are fixed). A fixture that breaks a lint rule on purpose (a splitter edge case in `TsxEdges.ucf`, say) is left out by name, with a one-line reason, instead of being changed.
-  - `packages/e2e/consumer/language-tools.spec.ts`: packs `@multifront/language-tools` with M5's helper, installs it with `oxlint`, `oxfmt` and `typescript` into a fresh real project holding a copy of `types-every-target/` and `lint-format/`, and runs the installed `mf-tsc`, `mf-lint` and `mf-fmt --check` bins from `node_modules/.bin`.
+  - `packages/e2e/consumer/language-tools.spec.ts`: packs `@multifront/language-tools` with M6's helper, installs it with `oxlint`, `oxfmt` and `typescript` into a fresh real project holding a copy of `types-every-target/` and `lint-format/`, and runs the installed `mf-tsc`, `mf-lint` and `mf-fmt --check` bins from `node_modules/.bin`.
 - Deliverable: every PR fails when a fixture breaks one target or gets an oxlint error, and the three bins are proven to work from the published package, not only from source.
 - Test: the two spec files above (areas Editor and Consumer). The gate spec also runs both commands on a temp copy of the fixtures with `ReactBreaks.ucf` added and checks exit 1, so the gate cannot pass silently.
 
@@ -223,7 +223,7 @@ Open questions:
 1. **Spec 6.1 is out of date on Svelte.** oxfmt 0.67.0 can format `.svelte` with its `svelte` option. This plan keeps blocks as written by default and formats them only when the project turns the option on (7.7). Confirm, and 7.7 updates spec 6.1.
 2. **Block indentation.** `mf-fmt` writes block text flush left, like Vue's default for `<script>` and `<style>`. The spec's examples indent block text by two spaces. Re-indenting after oxfmt would change multi-line template literals, so this plan does not. Is flush left acceptable?
 3. **`.svelte` importers on the command line.** `mf-tsc` checks `.ts`, `.tsx`, `.vue` and every `.ucf` target, but not `.svelte` files that import `.ucf` (svelte-check does not run our TypeScript plugin). Add `.svelte` files to `mf-tsc` through `svelte2tsx`, or leave it?
-4. **Settled:** M4's `types()` returns the script `@vue/language-core` generates and M6's the `svelte2tsx` output, both with the template and markup check code.
+4. **Settled:** M4's `types()` returns the script `@vue/language-core` generates and M5's the `svelte2tsx` output, both with the template and markup check code.
 5. **Publisher id and pre-release.** Which Marketplace publisher and Open VSX namespace? Publish 0.x versions on the pre-release channel (`--pre-release`)? The stores do not accept semver pre-release tags like `0.1.0-beta.1`, which matters for the one-version rule.
 6. **Settled:** lint and format read the block's own text; architecture.md already says so.
 
@@ -232,7 +232,7 @@ Open questions:
 - `mf-lint --fix` and lint code actions in the editor.
 - Range formatting and format on type.
 - Formatting `<style lang="stylus">` or any language oxfmt does not format (stays as written).
-- `mf-tsc` emitting files. Declarations come from the library build (M5).
+- `mf-tsc` emitting files. Declarations come from the library build (M6).
 - oxlint and oxfmt configs written in JS or TS (`oxfmt.config.ts`). Only JSON / JSONC configs are read.
 - Type-aware lint rules.
 - Packaging for other editors (WebStorm, Neovim). They can load the server and the TypeScript plugin from the npm package.

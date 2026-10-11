@@ -66,7 +66,7 @@ describe('vite build of the vue app', () => {
   });
 });
 
-// M5's Vue package builds this way: `.ucf` files as entries, no importer.
+// M6's Vue package builds this way: `.ucf` files as entries, no importer.
 describe('a .ucf entry in a library build with framework: vue', () => {
   // Library build: an app build drops the entry's exports, and the component with them.
   const libraryBuild = (entry: string) =>

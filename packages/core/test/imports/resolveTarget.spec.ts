@@ -154,7 +154,7 @@ describe('resolveTarget over the shared imports fixture set', () => {
   });
 });
 
-// A build entry (M5): only the attribute and the framework option apply.
+// A build entry (M6): only the attribute and the framework option apply.
 describe('resolveTarget with no importer, over the same rows', () => {
   const rows = EXPECTED_IMPORTS.filter(
     (row) => row.expect !== 'framework-in-block' && row.expect !== 'framework-attribute-not-literal'
