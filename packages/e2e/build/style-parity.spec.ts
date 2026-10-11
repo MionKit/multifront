@@ -1,11 +1,11 @@
-import {copyFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {copyFile, readdir, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {basename, dirname, join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import {checkBlocks, createBuildContext, getBlockKind, splitBlocks} from '@multifront/core';
 import type {BuildContext, SplitResult, VueCompiler} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, hasClass, hasKeyframes, listComponents, readComponent} from '../fixtures/index.ts';
+import {copyApp, removeApp, hasClass, hasKeyframes, listComponents, readComponent} from '../fixtures/index.ts';
 import {buildApp} from './lib/build.ts';
 
 // The compiler plugin-vue itself resolves from the app root.
@@ -62,7 +62,7 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
 
   // `root` is unset when `beforeAll` failed before copyApp returned.
   afterAll(async () => {
-    if (root) await rm(root, {recursive: true, force: true});
+    if (root) await removeApp(root);
   });
 
   it('reports nothing', () => {
