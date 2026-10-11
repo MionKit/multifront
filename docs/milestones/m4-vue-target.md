@@ -118,6 +118,7 @@ New dependencies, all exact-pinned:
     - `types()` returns its generated `script_ts` as `Card.ucf.vue.ts`.
   - The TypeScript plugin serves a `.ucf` file's Vue script in tsserver **beside** the React one. M2 serves only the React script, because Volar's tsserver plugin has no extra service scripts (spike 1, answer 3). In hybrid mode only tsserver gives TypeScript results inside the `<vue>` block, so this step's test, 4.12 and 4.13 all need it. Spike 2 showed that the Vue `script_ts` works as a `.ucf` file's only tsserver script: 0 false errors, the right quickinfo and definition. What this step adds is serving both at once.
   - Both halves are registered in the two registries.
+  - Files with split errors: the editor is the first `vueSfcCode()` caller that reads them (the build stops at `buildTarget`). An unclosed target block is not in `split.blocks`, so `vueSfcCode()` leaves its raw text in place. The editor half must never hand that text to Vue's parser as SFC code: it blanks the ranges the splitter could not read as blocks (an unclosed block and the text after it up to the next root tag), the same way as other targets.
 - Deliverable: `<vue>` is a full row of the grid. The registry "both halves" test passes with it. tsserver serves the React and the Vue script of one `.ucf` file side by side.
 - Test:
   - Fixture `packages/e2e/fixtures/components/vue/Empty.ucf` (a `<vue>` block with only a comment).
@@ -125,6 +126,7 @@ New dependencies, all exact-pinned:
     - `startTsserver()` with our plugin opens `Counter.ucf` with a wrong type in a template expression (`{{ count.toFixed('x') }}`). Expect exactly one diagnostic (`TS2345`), at the `.ucf` range of `'x'`. The same edit on `vue/CounterCrlf.ucf` gives the same diagnostic at its CRLF range.
     - `$style.crad` in the template gives exactly one `TS2551`, at `crad` (`strictCssModules`).
     - In the same file, quickinfo inside `<react>` still shows the React types (both scripts are served).
+    - Fixture `vue/VueWithUnclosedReact.ucf` (a valid `<vue>` block, then a `<react>` block never closed, then a `<style>`): tsserver and the language server report the splitter's `unclosed-block` and no Vue or TypeScript diagnostic from the `<react>` text.
     - `startLanguageServer()`: `Empty.ucf` gives `vue-empty-block` at its line. In `Counter.ucf` (it has a `<vue>` block) with a CSS error in its `<style scoped>`, expect exactly one CSS diagnostic there, and exactly one hover result on a property: Vue's `style_N` codes are left out.
 
 ### 4.4 Compose plugin-vue: real path, include, exclude, pre transform
@@ -275,7 +277,7 @@ New dependencies, all exact-pinned:
 - `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - The way 4.3 serves a second target script of a `.ucf` file in tsserver, beside the React one. Used by **M6** (`Card.ucf.svelte.ts`, 6.10).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
-- Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `Empty.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
+- Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `DuplicateVue.ucf`, `Empty.ucf`, `VueWithUnclosedReact.ucf`, `TemplateError.ucf`, `AttrInside.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
 - `expectSameComputedStyles()` in `packages/e2e/browser/lib/parity.ts` and `packages/e2e/browser/parity.spec.ts`. Used by **M6** (adds the Svelte counter to the same parity test).
 
 ## Exit test
