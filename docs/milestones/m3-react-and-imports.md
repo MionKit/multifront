@@ -353,7 +353,7 @@ Tests and fixtures (`packages/e2e`):
 - `pnpm devx peer-floor <framework>` and the `react-floor` CI job: milestone 4 adds `vue-floor`, milestone 6 `svelte-floor`.
 - `fixtures/apps/demo/` with its SSR entry `src/entry-server.tsx` (`render()`): milestone 4 renders the Vue Card beside the React one, and adds visual parity.
 - `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows (`packages/e2e/editor/imports.spec.ts`).
-- `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
+- `fixtures/components/react/**` (`shapes/`, `scope/`, `errors/`, `default-forms/`, `forwarding/`, `fuzz-found/`, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, `UseClient` / `Directives` / `Unicode`), and the shared `fixtures/components/Counter.ucf` and `fixtures/components/imports/`: milestone 5 packs them, milestone 6 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 6 a Svelte row.
 - `packages/e2e/build/imports.spec.ts` and the `vite.config.ts` of each `fixtures/apps/imports/` sub-project: milestone 4 builds the `.vue` rows (the root config already has `vue()`), milestone 6 adds `svelte()` to the configs and the `.svelte` rows to the test.
 - The fuzz harness `packages/e2e/build/lib/fuzz.ts` (seeded random, `shrinkActions`, `replayLine`), the generator pattern of `packages/e2e/build/lib/scopeFuzz.ts`, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 6 (Svelte stamping).
