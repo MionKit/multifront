@@ -105,6 +105,8 @@ describe('HMR of a React .ucf component (demo, Counter clicked to 3)', () => {
     const changed = once(app!.server.watcher, 'change');
     await edit('<span class="label">Clicks</span>', '<span class="label">Hits</span>');
     expect((await changed)[0]).toBe(counterFile);
+    // The window counts from the change, not from the previous test's last request.
+    lastActivity = Date.now();
     await app!.server.environments.client.waitForRequestsIdle();
     // Nothing shows a hot update that sends nothing: give a wrong one time to arrive.
     await quiet(1000);
