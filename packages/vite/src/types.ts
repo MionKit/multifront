@@ -28,5 +28,5 @@ export type UcfCache = ReturnType<typeof createUcfCache>;
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
 export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {
-  options: {compiler?: Options['compiler'] | null; root: string; features?: Options['features']};
+  options: {compiler?: Options['compiler'] | null; root: string; features?: Options['features']; script?: Options['script']};
 };
