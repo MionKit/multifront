@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {createBuildContext, splitBlocks} from '@multifront/core';
 import type {BuildContextOptions, SplitResult} from '@multifront/core';
@@ -30,6 +31,10 @@ export function createUcfCache(contextOptions: () => BuildContextOptions) {
     },
     async loadUcf(file: string): Promise<UcfEntry> {
       return contextOf(store(file, await readFile(file, 'utf8')));
+    },
+    // Synchronous, for plugin-vue's component id generator.
+    sourceOf(file: string): string {
+      return (files.get(file) ?? store(file, readFileSync(file, 'utf8'))).source;
     },
     // The source Vite's `hotUpdate` read.
     updateUcf: store,

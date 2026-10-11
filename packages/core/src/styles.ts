@@ -29,6 +29,11 @@ interface PostcssError {
   input: {source: string; offset: number; endOffset?: number};
 }
 
+/** A CSS module class name, the same on every machine and in every target: `card_1a2b3c4d_0`. */
+export function moduleClassName(local: string, scopeId: string, index: number | string): string {
+  return `${local}_${scopeId}_${index}`;
+}
+
 // Vue's parser reads `module=""` as a bare `module`.
 export function moduleName(block: Block): string | undefined {
   const {module} = block.attrs;
@@ -88,7 +93,7 @@ async function compileStyle(block: Block, options: CompileStylesOptions): Promis
 
 // postcss-modules' loader throws outside its promise on a missing or broken `composes … from` file: this one rejects.
 function modulesOptions(block: Block, {id, filename: root, compiler, production}: CompileStylesOptions) {
-  const generateScopedName = (local: string) => `${local}_${id}_${block.index}`;
+  const generateScopedName = (local: string) => moduleClassName(local, id, block.index);
   // Shared across every composed file, however deep, so each is compiled and emitted once.
   const imports = new Map<string, string[]>();
   const tokens = new Map<string, Promise<Record<string, string>>>();
