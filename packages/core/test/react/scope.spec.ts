@@ -18,6 +18,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'Badge.ucf'},
   {fixture: 'Button.ucf'},
   {fixture: 'ComposesScoped.ucf'},
+  {fixture: 'Counter.ucf'},
   {fixture: 'Panel.ucf'},
   {fixture: 'ScopedModuleScss.ucf'},
   {fixture: 'TsxEdges.ucf'},

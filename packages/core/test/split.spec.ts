@@ -13,6 +13,7 @@ describe('splitBlocks on valid fixtures', () => {
       'Card.ucf',
       'ComposesFrom.ucf',
       'ComposesScoped.ucf',
+      'Counter.ucf',
       'Hello.ucf',
       'Panel.ucf',
       'ReactDefaultSpecifier.ucf',
