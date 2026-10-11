@@ -6,6 +6,7 @@ import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
+import {serveVueRequests} from './vueRequests.ts';
 
 const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
 
@@ -119,7 +120,8 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
       return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
     },
   };
-  const targetScripts = serveTargetScripts(ts, info, info.languageService);
+  const base = info.languageService;
+  const targetScripts = serveTargetScripts(ts, info, base);
   routers.set(info, targetScripts.route);
 
   const compilerOptions = host.getCompilationSettings();
@@ -127,6 +129,7 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
     languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info), ts, compilerOptions})],
     setup(language) {
       targetScripts.setup(language);
+      serveVueRequests(ts, info, language, base);
       getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
       // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.
       const resolve = host.resolveModuleNameLiterals?.bind(host);

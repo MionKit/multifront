@@ -41,7 +41,7 @@ const BY_POSITION = [
 const DIAGNOSTICS = ['getSyntacticDiagnostics', 'getSemanticDiagnostics', 'getSuggestionDiagnostics'] as const;
 
 /** `Card.ucf.vue.ts`: the tsserver file of a target served beside the `.ucf` file's own script. */
-function targetScriptName(fileName: string, target: Target): string {
+export function targetScriptName(fileName: string, target: Target): string {
   return `${fileName}.${target}.ts`;
 }
 

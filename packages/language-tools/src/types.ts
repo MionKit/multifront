@@ -11,6 +11,7 @@ import type {
 } from '@multifront/core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
+import type {VueVirtualCode} from '@vue/language-core';
 import type * as ts from 'typescript';
 
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
@@ -45,9 +46,12 @@ export interface EditorContext extends EditorOptions {
 }
 
 /** Root code of a `.ucf` file; keeps its split so services never split the file again. */
-export interface UcfVirtualCode extends VirtualCode {
+export interface UcfVirtualCode extends VirtualCode, VueRootFields {
   split: SplitResult;
 }
+
+/** What Vue's service plugins read from the root code, forwarded to the nested `<vue>` code. */
+export type VueRootFields = Partial<Pick<VueVirtualCode, 'fileName' | 'ir' | 'vueSfc' | 'vueCompilerOptions'>>;
 
 export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
   classes: StyleClass[] | undefined; // undefined: the block could not be read
