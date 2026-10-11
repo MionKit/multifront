@@ -19,11 +19,7 @@ const BADGE_LABEL = '[data-demo="panel"] .badge-label';
 const CARD_TITLES = ['Bare import', 'From the .ts helper'];
 // Every styled demo component, relative to the shared `components/`, and how many targets the demo imports it as.
 // One copy per target: plugin-vue ships its own style modules (spec 4.3).
-const STYLED: [string, number][] = [
-  ['Counter.ucf', 2],
-  ['react/ScopedPanel.ucf', 1],
-  ['Card.ucf', 1],
-];
+const STYLED = {'Counter.ucf': 2, 'react/ScopedPanel.ucf': 1, 'Card.ucf': 1};
 const POLL = {timeout: 10_000};
 
 let browser: Browser | undefined;
@@ -178,7 +174,7 @@ describe('milestone 3 exit test (demo app)', () => {
         .join('\n');
       let blocks = 0;
       let selectors = 0;
-      for (const [name, targets] of STYLED) {
+      for (const [name, targets] of Object.entries(STYLED)) {
         const {filename, source} = readComponent(name);
         const split = splitBlocks(source, filename);
         const ctx = await createBuildContext(split, {root: FIXTURE, compiler: loadVueCompiler(FIXTURE), production: true});

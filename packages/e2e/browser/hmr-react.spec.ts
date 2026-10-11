@@ -61,12 +61,10 @@ describe('HMR of a React .ucf component (demo, Counter clicked to 3)', () => {
 
     const scoped = scopeAttribute(root!, counterFile, false).slice('data-v-'.length);
     expect(await page.locator(`${COUNTER} button`).textContent()).toBe('3');
-    expect(requests.paths().sort()).toEqual(
-      [
-        `/@fs${counterFile}?ucf&type=style&index=0&lang.css`,
-        `/@fs${counterFile}?vue&type=style&index=0&scoped=${scoped}&lang.css`,
-      ].sort()
-    );
+    expect(requests.paths().sort()).toEqual([
+      `/@fs${counterFile}?ucf&type=style&index=0&lang.css`,
+      `/@fs${counterFile}?vue&type=style&index=0&scoped=${scoped}&lang.css`,
+    ]);
   });
 
   it('a <react> edit requests only the React module, keeps the count and loads no page', async () => {
