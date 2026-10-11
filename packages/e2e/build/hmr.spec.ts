@@ -74,7 +74,6 @@ function hmrApp(plugins: () => Plugin[]) {
       return match ? `${match[2] ? 'map' : 'css'}${match[1]}` : id;
     });
 
-  // Both environments saw a hot update that `matches`.
   async function updated(matches: (update: Update) => boolean): Promise<Record<EnvironmentName, Update>> {
     let found: Partial<Record<EnvironmentName, Update>> = {};
     await expect
@@ -91,11 +90,11 @@ function hmrApp(plugins: () => Plugin[]) {
     return found as Record<EnvironmentName, Update>;
   }
 
-  // From the importer, as a page or an SSR render requests them: Vite ties the React module's watch file to it
-  // only when the module was already in the graph when it loaded. `?raw` stands for another plugin's module.
+  // From App.tsx, as a page does: Vite links the React module to Counter.ucf only if the module existed before load.
   async function crawl(): Promise<void> {
     for (const name of ENVIRONMENTS) {
       const environment = state.server!.environments[name];
+      // `?raw` stands for another plugin's module of the file.
       const pending = ['/src/App.tsx', `/@fs${state.file}?raw`];
       const seen = new Set<string>();
       while (pending.length > 0) {
@@ -161,7 +160,6 @@ function hmrApp(plugins: () => Plugin[]) {
   };
 }
 
-// Sorted names of what our hook returned, in both environments.
 function returned(app: ReturnType<typeof hmrApp>, updates: Record<EnvironmentName, Update>) {
   return Object.fromEntries(ENVIRONMENTS.map((name) => [name, app.names(updates[name].given).sort()]));
 }

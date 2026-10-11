@@ -3,7 +3,7 @@ import {createBuildContext, splitBlocks} from '@multifront/core';
 import type {BuildContextOptions, SplitResult} from '@multifront/core';
 import type {UcfEntry, UcfVersion} from './types.ts';
 
-/** Splits once per file content; options are read on the first `loadUcf`, after plugin-vue lent its compiler. */
+/** Splits once per file content; options are read on the first compile, after plugin-vue lent its compiler. */
 export function createUcfCache(contextOptions: () => BuildContextOptions) {
   const files = new Map<string, UcfVersion>();
 

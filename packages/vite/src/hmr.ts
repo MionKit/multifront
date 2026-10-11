@@ -26,12 +26,10 @@ async function classesOf(entry: Promise<UcfEntry> | undefined, index: number) {
   }
 }
 
-/** The ids of our modules that `after` changes, against `before`. */
 async function changedIds(file: string, before: UcfSnapshot, after: UcfVersion, cache: UcfCache) {
   const old = before.split;
   const now = after.split;
-  // The overlay shows the splitter error, and the fix clears it. Never an index `now` lacks: it would load the
-  // whole `.ucf` as CSS.
+  // The overlay shows the error, the fix clears it; never an index `now` lacks: it would load the `.ucf` as CSS.
   if (old.errors.length > 0 || now.errors.length > 0) {
     return [
       ...VIRTUAL_TARGETS.map((target) => file + TARGET_SUFFIX[target]),
@@ -81,7 +79,7 @@ export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean): Plug
       change = {timestamp, before: change ? change.after : after.previous, after};
       changes.set(file, change);
     }
-    // A save that changed nothing since we served the file.
+    // A file never served, or a save that changed nothing since we served it.
     if (!change.before) return handedOn;
     const graph = this.environment.moduleGraph;
     const ids = await changedIds(file, change.before, change.after, cache);
