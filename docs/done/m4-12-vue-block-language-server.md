@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.12
@@ -128,7 +128,10 @@ Read during planning (`@vue/language-service`, `@vue/typescript-plugin`, `@vue/l
 
 - `relayTsserver(server, tsserver)`: answers `tsserver/request` with `tsserver.request(command, args)`'s body,
   `undefined` on a failed request.
-- `startLanguageServer()`'s handle gains `log: {type, message}[]`, every `window/logMessage` (still printed).
+- `startLanguageServer()`'s handle gains `log: {type, message}[]`, every `window/logMessage`, kept
+  instead of printed.
+- The test client claims `completionItem.snippetSupport`, as VS Code does: without it the server warns that Vue's
+  template completions would use snippets.
 
 ### 8. Fixtures
 
@@ -148,7 +151,9 @@ child processes, VS Code runs under the 2.11 harness.
   `$style.buton` is one `TS2551`, `Counter.ucf` as written has none; `<Icon :size="'big'" />` in `UsesIcon.ucf` is one
   `TS2322` inside the attribute, none as written; hover and definition on `vue/CounterCrlf.ucf` too.
 - Language server: `<sp|` lists `span`, `div` and `Counter`; before `class` in `<span class="label">` lists `:id`,
-  `@click` and `v-if`; `color` in `<style scoped>` is offered once; no warning or error in the server log.
+  `@click` and `v-if`; at `color` in `<style scoped>`, completion lists `color` once and the hover has its docs once
+  (completion items are merged by label, so only the hover catches Vue's `css` plugin); no warning or error in the
+  server log.
 - `vue/AttrInside.ucf`: two `framework-in-block` from tsserver at the specifiers, none from the language server.
 
 `packages/e2e/editor/vscode/suite.cjs`: in `checks`, completion before `class` in `Counter.ucf`'s `<span>` lists

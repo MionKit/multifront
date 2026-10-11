@@ -24,7 +24,8 @@ Open a `.ucf` file and each block gets its own language's features.
 | --- | --- |
 | `<react>` | Highlighting, completions, errors, hover, go to definition, rename and find references, also across `.ts` and `.tsx` files |
 | `<style>`, `<style lang="scss">` | Highlighting, completions, errors, hover, go to definition |
-| `<vue>`, `<svelte>`, `<style lang="less">` | Highlighting |
+| `<vue>` | Highlighting, completions (template tags, attributes and directives too), errors, hover, go to definition |
+| `<svelte>`, `<style lang="less">` | Highlighting |
 | The whole file | Errors for the [block rules](02-component-files.md#block-rules) |
 
 ## Typed Class Names
