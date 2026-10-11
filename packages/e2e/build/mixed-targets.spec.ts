@@ -1,4 +1,4 @@
-// One build of the demo, which imports Counter.ucf as React and as Vue: each target's modules hold only its own framework.
+// The demo imports Counter.ucf as React and as Vue: each target's modules hold only its own framework.
 import {join} from 'node:path';
 import type {Plugin} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
@@ -15,7 +15,7 @@ let output: Awaited<ReturnType<typeof buildApp>>;
 const imports = new Map<string, readonly string[]>();
 const withFramework: string[] = [];
 
-// The bare id and plugin-vue's sub-requests; our `?ucf&` style modules belong to no framework.
+// Leaves out our `?ucf&` style modules: they belong to no framework.
 const isVueModule = (id: string) => id === COUNTER || id.startsWith(`${COUNTER}?vue&`);
 
 beforeAll(async () => {
