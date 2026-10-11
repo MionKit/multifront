@@ -66,9 +66,9 @@ describe('vite build of the vue app', () => {
   });
 });
 
-// M5's Vue package is this build: `multifront({framework: 'vue'})` plus `vue()` on `.ucf` entries, no importer.
+// M5's Vue package builds this way: `.ucf` files as entries, no importer.
 describe('a .ucf entry in a library build with framework: vue', () => {
-  // A library build keeps the entry's exports; an app build drops them, and the component with them.
+  // Library build: an app build drops the entry's exports, and the component with them.
   const libraryBuild = (entry: string) =>
     buildCode(root, {
       configFile: false,
