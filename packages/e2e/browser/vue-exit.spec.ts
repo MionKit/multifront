@@ -10,7 +10,7 @@ import {FIXTURES_DIR, componentPath, copyApp, removeApp} from '../fixtures/index
 import {APP_CONFIG_LOADER} from '../build/lib/build.ts';
 import {execNode, startViteCli} from '../build/lib/freshProcess.ts';
 import {edit as editOpen, PLUGIN} from '../editor/lib/cases.ts';
-import {E2E_DIR, locate, open, startTsserver, VUE_PLUGIN} from '../editor/lib/tsserver.ts';
+import {E2E_DIR, locate, open, startTsserver, VUE_PLUGIN, VUE_PLUGIN_DIR} from '../editor/lib/tsserver.ts';
 import type {Component} from '../editor/lib/tsserver.ts';
 import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
 import {expectSameComputedStyles} from './lib/parity.ts';
@@ -189,16 +189,10 @@ describe('milestone 4 exit test', () => {
   });
 
   it("4. tsserver with Vue's plugin and ours reports the wrong prop type on <Counter> in App.vue", async () => {
-    const {root} = await vueCopy();
-    const config = await readFile(join(root, 'tsconfig.json'), 'utf8');
-    const listed = [VUE_PLUGIN, PLUGIN].map((name) => `{"name": "${name}"}`).join(', ');
-    await writeFile(
-      join(root, 'tsconfig.json'),
-      config.replace('"compilerOptions": {', `"compilerOptions": {\n    "plugins": [${listed}],`)
-    );
+    const root = join(FIXTURES_DIR, 'apps', 'vue');
     const filename = join(root, 'src', 'App.vue');
     const app: Component = {filename, source: await readFile(filename, 'utf8')};
-    const server = startTsserver({cwd: root, plugins: [], probeLocations: [E2E_DIR]});
+    const server = startTsserver({cwd: root, plugins: [VUE_PLUGIN, PLUGIN], probeLocations: [E2E_DIR, VUE_PLUGIN_DIR]});
     try {
       await open(server, [app]);
       expect(await server.diagnostics(filename)).toEqual([]);
@@ -211,7 +205,6 @@ describe('milestone 4 exit test', () => {
       ]);
     } finally {
       await server.stop();
-      await removeApp(root);
     }
   });
 });
