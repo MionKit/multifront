@@ -155,6 +155,12 @@ child processes, VS Code runs under the 2.11 harness.
   (completion items are merged by label, so only the hover catches Vue's `css` plugin); no warning or error in the
   server log.
 - `vue/AttrInside.ucf`: two `framework-in-block` from tsserver at the specifiers, none from the language server.
+- After review: `UsesIcon.ucf` importing `./ReactOnly.ucf` from `<vue>` is `missing-target-block` naming
+  `UsesIcon.ucf`; `:size` is offered before the end of `<Icon />`; tsserver's `_multifront:getComponentDirectives`
+  lists Vue's directives (a local `vFocus` binding is not in them: Vue's own request function reads only the global
+  ones, so completion cannot pin this handler); `class="counter"` links to `.counter`; a `<template>` never closed in
+  `<vue>` is Vue's SFC error at its tag. The relay helper logs a failed request instead of answering it silently.
+- `VUE_REQUESTS` and `vueRequestCommand()` live in `blocks/vue.ts`, so the server never loads Vue's request functions.
 
 `packages/e2e/editor/vscode/suite.cjs`: in `checks`, completion before `class` in `Counter.ucf`'s `<span>` lists
 `@click` through the relay; in `withoutTypescript`, the same position lists `v-if`.

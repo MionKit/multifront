@@ -36,7 +36,7 @@ afterAll(async () => {
 async function diagnosticsAfter(component: Component, needle: string, newText: string) {
   const revert = await edit(tsserver, component, needle, newText);
   try {
-    return (await tsserver.diagnostics(component.filename)).map(({code, start, end}) => ({code, start, end}));
+    return (await tsserver.diagnostics(component.filename)).map(({code, start, end, text}) => ({code, start, end, text}));
   } finally {
     await revert();
   }
@@ -100,6 +100,18 @@ describe('tsserver: TypeScript inside the <vue> block', () => {
     });
   });
 
+  it('an import of a file with no <vue> block from the <vue> block is missing-target-block', async () => {
+    const errors = await diagnosticsAfter(USES_ICON, "import Icon from './Icon.ucf'", "import Icon from './ReactOnly.ucf'");
+    expect(errors.map(({code, text}) => ({code, text}))).toEqual([
+      {code: 'missing-target-block', text: './ReactOnly.ucf has no <vue> block; UsesIcon.ucf imports it as vue'},
+    ]);
+  });
+
+  it("our handler answers Vue's directive request with the file's directives", async () => {
+    const command = '_multifront:getComponentDirectives';
+    expect(await tsserver.request<string[]>(command, [COUNTER.filename])).toEqual(expect.arrayContaining(['vShow', 'vIf']));
+  });
+
   it('AttrInside.ucf: tsserver reports framework-in-block at both specifiers', async () => {
     const {source} = ATTR_INSIDE;
     const specifier = "'../imports/Icon.ucf'";
@@ -141,6 +153,32 @@ describe("the language server: Vue's template services, answered by tsserver", (
   });
 
   // Completion items are merged by label, a hover's contents are not: Vue's css plugin would show its docs twice.
+  it("completion before the end of a component tag lists its props: Icon's :size", async () => {
+    const document = await server.openTextDocument(USES_ICON.filename, 'ucf');
+    const at = document.positionAt(USES_ICON.source.indexOf('<Icon />') + '<Icon '.length);
+    expect(labels(await server.sendCompletionRequest(document.uri, at))).toContain(':size');
+  });
+
+  it('class="counter" links to .counter in <style scoped>', async () => {
+    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const links = await server.sendDocumentLinkRequest(document.uri);
+    const use = COUNTER.source.indexOf('counter"');
+    const rule = tsLocation(COUNTER.source, COUNTER.source.indexOf('.counter {'));
+    expect(links?.map(({range, target}) => ({start: document.offsetAt(range.start), target: target?.split('#')[1]}))).toEqual([
+      {start: use, target: `L${rule.line}%2C${rule.offset}-L${rule.line}%2C${rule.offset + '.counter'.length}`},
+    ]);
+  });
+
+  it('an SFC error in the <vue> block, a <template> never closed, is reported at its tag', async () => {
+    const source = COUNTER.source.replace('  </template>\n</vue>', '\n</vue>');
+    const document = await server.openUntitledDocument('ucf', source);
+    const errors = (await diagnosticsOf(server, document)).filter(({source: from}) => from === 'vue');
+    const tag = source.indexOf('<template>');
+    expect(errors.map(({message, range}) => ({message, start: document.offsetAt(range.start)}))).toEqual([
+      {message: 'Element is missing end tag.', start: tag},
+    ]);
+  });
+
   it("in <style scoped>, completion lists color once and its hover has its docs once: Vue's css plugin is left out", async () => {
     const document = await server.openTextDocument(COUNTER.filename, 'ucf');
     const at = document.positionAt(COUNTER.source.indexOf('color: rgb') + 2);

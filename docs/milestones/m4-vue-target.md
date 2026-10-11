@@ -288,6 +288,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - no warning or error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`);
   - in `Counter.ucf`'s `<style scoped>`, completion lists `color` once and its hover has its docs once (Vue's `css` plugin is left out; completion items are merged by label, a hover is not);
   - `vue/AttrInside.ucf` gets its two `framework-in-block` from tsserver alone: the language server leaves that code to tsserver (`TSSERVER_CODES`), and since 4.10 `vueKind.check` reports it too.
+  - Also: `UsesIcon.ucf`'s `<vue>` import of `./ReactOnly.ucf` is `missing-target-block` naming `UsesIcon.ucf`; completion before the end of `<Icon />` lists its `:size` (`getComponentProps`); `_multifront:getComponentDirectives` lists Vue's directives; `class="counter"` links to `.counter` (`vueCompilerOptions`); a `<template>` never closed inside `<vue>` is Vue's SFC error at its tag (`vueSfc`); a relayed request that fails lands in the server log.
 
   Also, in real VS Code (`packages/e2e/editor/vscode/suite.cjs`, the packed extension): completion before an attribute in `Counter.ucf`'s template lists `@click` (tsserver through the extension's relay), and with the TypeScript extension disabled still lists `v-if` (the relay answers when the command is missing).
 - Status: done
