@@ -3,11 +3,12 @@ import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {dirname, join, relative, resolve, sep} from 'node:path';
 import {checkBlocks, createBuildContext, loadVueCompiler, locate, rewriteImportAttributes, splitBlocks} from '@multifront/core';
 import type {Diagnostic, Target} from '@multifront/core';
-import {createServer, isRunnableDevEnvironment, parseAst, Visitor, type ESTree, type Rolldown, type ViteDevServer} from 'vite';
+import {createServer, isRunnableDevEnvironment, type Rolldown, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {FIXTURES_DIR, TMP_DIR, componentPath, filesOf, readComponent} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER, buildApp, keyName} from './lib/build.ts';
+import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
+import {expectNoAttribute, moduleReferences, type Reference} from './lib/references.ts';
 
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
 const CARD = componentPath('Card.ucf');
@@ -23,10 +24,6 @@ const SSR_ENTRY = 'no-default/ssr-entry.tsx';
 
 type Row = (typeof ROWS)[number];
 type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
-interface Reference {
-  specifier: string;
-  keys: string[]; // import attribute keys, or the keys of the options object (and of its `with`)
-}
 
 function rowsOf(file: string): Row[] {
   return ROWS.filter((row) => row.file === file).sort((left, right) => left.line - right.line);
@@ -46,54 +43,9 @@ function urlOf(file: string): string {
   return `/${path}${file.endsWith('.ucf') ? '.react.tsx' : ''}`;
 }
 
-function objectKeys(node: ESTree.Node | null | undefined): string[] {
-  if (node?.type !== 'ObjectExpression') return node ? ['<not an object>'] : [];
-  return node.properties.flatMap((prop) => {
-    if (prop.type !== 'Property') return ['<spread>'];
-    const name = keyName(prop.key) ?? '<computed>';
-    return name === 'with' ? [name, ...objectKeys(prop.value)] : [name];
-  });
-}
-
-// Every module reference of an output, ESM or Vite's SSR form, in source order.
-function references(code: string): Reference[] {
-  const found: Reference[] = [];
-  const add = (source: ESTree.Node | null | undefined, keys: string[]) => {
-    if (source?.type === 'Literal' && typeof source.value === 'string') found.push({specifier: source.value, keys});
-  };
-  const fromStatic = (node: {source: ESTree.Expression | null; attributes: ESTree.ImportAttribute[]}) =>
-    add(
-      node.source,
-      node.attributes.map((attribute) => keyName(attribute.key) ?? '<computed>')
-    );
-  new Visitor({
-    ImportDeclaration: fromStatic,
-    ExportNamedDeclaration: fromStatic,
-    ExportAllDeclaration: fromStatic,
-    ImportExpression: (node) => add(node.source, objectKeys(node.options)),
-    CallExpression: (node) => {
-      const {callee} = node;
-      if (callee.type !== 'Identifier' || !/^__vite_ssr_(dynamic_)?import__$/.test(callee.name)) return;
-      // `__vite_ssr_import__` always gets `{importedNames}`: only an attribute's keys would be new.
-      add(
-        node.arguments[0],
-        objectKeys(node.arguments[1]).filter((key) => key !== 'importedNames')
-      );
-    },
-  }).visit(parseAst(code));
-  return found;
-}
-
-function expectNoAttribute(code: string) {
-  for (const {specifier, keys} of references(code)) {
-    expect(keys, specifier).not.toContain('with');
-    expect(keys, specifier).not.toContain('framework');
-  }
-}
-
 // Fast Refresh makes a React module import itself.
 function ucfImports(code: string, url: string): Reference[] {
-  return references(code).filter(({specifier}) => specifier.includes('.ucf') && specifier !== url);
+  return moduleReferences(code).filter(({specifier}) => specifier.includes('.ucf') && specifier !== url);
 }
 
 function expectError(err: BuildError | undefined, loc: BuildError['loc'], file: string) {

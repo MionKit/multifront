@@ -29,3 +29,21 @@ export function computed(locator: Locator, property: string): Promise<string> {
     property
   );
 }
+
+const RENDERED_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
+
+/** Every `#app` descendant: tag, text of a leaf, and `properties` as computed. */
+export function renderedStyles(page: Page, properties = RENDERED_PROPERTIES) {
+  return page.locator('#app *').evaluateAll(
+    (elements, names) =>
+      elements.map((element) => {
+        const style = element.ownerDocument.defaultView!.getComputedStyle(element);
+        return {
+          tag: element.tagName,
+          text: element.children.length === 0 ? element.textContent : null,
+          styles: names.map((name) => style.getPropertyValue(name)),
+        };
+      }),
+    properties
+  );
+}

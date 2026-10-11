@@ -4,7 +4,7 @@ import type {Browser} from 'playwright';
 import {createLogger} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
-import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
+import {collectConsole, computed, launchChromium, renderedStyles} from './lib/chromium.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'demo');
@@ -26,8 +26,6 @@ const STYLES: [string, string, string, string][] = [
 ];
 
 const LOG_LEVELS = ['info', 'warn', 'warnOnce', 'error'] as const;
-
-const PARITY_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
 
 let browser: Browser | undefined;
 const rendered: Partial<Record<'dev' | 'preview', unknown>> = {};
@@ -69,18 +67,7 @@ describe.each([
         expect({what, value: found}).toEqual({what, value});
       }
 
-      rendered[mode] = await page.locator('#app *').evaluateAll(
-        (elements, properties) =>
-          elements.map((element) => {
-            const style = element.ownerDocument.defaultView!.getComputedStyle(element);
-            return {
-              tag: element.tagName,
-              text: element.children.length === 0 ? element.textContent : null,
-              styles: properties.map((name) => style.getPropertyValue(name)),
-            };
-          }),
-        PARITY_PROPERTIES
-      );
+      rendered[mode] = await renderedStyles(page);
       await page.waitForLoadState('networkidle');
       expect(messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror')).toEqual([]);
     } finally {
