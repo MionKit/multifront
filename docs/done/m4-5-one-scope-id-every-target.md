@@ -35,10 +35,16 @@ with a scratch build of `apps/vue`:
 - Q1 (orchestrator): add `generic-names` 4.0.0 (exact pin, `@multifront/vite` `dependencies`, the version Vite 8.2.2
   bundles, released 2021-12-22 so the 30-day gate passes) for a user's string pattern, and copy postcss-modules'
   default generator. Copying only the default would break a user's string pattern for every other file.
-- Q2 (orchestrator): `composes … from './other.css'` in a `.ucf` `<style module>` is accepted for now, as a Risks line:
-  postcss-modules passes only the composed file's path, so its classes keep Vite's or the user's names in the Vue target.
-- Q3 (orchestrator): `css.transformer: 'lightningcss'` is accepted for now, as a Risks line: Vite ignores
-  `css.modules`, so `.ucf` Vue classes get lightningcss names.
+- Q2 (orchestrator, revised after review): `composes … from './other.css'` in a `.ucf` `<style module>` is fixed here,
+  not a Risks line (AGENTS.md: a related issue is fixed in the same PR). postcss-modules hands the generator only the
+  composed file's path, so the `.ucf` block reaches it through an `AsyncLocalStorage` that a wrapper around Vite's
+  `vite:css` transform opens for `.ucf` style sub-requests. Core's naming (M1) is unchanged.
+- Q3 (orchestrator, revised after review): lightningcss's one class name pattern for all files cannot give
+  `<local>_<scopeId>_<index>`, so under `css.transformer: 'lightningcss'` a `.ucf` `<style module>` built as Vue is a
+  build error naming the file and the setting, instead of silently different names.
+- Review: `css.modules: false` stays untouched (Vite then fails a Vue `<style module>` on its own, `.vue` files too). The
+  `WeakMap` unwrapping our earlier id generator on a restart went: wrapping twice gives the same ids. The disk read in
+  `sourceOf` is reached only on a plugin-vue cache miss, which step 4.7's warm-up and tests cover.
 - No fuzz test: the new inputs are configs and generator options, no cheap oracle beyond the fixture equality.
 - The tests pair each user `componentIdGenerator` with one user `css.modules` setting (four rows), so every variant
   runs once in production and once on the dev server without a build per combination.
@@ -64,17 +70,21 @@ with a scratch build of `apps/vue`:
 - Component id generator `(path, source, production, getHash)`: a `.ucf` path returns
   `scopeIdOf(normalizePath(resolve(config.root, path)))`, ignoring the SFC code; else the user's function, `'filepath'`
   (`getHash(path)`), `'filepath-source'` (`getHash(path + source)`), or plugin-vue's default
-  (`getHash(path + (production ? source : ''))`). A module-level `WeakMap<ours, user's>` unwraps our previous one on a
-  repeat `configResolved` (`server.restart()` reuses plugin instances).
-- CSS modules, unless `config.css.modules === false`: `config.css.modules = {...modules, generateScopedName}`, a new
-  object, so the user's inline config is never mutated. A `.ucf` path with a `vue` query and `type=style` returns
-  `moduleClassName(local, scopeIdOf(path), index)`; anything else goes to `viteScopedName(modules)`.
+  (`getHash(path + (production ? source : ''))`). A restart (same plugin instances) wraps ours once more, same ids.
+- Then `composeCssModules(config, scopeIdOf)`.
 
 ### 4. `packages/vite/src/cssModules.ts` (new)
 
-- `viteScopedName({generateScopedName, hashPrefix})`: the user's function; a string pattern through `generic-names`
-  with `{context: process.cwd(), hashPrefix}` as postcss-modules 9.0.1 calls it; unset → postcss-modules' default
-  `_${local}_${stringHash(hashPrefix + css).toString(36).slice(0, 5)}_${line}`.
+- `composeCssModules(config, scopeIdOf)`, unless `css.modules === false` (with the postcss transformer):
+  - wraps the `handler` of Vite's `vite:css` transform: a `.ucf` id runs inside
+    `AsyncLocalStorage.run({file, index})`, so the block reaches the generator for the files it composes from too;
+    under lightningcss a `.ucf` `.module.*` id is `this.error()` naming the file and `css.transformer 'postcss'`;
+  - postcss: `config.css.modules = {...modules, generateScopedName}`, a new object, so the user's inline config is
+    never mutated. Inside the context it returns `moduleClassName(local, scopeIdOf(file), index)`; anything else goes
+    to `viteScopedName(modules)` with every argument postcss-modules passes.
+- `viteScopedName({generateScopedName, hashPrefix})`: the user's function; a non-empty string pattern through
+  `generic-names` with `{context: process.cwd(), hashPrefix}` per call, as postcss-modules 9.0.1 does; else
+  postcss-modules' default `_${local}_${stringHash(hashPrefix + css).toString(36).slice(0, 5)}_${line}`.
 
 ### 5. `packages/vite/src/index.ts`, `types.ts`
 
@@ -86,6 +96,10 @@ with a scratch build of `apps/vue`:
 ### 6. Fixture
 
 - `fixtures/apps/vue/src/Plain.vue` gains a `<style module>` (`.note`) used as `$style.note`.
+- New `fixtures/components/vue/ComposesFile.ucf`: `<vue>`, `<react>` and a `<style module>` composing from
+  `../tag-base.css` and `../tag-round.css` (which composes from `tag-base.css` itself).
+- Test helpers `buildCode()` and `withDevServer()` in `packages/e2e/build/lib/build.ts`, also used by
+  `vue-compose.spec.ts` and `scope-id.spec.ts`; `browser/lib/scope.ts` uses `rootRelativePath`.
 
 ## Tests
 
@@ -97,20 +111,26 @@ Host + CI `check` job (`pnpm devx test`): real `vite.build()` and in-process dev
 1. Counter as Vue and as React, production and dev server: same `data-v-X` (CSS selector, Vue `__scopeId`, React
    stamp), equal to `scopeId(path, source, production)`; same `button_X_1` module class in CSS and JS.
 2. Four rows, each a user `componentIdGenerator` (unset, `'filepath'`, `'filepath-source'`, a function) paired with a
-   user `css.modules` (unset, `{hashPrefix}`, a string pattern, a function): `Plain.vue` keeps its `__scopeId` (production
-   and dev server) and its `.note` class with and without `multifront()`; Counter keeps `data-v-X` and `button_X_1`.
-3. After `server.restart()`: Counter still `data-v-X` and `button_X_1`.
+   user `css.modules` (unset, `{hashPrefix}`, a string pattern with a `hashPrefix`, a function): `Plain.vue` keeps its
+   `__scopeId` and its `.note` class with and without `multifront()`, in production and on the dev server; Counter keeps
+   `data-v-X` and `button_X_1`.
+3. After `server.restart()`: Counter still `data-v-X` and `button_X_1`, and the user's inline `css.modules` unchanged.
+4. `css.modules: false`: a plain `.module.css` builds the same with and without `multifront()`.
+5. `vue/ComposesFile.ucf` built as Vue and as React: every class map value core gives (composed names included) is in
+   both outputs, and `.base_<id>_0` in both CSS.
+6. `css.transformer: 'lightningcss'`: the vue app fails naming `Counter.ucf` and the setting; `Plain.vue` builds the same
+   with and without `multifront()`.
 
 ## Docs
 
 - `docs/plan.md` "Building on plugin-vue" item 4: the class names.
 - `docs/spec.md` 3.4: one line on matching class names.
-- Milestone doc: `$style.button`, Hands row for `vueTarget.ts`, two Risks lines, `- Status: done`.
+- Milestone doc: `$style.button`, the composed-file and lightningcss behaviour, Hands row for `vueTarget.ts`, a Risks
+  line on wrapping `vite:css`, `- Status: done`.
 
 ## Out of scope
 
 - HMR (4.9), cache-miss warm-up (4.7), browser parity (4.11), deduplicating plugin-vue's CSS with ours.
-- `css.transformer: 'lightningcss'` and `composes … from` files (Decisions).
 
 ## Done when
 
