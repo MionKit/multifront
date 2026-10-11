@@ -183,9 +183,12 @@ export function vueHmrPlugin(cache: UcfCache, vueOf: () => {compiler: VueCompile
     async handleHotUpdate(ctx) {
       const {file} = ctx;
       const vue = vueOf();
+      if (!vue || !VUE_INCLUDE.test(file)) return undefined;
+      // plugin-vue finds its style modules by a URL ours match too; our post `hotUpdate` hands ours on.
+      const modules = ctx.modules.filter((mod) => !UCF_SUB_REQUEST.test(mod.id ?? ''));
       const before = handedVersions.get(file)?.sfc;
       // Never handed: plugin-vue holds no descriptor of the file and skips it.
-      if (!vue || !VUE_INCLUDE.test(file) || before === undefined) return;
+      if (before === undefined) return modules;
       const version = cache.updateUcf(file, await ctx.read());
       const sfc = vueSfcCode(version.source, version.split.blocks, file).code;
       version.sfc = sfc;
@@ -196,6 +199,7 @@ export function vueHmrPlugin(cache: UcfCache, vueOf: () => {compiler: VueCompile
       else rerenderOnly.delete(file);
       // Else its cache keeps the old positions: the next sub-request must warm it up.
       if (change.stored) handedToVue(file, version.source, sfc);
+      return modules;
     },
     transform: {
       // After plugin-vue's; only its dev client main module carries the HMR runtime.

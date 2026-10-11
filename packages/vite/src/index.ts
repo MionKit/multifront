@@ -125,7 +125,8 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     buildEnd() {
       vueCompiler = undefined;
     },
-    hotUpdate: ucfHotUpdate(cache, () => hasVuePlugin(config!.plugins)),
+    // After plugin-vue's `handleHotUpdate`, which hands on only its own modules of a file also imported as another target.
+    hotUpdate: {order: 'post', handler: ucfHotUpdate(cache, () => hasVuePlugin(config!.plugins))},
     resolveId: {
       filter: {id: [/\.ucf/, SCOPE_HELPER]},
       async handler(id, importer, resolveOptions) {

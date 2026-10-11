@@ -30,8 +30,9 @@ Checked on this host (Vite 8.2.2, plugin-vue 6.0.8, vue 3.5.42) with a throwaway
 - Orchestrator: the two deviations from the step text are accepted (the post transform adding `_rerender_only`, and
   recording only when plugin-vue stores the code); the 4.9 Build text is updated to match.
 - Orchestrator, Q1: plugin-vue's `handleHotUpdate` drops the non-Vue modules (the React module, our `?ucf` style
-  modules) of a file imported both as Vue and as React. Fixed in 4.11, where that app first exists: this PR adds it
-  to 4.11's Build and Test text.
+  modules) of a file imported both as Vue and as React. Fixed here, own commit and test (reversed after review:
+  `apps/vue/src/bothTargets.ts` already imports one file as both, and this PR's `read` override makes a
+  `<react>`-only edit return `[]` from plugin-vue).
 - Orchestrator, Q2: no fuzz test.
 - Each new test was checked failing with its piece taken out: no `read` override (the three browser edits), no
   `_rerender_only` line (count back to 2), no `version.sfc` (style map text), the record always written (style map
@@ -86,6 +87,11 @@ Checked on this host (Vite 8.2.2, plugin-vue 6.0.8, vue 3.5.42) with a throwaway
 4. `packages/vite/src/index.ts`: `return [pre, vueHmrPlugin(cache, vueOf), attributesPlugin(options)]`, `vueOf`
    reusing the memoized `api.vueCompiler`. Own plugin: Vite never calls `handleHotUpdate` on a plugin with
    `hotUpdate`.
+5. A file imported both as Vue and as React: `handleHotUpdate` returns the module list without our `?ucf` ids, whose
+   URLs plugin-vue's style lookup (`type=style&index=N`, `.css`) would match, and our `hotUpdate`
+   (`packages/vite/src/index.ts`) becomes `{order: 'post', handler}`: it runs after plugin-vue's, which returns only
+   its own modules, and adds our changed React, Svelte, style and class map modules back. `build/hmr.spec.ts`'s
+   recorder moves to `order: 'post'` too, to keep seeing exactly what our hook returned.
 
 ## Tests
 
@@ -113,6 +119,11 @@ copy's `Counter.ucf`:
 `hotUpdatesOf(file)` (new, `build/lib/build.ts`): a recording plugin whose post `hotUpdate`, last of every hook, settles
 `next()` with the client module ids of the next change to `file`. Used by the three build specs below.
 
+`packages/e2e/build/hmr.spec.ts`, new describe on the demo with `vue()`, where plugin-vue first transforms
+`Counter.ucf` as Vue in both environments: a `<react>` edit hands on the React module, a scoped `<style>` edit our
+`css0` and plugin-vue's `vue-css0`, in client and SSR. Without the post order both lose ours; without the filter the
+style edit loses plugin-vue's.
+
 `packages/e2e/build/vue-hmr.spec.ts` (new), the dev client main module after hot updates (`withDevServer()`):
 
 - a template typo (`</spam>`) fails it, and its fix re-renders (has the `_rerender_only` line);
@@ -135,10 +146,9 @@ style sub-module transforms `Counter.ucf` no second time (the record skips the w
 
 - `docs/milestones/m4-vue-target.md`: 4.9's Build text names the post transform, `hotChange()` and the conditional
   record, `- Status: done`; "Risks": the not-formal-API list gains the `_rerender_only` export and `CHANGED_FILE`,
-  upstream proposal adds a previous descriptor for non-`.vue` files. 4.11's Build and Test text gain the
-  non-Vue-modules fix (decision Q1).
+  upstream proposal adds a previous descriptor for non-`.vue` files; 4.9 also names the module list fix.
 - `docs/plan.md` "Building on plugin-vue", item 3, the HMR bullet: also the `_rerender_only` line after a
-  template-only change, and the record only when plugin-vue stores the code.
+  template-only change, the record only when plugin-vue stores the code, and our `hotUpdate` after plugin-vue's.
 - `spec.md`, `architecture.md`: none (spec 7 already says "Vue HMR does the rest"; no structure change).
   `publicdocs/`: none.
 
@@ -148,11 +158,10 @@ None (decision Q2).
 
 ## Out of scope
 
-- An app importing one file as Vue and as React (4.11).
 - SSR HMR (`server.ts`), Vue custom blocks, Vapor mode.
 
 ## Done when
 
-- The three specs pass on this host and in CI; CI log lines show `vue-hmr.spec.ts` executing.
+- The new and changed specs pass on this host and in CI; CI log lines show both `vue-hmr.spec.ts` executing.
 - `pnpm devx check` green; milestone doc and plan updated; todo moved to `docs/done/`.
 - The simplify-comments pass ran on every touched source file, committed on its own.

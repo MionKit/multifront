@@ -226,6 +226,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - plugin-vue re-renders (state kept) only for a `.vue` file: it keeps a previous descriptor of no other file, so a `.ucf` template edit would re-mount the component. `hotChange()` compares the SFC code last handed to plugin-vue with the new one (compiler-sfc `parse()`, parse errors kept as plugin-vue keeps them): only the template changed, and `shouldForceReload()` with the old script's imports (compiled with plugin-vue's own `script` options) is false, means a re-render. Then the post `transform`, after plugin-vue's, appends plugin-vue's own `.vue` line `export const _rerender_only = __VUE_HMR_RUNTIME__.CHANGED_FILE === "<file>"` to the dev client main module.
   - It records the new version as handed to plugin-vue (`handedToVue()`, 4.7) only when plugin-vue stores the new descriptor (a template or style change), so those sub-requests need no warm-up. After any other edit (a `<react>`-only one) plugin-vue keeps the old descriptor, old positions included, so the next sub-request warms it up.
   - It must be its own plugin: Vite passes `handleHotUpdate` plugins a different context object than `hotUpdate` plugins, and a plugin with `hotUpdate` never has its `handleHotUpdate` called.
+  - A file imported both as Vue and as React: once plugin-vue holds its descriptor, its `handleHotUpdate` returns only its own modules. So `multifront:vue-hmr` hands it the list without our `?ucf` style modules (their URLs match its style lookup), and our `hotUpdate` runs `order: 'post'`, after it, adding our changed React, Svelte, style and class map modules back.
 - Deliverable: a `<vue>` edit is a Vue hot update, a `<style>` edit updates CSS only, and a `<react>` edit leaves the Vue component alone.
 - Test: `packages/e2e/browser/vue-hmr.spec.ts`, Playwright on the `apps/vue` dev server, with real edits to a copy of `Counter.ucf`:
   - click the counter to 3, then edit text in the `<template>`: the text changes and the count stays 3 (re-render, no reload);
@@ -234,7 +235,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
   - edit the template to use the script's `ref` import: the component is mounted again (count back to 2), never re-rendered with a setup that lacks it.
 
-  Also: `build/vue-hmr.spec.ts` checks a fixed template typo and a `vue/GlobalProps.ucf` template edit (props typed through plugin-vue's `script.globalTypeFiles`) re-render, and a removed `<vue>` block fails then recovers; in `build/vue-sourcemaps.spec.ts`, the dev style map keeps the `.ucf` text after a `<style>` hot update, and maps to the new line after a `<react>` one that adds a line above the styles; in `build/vue-cache-miss.spec.ts`, the style sub-request of a `<style>` hot update transforms `Counter.ucf` no second time.
+  Also: `build/hmr.spec.ts` checks that with plugin-vue holding `Counter.ucf` a `<react>` edit still updates the React module and a `<style>` edit both its style modules; `build/vue-hmr.spec.ts` checks a fixed template typo and a `vue/GlobalProps.ucf` template edit (props typed through plugin-vue's `script.globalTypeFiles`) re-render, and a removed `<vue>` block fails then recovers; in `build/vue-sourcemaps.spec.ts`, the dev style map keeps the `.ucf` text after a `<style>` hot update, and maps to the new line after a `<react>` one that adds a line above the styles; in `build/vue-cache-miss.spec.ts`, the style sub-request of a `<style>` hot update transforms `Counter.ucf` no second time.
 - Status: done
 
 ### 4.10 Imports from and into the Vue target
@@ -253,11 +254,9 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 - Build:
   - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue and a Vue island. It mounts `Counter.ucf` as Vue (`import Counter from './Counter.ucf' with { framework: 'vue' }` in `mountVue.ts`) beside the existing React mount of the same file.
   - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
-  - Our hot update keeps the non-Vue modules of a file imported both as Vue and as React. Once plugin-vue holds a descriptor of the file, its `handleHotUpdate` returns only its own picks, which drops the React module and our `?ucf` style modules from the list our `hotUpdate` handed it.
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
 - Test:
   - `packages/e2e/build/mixed-targets.spec.ts`: one `vite build` of the demo. The React chunk has no Vue render code, and the Vue chunk has no JSX runtime import from `Counter.ucf`. No `framework` attribute is left.
-  - `packages/e2e/browser/hmr-react.spec.ts` on the demo keeps passing with the Vue island loaded: a `<react>` and a `<style>` edit still update the React counter.
   - `packages/e2e/browser/parity.spec.ts`: both counters render with the same `data-v-*`. `expectSameComputedStyles()` matches padding, color, font size and border on the root and title elements. Clicking each counter changes only its own count.
 
 ### 4.12 The `<vue>` block in the language server
