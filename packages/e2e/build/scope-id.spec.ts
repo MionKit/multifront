@@ -1,10 +1,9 @@
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {scopeId} from '@multifront/core';
-import {createServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
-import {buildApp, exportedScopeId, withNodeEnv} from './lib/build.ts';
+import {buildApp, exportedScopeId, withDevServer} from './lib/build.ts';
 
 const FILE = 'src/Reference.vue';
 let root: string;
@@ -23,20 +22,7 @@ describe('scopeId, against plugin-vue with no componentIdGenerator', () => {
   });
 
   it('gives the id of the dev server', async () => {
-    const code = await withNodeEnv('development', async () => {
-      // No dep optimizer: when it finishes before transformRequest under load, the request never resolves.
-      const server = await createServer({
-        root,
-        logLevel: 'silent',
-        server: {middlewareMode: true, ws: false},
-        optimizeDeps: {noDiscovery: true},
-      });
-      try {
-        return (await server.transformRequest(`/${FILE}`))?.code;
-      } finally {
-        await server.close();
-      }
-    });
+    const code = await withDevServer(root, {}, async (server) => (await server.transformRequest(`/${FILE}`))?.code);
     expect(exportedScopeId(code ?? '')).toBe(`data-v-${scopeId(FILE, source, false)}`);
   });
 

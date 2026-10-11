@@ -3,10 +3,10 @@ import vue from '@vitejs/plugin-vue';
 import type {Options} from '@vitejs/plugin-vue';
 import {moduleClassName, scopeId} from '@multifront/core';
 import {multifront} from '@multifront/vite';
-import {createServer, mergeConfig, type CSSModulesOptions, type InlineConfig, type PluginOption, type ViteDevServer} from 'vite';
+import type {CSSModulesOptions, InlineConfig, PluginOption, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER, buildApp, exportedScopeId, withNodeEnv} from './lib/build.ts';
+import {buildCode, exportedScopeId, withDevServer} from './lib/build.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
 
@@ -31,32 +31,6 @@ function expected(production: boolean) {
   return {id, button: moduleClassName('button', id, 1)};
 }
 
-async function production(root: string, config: InlineConfig = {}) {
-  const {chunks, css} = await buildApp(root, config);
-  return {code: chunks.map((chunk) => chunk.code).join('\n'), css: css.join('\n')};
-}
-
-/** Uses the app's own `vite.config.ts` unless `config` sets `configFile: false`. */
-async function withDevServer<Result>(root: string, config: InlineConfig, run: (server: ViteDevServer) => Promise<Result>) {
-  return withNodeEnv('development', async () => {
-    const base: InlineConfig = {
-      root,
-      logLevel: 'silent',
-      configLoader: APP_CONFIG_LOADER,
-      cacheDir: join(root, '.vite'),
-      server: {middlewareMode: true, ws: false},
-      // No dep optimizer: when it finishes before transformRequest under load, the request never resolves.
-      optimizeDeps: {noDiscovery: true},
-    };
-    const server = await createServer(mergeConfig(base, config));
-    try {
-      return await run(server);
-    } finally {
-      await server.close();
-    }
-  });
-}
-
 async function transform(server: ViteDevServer, url: string): Promise<string> {
   const result = await server.transformRequest(url);
   if (!result) throw new Error(`no module for ${url}`);
@@ -76,8 +50,8 @@ const classNamed = (css: string, local: string) => new RegExp(`\\.([\\w-]*${loca
 describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
   it('gets one data-v-* and one $style.button class name in a production build', async () => {
     const {id, button} = expected(true);
-    const asVue = await production(vueRoot);
-    const asReact = await production(demoRoot);
+    const asVue = await buildCode(vueRoot);
+    const asReact = await buildCode(demoRoot);
     expect(counterScopeId(asVue.css)).toBe(counterScopeId(asReact.css));
     expect(counterScopeId(asVue.css)).toBe(id);
     expect(asVue.code).toMatch(new RegExp(`["']__scopeId["']\\s*,\\s*["']data-v-${id}["']`));
@@ -150,8 +124,8 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
   });
 
   it('builds Plain.vue with the same scope id and module class name as plugin-vue alone', async () => {
-    const alone = await production(vueRoot, plain(false));
-    const composed = await production(vueRoot, plain(true));
+    const alone = await buildCode(vueRoot, plain(false));
+    const composed = await buildCode(vueRoot, plain(true));
     expect(exportedScopeId(composed.code)).toBe(exportedScopeId(alone.code));
     expect(exportedScopeId(alone.code)).toMatch(/^data-v-/);
     expect(classNamed(composed.css, 'note')).toBe(classNamed(alone.css, 'note'));
@@ -170,7 +144,7 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
 
   it('keeps the .ucf scope id and class names', async () => {
     const {id, button} = expected(true);
-    const {css} = await production(vueRoot, {configFile: false, plugins: plugins(true), css: {modules}});
+    const {css} = await buildCode(vueRoot, {configFile: false, plugins: plugins(true), css: {modules}});
     expect(counterScopeId(css)).toBe(id);
     expect(classNamed(css, 'button')).toBe(button);
   });
