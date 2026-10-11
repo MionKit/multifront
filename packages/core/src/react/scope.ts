@@ -231,7 +231,7 @@ function identifierNames(root: Node): string[] {
   return names;
 }
 
-// What a moved pattern binds or reads: its names, defaults and computed keys, never a plain key or its type.
+// Names a moved pattern binds or reads; a plain key or type annotation is neither.
 function patternReads(node: Node | null): string[] {
   if (!node) return [];
   if (node.type === 'Identifier') return [node.name];
@@ -245,7 +245,7 @@ function patternReads(node: Node | null): string[] {
   });
 }
 
-// No identifier of the block uses it, so it can neither shadow nor be shadowed.
+// Unused anywhere in the block, so it neither shadows nor is shadowed.
 function freshName(used: Set<string>, base: string): string {
   let name = base;
   for (let index = 1; used.has(name); index++) name = `${base}${index}`;
@@ -290,7 +290,7 @@ export function transformScope(
   if (bound.has(props)) return [];
   if (pattern) {
     const names = patternNames(pattern);
-    // Moved into the body, the pattern would meet the body's names, and a later parameter would lose the ones it binds.
+    // Moved into the body, the pattern would meet body names, and later parameters would lose its bindings.
     if (patternReads(pattern).some((name) => bound.has(name))) return [];
     if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
   }

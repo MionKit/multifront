@@ -129,9 +129,9 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   });
 });
 
-// Hand-read from the fixtures: `roots` get the spread, in source order; `signature` is the dev build's text around
-// the parameters it adds, and the `const <pattern> = <props>;` it moves a destructured first parameter into.
-// `forwarding/` holds build-only edges: no component found, or no name every root can read the props by.
+// Hand-read from the fixtures: `roots` get the spread, in source order.
+// `signature`: dev build text around the parameters it adds, and the `const <pattern> = <props>;` it moves in.
+// `forwarding/` holds build-only edges of finding the component and a name for its props.
 const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: number; signature?: string}[] = [
   {
     fixture: 'react/forwarding/ArrayPattern.ucf',
