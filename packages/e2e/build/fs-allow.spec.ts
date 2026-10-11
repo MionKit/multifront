@@ -4,7 +4,7 @@ import {join} from 'node:path';
 import {createServer, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, TMP_DIR, componentPath} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER} from './lib/build.ts';
+import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
 // The shared components sit beside the app, outside the one allowed folder.
@@ -44,13 +44,29 @@ describe('dev server of react-basic with server.fs.allow set to the app folder',
     ['its React module, as an absolute URL', `${CARD}.react.tsx`],
     ['its style module', `/@fs${CARD}?ucf&type=style&index=0&lang.css`],
     ['its class map module', `/@fs${CARD}?ucf&type=style&index=0&module&lang.js`],
+    // A JS request, which reaches our `load`; the raw file never does.
+    ['its Vue module, as a JS request', `/@fs${CARD}?import`],
   ])('%s: 403', async (_what, path) => {
     const response = await fetch(base + path);
     expect({path, status: response.status}).toEqual({path, status: 403});
+  });
+
+  // Stricter than a plain `.tsx` there: Vite's pre-transform of an import skips the check and caches what it read.
+  it('denies the React module an allowed importer names, after Vite pre-transformed its imports', async () => {
+    const main = await (await fetch(`${base}/src/main.tsx`)).text();
+    const imported = `${componentPath('react/AllBlocks.ucf')}.react.tsx`;
+    expect(main).toContain(imported);
+    await server!.environments.client.waitForRequestsIdle();
+    expect((await fetch(base + imported)).status).toBe(403);
   });
 
   it('still loads its React module in SSR, which Vite does not check either', async () => {
     const result = await server!.environments.ssr.transformRequest(`${CARD}.react.tsx`);
     expect(result?.code).toContain('function Card(');
   });
+});
+
+it('a build of react-basic with server.fs.allow set to the app folder still bundles the shared AllBlocks', async () => {
+  const {chunks} = await buildApp(ROOT, {server: {fs: {strict: true, allow: [ROOT]}}});
+  expect(chunks.some((chunk) => chunk.code.includes('function AllBlocks('))).toBe(true);
 });
