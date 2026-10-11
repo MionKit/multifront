@@ -2,7 +2,7 @@ import {loadVueCompiler} from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
-import {createLanguageServicePlugin} from './languageServicePlugin.ts';
+import {createLanguageServicePlugin, freshDiagnostics} from './languageServicePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
 import type {EditorOptions, TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
@@ -105,9 +105,10 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
       getSplit,
     });
 
-    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file.
+    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file. Fresh objects: a Volar
+    // plugin under ours (Vue's) on our `@volar/typescript` copy has cached its own transform of each one.
     const languageService = info.languageService;
-    info.languageService = {
+    info.languageService = freshDiagnostics({
       ...languageService,
       getSemanticDiagnostics(fileName) {
         const diagnostics = languageService.getSemanticDiagnostics(fileName);
@@ -124,7 +125,7 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
         const kept = diagnostics.filter(({file, start}) => file !== sourceFile || !covered(start));
         return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
       },
-    };
+    });
     const base = info.languageService;
     const targetScripts = serveTargetScripts(ts, info, base);
     routers.set(info, targetScripts.route);
