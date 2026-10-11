@@ -25,5 +25,5 @@ export const REGISTRY = [
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
   {name: 'MULTIFRONT_FUZZ_SEED', scope: 'dev', desc: 'base seed of the fuzz tests; default fixed, so every run replays'},
-  {name: 'MULTIFRONT_FUZZ_RUNS', scope: 'dev', desc: 'inputs per fuzz test (default 500)'},
+  {name: 'MULTIFRONT_FUZZ_RUNS', scope: 'dev', desc: 'inputs per fuzz test (default 500 for the splitter, 300 for the scope transform)'},
 ];

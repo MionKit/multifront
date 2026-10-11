@@ -32,7 +32,7 @@ From M1 (splitter, block kinds, styles, e2e package):
 - `BlockKind`, `BLOCK_KINDS` and `getBlockKind(tag)` from `packages/core/src/blocks/index.ts` (order `style, vue, react, svelte`), and `VirtualFile['ext']`.
 - The private `packages/e2e` package (Vitest project `e2e`) with `packages/e2e/editor/`, `packages/e2e/consumer/`, `fixtures/components/` and `fixtures/apps/`.
 - The fixture helpers in `packages/e2e/fixtures/index.ts`: `FIXTURES_DIR`, `componentPath()`, `listComponents()`, `copyApp(name)` (a fresh copy under `packages/e2e/.tmp/`). Every "temp copy" below is a `copyApp()` copy.
-- The invalid fixtures in `fixtures/components/invalid/` and the saved fuzz cases in `fixtures/components/fuzz/`, which the CI gate of 7.12 leaves out.
+- The invalid fixtures in `fixtures/components/invalid/` and the saved fuzz cases in `fixtures/components/react/fuzz-found/`, which the CI gate of 7.12 leaves out.
 
 From M2 (editor basics):
 
@@ -159,7 +159,7 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 ### 7.12 The three commands in CI, and from the packed package
 
 - Build:
-  - `packages/e2e/fixtures/tsconfig.fixtures.json`: includes every valid fixture component and app, leaves out `types-broken/`, `lint-format/`, `lint-format-svelte/`, `components/invalid/` and `components/fuzz/`.
+  - `packages/e2e/fixtures/tsconfig.fixtures.json`: includes every valid fixture component and app, leaves out `types-broken/`, `lint-format/`, `lint-format-svelte/`, `components/invalid/` and `components/react/fuzz-found/`.
   - `packages/e2e/editor/gate.spec.ts`: runs the real `mf-tsc -p packages/e2e/fixtures/tsconfig.fixtures.json` and the real `mf-lint` over the same valid fixtures with the repo's `.oxlintrc.json`. Both must exit 0; on failure the test prints the tool output. A type or lint error found in an earlier milestone's fixture is fixed in this PR (AGENTS.md: found issues are fixed). A fixture that breaks a lint rule on purpose (a splitter edge case in `TsxEdges.ucf`, say) is left out by name, with a one-line reason, instead of being changed.
   - `packages/e2e/consumer/language-tools.spec.ts`: packs `@multifront/language-tools` with M5's helper, installs it with `oxlint`, `oxfmt` and `typescript` into a fresh real project holding a copy of `types-every-target/` and `lint-format/`, and runs the installed `mf-tsc`, `mf-lint` and `mf-fmt --check` bins from `node_modules/.bin`.
 - Deliverable: every PR fails when a fixture breaks one target or gets an oxlint error, and the three bins are proven to work from the published package, not only from source.
