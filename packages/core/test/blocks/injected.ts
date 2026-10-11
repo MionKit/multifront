@@ -7,11 +7,11 @@ export function isInjected(node: Node): node is ImportDeclaration {
   return node.type === 'ImportDeclaration' && /[?]ucf&type=style&/.test(node.source.value);
 }
 
-function isHelperImport(node: Node): node is ImportDeclaration {
+export function isHelperImport(node: Node): node is ImportDeclaration {
   return node.type === 'ImportDeclaration' && node.source.value === SCOPE_HELPER_ID;
 }
 
-function calls(node: Expression, name: string): boolean {
+export function isCallTo(node: Expression, name: string): boolean {
   return node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === name;
 }
 
@@ -25,12 +25,12 @@ function forwardingRanges(program: Program): [number, number][] {
   };
   new Visitor({
     JSXSpreadAttribute: (node) => {
-      if (calls(node.argument, '__ucfScopeAttrs')) ranges.push([node.start - 1, node.end]);
+      if (isCallTo(node.argument, '__ucfScopeAttrs')) ranges.push([node.start - 1, node.end]);
     },
     ParenthesizedExpression: (node) => {
       if (node.expression.type !== 'SequenceExpression') return;
       const [warn, root] = node.expression.expressions;
-      if (warn && root && calls(warn, '__ucfWarnFragment')) ranges.push([node.start, root.start], [root.end, node.end]);
+      if (warn && root && isCallTo(warn, '__ucfWarnFragment')) ranges.push([node.start, root.start], [root.end, node.end]);
     },
     FunctionDeclaration: params,
     FunctionExpression: params,

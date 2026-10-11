@@ -2,12 +2,14 @@ import {basename} from 'node:path';
 import type MagicString from 'magic-string';
 import type {
   ArrowFunctionExpression,
-  Comment,
   Expression,
   Function as FunctionNode,
+  JSXElement,
   JSXElementName,
+  JSXFragment,
   JSXOpeningElement,
   Node,
+  ParseResult,
   Program,
 } from 'oxc-parser';
 import {children} from '../ast.ts';
@@ -17,6 +19,7 @@ import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
 import {SCOPE_ATTRS, WARN_FRAGMENT} from './scopeHelper.ts';
 
 type Component = FunctionNode | ArrowFunctionExpression;
+type Root = JSXElement | JSXFragment;
 
 // `F` of `import {api as F} from 'react'`; `R.api` for its default or namespace import `R`.
 function reactNames(program: Program, api: string): Set<string> {
@@ -141,11 +144,8 @@ function findComponent(program: Program): {component: Component; forwardRef: boo
   let node = defaultExport(program);
   while (node && !seen.has(node)) {
     seen.add(node);
+    if (isFunction(node)) return {component: node, forwardRef: inForwardRef};
     switch (node.type) {
-      case 'FunctionDeclaration':
-      case 'FunctionExpression':
-      case 'ArrowFunctionExpression':
-        return {component: node, forwardRef: inForwardRef};
       case 'Identifier':
         node = declarations.get(node.name);
         break;
@@ -159,8 +159,7 @@ function findComponent(program: Program): {component: Component; forwardRef: boo
         const name = calleeName(node.callee);
         if (name === undefined || !(memo!.has(name) || forwardRef!.has(name))) return undefined;
         inForwardRef ||= forwardRef!.has(name);
-        const [first] = node.arguments;
-        node = first?.type === 'SpreadElement' ? undefined : first;
+        node = node.arguments[0];
         break;
       }
       default:
@@ -170,33 +169,36 @@ function findComponent(program: Program): {component: Component; forwardRef: boo
   return undefined;
 }
 
-function isFunction(node: Node): boolean {
+function isFunction(node: Node): node is Component {
   return node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression' || node.type === 'ArrowFunctionExpression';
 }
 
-// The `return` arguments and the `const` declarators of `component`'s own body, not of nested functions.
-function ownBody(component: Component): {returns: Expression[]; consts: Map<string, Expression | undefined>} {
+// `returns`: every `return` argument of `component`'s own body, not of nested functions, or its expression body.
+// `consts`: the body's top-level `const x = …`, the only ones every return can see. `bound`: every name it declares.
+function ownBody(component: Component): {returns: Expression[]; consts: Map<string, Expression>; bound: Set<string>} {
   const returns: Expression[] = [];
-  const consts = new Map<string, Expression | undefined>();
+  const consts = new Map<string, Expression>();
+  const bound = new Set<string>();
+  const {body} = component;
+  if (!body) return {returns, consts, bound};
+  if (body.type !== 'BlockStatement') return {returns: [body], consts, bound};
+  for (const statement of body.body) {
+    if (statement.type !== 'VariableDeclaration' || statement.kind !== 'const') continue;
+    for (const {id, init} of statement.declarations) if (id.type === 'Identifier' && init) consts.set(id.name, init);
+  }
+  for (const name of declaredIn(body.body)) bound.add(name);
   const visit = (node: Node): void => {
     if (isFunction(node)) return;
+    for (const name of scopeNames(node)) bound.add(name);
     if (node.type === 'ReturnStatement' && node.argument) returns.push(node.argument);
-    if (node.type === 'VariableDeclaration' && node.kind === 'const') {
-      // Two `const`s of one name: which one a return reads needs scopes, so neither is followed.
-      for (const {id, init} of node.declarations)
-        if (id.type === 'Identifier') consts.set(id.name, consts.has(id.name) ? undefined : (init ?? undefined));
-    }
     for (const child of children(node)) visit(child);
   };
-  const {body} = component;
-  if (!body) return {returns, consts};
-  if (body.type === 'BlockStatement') for (const child of children(body)) visit(child);
-  else returns.push(body as Expression);
-  return {returns, consts};
+  for (const child of children(body)) visit(child);
+  return {returns, consts, bound};
 }
 
 // Root JSX of each returned expression; `hop` allows one `const x = <jsx>` in the same function.
-function jsxRoots(expression: Expression, consts: Map<string, Expression | undefined>, hop: boolean, found: Set<Node>): void {
+function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: boolean, found: Set<Root>): void {
   switch (expression.type) {
     case 'JSXElement':
     case 'JSXFragment':
@@ -222,17 +224,13 @@ function jsxRoots(expression: Expression, consts: Map<string, Expression | undef
   }
 }
 
-function inComment(offset: number, comments: Comment[]): boolean {
-  return comments.some(({start, end}) => start <= offset && offset < end);
-}
-
 /**
  * Stamps every JSX element but React's Fragment (with a scoped style), then forwards the incoming `data-v-*` props
  * on the default-exported component's roots (always). Returns the helper names the edits call.
  */
 export function transformScope(
   text: MagicString,
-  parsed: {program: Program; comments: Comment[]},
+  parsed: Pick<ParseResult, 'program' | 'comments'>,
   block: Block,
   ctx: BuildContext
 ): string[] {
@@ -253,8 +251,10 @@ export function transformScope(
   if (param && param.type !== 'Identifier') return [];
   const props = param?.name ?? '__props';
 
-  const {returns, consts} = ownBody(component);
-  const roots = new Set<Node>();
+  const {returns, consts, bound} = ownBody(component);
+  // A body that declares the props name again could hide it from a root: which one a root sees needs scopes.
+  if (bound.has(props)) return [];
+  const roots = new Set<Root>();
   for (const expression of returns) jsxRoots(expression, consts, true, roots);
   const dev = !ctx.production;
   const helpers = new Set<string>();
@@ -273,7 +273,7 @@ export function transformScope(
 
   if (!param && helpers.size > 0) {
     let at = component.typeParameters?.end ?? component.id?.end ?? component.start;
-    while (block.content[at] !== '(' || inComment(at, comments)) at++;
+    while (block.content[at] !== '(' || comments.some(({start, end}) => start <= at && at < end)) at++;
     // React checks a `forwardRef` render function takes zero or two parameters.
     text.appendLeft(offset + at + 1, forwardRef ? '__props, __ref' : '__props');
   }

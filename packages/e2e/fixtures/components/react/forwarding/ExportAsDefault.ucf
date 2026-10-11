@@ -1,0 +1,10 @@
+<react>
+  type Props = { branch?: string }
+
+  // A default-valued parameter still names every prop.
+  function ExportAsDefault(props: Props = {}) {
+    return <div className="shape"><span className="inner">as default {props.branch}</span></div>
+  }
+
+  export { ExportAsDefault as default }
+</react>

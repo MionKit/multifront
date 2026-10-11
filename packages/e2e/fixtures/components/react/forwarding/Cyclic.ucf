@@ -1,0 +1,7 @@
+<react>
+  // Never rendered: the default export resolves to itself, so no component is found.
+  const First: unknown = Second
+  const Second: unknown = First
+
+  export default First
+</react>

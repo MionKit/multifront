@@ -1,0 +1,6 @@
+<react>
+  // A `let` can be reassigned before render, so it is not followed.
+  let LetExport = (props: { branch?: string }) => <div className="shape">let {props.branch}</div>
+
+  export default LetExport
+</react>
