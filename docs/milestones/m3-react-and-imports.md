@@ -204,7 +204,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 - Build: `packages/e2e/browser/lib/` (reuse whatever milestone 1 shipped):
   - Copies come from M1's `copyApp(name)` (under `packages/e2e/.tmp/`); tests that edit files work on the copy.
-  - `startDev(appDir): Promise<{url, server, close}>`, `buildAndPreview(appDir): Promise<{url, outDir, close}>`.
+  - `startDev(appDir, {logger}?): Promise<{url, server, close}>` (`logger`: a Vite `customLogger`, 3.14), `buildAndPreview(appDir): Promise<{url, outDir, close}>`.
   - `launchChromium()`: uses `MULTIFRONT_CHROMIUM_PATH` when set. Its description in `scripts/lib/env.mjs` and `.env.sample` now covers the tests.
   - `collectConsole(page)`: every console message and page error.
   - CI: `pnpm exec playwright install --with-deps chromium` before the Test step in `.github/workflows/ci.yml` (CI splits `pnpm devx check` into steps), with `~/.cache/ms-playwright` cached by Playwright version.
@@ -298,6 +298,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - `Card.ucf` imported with `with { framework: 'react' }` from a `.ts` helper, and bare from `App.tsx`.
 - Deliverable: the app the exit test and milestone 4 build on ("same demo renders both").
 - Test: `packages/e2e/browser/demo.spec.ts` (area: browser). Dev and preview render all three; computed styles match between dev and preview; no console errors. A dev cold start with an empty `node_modules/.vite` shows no "new dependencies optimized, reloading" after the first load.
+- Status: done
 
 ### 3.15 HMR: style-only and target-only
 
