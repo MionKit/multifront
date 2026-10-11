@@ -1,4 +1,5 @@
-import {build, mergeConfig, type ESTree, type InlineConfig, type Rolldown} from 'vite';
+import {join} from 'node:path';
+import {build, createServer, mergeConfig, type ESTree, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 
 /** plugin-vue picks its dev or production scope id from NODE_ENV. */
 export async function withNodeEnv<Result>(mode: string, run: () => Promise<Result>): Promise<Result> {
@@ -28,6 +29,33 @@ export async function buildApp(root: string, config: InlineConfig = {}) {
       .filter((file): file is Rolldown.OutputAsset => file.type === 'asset' && file.fileName.endsWith('.css'))
       .map((asset) => (typeof asset.source === 'string' ? asset.source : new TextDecoder().decode(asset.source))),
   };
+}
+
+/** `buildApp()` with its chunks and its CSS each joined. */
+export async function buildCode(root: string, config: InlineConfig = {}) {
+  const {chunks, css} = await buildApp(root, config);
+  return {code: chunks.map((chunk) => chunk.code).join('\n'), css: css.join('\n')};
+}
+
+/** A dev server on the app's own `vite.config.ts` unless `config` sets `configFile: false`; closed after `run`. */
+export async function withDevServer<Result>(root: string, config: InlineConfig, run: (server: ViteDevServer) => Promise<Result>) {
+  return withNodeEnv('development', async () => {
+    const base: InlineConfig = {
+      root,
+      logLevel: 'silent',
+      configLoader: APP_CONFIG_LOADER,
+      cacheDir: join(root, '.vite'),
+      server: {middlewareMode: true, ws: false},
+      // No dep optimizer: when it finishes before transformRequest under load, the request never resolves.
+      optimizeDeps: {noDiscovery: true},
+    };
+    const server = await createServer(mergeConfig(base, config));
+    try {
+      return await run(server);
+    } finally {
+      await server.close();
+    }
+  });
 }
 
 /** plugin-vue's `__scopeId` in a component module; matches dev and build output. */

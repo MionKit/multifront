@@ -4,7 +4,7 @@ import {multifront} from '@multifront/vite';
 import {createLogger, createServer, type InlineConfig, type PluginOption} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
-import {buildApp} from './lib/build.ts';
+import {buildApp, buildCode} from './lib/build.ts';
 
 let root: string;
 
@@ -20,10 +20,7 @@ function inline(plugins: PluginOption[], input?: string[]): InlineConfig {
   return {configFile: false, plugins, build};
 }
 
-async function buildOutput(config: InlineConfig = {}) {
-  const {chunks, css} = await buildApp(root, config);
-  return {code: chunks.map((chunk) => chunk.code).join('\n'), css: css.join('\n')};
-}
+const buildOutput = (config: InlineConfig = {}) => buildCode(root, config);
 
 describe('vite build of the vue app', () => {
   it.each([
