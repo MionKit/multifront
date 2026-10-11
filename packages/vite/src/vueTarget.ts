@@ -21,18 +21,14 @@ export const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in yo
 
 const EMPTY_SCAN: Rolldown.SourceDescription = {code: 'export default {}', moduleType: 'js'};
 
-// Ours → the user's it wraps, so a repeat `configResolved` wraps the user's again, never ours.
-const USER_GENERATORS = new WeakMap<IdFunction, ComponentIdGenerator>();
-
 function addPattern(api: VuePluginApi, key: 'include' | 'exclude', pattern: RegExp): void {
   const list = [api[key] ?? []].flat();
   // A second `configResolved` (a restart with the same plugins) comes after `options`, when the setter throws.
   if (!list.includes(pattern)) api[key] = [...list, pattern];
 }
 
-function componentIdGenerator(current: ComponentIdGenerator, root: string, scopeIdOf: (file: string) => string): IdFunction {
-  const user = typeof current === 'function' && USER_GENERATORS.has(current) ? USER_GENERATORS.get(current) : current;
-  const generator: IdFunction = (path, source, production, getHash) => {
+function componentIdGenerator(user: ComponentIdGenerator, root: string, scopeIdOf: (file: string) => string): IdFunction {
+  return (path, source, production, getHash) => {
     // The id hashes the raw `.ucf` source, never the SFC code plugin-vue passes.
     if (VUE_INCLUDE.test(path)) return scopeIdOf(normalizePath(resolve(root, path)));
     if (typeof user === 'function') return user(path, source, production, getHash);
@@ -40,8 +36,6 @@ function componentIdGenerator(current: ComponentIdGenerator, root: string, scope
     if (user === 'filepath-source') return getHash(path + source);
     return getHash(path + (production ? source : ''));
   };
-  USER_GENERATORS.set(generator, user);
-  return generator;
 }
 
 /** Call from `configResolved`: it runs before plugin-vue's `options` hook, the last moment its setters allow. */
