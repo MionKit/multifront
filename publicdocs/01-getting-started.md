@@ -23,7 +23,7 @@ The app also needs these packages:
 | `vite` | `^8.0.0` | the build |
 | `@vitejs/plugin-react` | `^6.0.0` | compiling the `<react>` block |
 | `react`, `react-dom` | `^19.0.0` | rendering it |
-| `vue` or `@vue/compiler-sfc` | `^3.5.0` | compiling the `<style>` blocks |
+| `vue` or `@vue/compiler-sfc` | `^3.5.15` | compiling the `<style>` blocks |
 
 ## Writing a First Component
 
