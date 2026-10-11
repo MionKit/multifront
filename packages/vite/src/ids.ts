@@ -3,6 +3,9 @@ import type {Target} from '@multifront/core';
 // After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
 export const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 
+/** The Vue target's id is the bare `.ucf` path (spec 4.3). */
+export const VUE_INCLUDE = /\.ucf$/;
+
 // Ids that can import a `.ucf` file, query included: `C.vue?vue&type=script&setup=true&lang.ts`.
 export const JS_LIKE = /\.(?:[cm]?[jt]sx?|vue|svelte)(?:\?|$)/;
 

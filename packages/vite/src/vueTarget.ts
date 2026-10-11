@@ -5,14 +5,12 @@ import type {Options} from '@vitejs/plugin-vue';
 import {normalizePath} from 'vite';
 import type {ResolvedConfig, Rolldown} from 'vite';
 import {composeCssModules} from './cssModules.ts';
+import {VUE_INCLUDE} from './ids.ts';
 import type {VuePluginApi} from './types.ts';
 import {VUE_PLUGIN_NAME} from './vueCompiler.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
 type IdFunction = Extract<ComponentIdGenerator, Function>;
-
-/** The Vue target's id is the bare `.ucf` path (spec 4.3). */
-export const VUE_INCLUDE = /\.ucf$/;
 
 // plugin-vue's transform tests only the path, so its hook filter must drop our style and class map ids.
 const UCF_SUB_REQUEST = /\.ucf\?(?:.*&)?ucf\b/;
