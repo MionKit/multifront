@@ -1,10 +1,11 @@
-import {writeFile} from 'node:fs/promises';
+import {readFile, readdir, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import type {Options} from '@vitejs/plugin-vue';
 import {createBuildContext, loadVueCompiler, moduleClassName, scopeId, splitBlocks} from '@multifront/core';
 import {multifront} from '@multifront/vite';
 import {
+  build,
   createBuilder,
   mergeConfig,
   type CSSModulesOptions,
@@ -135,6 +136,13 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
     expect(asReact.module).toContain(`"${button}"`);
   });
 
+  it('gets the same $style.button class name in dev SSR and in an SSR build', async () => {
+    const dev = await withDevServer(vueRoot, {}, async (server) => (await serveVue(server, COUNTER, 1, 'ssr')).module);
+    expect(dev).toContain(`"${expected(false).button}"`);
+    const {code} = await buildCode(vueRoot, mergeConfig(entry('src/counter-vue.ts'), {build: {ssr: true}}));
+    expect(code).toContain(`"${expected(true).button}"`);
+  });
+
   it.each([
     ['one environment per config', {}],
     ['shared plugins', {sharedPlugins: true}],
@@ -152,6 +160,40 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
       return output.output.map((file) => (file.type === 'asset' ? String(file.source) : '')).join('\n');
     });
     expect(classNamed(css, 'button')).toBe(expected(true).button);
+  });
+
+  it('gets the same $style.button class name in each rebuild of a watch build', async () => {
+    const outDir = join(vueRoot, 'dist-watch');
+    const counter = join(vueRoot, COUNTER);
+    const edited = source.replace('padding: 4px 12px;', 'padding: 6px 12px;');
+    const builds: string[] = [];
+    await withNodeEnv('production', async () => {
+      const config = mergeConfig(entry('src/counter-vue.ts'), {
+        root: vueRoot,
+        logLevel: 'silent',
+        configLoader: APP_CONFIG_LOADER,
+      });
+      const watcher = (await build(mergeConfig(config, {build: {watch: {}, outDir, minify: false}}))) as Rolldown.RolldownWatcher;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          watcher.on('event', async (event) => {
+            if (event.code === 'ERROR') return reject(event.error);
+            if (event.code !== 'BUNDLE_END') return;
+            await event.result.close();
+            const assets = join(outDir, 'assets');
+            const files = (await readdir(assets)).filter((file) => file.endsWith('.css'));
+            builds.push((await Promise.all(files.map((file) => readFile(join(assets, file), 'utf8')))).join('\n'));
+            if (builds.length === 1) await writeFile(counter, edited);
+            else resolve();
+          });
+        });
+      } finally {
+        await watcher.close();
+        await writeFile(counter, source);
+      }
+    });
+    expect(classNamed(builds[0]!, 'button')).toBe(expected(true).button);
+    expect(classNamed(builds[1]!, 'button')).toBe(moduleClassName('button', scopeId(COUNTER, edited, true), 1));
   });
 
   it("keeps both after a dev server restart with the same plugins, and leaves the user's css.modules alone", async () => {
@@ -178,6 +220,8 @@ const USER_SETTINGS: [string, ComponentIdGenerator, CSSModulesOptions][] = [
     'filepath-source',
     {generateScopedName: '[local]__[hash:base64:5]', hashPrefix: 'p'},
   ],
+  // postcss-modules reads an empty pattern as unset.
+  ['an empty pattern', undefined, {generateScopedName: ''}],
   [
     'functions',
     (path, text) => `f${path.length}${text.length}`,
@@ -225,6 +269,26 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
   });
 });
 
+it('names Plain.vue by a string pattern from the working directory of the moment, as Vite does', async () => {
+  // `[path]` is relative to the working directory, which a plugin moves after the config is resolved.
+  const cwd = process.cwd();
+  const moveCwd: PluginOption = {name: 'move-cwd', buildStart: () => process.chdir(join(vueRoot, 'src'))};
+  const plain = (withMultifront: boolean): InlineConfig =>
+    mergeConfig(entry('src/Plain.vue'), {
+      configFile: false,
+      plugins: [vue(), moveCwd, ...(withMultifront ? [multifront()] : [])],
+      css: {modules: {generateScopedName: '[path][local]'}},
+    });
+  try {
+    const alone = await buildCode(vueRoot, plain(false));
+    process.chdir(cwd);
+    expect(classNamed((await buildCode(vueRoot, plain(true))).css, 'note')).toBe(classNamed(alone.css, 'note'));
+    expect(classNamed(alone.css, 'note')).toBeDefined();
+  } finally {
+    process.chdir(cwd);
+  }
+});
+
 it('leaves CSS modules off when the user turned them off', async () => {
   // plugin-vue's <style module> needs CSS modules, so a plain stylesheet shows it.
   await writeFile(join(vueRoot, 'src', 'off.module.css'), '.off {\n  color: red;\n}\n');
@@ -249,6 +313,12 @@ describe('a .ucf module that composes from other files', () => {
       expect(classNamed(output.css, 'base')).toBe(classes[0]!.split(' ')[1]);
     }
     expect(classes.join(' ')).toContain('round_');
+  });
+
+  it('gets the class names core gives it, as Vue, on the dev server', async () => {
+    const classes = await composedClasses(false);
+    const {module} = await withDevServer(vueRoot, {}, (server) => serveVue(server, COMPOSES, 0));
+    for (const names of classes) expect(module).toContain(`"${names}"`);
   });
 });
 
