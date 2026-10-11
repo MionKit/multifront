@@ -1,7 +1,7 @@
 import {setTimeout as sleep} from 'node:timers/promises';
 import {join} from 'node:path';
-import type {Browser, Page} from 'playwright';
-import {createLogger, type ViteDevServer} from 'vite';
+import type {Browser} from 'playwright';
+import {createLogger} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
 import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
@@ -25,13 +25,13 @@ const STYLES: [string, string, string, string][] = [
   ['helper Card $style.card', '[data-demo="card"] div:has(> h2:text-is("From the .ts helper"))', 'padding', '16px'],
 ];
 
+const LOG_LEVELS = ['info', 'warn', 'warnOnce', 'error'] as const;
+
 // Compared between dev and preview for every element of the app.
 const PARITY_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
 
-type ElementStyles = {tag: string; text: string | null; styles: string[]};
-
 let browser: Browser | undefined;
-const rendered: Partial<Record<'dev' | 'preview', ElementStyles[]>> = {};
+const rendered: Partial<Record<'dev' | 'preview', unknown>> = {};
 
 beforeAll(async () => {
   browser = await launchChromium();
@@ -41,26 +41,11 @@ afterAll(async () => {
   await browser?.close();
 });
 
-function elementStyles(page: Page): Promise<ElementStyles[]> {
-  return page.locator('#app *').evaluateAll(
-    (elements, properties) =>
-      elements.map((element) => {
-        const style = element.ownerDocument.defaultView!.getComputedStyle(element);
-        return {
-          tag: element.tagName,
-          text: element.children.length === 0 ? element.textContent : null,
-          styles: properties.map((name) => style.getPropertyValue(name)),
-        };
-      }),
-    PARITY_PROPERTIES
-  );
-}
-
 describe.each([
   ['dev', startDev],
   ['preview', buildAndPreview],
 ] as const)('demo in %s', (mode, serve) => {
-  let app: {url: string; close(): Promise<void>} | undefined;
+  let app: Awaited<ReturnType<typeof serve>> | undefined;
 
   beforeAll(async () => {
     app = await serve(ROOT);
@@ -85,7 +70,18 @@ describe.each([
         expect({what, value: found}).toEqual({what, value});
       }
 
-      rendered[mode] = await elementStyles(page);
+      rendered[mode] = await page.locator('#app *').evaluateAll(
+        (elements, properties) =>
+          elements.map((element) => {
+            const style = element.ownerDocument.defaultView!.getComputedStyle(element);
+            return {
+              tag: element.tagName,
+              text: element.children.length === 0 ? element.textContent : null,
+              styles: properties.map((name) => style.getPropertyValue(name)),
+            };
+          }),
+        PARITY_PROPERTIES
+      );
       await page.waitForLoadState('networkidle');
       expect(messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror')).toEqual([]);
     } finally {
@@ -101,43 +97,38 @@ describe('demo in dev and preview', () => {
   });
 });
 
-/** Until the optimizer committed its run and had time to log a rerun (Vite logs one 200 ms after it commits). */
-async function optimizerSettled(server: ViteDevServer) {
-  const client = server.environments.client;
-  await client.waitForRequestsIdle();
-  const optimizer = client.depsOptimizer!;
-  await optimizer.scanProcessing;
-  for (let tries = 0; Object.keys(optimizer.metadata.discovered).length > 0; tries++) {
-    if (tries === 200) throw new Error(`deps still pending: ${Object.keys(optimizer.metadata.discovered).join(', ')}`);
-    await sleep(50);
-  }
-  await sleep(500);
-}
-
 describe('demo dev cold start', () => {
   it('pre-bundles every dependency at startup: no "dependencies optimized" and no reload after the first load', async () => {
-    const logs: {level: string; message: string}[] = [];
+    const logs: {level: (typeof LOG_LEVELS)[number]; message: string}[] = [];
     const logger = createLogger('silent');
-    logger.info = (message) => void logs.push({level: 'info', message});
-    logger.warn = (message) => void logs.push({level: 'warn', message});
-    logger.warnOnce = logger.warn;
-    logger.error = (message) => void logs.push({level: 'error', message});
+    for (const level of LOG_LEVELS) logger[level] = (message) => void logs.push({level, message});
     // Each server gets its own fresh cache dir: an empty `node_modules/.vite`.
-    const app = await startDev(ROOT, {logger});
-    const page = await browser!.newPage();
+    const app = await startDev(ROOT, logger);
     try {
-      let loads = 0;
-      page.on('load', () => void loads++);
-      await page.goto(app.url);
-      await page.locator('[data-demo="counter"] button').waitFor();
-      await page.waitForLoadState('networkidle');
-      await optimizerSettled(app.server);
-      await page.waitForLoadState('networkidle');
+      // A healthy cold start logs nothing: without this, an unwired logger would pass too.
+      expect(app.server.config.logger).toBe(logger);
+      const page = await browser!.newPage();
+      try {
+        let loads = 0;
+        page.on('load', () => void loads++);
+        await page.goto(app.url);
+        await page.locator('[data-demo="counter"] button').waitFor();
+        await page.waitForLoadState('networkidle');
+        const client = app.server.environments.client;
+        await client.waitForRequestsIdle();
+        const optimizer = client.depsOptimizer!;
+        await optimizer.scanProcessing;
+        // Committing a run empties `discovered`; Vite logs a rerun's "dependencies optimized" 200 ms later.
+        await expect.poll(() => Object.keys(optimizer.metadata.discovered), {timeout: 10_000}).toEqual([]);
+        await sleep(500);
+        await page.waitForLoadState('networkidle');
 
-      expect(logs.filter(({level, message}) => level !== 'info' || /optimiz|reload/i.test(message))).toEqual([]);
-      expect(loads).toBe(1);
+        expect(logs.filter(({level, message}) => level !== 'info' || /optimiz|reload/i.test(message))).toEqual([]);
+        expect(loads).toBe(1);
+      } finally {
+        await page.close();
+      }
     } finally {
-      await page.close();
       await app.close();
     }
   });

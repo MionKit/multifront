@@ -16,7 +16,7 @@ function localUrl(urls: ResolvedServerUrls | null, appDir: string): string {
 }
 
 /** Edit only a `copyApp()` copy, never the fixture itself. `logger` gets every line, whatever `logLevel` says. */
-export async function startDev(appDir: string, {logger}: {logger?: Logger} = {}) {
+export async function startDev(appDir: string, logger?: Logger) {
   // Own cache per server: apps in one package share `node_modules/.vite` otherwise.
   const cacheDir = await tempDir('dev-cache-');
   // Held until close: the dep optimizer hashes NODE_ENV, so `test` back mid-server marks deps outdated and pages 504.
