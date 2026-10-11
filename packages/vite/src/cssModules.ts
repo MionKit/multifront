@@ -9,8 +9,7 @@ type LightningcssOptions = NonNullable<ResolvedConfig['css']['lightningcss']>;
 
 const VITE_CSS_PLUGIN = 'vite:css';
 
-// The `.ucf` `<style>` block Vite's CSS plugin is compiling: postcss-modules names a file it composes from with
-// that file's path only, so the block reaches the generator through the async context.
+// postcss-modules names a composed file by its own path only, so the `.ucf` block compiling travels in async context.
 const compiling = new AsyncLocalStorage<{file: string; index: string}>();
 
 // A builder with shared plugins and every worker bundle run `configResolved` again on objects already composed.
@@ -36,7 +35,6 @@ function viteScopedName({generateScopedName, hashPrefix = ''}: CSSModulesOptions
   };
 }
 
-// Our `generateScopedName`: inside a `.ucf` block, `<local>_<scopeId>_<index>`; else the user's or Vite's own.
 function postcssModules(modules: CSSModulesOptions, scopeIdOf: (file: string) => string): CSSModulesOptions {
   const other = viteScopedName(modules);
   const generateScopedName = (local: string, filename: string, css: string, ...rest: unknown[]) => {
@@ -66,7 +64,7 @@ function lightningcssModules(options: LightningcssOptions, scopeIdOf: (file: str
   return result;
 }
 
-/** Names the classes of plugin-vue's `.ucf` `<style module>` requests `<local>_<scopeId>_<index>`, as the other targets. */
+/** Gives plugin-vue's `.ucf` `<style module>` classes the names the other targets give them. */
 export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: string) => string): void {
   const transform = config.plugins.find((plugin) => plugin.name === VITE_CSS_PLUGIN)?.transform;
   if (!transform || !('handler' in transform)) {

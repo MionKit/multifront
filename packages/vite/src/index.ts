@@ -68,7 +68,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     },
   };
   const cache = createUcfCache(() => ({root: config!.root, compiler: api.vueCompiler, production: config!.isProduction}));
-  // The inputs `createBuildContext` hashes into `ctx.scopeId`, read synchronously for plugin-vue.
+  // Equals `ctx.scopeId`, computed synchronously for plugin-vue.
   const ucfScopeId = (file: string) => scopeId(rootRelativePath(config!.root, file), cache.sourceOf(file), config!.isProduction);
 
   // Vite's scanner reads every module from disk unless a plugin loads it: these run before its own (spike 3, check 2).

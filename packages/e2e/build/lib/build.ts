@@ -31,13 +31,12 @@ export async function buildApp(root: string, config: InlineConfig = {}) {
   };
 }
 
-/** `buildApp()` with its chunks and its CSS each joined. */
 export async function buildCode(root: string, config: InlineConfig = {}) {
   const {chunks, css} = await buildApp(root, config);
   return {code: chunks.map((chunk) => chunk.code).join('\n'), css: css.join('\n')};
 }
 
-/** A dev server on the app's own `vite.config.ts` unless `config` sets `configFile: false`; closed after `run`. */
+/** Uses the app's own `vite.config.ts` unless `config` sets `configFile: false`. */
 export async function withDevServer<Result>(root: string, config: InlineConfig, run: (server: ViteDevServer) => Promise<Result>) {
   return withNodeEnv('development', async () => {
     const base: InlineConfig = {

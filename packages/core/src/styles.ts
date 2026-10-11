@@ -29,7 +29,7 @@ interface PostcssError {
   input: {source: string; offset: number; endOffset?: number};
 }
 
-/** A CSS module class name, the same on every machine and in every target: `card_1a2b3c4d_0`. */
+/** Same in every target and on every machine: `card_1a2b3c4d_0`. */
 export function moduleClassName(local: string, scopeId: string, index: number | string): string {
   return `${local}_${scopeId}_${index}`;
 }
