@@ -190,14 +190,19 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 - Build: a pre `load` hook in `vueTarget.ts` for `.ucf?vue&…` ids.
   - On a cache miss, plugin-vue reads `Card.ucf` from disk and throws "At least one `<template>` or `<script>` is required" (checked in plugin-vue 6.0.8).
-  - So we keep a per-process record of which file contents we have handed to plugin-vue. If a sub-request comes for a file not in the record, we first `await this.load({id: '/abs/Card.ucf'})`. That runs our transform and plugin-vue's main transform, which fills its descriptor cache. Then we return nothing, and plugin-vue loads the sub-request from a warm cache.
+  - After an in-process restart its cache still holds the old content of a file changed on disk.
+  - So we keep a per-process record of which file contents we have handed to plugin-vue (`handedToVue()`, called by our transform). If a sub-request comes for a file not in the record, or whose content on disk differs, we first `await this.load({id: '/abs/Card.ucf'})` (`warmUpVue()`, from our pre `load`, after the `server.fs.allow` check). That runs our transform and plugin-vue's main transform, which fills its descriptor cache. Then we return nothing, and plugin-vue loads the sub-request from a warm cache.
   - Update `docs/plan.md` "Building on plugin-vue", item 3, to name the exclude, the warm-up and the HMR `read` override of 4.9.
+  - The `vue-floor` CI job (M3 handed it to M4): `pnpm devx peer-floor vue` pins the bottom of the `@vitejs/plugin-vue` and `@vue/compiler-sfc` ranges, `vue` at the compiler-sfc floor, and runs every test there. The floor run moved two ranges: plugin-vue starts at `^6.0.3` (6.0.0 to 6.0.2 refuse Vite 8), `@vue/compiler-sfc` at `^3.5.15` in core, language-tools and vite (older ones break production template source maps, and before 3.5.12 use the legacy Sass API).
 - Deliverable: no request order and no restart can make plugin-vue read the raw `.ucf` file.
-- Test: `packages/e2e/build/vue-cache-miss.spec.ts`. Each case is a fresh process (`vite` spawned from its CLI), so plugin-vue's module-level cache starts empty:
+- Test: `packages/e2e/build/vue-cache-miss.spec.ts`. Each case is a fresh process, so plugin-vue's module-level cache starts empty: `vite` spawned from its CLI, or, for the SSR and restart cases that need the server API, a Node script (`build/lib/freshProcess.ts`):
   - the **first** request to the dev server is `Counter.ucf?vue&type=style&index=0&scoped=…&lang.css` (the URL a page open before the restart holds). It returns the scoped CSS;
   - the same request goes through `server.environments.ssr.transformRequest()` as the first SSR request;
   - an in-process `server.restart()` after `Counter.ucf` changed on disk serves the new CSS;
-  - a `vite build --watch` rebuild after a `<react>` block edit still builds (plugin-vue re-transforms only the cached sub-requests in watch builds).
+  - a `vite build --watch` rebuild after a `<react>` block edit still builds, with the new production scope id in the CSS and the JS (plugin-vue re-transforms only the cached sub-requests in watch builds).
+
+  Also: `packages/e2e/devx/peer-floor.spec.ts` reads the vue floor.
+- Status: done
 
 ### 4.8 SSR
 
@@ -215,6 +220,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - For a `.ucf` file with a `<vue>` block, it sets `ctx.read` to return `vueSfcCode()` of the new content, the pattern VitePress uses for `.md`. It also refreshes the split cache first, so the scope id generator sees the new source.
   - plugin-vue seeds its HMR cache with our SFC code (`transformMain` does this for non-`.vue` files), so it diffs SFC code against SFC code.
   - It also sets the new split cache version's `sfc` to that SFC code (4.6), so a style-only hot update, which re-transforms no main module, keeps the `.ucf` text in devtools.
+  - It also records the new source as handed to plugin-vue (`handedToVue()`, 4.7), so the sub-requests of a hot update need no warm-up.
   - It must be its own plugin: Vite passes `handleHotUpdate` plugins a different context object than `hotUpdate` plugins, and a plugin with `hotUpdate` never has its `handleHotUpdate` called.
 - Deliverable: a `<vue>` edit is a Vue hot update, a `<style>` edit updates CSS only, and a `<react>` edit leaves the Vue component alone.
 - Test: `packages/e2e/browser/vue-hmr.spec.ts`, Playwright on the `apps/vue` dev server, with real edits to a copy of `Counter.ucf`:

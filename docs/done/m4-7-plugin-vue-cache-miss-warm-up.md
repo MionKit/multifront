@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.7
@@ -58,9 +58,18 @@ plugin-vue's `load` (`dist/index.mjs:1737-1756`) call `getDescriptor()`, which r
      and `vue` taking the `@vue/compiler-sfc` floor (`vue` pins its own compiler-sfc exactly, so the two move together).
    - `.github/workflows/ci.yml`: a `vue-floor` job beside `react-floor`: install, `pnpm devx peer-floor vue`, the VS
      Code cache, Chromium, `pnpm devx test --reporter verbose`.
-   - The floor of `@vitejs/plugin-vue` is today `^6.0.0`, but 6.0.0 to 6.0.2 peer `vite ^5 || ^6 || ^7`: no
-     install beside our `vite ^8.0.0` passes `strictPeerDependencies`. 6.0.3 is the first with `^8.0.0-0`. So the peer
-     range becomes `^6.0.3` (own commit), or whatever the floor run shows works.
+   - `@vitejs/plugin-vue` was `^6.0.0`, but 6.0.0 to 6.0.2 peer `vite ^5 || ^6 || ^7`: no install beside our
+     `vite ^8.0.0` passes `strictPeerDependencies`. 6.0.3 is the first with `^8.0.0-0`, and every test passes on it:
+     the range is `^6.0.3` (own commit).
+   - `@vue/compiler-sfc` was `^3.5.0` in core, language-tools and vite. A local floor run (a throwaway worktree,
+     `CI=1 pnpm devx peer-floor vue`, then bisecting the override) failed below 3.5.15: before 3.5.12 compiler-sfc
+     uses the legacy Sass API (a stray `sourceMappingURL` comment, other error positions: `styles.spec.ts`,
+     `style-parity.spec.ts`), and before 3.5.15 its production inline template map is broken for every SFC
+     (vuejs/core#12701: `vue-sourcemaps.spec.ts`). Vue's bugs, not ours: the range is `^3.5.15` in all three
+     packages and the getting-started page (own commit).
+   - `vue-sourcemaps.spec.ts` searched the bundle for `const count = /* @__PURE__ */ ref(`, a mark compiler-sfc adds
+     only from 3.5.27: it now finds the statement with or without it (own commit; same position traced).
+   - The full suite passes at the floor (plugin-vue 6.0.3, compiler-sfc and vue 3.5.15): 2173 tests.
 
 ## Tests
 
@@ -91,18 +100,21 @@ Cases:
 - **Watch rebuild** (vite CLI `build --watch`, `NODE_ENV=production`): after the first build, a `<react>`-only edit;
   after the second: no error output, the CSS has `.counter[data-v-<id>]` with `<id> = scopeId(…, edited, true)`,
   different from the first build's, and the JS holds it too. Guard: passes today.
-- `packages/e2e/devx/peer-floor.spec.ts`: the vue floor read from the real manifest.
+- `packages/e2e/devx/peer-floor.spec.ts`: the vue floor read from the real manifest (plugin-vue 6.0.3,
+  compiler-sfc and vue 3.5.15), and the refusals name both frameworks.
 - `vue-floor` itself is the test of the floor: CI log lines showing the Vue tests ran there go in the PR message.
 
 ## Docs
 
-- `docs/plan.md`, "Building on plugin-vue", item 3: names the exclude, the warm-up and the HMR `read` override (4.9).
+- `docs/plan.md`, "Building on plugin-vue", item 3: names the exclude, the warm-up and the HMR `read` override (4.9);
+  "Framework versions" gives the Vue ranges and why; milestone 4 names the `vue-floor` job.
+- `publicdocs/01-getting-started.md`: the compiler-sfc range.
 - `docs/milestones/m4-vue-target.md`: 4.7 Test line says the SSR and restart cases use a Node script (they need the
-  server API); 4.7 names the `vue-floor` job it built; `- Status: done`; 4.9 gains a line: its `read` override also
+  server API); 4.7 names the `vue-floor` job it built and the two ranges it moved; `- Status: done`; 4.9 gains a line: its `read` override also
   records the source as handed (`handedToVue()`), so a hot update's sub-requests need no warm-up.
 - `docs/milestones/README.md` "Test infrastructure": the floor row names `vue-floor` (M4, 4.7).
 - `SETUP.md`: the `peer-floor` lines name the `vue-floor` job.
-- No `publicdocs/` page describes this; `spec.md` and `architecture.md` cache-miss lines stay true.
+- `spec.md` and `architecture.md` cache-miss lines stay true.
 
 ## Out of scope
 
