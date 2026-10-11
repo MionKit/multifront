@@ -1,10 +1,11 @@
 import {mkdtemp, readFile, rm, unlink, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
+import react from '@vitejs/plugin-react';
 import vue from '@vitejs/plugin-vue';
+import {multifront} from '@multifront/vite';
 import {createServer, type DevEnvironment, type Plugin, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {TMP_DIR, copyApp, removeApp} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER} from './lib/build.ts';
 
 const ENVIRONMENTS = ['client', 'ssr'] as const;
 type EnvironmentName = (typeof ENVIRONMENTS)[number];
@@ -49,7 +50,7 @@ const EDITS: [string, string, string, string[]][] = [
 function recorder(records: Update[]): Plugin {
   return {
     name: 'hmr-recorder',
-    // Post like ours, after it as the config file's plugins come first: it gets exactly what our hook returned.
+    // Post like ours, listed after it: it gets exactly what our hook returned.
     enforce: 'pre',
     hotUpdate: {
       order: 'post',
@@ -142,10 +143,11 @@ function hmrApp(plugins: () => Plugin[]) {
     state.cacheDir = await mkdtemp(join(TMP_DIR, 'hmr-cache-'));
     state.server = await createServer({
       root: state.root,
-      configLoader: APP_CONFIG_LOADER,
+      // Not the demo's own config: its plugin-vue would be in every app, and a second one in `plugins()`.
+      configFile: false,
       cacheDir: state.cacheDir,
       logLevel: 'silent',
-      plugins: [...plugins(), recorder(records)],
+      plugins: [react(), multifront(), ...plugins(), recorder(records)],
       server: {middlewareMode: true, ws: false, preTransformRequests: false},
       optimizeDeps: {noDiscovery: true},
     });
