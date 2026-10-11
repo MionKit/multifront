@@ -36,6 +36,8 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0}]},
   {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
   {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
+  // Only a comment: no <template> or <script> for Vue to compile.
+  {fixture: 'vue/Empty.ucf', errors: [{code: 'vue-empty-block', line: 1, column: 0}]},
   {
     fixture: 'invalid/UnknownStyleLang.ucf',
     errors: [
@@ -71,8 +73,8 @@ describe('checkBlocks', () => {
     it('points at the opening tag each rule is about, names it, and gives its real position', () => {
       for (const diagnostic of diagnostics) {
         expect(diagnostic.filename).toBe(split.filename);
-        expect(diagnostic.message).toMatch(/^<(react|style)[ >]/);
-        expect(source.slice(diagnostic.start, diagnostic.end)).toMatch(/^<(react|style)(\s[^]*)?>$/);
+        expect(diagnostic.message).toMatch(/^<(react|style|vue)[ >]/);
+        expect(source.slice(diagnostic.start, diagnostic.end)).toMatch(/^<(react|style|vue)(\s[^]*)?>$/);
         const before = source.slice(0, diagnostic.start).split('\n');
         expect({line: diagnostic.line, column: diagnostic.column}).toEqual({line: before.length, column: before.at(-1)!.length});
       }

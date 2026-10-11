@@ -9,6 +9,7 @@ import {
   getBlockKind,
   loadVueCompiler,
   splitBlocks,
+  vueSfcCode,
 } from '@multifront/core';
 import type {Diagnostic, Target} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
@@ -84,11 +85,20 @@ describe('buildTarget', () => {
     expect(await buildErrors('imports/VueOnly.ucf', 'react')).toEqual([{code: 'missing-target-block', line: 1, column: 0}]);
   });
 
-  it.each(['vue', 'svelte'] as const)('throws target-not-built for %s on its opening tag', async (target) => {
+  it('throws target-not-built for svelte on its opening tag', async () => {
     const {source} = readComponent('react/AllBlocks.ucf');
-    const before = source.slice(0, source.indexOf(`<${target}>`)).split('\n');
-    expect(await buildErrors('react/AllBlocks.ucf', target)).toEqual([
+    const before = source.slice(0, source.indexOf('<svelte>')).split('\n');
+    expect(await buildErrors('react/AllBlocks.ucf', 'svelte')).toEqual([
       {code: 'target-not-built', line: before.length, column: before.at(-1)!.length},
     ]);
+  });
+
+  it('builds the vue row as the same-length SFC code, mapped to the .ucf file', async () => {
+    const {split, ctx} = await load('Counter.ucf');
+    expect(buildTarget(split, ctx, 'vue')).toEqual({ext: '.vue', ...vueSfcCode(split.source, split.blocks, split.filename)});
+  });
+
+  it('throws vue-empty-block for a <vue> block with no <template> or <script>', async () => {
+    expect(await buildErrors('vue/Empty.ucf', 'vue')).toEqual([{code: 'vue-empty-block', line: 1, column: 0}]);
   });
 });

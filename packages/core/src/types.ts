@@ -46,7 +46,7 @@ export interface BlockKind {
   grammar: BlockGrammar;
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
   fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
-  build?(block: Block, ctx: BuildContext): VirtualFile; // style and react; vue in M4, svelte in M6
+  build?(block: Block, ctx: BuildContext): VirtualFile; // style, react and vue; svelte in M6
 }
 
 /** One file a block becomes, for the bundler or an editor service. */
@@ -71,6 +71,7 @@ export type DiagnosticCode =
   | 'unknown-style-lang'
   | 'duplicate-style-module'
   | 'style-compile-error'
+  | 'vue-empty-block'
   | 'missing-target-block'
   | 'target-not-built'
   | 'mixed-frameworks'

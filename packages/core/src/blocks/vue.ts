@@ -1,20 +1,28 @@
 import MagicString from 'magic-string';
-import {styleInsideTarget} from '../diagnostics.ts';
+import {createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
+import {topLevelTags} from '../scan.ts';
 import {isTarget} from '../targets.ts';
-import type {Block, BlockKind, SourceMap} from '../types.ts';
+import type {Block, BlockKind, Diagnostic, SourceMap, SplitResult} from '../types.ts';
 
 // Like Vue's SFC parser: every root tag but `<template>` is raw text; a `<style>` inside `<template>` is markup.
+const nests = (name: string): boolean => name === 'template';
+const rawAtTop = (name: string): boolean => name !== 'template';
+
+// The same raw scan as the splitter: compiler-sfc's own "at least one <template> or <script>" error, without it.
+function check(block: Block, split: SplitResult): Diagnostic[] {
+  const diagnostics = styleInsideTarget(block, split, nests, rawAtTop);
+  const tags = topLevelTags(block.content, nests, rawAtTop);
+  if (tags.some(({name}) => name === 'template' || name === 'script')) return diagnostics;
+  const message = '<vue> has no <template> or <script>; add one';
+  return [createDiagnostic(split, 'vue-empty-block', block.start, block.contentStart, message), ...diagnostics];
+}
+
 export const vueKind: BlockKind = {
   tag: 'vue',
   role: 'target',
   grammar: {scopeName: 'text.html.vue', languageId: 'vue'}, // the official Vue extension's scope name
-  check: (block, split) =>
-    styleInsideTarget(
-      block,
-      split,
-      (name) => name === 'template',
-      (name) => name !== 'template'
-    ),
+  check,
+  build: (_block, ctx) => ({ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks, ctx.filename)}),
 };
 
 // Line breaks stay original characters, so lines and columns (CRLF included) match the .ucf file.
