@@ -74,7 +74,7 @@ export async function startLanguageServer(workspace: string, options: LanguageSe
   return Object.assign(handle, {log, stop});
 }
 
-/** Links the server to a tsserver the way the extension does: each `tsserver/request` runs there, its body comes back. */
+/** Relays the server's `tsserver/request` notifications to a tsserver, as the extension does. */
 export function relayTsserver(server: LanguageServer, tsserver: Tsserver): void {
   server.connection.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown[]]) => {
     // A failing handler answers nothing, which Vue reads as an empty list: the log keeps it visible.
