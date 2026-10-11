@@ -1,5 +1,6 @@
 import type {Api, Options} from '@vitejs/plugin-vue';
 import type {BuildContext, ResolveTargetOptions, SplitResult} from '@multifront/core';
+import type {createUcfCache} from './cache.ts';
 
 /** `frameworks` (default all), `framework` (the default of spec 4.2) and `importers` (extension → framework). */
 export type MultifrontOptions = ResolveTargetOptions;
@@ -22,6 +23,8 @@ export interface UcfVersion extends UcfSnapshot {
   sfc?: string; // the SFC code our transform made from `source`
   previous?: UcfSnapshot;
 }
+
+export type UcfCache = ReturnType<typeof createUcfCache>;
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
 export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {

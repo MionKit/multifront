@@ -22,7 +22,15 @@ import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
-import {VUE_PLUGIN_MISSING, composeVuePlugin, handedToVue, vueScanScript, warmUpVue, wrapVueCompiler} from './vueTarget.ts';
+import {
+  VUE_PLUGIN_MISSING,
+  composeVuePlugin,
+  handedToVue,
+  vueHmrPlugin,
+  vueScanScript,
+  warmUpVue,
+  wrapVueCompiler,
+} from './vueTarget.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
@@ -204,11 +212,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const version = cache.updateUcf(id, code);
         const sfc = built(this, await cache.contextOf(version), 'vue');
         version.sfc = sfc.code;
-        handedToVue(id, version.source);
+        handedToVue(id, version);
         return sfc;
       },
     },
     api,
   };
-  return [pre, attributesPlugin(options)];
+  const vueCompilerOrNone = () => (hasVuePlugin(config!.plugins) ? getVueCompiler(config!.plugins, config!.root) : undefined);
+  return [pre, vueHmrPlugin(cache, vueCompilerOrNone), attributesPlugin(options)];
 }
