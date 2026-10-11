@@ -24,9 +24,9 @@ Moved out of `packages/core/test/split.fuzz.spec.ts`, which imports it (relative
 `e2e/fixtures/index.ts`); M6 6.7 builds on it.
 
 - `fuzzSettings(defaults)`: `MULTIFRONT_FUZZ_SEED` (0..0xffffffff), `MULTIFRONT_FUZZ_RUNS` (>= 1), throws on a bad value.
-- `mulberry32`, `mixSeed(base, label, index)`, `createRandom(seed)` (`next`, `int`, `pick`, `shuffle`).
+- `mixSeed(base, label, index)`, `createRandom(seed)` (`next`, `int`, `pick`, `shuffle`, on a private `mulberry32`).
 - `shrinkActions(actions, stillFails)`: async, drops one action at a time while the case still fails (the scope checks build and render asynchronously).
-- `replayLine(seed, runIndex, specPath)`.
+- `replayLine(seed, runIndex, specPath)`; the shared `Action<Kind>`, `Violation<Rule>` and `Failure<Case, Rule>` types.
 - split.fuzz behaviour unchanged; its knob tests now test the shared `fuzzSettings`.
 
 ### 2. Generator `packages/e2e/build/lib/scopeFuzz.ts`
@@ -45,16 +45,17 @@ from the fixtures, parsed once with oxc-parser.
     are in that module-level set (a small scope walk counts names bound by inner arrows, `.map((item) => <li key={item}>`,
     as bound). Parsed into a tree:
     `Element {tag, typeArgs, attrs: string[], children, selfClosing}`,
-    `Fragment {form: '' | 'Fragment' | 'Frag' | 'React.Fragment', attrs, children}`, `Raw {text}` (JSX text and
+    `Fragment {tag: '' | 'Fragment' | 'Frag' | 'React.Fragment', attrs, children}`, `Raw {text}` (JSX text and
     expression containers as written).
   - `scope/Namespaced.ucf` donors (`svg:x`) only in files rule 4 never renders.
   - `scope/FragmentImports.ucf` left out: its shadowing bindings change which names are Fragment, which the model does
     not track; its own snapshot test stays.
-  - Comments: every comment of `shapes/`, `forwarding/`, `scope/`, Unicode.ucf.
+  - Comments: every comment of `shapes/`, `forwarding/`, `scope/Stamped.ucf`, `scope/Namespaced.ucf` and Unicode.ucf,
+    but those holding `*/`.
 - **Base model**: `export default function Fuzz<n>(props: { branch?: string }) { return <first donor of the base fixture> }`
   with the header and a `<style scoped>`.
 - **Actions** (each with `applicable(model)`; `replay` skips one that no longer applies, so shrinking can drop any):
-  - `memo`, `forwardRef` (wrap; both, either order; callee `memo` / `memoized` / `React.memo`, `forwardRef` /
+  - `memo`, `forwardRef` (wrap; both, forwardRef always innermost; callee `memo` / `memoized` / `React.memo`, `forwardRef` /
     `React.forwardRef`, sometimes with the fixtures' type arguments);
   - `arrow` (function / arrow); `expression-body` (rendered as an expression only for an arrow with one return and no
     const root);
@@ -84,15 +85,14 @@ from the fixtures, parsed once with oxc-parser.
   interface ScopeCase {
     name: string; fixture: string; actions: Action[]; applied: ActionKind[]; source: string;
     render: boolean;      // runIndex % 20 === 0; such a case never gets a namespace tag
-    scoped: boolean;
-    props: string;        // the name the forwarding reads: 'props' or '__props'
-    fragments: string[];  // tag names that are React's Fragment here: '', 'Fragment', 'Frag', 'React.Fragment'
+    props: 'props' | '__props'; // the name the forwarding reads
     branches: {branch?: string; outcome: 'host' | 'forwarding-component' | 'dropping-component' | 'fragment' | 'none'}[];
-    model: Model;         // read by the coverage test's `shapeOf`
+    model: Model;         // its `scoped`, and the coverage test's `shapeOf`
   }
   ```
 
-  `branches`: each guard value plus `'other'`; with no props one entry without a branch.
+  `branches`: each guard value plus `'other'`; with no props one entry without a branch. React's Fragment tags are the
+  exported `FRAGMENT_TAGS` (`''`, `Fragment`, `Frag`, `React.Fragment`), the same in every case.
 - `writeCase(dir, case)` writes `<dir>/<name>.ucf`. Fuzz files go to `packages/e2e/.tmp/fuzz/<mkdtemp>/` (`.tmp/` is
   gitignored), removed after a green run, kept after a failure (the message names it).
 
@@ -114,9 +114,9 @@ in-process in dev and in production: `splitBlocks` → `createBuildContext` (`lo
 3. **stamps**: the output's opening element names equal the input's, in order; with a scoped style each element not in
    `fragments` carries exactly one ` data-v-<id>=""` and fragments none; without one, nothing is stamped.
 4. **renders** (`render` cases): one real Vite dev server per spec run (`configFile: false`, root = fuzz dir,
-   `plugins: [react(), multifront(), breaker]`, middleware mode, `ws: false`, `preTransformRequests: false`,
+   `plugins: [breaker, react(), multifront()]`, middleware mode, `ws: false`, `preTransformRequests: false`,
    `optimizeDeps.noDiscovery`). A real entry `<name>.render.tsx` imports the case and exports
-   `render(branch?) => renderToString(<main><Case data-v-parent="" branch={branch} /></main>)`, loaded through the SSR
+   `render(branch?) => renderToString(<main><Case data-v-parent="" /></main>)`, plus `branch={branch}` when one is given,, loaded through the SSR
    environment's `runner.import`, rendered once per branch. The first element inside `<main>` carries
    `data-v-parent=""` exactly when the outcome is `host` or `forwarding-component`. Every `console.error` /
    `console.warn` of the import and the render (captured by swapping them meanwhile) is our
@@ -146,9 +146,8 @@ plugin-react and react-dom/server are there.
 - `holds every rule over 300 generated files (seed 2026)`.
 - `reaches every case` (default seed, generator only): every action applied, every outcome kind in rendered cases,
   each wrapper combination, function / arrow × block / expression, every props form and export style, scoped and not.
-- `shrinks to the fewest actions that still fail` (fixed actions, a synthetic predicate).
 - Negative controls (`it.each`): the real output through a breaker (in-process for rules 1 to 3; for rule 4 in the
-  test's `breaker` plugin, enforce `pre` after `multifront()`, on `.ucf.react.tsx`). The fuzz with only that rule
+  test's `breaker` plugin, enforce `pre`, first in `plugins`, on `.ucf.react.tsx`). The fuzz with only that rule
   fails, the shrunk case still fails, a replay of `runIndex + 1` runs gives the same input. Breakers:
   1. parses: a forwarding spread left open;
   2. only-adds: a stray `/*x*/` after a stamp; a dropped character after a stamp;
@@ -191,7 +190,8 @@ forms, Svelte (M6), any transform change not forced by a fuzz failure.
 - Four rules only; a fifth "forwards" rule over recorded root offsets dropped (orchestrator: the step lists four).
 - Rule 4 through a dev server's SSR module runner, not `vite build --ssr`: the fragment warning and React's own warnings
   exist in dev only (orchestrator: approved).
-- `type: chore`: a test-only step, as M1.5 (orchestrator: approved).
+- `type: chore`: a test step, as M1.5 (orchestrator: approved); the one transform fix it forced is its own `fix(core)`
+  commit.
 - The long run's one failure (seed 4, run 3700: a const's fragment warned on renders returning another root): a
   fragment reached through the `const` hop warns at the `return` naming it, and only when it is the const's whole
   value; a mixed value gets none (orchestrator: (B), as Vue warns only on a rendered fragment root; the 3.11 dev
@@ -200,11 +200,15 @@ forms, Svelte (M6), any transform change not forced by a fuzz failure.
 ## As shipped
 
 - The long run found one failure (seed 4, run 3700), fixed in `scope.ts` (`jsxRoots` records the const a root was
-  reached through; its fragment is wrapped at that identifier). Saved as
-  `packages/e2e/fixtures/components/react/fuzz-found/ConstFragment.ucf` (a pure and a mixed const fragment), with a
+  reached through and whether the root is its whole value; such a fragment is wrapped at each identifier naming it).
+  Saved as `packages/e2e/fixtures/components/react/fuzz-found/ConstFragment.ucf` (a pure const fragment returned twice,
+  and a mixed one that pins no warning), with a
   `SCOPED` and a `SHAPES` row in `scope.spec.ts`, whose listing test now reads `react/fuzz-found` too. Spec 3.5 item 3
   and the 3.11 step text describe it.
 - After the fix, the long run (`MULTIFRONT_FUZZ_RUNS=10000`, seeds 2026 and 1 to 9) is green on every seed.
+- Review: `shapes/ConstRoot.ucf` returns its const twice (one spread); the synthetic shrink test was dropped
+  (`shrinkActions` runs on real files in both fuzz specs); `packages/e2e` keeps its lib files' own exported types, as
+  `editor/lib/` does, rather than a new `types.ts`.
 - Rule 4 already allowed the warning to be absent, so the generator's expectation needed no change.
 - 10,000 runs take about 4 minutes a seed on this host (300 runs: about 2 seconds).
 - The shrunk case of a failure is written to the kept directory, never loaded in the run, so a replay of it still
