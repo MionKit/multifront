@@ -27,7 +27,7 @@ export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 const REACT_ID = /\.ucf\.react\.tsx$/;
-// The scan's id of the Vue target: scannable as `.ts`, and `importerFromId` puts its imports in the `<vue>` block.
+// Vue target's scan id: `.ts` makes it scannable; `importerFromId` maps its imports to the `<vue>` block.
 const VUE_SCAN_SUFFIX = '.vue.ts';
 const VUE_SCAN_ID = /\.ucf\.vue\.ts$/;
 // Scan id of an HTML file's inline `<script>`.
@@ -133,7 +133,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         if (from?.block && from.fileName === file && !query.has('framework')) return file;
         const choice = resolveTarget(from, query.get('framework') ?? undefined, options);
         const vuePlugin = hasVuePlugin(config!.plugins);
-        // The scan follows react, and vue when plugin-vue builds it; the real pipeline reports what it cannot place.
+        // The scan skips what it cannot follow; the real pipeline reports it.
         const unscanned = 'error' in choice || choice.target === 'svelte' || (choice.target === 'vue' && !vuePlugin);
         if (scan && unscanned) return {id: file, external: true};
         if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, describeDiagnostic(choice.error)));

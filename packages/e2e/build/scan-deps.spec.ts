@@ -1,5 +1,4 @@
-// Scan plugin (3.6) meets attribute (3.7): a bare import only the picked block has is optimized at startup,
-// whichever spec 4.2 rule picked its framework.
+// Scan plugin (3.6) meets attribute (3.7): a bare import only the picked block has is optimized at startup.
 import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createLogger, createServer, type ViteDevServer} from 'vite';
