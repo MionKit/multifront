@@ -5,6 +5,7 @@ import type {
   Comment,
   Expression,
   Function as FunctionNode,
+  IdentifierReference,
   JSXElement,
   JSXElementName,
   JSXFragment,
@@ -196,12 +197,30 @@ function ownBody(component: Component): {returns: Expression[]; consts: Map<stri
   return {returns, consts, bound};
 }
 
-// `hop` follows one `const x = <jsx>` of the same function.
-function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: boolean, found: Set<Root>): void {
+// A root reached through `const x = …`: `via` is the `x` a return names, `init` the const's value.
+interface FoundRoot {
+  root: Root;
+  hop?: {via: IdentifierReference; init: Expression};
+}
+
+function unwrapped(expression: Expression): Expression {
+  switch (expression.type) {
+    case 'ParenthesizedExpression':
+    case 'TSAsExpression':
+    case 'TSSatisfiesExpression':
+    case 'TSNonNullExpression':
+      return unwrapped(expression.expression);
+    default:
+      return expression;
+  }
+}
+
+// `hop` holds the one `const x = <jsx>` of the same function a root was reached through.
+function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: FoundRoot['hop'], found: FoundRoot[]): void {
   switch (expression.type) {
     case 'JSXElement':
     case 'JSXFragment':
-      found.add(expression);
+      found.push({root: expression, hop});
       return;
     case 'ParenthesizedExpression':
     case 'TSAsExpression':
@@ -214,8 +233,8 @@ function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: 
     case 'LogicalExpression':
       return jsxRoots(expression.right, consts, hop, found);
     case 'Identifier': {
-      const init = hop ? consts.get(expression.name) : undefined;
-      if (init) jsxRoots(init, consts, false, found);
+      const init = hop ? undefined : consts.get(expression.name);
+      if (init) jsxRoots(init, consts, {via: expression, init}, found);
       return;
     }
     default:
@@ -294,21 +313,29 @@ export function transformScope(
     if (patternReads(pattern).some((name) => bound.has(name))) return [];
     if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
   }
-  const roots = new Set<Root>();
-  for (const expression of returns) jsxRoots(expression, consts, true, roots);
+  const roots: FoundRoot[] = [];
+  for (const expression of returns) jsxRoots(expression, consts, undefined, roots);
+  const spread = new Set<Root>();
   const dev = !ctx.production;
   const helpers = new Set<string>();
   const name = basename(ctx.filename, '.ucf');
-  for (const root of roots) {
+  const warned = new Set<Node>();
+  for (const {root, hop} of roots) {
     const isElement = root.type === 'JSXElement' && !elements.get(root.openingElement);
     if (isElement) {
+      if (spread.has(root)) continue;
+      spread.add(root);
       text.appendLeft(offset + afterName(root.openingElement), ` {...${SCOPE_ATTRS}(${props})}`);
       helpers.add(SCOPE_ATTRS);
-    } else if (dev) {
-      text.prependRight(offset + root.start, `(${WARN_FRAGMENT}(${props}, ${JSON.stringify(name)}), `);
-      text.appendLeft(offset + root.end, ')');
-      helpers.add(WARN_FRAGMENT);
+      continue;
     }
+    // A const's value runs on every render: warned there, it would fire when another root is returned.
+    const at = hop ? (unwrapped(hop.init) === root ? hop.via : undefined) : root;
+    if (!dev || !at || warned.has(at)) continue;
+    warned.add(at);
+    text.prependRight(offset + at.start, `(${WARN_FRAGMENT}(${props}, ${JSON.stringify(name)}), `);
+    text.appendLeft(offset + at.end, ')');
+    helpers.add(WARN_FRAGMENT);
   }
   if (helpers.size === 0) return [];
 
