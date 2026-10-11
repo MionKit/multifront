@@ -197,22 +197,10 @@ function ownBody(component: Component): {returns: Expression[]; consts: Map<stri
   return {returns, consts, bound};
 }
 
-// A root reached through `const x = …`: `via` is the `x` a return names, `init` the const's value.
+// A root reached through `const x = …`: `via` is the `x` a return names; `whole`: the root is the const's whole value.
 interface FoundRoot {
   root: Root;
-  hop?: {via: IdentifierReference; init: Expression};
-}
-
-function unwrapped(expression: Expression): Expression {
-  switch (expression.type) {
-    case 'ParenthesizedExpression':
-    case 'TSAsExpression':
-    case 'TSSatisfiesExpression':
-    case 'TSNonNullExpression':
-      return unwrapped(expression.expression);
-    default:
-      return expression;
-  }
+  hop?: {via: IdentifierReference; whole: boolean};
 }
 
 // `hop` holds the one `const x = <jsx>` of the same function a root was reached through.
@@ -227,14 +215,16 @@ function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: 
     case 'TSSatisfiesExpression':
     case 'TSNonNullExpression':
       return jsxRoots(expression.expression, consts, hop, found);
-    case 'ConditionalExpression':
-      jsxRoots(expression.consequent, consts, hop, found);
-      return jsxRoots(expression.alternate, consts, hop, found);
+    case 'ConditionalExpression': {
+      const part = hop && {...hop, whole: false};
+      jsxRoots(expression.consequent, consts, part, found);
+      return jsxRoots(expression.alternate, consts, part, found);
+    }
     case 'LogicalExpression':
-      return jsxRoots(expression.right, consts, hop, found);
+      return jsxRoots(expression.right, consts, hop && {...hop, whole: false}, found);
     case 'Identifier': {
       const init = hop ? undefined : consts.get(expression.name);
-      if (init) jsxRoots(init, consts, {via: expression, init}, found);
+      if (init) jsxRoots(init, consts, {via: expression, whole: true}, found);
       return;
     }
     default:
@@ -319,7 +309,6 @@ export function transformScope(
   const dev = !ctx.production;
   const helpers = new Set<string>();
   const name = basename(ctx.filename, '.ucf');
-  const warned = new Set<Node>();
   for (const {root, hop} of roots) {
     const isElement = root.type === 'JSXElement' && !elements.get(root.openingElement);
     if (isElement) {
@@ -330,9 +319,8 @@ export function transformScope(
       continue;
     }
     // A const's value runs on every render: warned there, it would fire when another root is returned.
-    const at = hop ? (unwrapped(hop.init) === root ? hop.via : undefined) : root;
-    if (!dev || !at || warned.has(at)) continue;
-    warned.add(at);
+    const at = hop ? (hop.whole ? hop.via : undefined) : root;
+    if (!dev || !at) continue;
     text.prependRight(offset + at.start, `(${WARN_FRAGMENT}(${props}, ${JSON.stringify(name)}), `);
     text.appendLeft(offset + at.end, ')');
     helpers.add(WARN_FRAGMENT);

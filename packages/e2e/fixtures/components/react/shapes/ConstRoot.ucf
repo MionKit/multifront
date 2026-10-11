@@ -3,6 +3,8 @@
     const root = (
       <article className="shape"><span className="inner">const {props.branch}</span></article>
     )
+    // The same const returned twice still gets one spread.
+    if (props.branch === 'again') return root
     return root
   }
 </react>
