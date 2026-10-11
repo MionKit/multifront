@@ -258,12 +258,14 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ### 4.11 One app, both targets
 
 - Build:
-  - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue and a Vue island. It mounts `Counter.ucf` as Vue (`import Counter from './Counter.ucf' with { framework: 'vue' }` in `mountVue.ts`) beside the existing React mount of the same file.
+  - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue (`[react(), vue(), multifront()]`) and a Vue island. `src/mountVue.ts` imports `Counter` from `'../../../components/Counter.ucf' with { framework: 'vue' }` and exports `mountVue(element)`; `main.tsx` calls it on `#vue`, a container beside the React `#app` in `index.html`.
   - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
+  - The demo's older tests follow the island: `build/hmr.spec.ts` lists its own plugins (`configFile: false`), so its "without plugin-vue" cases stay so; `browser/hmr-react.spec.ts` expects plugin-vue's style sub-request beside ours on a `<style>` edit, and a `<vue>` edit to update only the Vue counter; `browser/demo-exit.spec.ts` counts Counter's CSS once per target (spec 4.3, "CSS twice in a mixed app").
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
 - Test:
-  - `packages/e2e/build/mixed-targets.spec.ts`: one `vite build` of the demo. The React chunk has no Vue render code, and the Vue chunk has no JSX runtime import from `Counter.ucf`. No `framework` attribute is left.
-  - `packages/e2e/browser/parity.spec.ts`: both counters render with the same `data-v-*`. `expectSameComputedStyles()` matches padding, color, font size and border on the root and title elements. Clicking each counter changes only its own count.
+  - `packages/e2e/build/mixed-targets.spec.ts`: one `vite build` of the demo (one chunk). The React module of `Counter.ucf` imports nothing from `vue` and has no Vue render code; the Vue modules (the bare id and its `?vue&…` sub-requests) import no JSX runtime and have no `jsx`. No `framework` attribute is left.
+  - `packages/e2e/browser/parity.spec.ts`, dev and preview: both counters render with the same `data-v-*`. `expectSameComputedStyles()` matches padding, color, font size and border on the root, title (`.label`) and button elements. Clicking each counter changes only its own count.
+- Status: done
 
 ### 4.12 The `<vue>` block in the language server
 
