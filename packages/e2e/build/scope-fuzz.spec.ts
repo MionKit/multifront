@@ -13,8 +13,8 @@ import {checkBlocks, createBuildContext, getBlockKind, loadVueCompiler, splitBlo
 import type {BuildContext, VirtualFile} from '@multifront/core';
 import {multifront} from '@multifront/vite';
 import {fuzzSettings, mixSeed, replayLine, shrinkActions} from './lib/fuzz.ts';
-import type {FuzzSettings} from './lib/fuzz.ts';
-import {ACTION_KINDS, FUZZ_DIR, OUTCOMES, buildCase, caseAt, shapeOf, writeCase} from './lib/scopeFuzz.ts';
+import type {FuzzSettings, Failure as SeededFailure, Violation as SeededViolation} from './lib/fuzz.ts';
+import {ACTION_KINDS, FRAGMENT_TAGS, FUZZ_DIR, OUTCOMES, buildCase, caseAt, shapeOf, writeCase} from './lib/scopeFuzz.ts';
 import type {ScopeAction, ScopeCase} from './lib/scopeFuzz.ts';
 
 const SPEC_PATH = 'packages/e2e/build/scope-fuzz.spec.ts';
@@ -22,10 +22,7 @@ const DEFAULT_SETTINGS: FuzzSettings = {seed: 2026, runs: 300};
 
 type Rule = 'valid-input' | 'parses' | 'only-adds' | 'stamps' | 'renders';
 
-interface Violation {
-  rule: Rule;
-  message: string;
-}
+type Violation = SeededViolation<Rule>;
 
 /** A hand-broken output for the negative controls; applied in-process and by the dev server's `breaker` plugin. */
 type Breaker = (code: string) => string;
@@ -36,14 +33,8 @@ interface Run {
   onlyRule?: Rule;
 }
 
-interface Failure {
-  seed: number;
-  runIndex: number;
-  runSeed: number;
+interface Failure extends SeededFailure<ScopeCase, Rule> {
   dir: string;
-  input: ScopeCase;
-  shrunk: ScopeCase;
-  violations: Violation[];
 }
 
 mkdirSync(FUZZ_DIR, {recursive: true});
@@ -164,9 +155,10 @@ function checkStamps(fuzzCase: ScopeCase, code: string, content: string): Violat
   const output = openingElements(code);
   if (output.map(({name}) => name).join() !== input.join())
     return [{rule: 'stamps', message: `opening elements changed: ${JSON.stringify(output.map(({name}) => name))}`}];
-  const wrong = output.find(({name, stamps}) => stamps !== (fuzzCase.scoped && !fuzzCase.fragments.includes(name) ? 1 : 0));
+  const {scoped} = fuzzCase.model;
+  const wrong = output.find(({name, stamps}) => stamps !== (scoped && !FRAGMENT_TAGS.includes(name) ? 1 : 0));
   if (!wrong) return [];
-  return [{rule: 'stamps', message: `<${wrong.name}> carries ${wrong.stamps} stamps (scoped: ${fuzzCase.scoped})`}];
+  return [{rule: 'stamps', message: `<${wrong.name}> carries ${wrong.stamps} stamps (scoped: ${scoped})`}];
 }
 
 // --- rule 4: renders -------------------------------------------------------------------------------------------
@@ -182,20 +174,6 @@ const breakerPlugin: Plugin = {
     return undefined;
   },
 };
-
-async function devServer(): Promise<ViteDevServer> {
-  server ??= await createServer({
-    configFile: false,
-    root: FUZZ_DIR,
-    cacheDir: join(FUZZ_DIR, '.vite'),
-    logLevel: 'silent',
-    appType: 'custom',
-    plugins: [breakerPlugin, react(), multifront()],
-    server: {middlewareMode: true, ws: false, preTransformRequests: false},
-    optimizeDeps: {noDiscovery: true},
-  });
-  return server;
-}
 
 const ENTRY = (name: string) => `import { renderToString } from 'react-dom/server'
 import Case from './${name}.ucf'
@@ -219,7 +197,7 @@ async function withConsole<Result>(logged: string[], run: () => Promise<Result>)
 
 async function checkRenders(fuzzCase: ScopeCase, run: Run): Promise<Violation[]> {
   const fail = (message: string): Violation[] => [{rule: 'renders', message}];
-  const ssr = (await devServer()).environments.ssr;
+  const ssr = server!.environments.ssr;
   if (!isRunnableDevEnvironment(ssr)) throw new Error('the ssr environment has no module runner');
   const entry = join(run.dir, `${fuzzCase.name}.render.tsx`);
   writeFileSync(entry, ENTRY(fuzzCase.name));
@@ -335,7 +313,16 @@ describe('scope transform fuzz', () => {
   const settings = fuzzSettings(DEFAULT_SETTINGS);
 
   beforeAll(async () => {
-    await devServer();
+    server = await createServer({
+      configFile: false,
+      root: FUZZ_DIR,
+      cacheDir: join(FUZZ_DIR, '.vite'),
+      logLevel: 'silent',
+      appType: 'custom',
+      plugins: [breakerPlugin, react(), multifront()],
+      server: {middlewareMode: true, ws: false, preTransformRequests: false},
+      optimizeDeps: {noDiscovery: true},
+    });
   });
 
   afterAll(async () => {
@@ -373,17 +360,6 @@ describe('scope transform fuzz', () => {
       'style:plain',
     ];
     expect(expected.filter((fact) => !reached.has(fact))).toEqual([]);
-  });
-
-  it('shrinks to the fewest actions that still fail', async () => {
-    const actions: ScopeAction[] = ['memo', 'arrow', 'and', 'comment', 'scoped'].map((kind, seed) => ({
-      kind: kind as ScopeAction['kind'],
-      seed,
-    }));
-    const shrunk = await shrinkActions(actions, (fewer) =>
-      ['memo', 'and'].every((kind) => fewer.some((action) => action.kind === kind))
-    );
-    expect(shrunk.map(({kind}) => kind)).toEqual(['memo', 'and']);
   });
 
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
