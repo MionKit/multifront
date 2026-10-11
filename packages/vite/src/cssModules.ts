@@ -17,7 +17,9 @@ function stringHash(text: string): number {
 // The generator Vite's CSS modules use for these options (postcss-modules 9.0.1 `getScopedNameGenerator`).
 function viteScopedName({generateScopedName, hashPrefix = ''}: CSSModulesOptions): ScopedNameGenerator {
   if (typeof generateScopedName === 'function') return generateScopedName;
-  if (typeof generateScopedName === 'string') return genericNames(generateScopedName, {context: process.cwd(), hashPrefix});
+  // postcss-modules reads the working directory per file.
+  if (generateScopedName)
+    return (local, filename) => genericNames(generateScopedName, {context: process.cwd(), hashPrefix})(local, filename);
   return (local, _filename, css) => {
     const line = css.substring(0, css.indexOf(`.${local}`)).split(/[\r\n]/).length;
     const hash = stringHash(hashPrefix + css)
@@ -35,10 +37,11 @@ export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: stri
   config.css.modules = {
     ...modules,
     // A new object: a restart may reuse the user's, which must not find ours in it.
-    generateScopedName(local, filename, css) {
+    generateScopedName(local, filename, css, ...rest: unknown[]) {
       const {path, query} = splitId(filename);
-      if (!UCF_STYLE.test(path) || !query.has('vue') || query.get('type') !== 'style') return other(local, filename, css);
-      return moduleClassName(local, scopeIdOf(path), query.get('index') ?? 0);
+      if (UCF_STYLE.test(path)) return moduleClassName(local, scopeIdOf(path), query.get('index') ?? 0);
+      // postcss-modules also passes the PostCSS node, which Vite's type leaves out.
+      return (other as (...args: unknown[]) => string)(local, filename, css, ...rest);
     },
   };
 }
