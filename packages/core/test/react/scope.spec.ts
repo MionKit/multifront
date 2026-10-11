@@ -26,6 +26,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'langs/SassIndented.ucf'},
   {fixture: 'react/ScopedPanel.ucf'},
   {fixture: 'react/forwarding/ClassRoot.ucf'},
+  {fixture: 'react/fuzz-found/ConstFragment.ucf', unstamped: ['Fragment']},
   // The const, parameter and arrow parameter that shadow `Fragment` and `React` get stamped.
   {fixture: 'react/scope/FragmentImports.ucf', unstamped: ['R.Fragment', 'Quoted', 'Fragment', 'React.Fragment']},
   {fixture: 'react/scope/Namespaced.ucf'},
@@ -227,10 +228,16 @@ const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: num
   {fixture: 'react/shapes/NoParams.ucf', roots: ['div'], props: '__props', signature: 'function NoParams /* () */ (__props) {'},
   {fixture: 'react/shapes/NullRoot.ucf', roots: []},
   {fixture: 'react/shapes/Ternary.ucf', roots: ['div', 'p']},
+  // Only `content` warns, at its return: `mixed` would also warn on renders that return the div.
+  {fixture: 'react/fuzz-found/ConstFragment.ucf', roots: ['div'], fragments: 1},
 ];
 
-it('has a row for every forwarding/ and shapes/ fixture', () => {
-  const listed = [...listComponents('react/forwarding'), ...listComponents('react/shapes')];
+it('has a row for every forwarding/, shapes/ and fuzz-found/ fixture', () => {
+  const listed = [
+    ...listComponents('react/forwarding'),
+    ...listComponents('react/shapes'),
+    ...listComponents('react/fuzz-found'),
+  ];
   expect(listed).toEqual(SHAPES.map(({fixture}) => fixture));
 });
 
