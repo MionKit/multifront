@@ -201,7 +201,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - an in-process `server.restart()` after `Counter.ucf` changed on disk serves the new CSS;
   - a `vite build --watch` rebuild after a `<react>` block edit still builds, with the new production scope id in the CSS and the JS (plugin-vue re-transforms only the cached sub-requests in watch builds).
 
-  Also: `packages/e2e/devx/peer-floor.spec.ts` reads the vue floor.
+  Also: a dev server whose sub-requests follow the module, or arrive first and together, transforms `Counter.ucf` once (the record and a shared warm-up); `packages/e2e/devx/peer-floor.spec.ts` reads the vue floor.
 - Status: done
 
 ### 4.8 SSR
