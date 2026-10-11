@@ -17,7 +17,7 @@ const COUNTER = '[data-demo="counter"]';
 const BADGE = '[data-demo="panel"] .panel > span';
 const BADGE_LABEL = '[data-demo="panel"] .badge-label';
 const CARD_TITLES = ['Bare import', 'From the .ts helper'];
-// Every styled demo component, relative to the shared `components/`, and how many targets the demo imports it as.
+// Every styled demo component under `components/` -> how many targets the demo imports it as.
 // One copy per target: plugin-vue ships its own style modules (spec 4.3).
 const STYLED = {'Counter.ucf': 2, 'react/ScopedPanel.ucf': 1, 'Card.ucf': 1};
 const POLL = {timeout: 10_000};
