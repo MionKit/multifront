@@ -668,7 +668,6 @@ export function buildCase(fixture: string, actions: ScopeAction[], {name, render
 export function caseAt(seed: number, runIndex: number): ScopeCase {
   const random = createRandom(mixSeed(seed, 'run', runIndex));
   const render = runIndex % 20 === 0;
-  // A case starts from a fixture with a donor it may use.
   const fixture = random.pick(SOURCES.filter((source) => donorsFor(render).some((donor) => donor.fixture === source)));
   const actions: ScopeAction[] = [];
   const count = 1 + random.int(8);

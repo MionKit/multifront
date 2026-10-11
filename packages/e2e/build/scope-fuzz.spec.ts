@@ -296,7 +296,7 @@ async function fuzz(settings: FuzzSettings, breaker?: Breaker, onlyRule?: Rule):
 const showCase = (fuzzCase: ScopeCase) =>
   `  ${fuzzCase.name}: fixture ${fuzzCase.fixture}, actions ${JSON.stringify(fuzzCase.applied)}\n${fuzzCase.source}`;
 
-// The assertion message is the only output CI shows for a failing test, so it carries the replay line.
+// CI shows only the assertion message, so it carries the replay line.
 function describeFailure(failure: Failure): string {
   return [
     `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed}), files kept in ${failure.dir}`,
