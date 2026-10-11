@@ -33,6 +33,14 @@ Hydration in Chromium passed on the first run too: no `@multifront/vite` change 
 - Orchestrator, Q2: the SSR template sits inline in `server.ts`; `index.html` and `src/main.ts` stay the client-only
   app 4.4 to 4.7 build and 4.9 serves (a hydrating entry there would warn on its empty container).
 - Orchestrator: no fuzz test.
+- Review (automatic triage):
+  - Fixed: the hydration test also checks `#app` has no `data-v-app` (a `createApp()` entry mounts over the markup
+    with no warning and passed every other check; measured failing now); the dev test stops its server before the
+    copy is removed; `startSsrServer()` returns the handle at once with `url` a promise, so a hang leaks no child;
+    `scopeAttribute()`, `moduleReferences()` and an exported `execNode` replace local copies; `startNode()` is not
+    exported; `finished()` waits for `close` (full output); a failed fetch names the server log; `server.ts` types
+    `render` from `entry-server.ts`.
+  - Kept: `finished()`, which checks the exit code, where a log line would not.
 
 ## Plan
 
@@ -52,9 +60,9 @@ Hydration in Chromium passed on the first run too: no `@multifront/vite` change 
 4. `packages/e2e/build/lib/freshProcess.ts`:
    - `startViteCli()` becomes a thin call of new `startNode(root, args, env)` (same spawn, `node --conditions=source
      …args` in `root`, `NO_COLOR=1`);
-   - the handle gains `finished()`: resolves with the output on exit code 0, rejects with it otherwise;
-   - new `startSsrServer(root)`: `startNode(root, ['server.ts'], {NODE_ENV: 'development'})`, waits for the
-     `ssr server: (\S+)` line, returns the handle plus `url`.
+   - the handle gains `finished()`: resolves with the output on exit code 0 (after `close`), rejects with it otherwise;
+   - new `startSsrServer(root)`: `startNode(root, ['server.ts'], {NODE_ENV: 'development'})`, returned at once,
+     with `url` a promise of the `ssr server: (\S+)` line.
 
 ## Tests
 
@@ -80,7 +88,8 @@ child processes (4.7) and Playwright Chromium (3.9) are there. Each spec uses it
 
 - `startSsrServer(copy)`, `collectConsole(page)`, `page.goto(url)`; the navigation response body already holds the
   Counter markup with the dev `data-v-*` and `2` (server-rendered, not a client render);
-- wait until `#app` has `__vue_app__` (Vue sets it on mount in every build); click: `expect.poll` sees `3`;
+- wait until `#app` has `__vue_app__` (Vue sets it on mount in every build), and check it has no `data-v-app`
+  (`createApp()` sets it when it mounts over the markup, `createSSRApp()` does not); click: `expect.poll` sees `3`;
 - no `warning`, `error` or `pageerror` in the console (Vue's dev hydration mismatch is a `[Vue warn]` warning plus a
   `console.error` "Hydration completed but contains mismatches."). Measured live: a throwaway copy whose
   `entry-server.ts` rendered `Clucks` for `Clicks` failed on exactly those two entries.
