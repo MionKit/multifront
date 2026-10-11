@@ -36,15 +36,18 @@ Cards (bare and through `card.ts`'s `with { framework: 'react' }`), ScopedPanel 
 
 ### 2. Shared test helpers (no duplicate of the HMR and attribute code)
 
-- `packages/e2e/browser/lib/requests.ts`: `trackRequests(page: Page): RequestLog`, moved out of
+- `packages/e2e/browser/lib/requests.ts`: `trackRequests(page: Page)` (its type is its return type), moved out of
   `hmr-react.spec.ts` (which then uses it, behaviour unchanged):
   - `paths(): string[]`: path + query of each request since `clear()`, Vite's `t=` dropped;
   - `clear(): void`;
   - `quiet(ms: number, since?: number): Promise<void>`: no request in flight and no activity for `ms`, counting
     from `since` too (the `<vue>` case's "window counts from the change event").
+  - `editFile(requests, file, from, to)`: checks `from` is there, clears the log, writes the edit. Both specs' `edit`.
+- `packages/e2e/browser/lib/scope.ts`: `scopeAttribute(root, file, production)`, the `data-v-<id>` oracle moved
+  out of `react-scope.spec.ts` (which then uses it).
 - `packages/e2e/browser/lib/chromium.ts`: `renderedStyles(page, properties?)`: every `#app *` element as
-  `{tag, text (leaf only), styles}`, moved out of `demo.spec.ts` (which then uses it). The properties default to
-  `color`, `padding`, `text-decoration-line`, `font-size`, the list `demo.spec.ts` compared.
+  `{tag, text (leaf only), styles}`, moved out of `demo.spec.ts` (which then uses it). One fixed list,
+  `color`, `padding`, `text-decoration-line`, `font-size`, so dev and preview always compare the same.
 - `packages/e2e/build/lib/references.ts`: `moduleReferences(code)` (every import / re-export / `import()` /
   `__vite_ssr_import__` with its attribute or option keys) and `expectNoAttribute(code)`, moved out of
   `build/imports.spec.ts` (which then imports them). `keyName` stays in `build.ts`.
@@ -78,7 +81,7 @@ counter and `trackRequests`. `afterAll` closes all, `removeApp`. One `describe`,
      `.js` through `expectNoAttribute` (a text check on `with` would hit React's "object with keys {");
    - CSS: for Counter.ucf, react/ScopedPanel.ucf and Card.ucf, `createBuildContext(..., {production: true})` gives
      each style block; its selector appears exactly once across the CSS files (the `react-target.spec.ts` way);
-     4 style blocks in all.
+     4 style blocks with 6 rules in all, each rule's selector counted.
 
 Runs on this host (Chromium found) and in CI `check` and `react-floor` (Chromium since 3.9, `pnpm devx test` runs
 every e2e file). No new infra.
@@ -89,10 +92,11 @@ every e2e file). No new infra.
   stops at the first failure.
 - Fuzz long run: `MULTIFRONT_FUZZ_SEED=<s> MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`
   for seeds 1 to 10 (CI keeps 2026), on main's core and Vite plugin.
-- Result: all 10 seeds green (about 220 s each), the exit test 20 / 20, `pnpm devx check` green. Verdict: go.
 - Full `pnpm devx check`.
 - Any failure: fixed in this PR if it is a bug of this step's tests; a failure of the transform or of a go
   criterion → `QUESTION` to the orchestrator with the evidence before any verdict is written.
+- Result: all 10 seeds green (about 220 s each), the exit test 20 / 20, `pnpm devx check` green, so no `QUESTION`.
+  Verdict: go.
 
 ### 5. The verdict: `docs/plan.md`, "### 3. React target and imports (go / no-go)"
 
@@ -142,7 +146,8 @@ No new fuzz test: this step runs 3.13's long run. The exit test has no cheap ran
 
 ## Done when
 
-- `demo-exit.spec.ts` passes locally 20 times in a row and in CI `check` and `react-floor` (log lines quoted).
+- `demo-exit.spec.ts` passes locally 20 times in a row and in CI `check` and `react-floor`, with the CI run link in
+  the verdict and Vitest's summary lines of the local loop and of both jobs quoted in the PR.
 - The fuzz long run (10 seeds × 10,000) is green; `pnpm devx check` green.
 - `docs/plan.md` holds the verdict with its evidence; 3.16 is `- Status: done`; this spec moved to `docs/done/`,
   matching what shipped.

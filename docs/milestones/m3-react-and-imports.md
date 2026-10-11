@@ -349,7 +349,7 @@ Vite (`@multifront/vite`):
 
 Tests and fixtures (`packages/e2e`):
 
-- `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, `renderedStyles(page)` (every `#app` element's computed styles), `trackRequests(page)` (the requests of an HMR update), and Chromium in CI. Milestones 4, 5, 6.
+- `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, `renderedStyles(page)` (every `#app` element's computed styles), `trackRequests(page)` and `editFile(requests, file, from, to)` (the requests of an HMR update), `scopeAttribute(root, file, production)`, and Chromium in CI. Milestones 4, 5, 6.
 - `pnpm devx peer-floor <framework>` and the `react-floor` CI job: milestone 4 adds `vue-floor`, milestone 6 `svelte-floor`.
 - `fixtures/apps/demo/` with its SSR entry `src/entry-server.tsx` (`render()`): milestone 4 renders the Vue Card beside the React one, and adds visual parity.
 - `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows (`packages/e2e/editor/imports.spec.ts`).
