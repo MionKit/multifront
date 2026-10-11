@@ -5,12 +5,17 @@ import ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {APP_DIR, CARD, edit, onLine, PLUGIN, readApp} from './lib/cases.ts';
-import {locate, open, startTsserver, tsLocation} from './lib/tsserver.ts';
+import {E2E_DIR, locate, open, startTsserver, tsLocation, VUE_PLUGIN, VUE_PLUGIN_DIR} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// tsserver serves no .vue or .svelte importer before 4.14 and M6; mixed.ts has its own cases in tsserver.spec.ts.
-const ROWS = EXPECTED_IMPORTS.filter((row) => !/\.(vue|svelte)$/.test(row.file) && row.file !== 'src/mixed.ts');
-const FILES = [...new Set(ROWS.map(({file}) => file))];
+// tsserver serves no .svelte importer before M6; mixed.ts has its own cases in tsserver.spec.ts.
+const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
+// Our plugin alone, as every React-only project runs it; beside Vue's, which reads `.vue` importers as Vue - Official
+// does, on one shared @volar/typescript copy.
+const SETUPS = [
+  {name: 'our plugin alone', plugins: [PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.vue'))},
+  {name: "our plugin beside Vue's", plugins: [PLUGIN, VUE_PLUGIN], rows: ROWS},
+];
 const RULE_REASON: Record<TargetRule, string> = {
   block: 'the block it sits in',
   attribute: 'its framework attribute',
@@ -27,25 +32,26 @@ function rewriteError({filename, source}: Component) {
   return {line, expected: {start: tsLocation(source, start), end: tsLocation(source, end), text: message}};
 }
 
-describe('the TypeScript plugin on every row of the imports app, as the build resolves them', () => {
+describe.each(SETUPS)('$name, on every row of the imports app, as the build resolves them', ({plugins, rows}) => {
+  const files = [...new Set(rows.map(({file}) => file))];
   let server: Tsserver;
 
   beforeAll(async () => {
-    server = startTsserver({cwd: APP_DIR, plugins: [PLUGIN]});
-    await open(server, [...FILES.map(readApp), CARD]);
+    server = startTsserver({cwd: APP_DIR, plugins, probeLocations: [E2E_DIR, VUE_PLUGIN_DIR]});
+    await open(server, [...files.map(readApp), CARD]);
   });
 
   afterAll(async () => {
     await server?.stop();
   });
 
-  it.each(FILES)('%s is in the project of its nearest tsconfig.json', async (file) => {
+  it.each(files)('%s is in the project of its nearest tsconfig.json', async (file) => {
     const {filename} = readApp(file);
     const info = await server.request<ts.server.protocol.ProjectInfo>('projectInfo', {file: filename, needFileNameList: false});
     expect(info.configFileName).toBe(ts.findConfigFile(dirname(filename), ts.sys.fileExists));
   });
 
-  it.each(ROWS)('$file line $line: $expect', async (row) => {
+  it.each(rows)('$file line $line: $expect', async (row) => {
     const component = readApp(row.file);
     const at = locate(component.source, `'${row.specifier}'`);
     const diagnostics = onLine(await server.diagnostics(component.filename), row.line);

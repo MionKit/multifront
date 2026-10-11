@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process';
+import {realpathSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -32,6 +33,13 @@ interface TsserverOptions {
 }
 
 const TSSERVER = createRequire(import.meta.url).resolve('typescript/lib/tsserver.js');
+export const VUE_PLUGIN = '@vue/typescript-plugin';
+// Vue's plugin from its own install folder, as from its VS Code extension: the folder whose node_modules holds it and
+// its dependencies. Real paths only: under `isolated`'s preserved symlinks it cannot find them.
+export const VUE_PLUGIN_DIR = join(
+  realpathSync(createRequire(import.meta.url).resolve(`${VUE_PLUGIN}/package.json`)),
+  '../../../..'
+);
 export const E2E_DIR = fileURLToPath(new URL('../..', import.meta.url));
 // Symlinks kept: tsserver's own `../../..` plugin lookup is root node_modules, with no workspace package in it.
 // The real path's `.pnpm/node_modules` holds them all.
@@ -74,7 +82,9 @@ export function startTsserver(options: TsserverOptions): Tsserver {
     ...(isolated ? ['--preserve-symlinks', '--preserve-symlinks-main', ROOT_TSSERVER] : ['--conditions=source', TSSERVER]),
     '--disableAutomaticTypingAcquisition',
   ];
-  if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','), '--pluginProbeLocations', probeLocations.join(','));
+  if (plugins.length > 0) args.push('--globalPlugins', plugins.join(','));
+  // Also where `compilerOptions.plugins` entries are found.
+  args.push('--pluginProbeLocations', probeLocations.join(','));
   if (logFile) args.push('--logVerbosity', 'normal', '--logFile', logFile);
   // pnpm's bin shim sets NODE_PATH into the repo's packages: a project outside the repo would resolve them.
   const env = {...process.env, NODE_PATH: undefined};
