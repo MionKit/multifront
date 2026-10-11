@@ -57,10 +57,10 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
       expect(info.displayString).toContain('title: string');
     });
 
-    it('the second import has the warning naming the fix; the first only its own error', async () => {
+    it('the second import has the warning naming the fix; the first none', async () => {
       const diagnostics = await server.diagnostics(MIXED.filename);
       const [vue, react] = MIXED_LINES;
-      expect(codesOnLine(diagnostics, vue)).toEqual(['target-not-built']);
+      expect(codesOnLine(diagnostics, vue)).toEqual([]);
       const [warning, ...rest] = onLine(diagnostics, react);
       expect(rest).toEqual([]);
       const start = locate(MIXED.source, `'${CARD_SPECIFIER}' with {framework: 'react'}`);

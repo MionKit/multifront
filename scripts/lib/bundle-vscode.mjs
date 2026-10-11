@@ -1,5 +1,5 @@
 // The bundles use oxc-parser's wasm binding, which core parses <react> with, so one .vsix serves every platform.
-import {copyFileSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {basename, dirname, join, resolve} from 'node:path';
 import {build} from 'vite';
@@ -14,6 +14,7 @@ const WASM = 'parser.wasm32-wasi.wasm';
 const fromExtension = createRequire(join(EXTENSION_DIR, 'package.json'));
 const linked = (name) => realpathSync(join(EXTENSION_DIR, 'node_modules', '@multifront', name));
 const fromCore = createRequire(join(linked('core'), 'package.json'));
+const fromLanguageTools = createRequire(join(linked('language-tools'), 'package.json'));
 const binding = fromExtension.resolve('@oxc-parser/binding-wasm32-wasi');
 const oxcDir = dirname(fromCore.resolve('oxc-parser/package.json'));
 
@@ -68,6 +69,15 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
 
 // parser.wasi.cjs reads the wasm next to the bundle that holds it.
 copyFileSync(join(dirname(binding), WASM), join(DIST, WASM));
+
+// Every Vue script references language-core's global types; the plugin's `vueTypesRoot` points here.
+const vueTypes = join(dirname(fromLanguageTools.resolve('@vue/language-core/package.json')), 'types');
+const VUE_TYPES = join(DIST, 'vue-types');
+rmSync(VUE_TYPES, {recursive: true, force: true});
+mkdirSync(VUE_TYPES, {recursive: true});
+for (const name of readdirSync(vueTypes).filter((file) => file.endsWith('.d.ts'))) {
+  copyFileSync(join(vueTypes, name), join(VUE_TYPES, name));
+}
 
 rmSync(PACK, {recursive: true, force: true});
 mkdirSync(PACK, {recursive: true});

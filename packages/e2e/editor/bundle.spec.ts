@@ -2,6 +2,7 @@ import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {rewriteImportAttributes} from '@multifront/core';
+import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
 import {
@@ -10,6 +11,7 @@ import {
   appTsxCases,
   CARD,
   codesOnLine,
+  edit,
   languageServerCases,
   MIXED,
   MIXED_LINES,
@@ -19,12 +21,14 @@ import {
 } from './lib/cases.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
-import {E2E_DIR, open, startTsserver} from './lib/tsserver.ts';
-import type {Tsserver} from './lib/tsserver.ts';
+import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
+import type {TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 import {packVsix} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
 const NON_LITERAL = readApp('no-default/non-literal.ts');
+const VUE_PICK = readApp('no-default/attribute-over-importer.tsx');
+const GLOBAL_TYPES = ['template-helpers.d.ts', 'props-fallback.d.ts'];
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
 
 // Every check runs on what the .vsix ships, not on packages/vscode/dist.
@@ -65,7 +69,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
     logFile = join(temp, 'pack-alone.log');
     // Isolated hides the project's own entry: the pack is the only plugin.
     server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], isolated: true, logFile});
-    await open(server, [APP, CARD, NON_LITERAL]);
+    await open(server, [APP, CARD, NON_LITERAL, VUE_PICK]);
   });
 
   afterAll(async () => {
@@ -82,6 +86,27 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
   });
 
   appTsxCases(() => server);
+
+  it('a vue pick gets a DefineComponent, with the global types copied beside the bundle', async () => {
+    const last = 'export {VueCard};';
+    const added = `${last}\nconst picked = VueCard;`;
+    const revert = await edit(server, VUE_PICK, last, added);
+    try {
+      const info = await server.request<TsQuickInfo>('quickinfo', {
+        file: VUE_PICK.filename,
+        ...locate(VUE_PICK.source.replace(last, added), 'const picked', 6),
+      });
+      expect(info.displayString).toMatch(/^const picked: DefineComponent</);
+    } finally {
+      await revert();
+    }
+    const {fileNames = []} = await server.request<ts.server.protocol.ProjectInfo>('projectInfo', {
+      file: VUE_PICK.filename,
+      needFileNameList: true,
+    });
+    for (const name of GLOBAL_TYPES) expect(fileNames).toContain(join(extension, 'dist', 'vue-types', name));
+    expect(fileNames.filter((name) => name.includes('@vue/language-core'))).toEqual([]);
+  });
 
   it("runs the build's attribute rewrite through oxc-parser's wasm binding: a non-literal attribute is its error", async () => {
     const {errors} = rewriteImportAttributes(NON_LITERAL.source, NON_LITERAL.filename);
@@ -116,10 +141,10 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
 
   appTsxCases(() => server);
 
-  it('mixed.ts: one target-not-built on the vue import, one mixed-frameworks warning on the react one', async () => {
+  it('mixed.ts: nothing on the vue import, one mixed-frameworks warning on the react one', async () => {
     const diagnostics = await server.diagnostics(MIXED.filename);
     const [vue, react] = MIXED_LINES;
-    expect(codesOnLine(diagnostics, vue)).toEqual(['target-not-built']);
+    expect(codesOnLine(diagnostics, vue)).toEqual([]);
     expect(onLine(diagnostics, react)).toMatchObject([{code: 'mixed-frameworks', category: 'warning'}]);
   });
 });

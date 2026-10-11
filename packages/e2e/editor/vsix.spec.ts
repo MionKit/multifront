@@ -1,6 +1,6 @@
 import {spawnSync} from 'node:child_process';
 import type {SpawnSyncReturns} from 'node:child_process';
-import {cpSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
+import {cpSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {BLOCK_KINDS} from '@multifront/core';
 import {generateGrammar} from 'multifront-vscode/grammar';
@@ -8,9 +8,11 @@ import type {GrammarFile} from 'multifront-vscode/grammar';
 import {afterEach, beforeAll, describe, expect, it} from 'vitest';
 import {componentPath} from '../fixtures/index.ts';
 import {tokenizeUcf} from './lib/tokenize.ts';
-import {EXTENSION_DIR, readZip, REPO_ROOT, tempRepo} from './lib/vsix.ts';
+import {EXTENSION_DIR, LANGUAGE_CORE_TYPES, readZip, REPO_ROOT, tempRepo} from './lib/vsix.ts';
 
 const PACK = 'node_modules/multifront-typescript-plugin-pack';
+// Language-core's global types, which every Vue script references, copied beside the bundle.
+const VUE_TYPES = readdirSync(LANGUAGE_CORE_TYPES).filter((name) => name.endsWith('.d.ts'));
 
 type GrammarContribution = Pick<GrammarFile, 'scopeName' | 'path' | 'injectTo'> & {
   language?: string;
@@ -90,7 +92,8 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(output).not.toMatch(/WARNING|::warning::/);
   });
 
-  it('packs exactly the manifest, language files, generated grammars, bundles, plugin pack and licenses', () => {
+  it('packs exactly the manifest, language files, generated grammars, bundles, Vue types, plugin pack and licenses', () => {
+    expect(VUE_TYPES).toEqual(expect.arrayContaining(['template-helpers.d.ts', 'props-fallback.d.ts']));
     const vendored = Object.keys(readJson<Record<string, unknown>>(join(EXTENSION_DIR, 'syntaxes', 'vendor', 'sources.json')));
     expect(vendored.length).toBeGreaterThan(0);
     const [language] = manifest.contributes.languages;
@@ -105,6 +108,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
       'dist/server.cjs',
       'dist/typescript-plugin.cjs',
       'dist/parser.wasm32-wasi.wasm',
+      ...VUE_TYPES.map((name) => `dist/vue-types/${name}`),
       `${PACK}/index.js`,
       `${PACK}/package.json`,
     ];

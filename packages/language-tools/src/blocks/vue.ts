@@ -12,15 +12,23 @@ const STYLE_CODE = /^style_\d+$/;
 const SCRIPT_KINDS = {ts: 3, tsx: 4, js: 1, jsx: 2} as const satisfies Record<string, ts.ScriptKind>;
 const DEFAULT_COMPILER_OPTIONS: ts.CompilerOptions = {};
 
-const plugins = new WeakMap<ts.CompilerOptions, LanguagePlugin<string, VueVirtualCode>>();
+type VuePlugin = LanguagePlugin<string, VueVirtualCode>;
 
-function vuePlugin(typescript: TypeScript, compilerOptions: ts.CompilerOptions): LanguagePlugin<string, VueVirtualCode> {
-  let plugin = plugins.get(compilerOptions);
+const plugins = new WeakMap<ts.CompilerOptions, Map<string | undefined, VuePlugin>>();
+
+function vuePlugin(typescript: TypeScript, compilerOptions: ts.CompilerOptions, vueTypesRoot: string | undefined): VuePlugin {
+  let byRoot = plugins.get(compilerOptions);
+  if (!byRoot) plugins.set(compilerOptions, (byRoot = new Map()));
+  let plugin = byRoot.get(vueTypesRoot);
   if (!plugin) {
     // Same strictness as the React target's `$style`: `$style.buton` is an error.
-    const vueCompilerOptions = {...getDefaultCompilerOptions(), strictCssModules: true};
+    const vueCompilerOptions = {
+      ...getDefaultCompilerOptions(),
+      strictCssModules: true,
+      ...(vueTypesRoot && {typesRoot: vueTypesRoot}),
+    };
     plugin = createVueLanguagePlugin(typescript as typeof ts, compilerOptions, vueCompilerOptions, (id: string) => id);
-    plugins.set(compilerOptions, plugin);
+    byRoot.set(vueTypesRoot, plugin);
   }
   return plugin;
 }
@@ -62,10 +70,11 @@ function ownStylesOnly(code: VueVirtualCode): VueVirtualCode {
   return code;
 }
 
-function vueCode({split, ts: typescript, compilerOptions = DEFAULT_COMPILER_OPTIONS}: EditorContext): VirtualCode | undefined {
+function vueCode(ctx: EditorContext): VirtualCode | undefined {
+  const {split, ts: typescript, compilerOptions = DEFAULT_COMPILER_OPTIONS, vueTypesRoot} = ctx;
   if (!typescript) return undefined;
   const snapshot = stringSnapshot(editorSfcCode(split));
-  const code = vuePlugin(typescript, compilerOptions).createVirtualCode?.(split.filename, 'vue', snapshot, {
+  const code = vuePlugin(typescript, compilerOptions, vueTypesRoot).createVirtualCode?.(split.filename, 'vue', snapshot, {
     getAssociatedScript: () => undefined,
   });
   return code && ownStylesOnly(code);
@@ -75,9 +84,12 @@ function vueCode({split, ts: typescript, compilerOptions = DEFAULT_COMPILER_OPTI
 export function disposeVueCode(
   fileName: string,
   code: VirtualCode,
-  {compilerOptions = DEFAULT_COMPILER_OPTIONS}: EditorOptions
+  {compilerOptions = DEFAULT_COMPILER_OPTIONS, vueTypesRoot}: EditorOptions
 ): void {
-  plugins.get(compilerOptions)?.disposeVirtualCode?.(fileName, code as VueVirtualCode);
+  plugins
+    .get(compilerOptions)
+    ?.get(vueTypesRoot)
+    ?.disposeVirtualCode?.(fileName, code as VueVirtualCode);
 }
 
 const ROOT_FIELDS = ['fileName', 'ir', 'vueSfc', 'vueCompilerOptions'] as const satisfies (keyof VueVirtualCode)[];
