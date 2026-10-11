@@ -1,9 +1,9 @@
-import {readFile, rm} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {scopeId} from '@multifront/core';
 import {createServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {copyApp} from '../fixtures/index.ts';
+import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, exportedScopeId, withNodeEnv} from './lib/build.ts';
 
 const FILE = 'src/Reference.vue';
@@ -13,7 +13,7 @@ let source: string;
 beforeAll(async () => {
   root = await copyApp('vue-reference');
   source = await readFile(join(root, FILE), 'utf8');
-  return () => rm(root, {recursive: true, force: true});
+  return () => removeApp(root);
 });
 
 describe('scopeId, against plugin-vue with no componentIdGenerator', () => {

@@ -1,22 +1,32 @@
 import {readdirSync, readFileSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rm} from 'node:fs/promises';
-import {dirname, join, sep} from 'node:path';
+import {dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 // Inside the repo, so a copied app still resolves vue, vite and the plugins from the root node_modules.
 export const TMP_DIR = join(FIXTURES_DIR, '..', '.tmp');
 
+/** A fresh copy of `apps/<name>`, with the shared `components/` where its relative imports expect them. */
 export async function copyApp(name: string): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
-  const root = await mkdtemp(join(TMP_DIR, `${name}-`));
+  const copy = await mkdtemp(join(TMP_DIR, `${name}-`));
+  const root = join(copy, 'apps', name);
   try {
     await cp(join(FIXTURES_DIR, 'apps', name), root, {recursive: true});
+    await cp(join(FIXTURES_DIR, 'components'), join(copy, 'components'), {recursive: true});
   } catch (err) {
-    await rm(root, {recursive: true, force: true});
+    await rm(copy, {recursive: true, force: true});
     throw err;
   }
   return root;
+}
+
+/** Deletes a `copyApp()` copy, the components beside it included. */
+export async function removeApp(root: string): Promise<void> {
+  const copy = resolve(root, '..', '..');
+  if (dirname(copy) !== TMP_DIR) throw new Error(`not a copyApp() copy: ${root}`);
+  await rm(copy, {recursive: true, force: true});
 }
 
 /** `expected.ts` and the `vite.config.ts` files are no importers. */

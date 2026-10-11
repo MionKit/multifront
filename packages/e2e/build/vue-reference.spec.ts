@@ -1,13 +1,12 @@
-import {rm} from 'node:fs/promises';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {copyApp} from '../fixtures/index.ts';
+import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, exportedScopeId} from './lib/build.ts';
 
 let root: string;
 
 beforeAll(async () => {
   root = await copyApp('vue-reference');
-  return () => rm(root, {recursive: true, force: true});
+  return () => removeApp(root);
 });
 
 // Each rule's selector, plus the one attribute selector plugin-vue may append.

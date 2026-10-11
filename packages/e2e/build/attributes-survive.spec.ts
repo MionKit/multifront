@@ -1,8 +1,7 @@
-import {rm} from 'node:fs/promises';
 import {basename} from 'node:path';
 import {createServer, parseAst, Visitor, type ESTree, type Plugin, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {copyApp} from '../fixtures/index.ts';
+import {copyApp, removeApp} from '../fixtures/index.ts';
 import {keyName, withNodeEnv} from './lib/build.ts';
 
 // Spec 4.4's post rewrite needs `with { framework }` still on the import when post plugins run.
@@ -38,7 +37,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server?.close();
-  if (root) await rm(root, {recursive: true, force: true});
+  if (root) await removeApp(root);
 });
 
 function property(object: ESTree.Expression | null | undefined, name: string): ESTree.Expression | undefined {
