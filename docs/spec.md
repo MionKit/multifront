@@ -325,7 +325,7 @@ Requirements:
 
 - **A `<vue>` block inside another file.** Volar has no built-in way to run Vue's language plugin on a block of another file. We generate the Vue virtual code ourselves with `@vue/language-core`, from same-length SFC code, so its offsets are the `.ucf` offsets. It is nested under our root code. Vue's service plugins read their data from the root, so the root forwards it to the nested code. That relies on internals of `@vue/language-service`, so a test covers it (spike 2 in [plan.md](plan.md)).
 - **Svelte tooling is not Volar.** Svelte's language tools run their own server. `svelte2tsx` gives types; markup completions in `.ucf` may lag the other targets.
-- **Our TypeScript plugin inside other editors' setups.** Vue's VS Code extension runs on tsserver plugins (hybrid mode), so ours should load beside it. Svelte's extension needs checking.
+- **Our TypeScript plugin inside other editors' setups.** Vue's VS Code extension runs on tsserver plugins (hybrid mode), so ours loads beside it, in either order and from one shared install (tested in M4). Svelte's extension needs checking.
 - **Attributes surviving each compiler.** The rewrite of 4.4 runs after plugin-vue, the Svelte compiler and Oxc have compiled the importer. Each must keep `with { ... }` on its imports. Test each one.
 - **plugin-vue cache misses.** On a miss plugin-vue reads `Card.ucf` from disk and gets the raw file, not our SFC code. Test a dev server restart and SSR.
 - **Different exports per target.** Each target's module exports what its block exports. A named export in one block only is allowed, but imports of it fail for the other targets. `mf-tsc` checks every target to catch it early.
