@@ -1,0 +1,6 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  // A TypeScript `this` parameter comes first; the props are the next one.
+  export default function ThisParam(this: void, props: { branch?: string }) {
+    return <div {...__ucfScopeAttrs(props)} className="shape"><span className="inner">this param {props.branch}</span></div>
+  }

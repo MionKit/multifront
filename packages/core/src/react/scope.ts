@@ -240,7 +240,11 @@ export function transformScope(
   const found = findComponent(program);
   if (!found) return [];
   const {component, forwardRef} = found;
-  const first = component.params[0];
+  // oxc lists a TypeScript `this` parameter first; it is no prop.
+  const hasThis = component.params[0]?.type === 'Identifier' && component.params[0].name === 'this';
+  const params = hasThis ? component.params.slice(1) : component.params;
+  if (hasThis && params.length === 0) return [];
+  const first = params[0];
   const param = first?.type === 'AssignmentPattern' ? first.left : first;
   // A destructured or rest first parameter leaves no name holding every prop.
   if (param && param.type !== 'Identifier') return [];
