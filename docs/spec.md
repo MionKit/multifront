@@ -322,7 +322,7 @@ Requirements:
 
 ## 11. Known risks
 
-- **A `<vue>` block inside another file.** Volar has no built-in way to run Vue's language plugin on a block of another file. We generate the Vue virtual code ourselves with `@vue/language-core` and map the offsets. Prototype first: it decides how good the `<vue>` block feels.
+- **A `<vue>` block inside another file.** Volar has no built-in way to run Vue's language plugin on a block of another file. We generate the Vue virtual code ourselves with `@vue/language-core`, from same-length SFC code, so its offsets are the `.ucf` offsets. It is nested under our root code. Vue's service plugins read their data from the root, so the root forwards it to the nested code. That relies on internals of `@vue/language-service`, so a test covers it (spike 2 in [plan.md](plan.md)).
 - **Svelte tooling is not Volar.** Svelte's language tools run their own server. `svelte2tsx` gives types; markup completions in `.ucf` may lag the other targets.
 - **Our TypeScript plugin inside other editors' setups.** Vue's VS Code extension runs on tsserver plugins (hybrid mode), so ours should load beside it. Svelte's extension needs checking.
 - **Attributes surviving each compiler.** The rewrite of 4.4 runs after plugin-vue, the Svelte compiler and Oxc have compiled the importer. Each must keep `with { ... }` on its imports. Test each one.
