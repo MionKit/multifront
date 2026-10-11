@@ -1,13 +1,17 @@
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
+import {moduleClassName} from '@multifront/core';
 import {getVueCompiler, multifront} from '@multifront/vite';
 import {createLogger, createServer, type InlineConfig, type PluginOption} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
-import {buildApp, buildCode} from './lib/build.ts';
+import {scopeAttribute} from '../browser/lib/scope.ts';
+import {buildApp, buildCode, rejection} from './lib/build.ts';
 
 let root: string;
+// The components beside the copy, not the fixture's own.
+const component = (name: string) => join(root, '..', '..', 'components', name);
 
 beforeAll(async () => {
   root = await copyApp('vue');
@@ -62,6 +66,35 @@ describe('vite build of the vue app', () => {
   });
 });
 
+// M5's Vue package is this build: `multifront({framework: 'vue'})` plus `vue()` on `.ucf` entries, no importer.
+describe('a .ucf entry in a library build with framework: vue', () => {
+  // A library build keeps the entry's exports; an app build drops them, and the component with them.
+  const libraryBuild = (entry: string) =>
+    buildCode(root, {
+      configFile: false,
+      plugins: [vue(), multifront({framework: 'vue'})],
+      build: {lib: {entry, formats: ['es'], fileName: 'counter'}, rolldownOptions: {external: ['vue']}},
+    });
+
+  it('compiles the <vue> block with plugin-vue: our scope id and $style names, no <react> text', async () => {
+    const counter = component('Counter.ucf');
+    const {code, css} = await libraryBuild(counter);
+    const scope = scopeAttribute(root, counter, true);
+    expect(code).toMatch(/__name: "Counter"/);
+    expect(code).toContain('createElementBlock("div"');
+    expect(code).not.toContain('useState');
+    expect(code).toContain(`["__scopeId", "${scope}"]`);
+    expect(css).toContain(`.counter[${scope}]`);
+    expect(css).toContain(`.${moduleClassName('button', scope.slice('data-v-'.length), 1)}`);
+  });
+
+  it('names the file alone when the entry has no <vue> block', async () => {
+    const input = component('imports/ReactOnly.ucf');
+    const err = await rejection<Error>(libraryBuild(input));
+    expect(err.message).toContain(`${input} has no <vue> block (missing-target-block)`);
+  });
+});
+
 it('still compiles the .ucf file as Vue after a dev server restart with the same plugins', async () => {
   const errors: string[] = [];
   const logger = createLogger('silent');
@@ -76,7 +109,7 @@ it('still compiles the .ucf file as Vue after a dev server restart with the same
   });
   try {
     await server.restart();
-    const counter = join(root, '..', '..', 'components', 'Counter.ucf');
+    const counter = component('Counter.ucf');
     const result = await server.environments.client.transformRequest(`/@fs${counter}`);
     expect(errors).toEqual([]);
     expect(result?.code).toMatch(/__name: ["']Counter["']/);
