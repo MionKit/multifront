@@ -1,0 +1,15 @@
+<react>
+  import { useEffect, useRef } from 'react'
+  import { createRoot } from 'react-dom/client'
+
+  // react-dom/client is imported only here: the dependency scan finds it in this block or not at all.
+  export default function Mount() {
+    const host = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+      const inner = createRoot(host.current!)
+      inner.render(<span>mounted</span>)
+      return () => inner.unmount()
+    }, [])
+    return <div ref={host} />
+  }
+</react>
