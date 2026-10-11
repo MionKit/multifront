@@ -52,7 +52,7 @@ describe('HMR of a React .ucf component (demo, Counter clicked to 3)', () => {
   it('a <style scoped> edit requests only that style module and keeps the count', async () => {
     await edit('rgb(120, 40, 160)', 'rgb(10, 20, 30)');
     await expect.poll(() => computed(page.locator(`${COUNTER} .counter`), 'color'), POLL).toBe('rgb(10, 20, 30)');
-    // Also keeps the next write past the watcher's 50 ms throttle of change events on one file.
+    // Also spaces the next write past the watcher's 50 ms per-file change throttle.
     await requests.quiet(500);
 
     expect(await page.locator(`${COUNTER} button`).textContent()).toBe('3');

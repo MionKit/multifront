@@ -17,7 +17,7 @@ const COUNTER = '[data-demo="counter"]';
 const BADGE = '[data-demo="panel"] .panel > span';
 const BADGE_LABEL = '[data-demo="panel"] .badge-label';
 const CARD_TITLES = ['Bare import', 'From the .ts helper'];
-// Every component of the demo with a style block, relative to the shared `components/`.
+// Every styled demo component, relative to the shared `components/`.
 const STYLED = ['Counter.ucf', 'react/ScopedPanel.ucf', 'Card.ucf'];
 const POLL = {timeout: 10_000};
 
@@ -90,7 +90,7 @@ describe('milestone 3 exit test (demo app)', () => {
     ]) {
       await edit(`<span className="label">${from}</span>`, `<span className="label">${to}</span>`);
       await expect.poll(() => page.locator(`${COUNTER} .label`).textContent(), POLL).toBe(to);
-      // Also keeps the next write past the watcher's 50 ms throttle of change events on one file.
+      // Also spaces the next write past the watcher's 50 ms per-file change throttle.
       await requests.quiet(500);
       expect({to, count: await button.textContent(), loads}).toEqual({to, count: '3', loads: 1});
     }
@@ -132,7 +132,7 @@ describe('milestone 3 exit test (demo app)', () => {
     let preview: Awaited<ReturnType<typeof buildAndPreview>> | undefined;
     let files: string[] = [];
 
-    // The pristine fixture: the copy is edited by now, and the same relative paths give the same scope ids.
+    // Pristine fixture, not the edited copy: same relative paths, so same scope ids.
     beforeAll(async () => {
       preview = await buildAndPreview(FIXTURE);
       files = readdirSync(preview.outDir, {recursive: true, withFileTypes: true})
@@ -160,7 +160,7 @@ describe('milestone 3 exit test (demo app)', () => {
       expect(files.some((file) => file.endsWith('.js'))).toBe(true);
       for (const file of files) {
         const text = readFileSync(file, 'utf8');
-        // React's own code says "object with keys {", so `with` is checked on the parsed imports only.
+        // React's code contains "object with keys {": `with` is checked on parsed imports only.
         expect({file, framework: text.includes('framework')}).toEqual({file, framework: false});
         if (file.endsWith('.js')) expectNoAttribute(text);
       }
