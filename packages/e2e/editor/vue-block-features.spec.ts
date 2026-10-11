@@ -152,7 +152,6 @@ describe("the language server: Vue's template services, answered by tsserver", (
     );
   });
 
-  // Completion items are merged by label, a hover's contents are not: Vue's css plugin would show its docs twice.
   it("completion before the end of a component tag lists its props: Icon's :size", async () => {
     const document = await server.openTextDocument(USES_ICON.filename, 'ucf');
     const at = document.positionAt(USES_ICON.source.indexOf('<Icon />') + '<Icon '.length);
@@ -179,6 +178,7 @@ describe("the language server: Vue's template services, answered by tsserver", (
     ]);
   });
 
+  // Completion items are merged by label, a hover's contents are not: Vue's css plugin would show its docs twice.
   it("in <style scoped>, completion lists color once and its hover has its docs once: Vue's css plugin is left out", async () => {
     const document = await server.openTextDocument(COUNTER.filename, 'ucf');
     const at = document.positionAt(COUNTER.source.indexOf('color: rgb') + 2);
