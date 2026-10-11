@@ -38,29 +38,32 @@ export {default as VueCard} from '../../../components/Card.ucf' with {framework:
 export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
 ```
 
-> **Note:** The editor and the build handle React components only for now. An import that picks vue or svelte gives the error `target-not-built`.
+> **Note:** multifront builds only `<react>` blocks, so an import that picks vue or svelte gives the error `target-not-built`.
 
 > **Tip:** In one file, TypeScript gives every import of the same path the type of the last one. To use a component as two frameworks, import each from its own small file that re-exports it.
 
 ## Setting the Default Framework
 
-Add the multifront entry to `compilerOptions.plugins` in `tsconfig.json`. The VS Code extension loads the plugin itself, so the entry only holds its options.
+Pass the options to `multifront()` for the build, and to the TypeScript plugin in `tsconfig.json` for the editor. Give both the same values, so the build and the editor pick the same framework.
+
+`vite.config.ts`
+
+```ts
+import react from '@vitejs/plugin-react';
+import vue from '@vitejs/plugin-vue';
+import {multifront} from '@multifront/vite';
+import {defineConfig} from 'vite';
+
+export default defineConfig({plugins: [react(), vue(), multifront({framework: 'react'})]});
+```
 
 `tsconfig.json`
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2022",
-    "module": "preserve",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
-  },
-  "include": ["src"]
+  }
 }
 ```
 
@@ -69,3 +72,5 @@ Add the multifront entry to `compilerOptions.plugins` in `tsconfig.json`. The VS
 | `frameworks` | Limits imports to these frameworks, all three by default; picking another is the error `target-not-enabled` | `["react"]` |
 | `framework` | Picks the framework when no other rule does, as for a bare import in a `.ts` file | `"react"` |
 | `importers` | Picks a framework by the importing file's extension, over the defaults of rule 2 | `{".ts": "svelte", ".tsx": "vue"}` |
+
+> **Note:** The VS Code extension loads the TypeScript plugin itself, so its `tsconfig.json` entry only holds the options.
