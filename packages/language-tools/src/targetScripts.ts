@@ -1,0 +1,237 @@
+// Volar's tsserver plugin serves one script per file (the main target's); every other target with a `serviceScript`
+// becomes a program file of its own, `Card.ucf.<target>.ts`, and requests in its block are routed to it.
+import {isTarget} from '@multifront/core';
+import type {Target} from '@multifront/core';
+import {FileMap, createLanguage} from '@volar/language-core';
+import type {Language, LanguagePlugin, VirtualCode} from '@volar/language-core';
+import {createProxyLanguageService} from '@volar/typescript/lib/node/proxyLanguageService.js';
+import type {TypeScriptServiceScript} from '@volar/typescript';
+import type * as ts from 'typescript';
+import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
+import type {EditorBlockKind, TargetScript, TypeScript, UcfVirtualCode} from './types.ts';
+
+type ServedKind = EditorBlockKind & {tag: Target; serviceScript: NonNullable<EditorBlockKind['serviceScript']>};
+
+const SERVED_KINDS = EDITOR_BLOCK_KINDS.filter((kind): kind is ServedKind => !!kind.serviceScript && isTarget(kind.tag));
+const TARGET_SCRIPT_NAME = /^(.*\.ucf)\.(\w+)\.ts$/;
+
+// Volar's proxy maps these; each takes the position right after the file name.
+const BY_POSITION = [
+  'getQuickInfoAtPosition',
+  'getCompletionsAtPosition',
+  'getCompletionEntryDetails',
+  'getSignatureHelpItems',
+  'getDefinitionAtPosition',
+  'getDefinitionAndBoundSpan',
+  'getTypeDefinitionAtPosition',
+  'getImplementationAtPosition',
+  'getReferencesAtPosition',
+  'findReferences',
+  'getDocumentHighlights',
+  'getRenameInfo',
+  'findRenameLocations',
+  'getLinkedEditingRangeAtPosition',
+  'prepareCallHierarchy',
+  'getCodeFixesAtPosition',
+] as const satisfies (keyof ts.LanguageService)[];
+const DIAGNOSTICS = ['getSyntacticDiagnostics', 'getSemanticDiagnostics', 'getSuggestionDiagnostics'] as const;
+// Locations that stay in a target script after Volar's mapping sit in generated code, in a file no editor can open.
+const NAVIGATION: ReadonlySet<string> = new Set([
+  'getDefinitionAtPosition',
+  'getDefinitionAndBoundSpan',
+  'getTypeDefinitionAtPosition',
+  'getImplementationAtPosition',
+  'getReferencesAtPosition',
+  'findReferences',
+  'getDocumentHighlights',
+  'findRenameLocations',
+]);
+
+/** `Card.ucf.vue.ts`: the tsserver file of a target served beside the `.ucf` file's own script. */
+export function targetScriptName(fileName: string, target: Target): string {
+  return `${fileName}.${target}.ts`;
+}
+
+function parseTargetScriptName(fileName: string): {ucf: string; kind: ServedKind} | undefined {
+  const [, ucf, tag] = TARGET_SCRIPT_NAME.exec(fileName) ?? [];
+  const kind = SERVED_KINDS.find((served) => served.tag === tag);
+  return ucf && kind ? {ucf, kind} : undefined;
+}
+
+function targetScript(main: Language<string>, ucf: string, kind: ServedKind): TargetScript | undefined {
+  const code = main.scripts.get(ucf)?.generated?.root.embeddedCodes?.find(({id}) => id === kind.tag);
+  return code && kind.serviceScript(code);
+}
+
+const inTargetScript = (item: unknown): boolean =>
+  typeof (item as {fileName?: unknown}).fileName === 'string' && !!parseTargetScriptName((item as {fileName: string}).fileName);
+
+// Definition, reference, highlight and rename results: a list of locations, or symbols / spans holding one.
+function withoutTargetScripts(result: unknown): unknown {
+  if (Array.isArray(result)) {
+    return result
+      .filter((item) => !inTargetScript(item) && !inTargetScript((item as {definition?: unknown}).definition ?? {}))
+      .map(withoutTargetScripts);
+  }
+  if (!result || typeof result !== 'object') return result;
+  const {definitions, references, highlightSpans} = result as Record<string, unknown>;
+  if (Array.isArray(definitions)) return {...result, definitions: withoutTargetScripts(definitions)};
+  if (Array.isArray(references)) return {...result, references: withoutTargetScripts(references)};
+  if (Array.isArray(highlightSpans)) return {...result, highlightSpans: withoutTargetScripts(highlightSpans)};
+  return result;
+}
+
+interface Served {
+  kind: ServedKind;
+  proxy: ts.LanguageService;
+  initialize(language: Language<string>): void;
+  language?: Language<string>;
+}
+
+// `X.ucf` is only a source here; `X.ucf.vue.ts` is a code mapped into it, so Volar's proxy sends `X.ucf` requests there.
+function createTargetLanguage(main: Language<string>, kind: ServedKind, caseSensitive: boolean): Language<string> {
+  const languageId = `ucf-${kind.tag}`;
+  const scriptKinds = new WeakMap<VirtualCode, ts.ScriptKind>();
+  const plugin: LanguagePlugin<string> = {
+    getLanguageId: (id) => (id.endsWith('.ucf') ? 'ucf' : parseTargetScriptName(id)?.kind === kind ? languageId : undefined),
+    isAssociatedFileOnly: (_id, id) => id === 'ucf',
+    createVirtualCode(id, scriptLanguageId, snapshot, ctx) {
+      const parsed = scriptLanguageId === languageId ? parseTargetScriptName(id) : undefined;
+      const script = parsed && targetScript(main, parsed.ucf, kind);
+      if (!parsed || !script || !ctx.getAssociatedScript(parsed.ucf)) return undefined;
+      const {mappings, linkedCodeMappings} = script.code;
+      const associatedScriptMappings = new Map([[parsed.ucf, mappings]]);
+      // Linked codes take a template use to its `<script setup>` binding.
+      const code: VirtualCode = {
+        id: 'main',
+        languageId: 'typescript',
+        snapshot,
+        mappings: [],
+        associatedScriptMappings,
+        linkedCodeMappings,
+      };
+      scriptKinds.set(code, script.scriptKind);
+      return code;
+    },
+    typescript: {
+      extraFileExtensions: [],
+      getServiceScript: (code): TypeScriptServiceScript => ({
+        code,
+        extension: '.ts',
+        scriptKind: scriptKinds.get(code)!,
+        preventLeadingOffset: true,
+      }),
+    },
+  };
+  const language = createLanguage([plugin], new FileMap(caseSensitive), (id) => {
+    const parsed = parseTargetScriptName(id);
+    const snapshot = parsed
+      ? targetScript(main, parsed.ucf, kind)?.code.snapshot
+      : id.endsWith('.ucf')
+        ? main.scripts.get(id)?.snapshot
+        : undefined;
+    if (snapshot) language.scripts.set(id, snapshot);
+    else language.scripts.delete(id);
+  });
+  return language;
+}
+
+/** Decorates the host now, before Volar binds it; `setup` and `route` run once Volar made its own language. */
+export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateInfo, base: ts.LanguageService) {
+  const host = info.languageServiceHost;
+  const project = info.project;
+  let main: Language<string> | undefined;
+  const served: Served[] = SERVED_KINDS.map((kind) => ({kind, ...createProxyLanguageService(base)}));
+
+  const scriptOf = (fileName: string): TargetScript | undefined => {
+    const parsed = parseTargetScriptName(fileName);
+    return parsed && main && targetScript(main, parsed.ucf, parsed.kind);
+  };
+  // tsserver keeps every program file's parse on its ScriptInfo: the file needs one, though it is on no disk.
+  const attachScriptInfo = (fileName: string, scriptKind: ts.ScriptKind): void => {
+    const path = ts.server.toNormalizedPath(fileName);
+    const hasMixedContent = true; // no watcher on a file that is not there
+    const scriptInfo = project.projectService.getOrCreateScriptInfoForNormalizedPath(
+      path,
+      false,
+      undefined,
+      scriptKind,
+      hasMixedContent,
+      {
+        fileExists: () => true,
+      }
+    );
+    scriptInfo?.attachToProject(project);
+  };
+
+  const getScriptFileNames = host.getScriptFileNames.bind(host);
+  const getScriptSnapshot = host.getScriptSnapshot.bind(host);
+  const getScriptVersion = host.getScriptVersion.bind(host);
+  const getScriptKind = host.getScriptKind?.bind(host);
+  const fileExists = host.fileExists?.bind(host);
+  host.getScriptFileNames = () => {
+    const names = getScriptFileNames();
+    if (!main) return names;
+    // An imported `.ucf` file is no root: the last program brings it, and the next one its target scripts.
+    const imported = project.getFileNames(true, true);
+    const ucfs = new Set([...names, ...imported].filter((name) => name.endsWith('.ucf')));
+    const targets = [...ucfs].flatMap((ucf) =>
+      SERVED_KINDS.filter((kind) => targetScript(main!, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag))
+    );
+    return [...names, ...targets];
+  };
+  host.getScriptSnapshot = (fileName) => {
+    const script = scriptOf(fileName);
+    if (!script) return getScriptSnapshot(fileName);
+    attachScriptInfo(fileName, script.scriptKind);
+    return script.code.snapshot;
+  };
+  // The script changes exactly when its `.ucf` file does.
+  host.getScriptVersion = (fileName) => getScriptVersion(parseTargetScriptName(fileName)?.ucf ?? fileName);
+  if (getScriptKind) host.getScriptKind = (fileName) => scriptOf(fileName)?.scriptKind ?? getScriptKind(fileName);
+  if (fileExists) host.fileExists = (fileName) => (parseTargetScriptName(fileName) ? !!scriptOf(fileName) : fileExists(fileName));
+
+  // Only a script the program holds: a `.ucf` file first seen through an import gets its own on the next sync.
+  const servedIn = (fileName: string): Served[] => {
+    const program = base.getProgram();
+    return served.filter(({kind, language}) => {
+      const name = targetScriptName(fileName, kind.tag);
+      return program?.getSourceFile(name) && language?.scripts.get(name)?.generated;
+    });
+  };
+  const servedAt = (fileName: string, position: number): Served | undefined => {
+    const split = (main?.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+    return servedIn(fileName).find(({kind}) => {
+      const block = split?.targets[kind.tag];
+      return block && position >= block.contentStart && position <= block.contentEnd;
+    });
+  };
+
+  return {
+    setup(language: Language<string>): void {
+      main = language;
+      for (const target of served) {
+        target.language = createTargetLanguage(language, target.kind, ts.sys.useCaseSensitiveFileNames);
+        target.initialize(target.language);
+      }
+    },
+    route(languageService: ts.LanguageService): ts.LanguageService {
+      const routed: Partial<ts.LanguageService> = {};
+      for (const method of BY_POSITION) {
+        routed[method] = ((fileName: string, position: number, ...rest: unknown[]) => {
+          const service = (fileName.endsWith('.ucf') && servedAt(fileName, position)?.proxy) || languageService;
+          const result = (service[method] as (...args: unknown[]) => unknown)(fileName, position, ...rest);
+          return NAVIGATION.has(method) ? withoutTargetScripts(result) : result;
+        }) as never;
+      }
+      for (const method of DIAGNOSTICS) {
+        routed[method] = ((fileName: string) => {
+          const own = languageService[method](fileName);
+          if (!fileName.endsWith('.ucf')) return own;
+          return [...own, ...servedIn(fileName).flatMap(({proxy}) => proxy[method](fileName))];
+        }) as never;
+      }
+      return {...languageService, ...routed};
+    },
+  };
+}

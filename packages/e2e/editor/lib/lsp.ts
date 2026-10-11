@@ -1,6 +1,7 @@
 import {startLanguageServer as forkLanguageServer} from '@volar/test-utils';
 import type {LanguageServerHandle} from '@volar/test-utils';
-import {join} from 'node:path';
+import {createRequire} from 'node:module';
+import {dirname, join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
 export interface LanguageServer extends LanguageServerHandle {
@@ -12,6 +13,9 @@ const SERVER_BIN = join(
   fileURLToPath(new URL('../..', import.meta.url)),
   'node_modules/@multifront/language-tools/bin/multifront-language-server.js'
 );
+
+// Stands in for the extension's tsdk: a TypeScript lib folder.
+export const TSDK = dirname(createRequire(import.meta.url).resolve('typescript'));
 
 interface LanguageServerOptions {
   server?: string; // a bundled server file, run as is; default: the bin, from source
