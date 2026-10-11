@@ -1,0 +1,20 @@
+<vue>
+  <script setup lang="ts">
+  const label = 'Box'
+  </script>
+
+  <template>
+    <div :class="$style.box">{{ label }}</div>
+  </template>
+</vue>
+
+<react>
+  export default function Box() {
+    return <div className={$style.box}>Box</div>
+  }
+
+<style module>
+.box {
+  padding: 4px;
+}
+</style>

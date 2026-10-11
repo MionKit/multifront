@@ -46,12 +46,11 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
   const source = snapshot.getText(0, snapshot.getLength());
   const split = splitBlocks(source, fileName);
   const ctx = createEditorContext(split, options);
-  const embeddedCodes: VirtualCode[] = editorFiles(ctx).map(({block, file: {code, ext, mappings}}) => ({
-    id: codeId(block),
-    languageId: LANGUAGE_ID_BY_EXT[ext],
-    snapshot: stringSnapshot(code),
-    mappings,
-  }));
+  const embeddedCodes: VirtualCode[] = editorFiles(ctx).map(({block, file}) => {
+    if (!('ext' in file)) return Object.assign(file, {id: codeId(block)});
+    const {code, ext, mappings} = file;
+    return {id: codeId(block), languageId: LANGUAGE_ID_BY_EXT[ext], snapshot: stringSnapshot(code), mappings};
+  });
   const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_FEATURES}];
   return {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
 }
