@@ -1,14 +1,12 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {moduleClassName} from '@multifront/core';
 import genericNames from 'generic-names';
-import type {CSSModulesOptions, Plugin, ResolvedConfig} from 'vite';
-import {splitId} from './ids.ts';
+import type {CSSModulesOptions, ResolvedConfig} from 'vite';
+import {VUE_INCLUDE, splitId} from './ids.ts';
 
 type ScopedNameGenerator = Extract<CSSModulesOptions['generateScopedName'], Function>;
-type TransformHook = Extract<NonNullable<Plugin['transform']>, {handler: unknown}>;
 
 const VITE_CSS_PLUGIN = 'vite:css';
-const UCF_STYLE = /\.ucf$/;
 const CSS_MODULE = /\.module\.\w+$/;
 
 const LIGHTNINGCSS_MODULES =
@@ -46,11 +44,11 @@ export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: stri
   if (modules === false && !lightningcss) return;
   const transform = config.plugins.find((plugin) => plugin.name === VITE_CSS_PLUGIN)?.transform;
   if (!transform || !('handler' in transform))
-    throw new Error(`multifront: Vite's ${VITE_CSS_PLUGIN} plugin has no transform hook`);
-  const handler: TransformHook['handler'] = transform.handler;
+    throw new Error(`multifront: Vite's ${VITE_CSS_PLUGIN} plugin has no transform hook with a handler`);
+  const {handler} = transform;
   transform.handler = function (code, id, options) {
     const {path, query} = splitId(id);
-    if (!UCF_STYLE.test(path)) return handler.call(this, code, id, options);
+    if (!VUE_INCLUDE.test(path)) return handler.call(this, code, id, options);
     if (lightningcss && CSS_MODULE.test(id)) this.error(`${path}: ${LIGHTNINGCSS_MODULES}`);
     return compiling.run({file: path, index: query.get('index') ?? '0'}, () => handler.call(this, code, id, options));
   };

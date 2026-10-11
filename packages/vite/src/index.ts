@@ -17,12 +17,12 @@ import {
 import type {Target, VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
 import {ucfHotUpdate} from './hmr.ts';
-import {JS_LIKE, TARGET_SUFFIX, splitId, virtualTarget} from './ids.ts';
+import {JS_LIKE, TARGET_SUFFIX, VUE_INCLUDE, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
-import {VUE_INCLUDE, VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript} from './vueTarget.ts';
+import {VUE_PLUGIN_MISSING, composeVuePlugin, vueScanScript} from './vueTarget.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
