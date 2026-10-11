@@ -9,12 +9,13 @@ import {
   importerFromId,
   missingTargetBlockMessage,
   resolveTarget,
+  rewriteImportAttributes,
   scopeHelperCode,
 } from '@multifront/core';
 import type {VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
 import {ucfHotUpdate} from './hmr.ts';
-import {TARGET_SUFFIX, splitId, virtualTarget} from './ids.ts';
+import {JS_LIKE, TARGET_SUFFIX, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions} from './types.ts';
@@ -60,6 +61,15 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         return {code: split.targets.react?.content ?? '', moduleType: 'tsx'};
       },
     },
+    // Rolldown passes `resolveId` no import attributes: the scan must read `?framework=` from the specifier.
+    transform: {
+      filter: {id: JS_LIKE, code: /\.ucf/},
+      handler(code, id) {
+        // Errors are left to the real pipeline, which can point at the import.
+        const {code: rewritten, map} = rewriteImportAttributes(code, id);
+        return map ? rewritten : undefined;
+      },
+    },
   };
 
   const pre: Plugin = {
@@ -98,7 +108,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         // In dev Vite resolves the file `load` watches from the module itself: the real file, not an import.
         if (from?.block && from.fileName === file && !query.has('framework')) return file;
         const choice = resolveTarget(from, query.get('framework') ?? undefined, options);
-        // The scan never sees the attribute; the real pipeline reports what it cannot place.
+        // The scan only follows react; the real pipeline reports what it cannot place.
         if (scan && ('error' in choice || choice.target !== 'react')) return {id: file, external: true};
         if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, choice.error));
         const {target} = choice;

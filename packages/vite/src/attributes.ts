@@ -3,10 +3,8 @@ import type {SourceMapInput} from '@jridgewell/trace-mapping';
 import type {Plugin} from 'vite';
 import {importerFromId, locate, resolveTarget, rewriteImportAttributes} from '@multifront/core';
 import {describeDiagnostic, importErrorMessage} from './diagnostics.ts';
+import {JS_LIKE} from './ids.ts';
 import type {MultifrontOptions} from './types.ts';
-
-// With a query too: `C.vue?vue&type=script&setup=true&lang.ts`.
-const JS_LIKE = /\.(?:[cm]?[jt]sx?|vue|svelte)(?:\?|$)/;
 
 /** Spec 4.4: moves `with { framework }` into the `.ucf` specifier before Vite's import analysis or Rolldown read it. */
 export function attributesPlugin(options: MultifrontOptions): Plugin {
