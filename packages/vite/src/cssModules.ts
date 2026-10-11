@@ -1,11 +1,18 @@
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {moduleClassName} from '@multifront/core';
 import genericNames from 'generic-names';
-import type {CSSModulesOptions, ResolvedConfig} from 'vite';
+import type {CSSModulesOptions, Plugin, ResolvedConfig} from 'vite';
 import {splitId} from './ids.ts';
 
 type ScopedNameGenerator = Extract<CSSModulesOptions['generateScopedName'], Function>;
+type TransformHook = Extract<NonNullable<Plugin['transform']>, {handler: unknown}>;
 
+const VITE_CSS_PLUGIN = 'vite:css';
 const UCF_STYLE = /\.ucf$/;
+
+// The `.ucf` `<style>` block Vite's CSS plugin is compiling: postcss-modules names a file it composes from with
+// that file's path only, so the block reaches the generator through the async context.
+const compiling = new AsyncLocalStorage<{file: string; index: string}>();
 
 // string-hash 1.1.3, which postcss-modules' default generator uses.
 function stringHash(text: string): number {
@@ -33,13 +40,22 @@ function viteScopedName({generateScopedName, hashPrefix = ''}: CSSModulesOptions
 export function composeCssModules(config: ResolvedConfig, scopeIdOf: (file: string) => string): void {
   const {modules} = config.css;
   if (modules === false) return;
+  const transform = config.plugins.find((plugin) => plugin.name === VITE_CSS_PLUGIN)?.transform;
+  if (!transform || !('handler' in transform))
+    throw new Error(`multifront: Vite's ${VITE_CSS_PLUGIN} plugin has no transform hook`);
+  const handler: TransformHook['handler'] = transform.handler;
+  transform.handler = function (code, id, options) {
+    const {path, query} = splitId(id);
+    if (!UCF_STYLE.test(path)) return handler.call(this, code, id, options);
+    return compiling.run({file: path, index: query.get('index') ?? '0'}, () => handler.call(this, code, id, options));
+  };
   const other = viteScopedName(modules ?? {});
   config.css.modules = {
     ...modules,
     // A new object: a restart may reuse the user's, which must not find ours in it.
     generateScopedName(local, filename, css, ...rest: unknown[]) {
-      const {path, query} = splitId(filename);
-      if (UCF_STYLE.test(path)) return moduleClassName(local, scopeIdOf(path), query.get('index') ?? 0);
+      const style = compiling.getStore();
+      if (style) return moduleClassName(local, scopeIdOf(style.file), style.index);
       // postcss-modules also passes the PostCSS node, which Vite's type leaves out.
       return (other as (...args: unknown[]) => string)(local, filename, css, ...rest);
     },

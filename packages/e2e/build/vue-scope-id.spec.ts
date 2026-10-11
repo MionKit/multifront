@@ -1,8 +1,10 @@
 import {writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import type {Options} from '@vitejs/plugin-vue';
-import {moduleClassName, scopeId} from '@multifront/core';
+import {createBuildContext, moduleClassName, scopeId, splitBlocks} from '@multifront/core';
+import type {VueCompiler} from '@multifront/core';
 import {multifront} from '@multifront/vite';
 import type {CSSModulesOptions, InlineConfig, PluginOption, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
@@ -180,4 +182,26 @@ it('leaves CSS modules off when the user turned them off', async () => {
   const alone = await buildCode(vueRoot, config(false));
   expect((await buildCode(vueRoot, config(true))).css).toBe(alone.css);
   expect(classNamed(alone.css, 'off')).toBe('off');
+});
+
+it('names the classes a .ucf module composes from another file the same as Vue and as React', async () => {
+  const file = join(vueRoot, '..', '..', 'components', 'vue', 'ComposesFile.ucf');
+  const {source: text} = readComponent('vue/ComposesFile.ucf');
+  const compiler = createRequire(import.meta.url)('vue/compiler-sfc') as VueCompiler;
+  const ctx = await createBuildContext(splitBlocks(text, file), {root: vueRoot, compiler, production: true});
+  const build = async (framework: string) => {
+    await writeFile(
+      join(vueRoot, 'src', `${framework}.ts`),
+      `export {default} from '../../../components/vue/ComposesFile.ucf' with {framework: '${framework}'};\n`
+    );
+    const input = join(vueRoot, 'src', `${framework}.ts`);
+    return buildCode(vueRoot, {build: {rolldownOptions: {input, preserveEntrySignatures: 'strict'}}});
+  };
+  const base = moduleClassName('base', ctx.scopeId, 0);
+  for (const output of [await build('vue'), await build('react')]) {
+    // `tag` and `chip` list the composed `base` and `round` names.
+    for (const names of Object.values(ctx.modules.$style!.classes)) expect(output.code).toContain(`"${names}"`);
+    expect(classNamed(output.css, 'base')).toBe(base);
+  }
+  expect(Object.values(ctx.modules.$style!.classes).join(' ')).toContain(moduleClassName('round', ctx.scopeId, 0));
 });
