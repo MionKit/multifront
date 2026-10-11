@@ -15,15 +15,12 @@ const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules
 const SOURCE_CONDITION = '--conditions=source';
 const execNode = promisify(execFile);
 
-/** The `vite` CLI in `root`; `stop()` kills it. */
-export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEnv) {
-  const child = spawn(process.execPath, [SOURCE_CONDITION, VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], {
-    cwd: root,
-    env: {...process.env, NO_COLOR: '1', ...env},
-  });
+/** `node --conditions=source …args` in `root`; `stop()` kills it. */
+export function startNode(root: string, args: string[], env: NodeJS.ProcessEnv) {
+  const child = spawn(process.execPath, [SOURCE_CONDITION, ...args], {cwd: root, env: {...process.env, NO_COLOR: '1', ...env}});
   let output = '';
   const waiters = new Set<() => void>();
-  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  const exited = new Promise<number | null>((resolve) => child.once('exit', (code) => resolve(code)));
   const append = (chunk: Buffer) => {
     output += chunk.toString();
     for (const check of waiters) check();
@@ -41,15 +38,38 @@ export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEn
           resolve(output);
         };
         waiters.add(check);
-        void exited.then(() => waiters.has(check) && reject(new Error(`vite exited before ${pattern}:\n${output}`)));
+        void exited.then(() => waiters.has(check) && reject(new Error(`process exited before ${pattern}:\n${output}`)));
         check();
       });
+    },
+    /** Resolves with the output on exit code 0, rejects with it otherwise. */
+    async finished(): Promise<string> {
+      const code = await exited;
+      if (code !== 0) throw new Error(`exited with ${code}:\n${output}`);
+      return output;
     },
     async stop(): Promise<void> {
       if (child.exitCode === null && child.signalCode === null) child.kill();
       await exited;
     },
   };
+}
+
+/** The `vite` CLI in `root`; `stop()` kills it. */
+export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEnv) {
+  return startNode(root, [VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], env);
+}
+
+/** The app's own `server.ts` (dev SSR), once it listens. */
+export async function startSsrServer(root: string) {
+  const server = startNode(root, ['server.ts'], {NODE_ENV: 'development'});
+  try {
+    const url = /ssr server: (\S+)/.exec(await server.waitForOutput(/ssr server: \S+/))![1]!;
+    return {...server, url};
+  } catch (err) {
+    await server.stop();
+    throw err;
+  }
 }
 
 /** Runs `steps` on one dev server of `root`, watcher off, in a fresh process; one code per request step. */
