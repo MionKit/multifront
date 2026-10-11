@@ -1,7 +1,6 @@
 import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
-import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
-import {dirname, join} from 'node:path';
+import {join} from 'node:path';
 import {rewriteImportAttributes} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
@@ -18,7 +17,7 @@ import {
   PLUGIN,
   readApp,
 } from './lib/cases.ts';
-import {startLanguageServer} from './lib/lsp.ts';
+import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {E2E_DIR, open, startTsserver} from './lib/tsserver.ts';
 import type {Tsserver} from './lib/tsserver.ts';
@@ -26,8 +25,6 @@ import {packVsix} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
 const NON_LITERAL = readApp('no-default/non-literal.ts');
-// Stands in for the extension's tsdk: a TypeScript lib folder.
-const TSDK = dirname(createRequire(import.meta.url).resolve('typescript'));
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
 
 // Every check runs on what the .vsix ships, not on packages/vscode/dist.

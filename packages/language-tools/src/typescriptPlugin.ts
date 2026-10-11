@@ -4,6 +4,7 @@ import {createLanguageServicePlugin} from '@volar/typescript/lib/quickstart/crea
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
+import {serveTargetScripts} from './targetScripts.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution, UcfVirtualCode} from './types.ts';
 
 const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
@@ -75,6 +76,9 @@ function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefi
   }
 }
 
+// Volar's proxy, wrapped once its callback ran: requests in a target's block go to that target's script.
+const routers = new WeakMap<ts.server.PluginCreateInfo, (languageService: ts.LanguageService) => ts.LanguageService>();
+
 const volarPlugin = createLanguageServicePlugin((ts, info) => {
   const host = info.languageServiceHost;
   // tsserver's host is a Project instance: its methods need their `this`.
@@ -115,10 +119,14 @@ const volarPlugin = createLanguageServicePlugin((ts, info) => {
       return [...kept, ...errors.map(({diagnostic}) => diagnostic)];
     },
   };
+  const targetScripts = serveTargetScripts(ts, info, info.languageService);
+  routers.set(info, targetScripts.route);
 
+  const compilerOptions = host.getCompilationSettings();
   return {
-    languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info)})],
+    languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info), ts, compilerOptions})],
     setup(language) {
+      targetScripts.setup(language);
       getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
       // Volar has wrapped it already; ours runs first, so Volar never sees a `.ucf` specifier.
       const resolve = host.resolveModuleNameLiterals?.bind(host);
@@ -159,7 +167,8 @@ const plugin: ts.server.PluginModuleFactory = (modules) => {
         return info.languageService;
       }
       project[SERVED] = plugin;
-      return volar.create(info);
+      const languageService = volar.create(info);
+      return routers.get(info)?.(languageService) ?? languageService;
     },
   };
 };
