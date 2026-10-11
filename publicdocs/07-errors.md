@@ -33,5 +33,5 @@ These sit on the path of a `.ucf` import. [Imports](04-imports.md) says how an i
 | `unknown-framework` | Use `vue`, `react` or `svelte` as the `framework` value. |
 | `target-not-enabled` | Pick one of the frameworks the message names, or add this one to the `frameworks` option. |
 | `no-target` | Add `with {framework: 'react'}`, import from a `.tsx` file, or set the `framework` option. |
-| `target-not-built` | Pick react or vue: multifront does not build `<svelte>` blocks. In the editor, TypeScript has types for react picks only; the message names the rule that picked vue or svelte. |
+| `target-not-built` | Pick react or vue: multifront does not build `<svelte>` blocks. In the editor, TypeScript has types for react and vue picks only; the message names the rule that picked svelte. |
 | `mixed-frameworks` | A warning: one file imports the same path as two frameworks. Import each from its own small file that re-exports it. |

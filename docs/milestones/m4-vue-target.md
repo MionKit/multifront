@@ -296,15 +296,25 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ### 4.13 `Card.ucf.vue.ts` for `.ts` importers
 
 - Build: in the TypeScript plugin, `.ucf` imports that `resolveTarget()` sends to `vue` resolve to `Card.ucf.vue.ts`, the `types()` file of 4.3, which tsserver serves since 4.3. It exports a Vue `DefineComponent`.
-  - Global types: `Card.ucf.vue.ts` references `<typesRoot>/template-helpers.d.ts` and `props-fallback.d.ts`. `typesRoot` defaults to the `types/` folder of the installed `@vue/language-core`, which works unbundled. `scripts/lib/bundle-vscode.mjs` copies `@vue/language-core/types/*.d.ts` beside the bundle, and the bundled plugin sets `typesRoot` to that copy. Without it, every `__VLS_*` helper type is missing and nothing shows it: those errors sit in unmapped generated code.
+  - `resolveUcfImport` resolves a pick of any served target (`isServedTarget()` in `targetScripts.ts`: a kind with `serviceScript`) to `targetScriptName()`, from every importer. No block for it: `missing-target-block`, unresolved. Svelte picks keep `target-not-built` until M6.
+  - A target script in a program brings its `.ucf` file in as a script name too, so an edit of `Card.ucf` marks a project that only picks vue from it dirty. A program that reached such a file first makes the project dirty once more (`afterUpdate()`, from the plugin's `getExternalFiles`, which tsserver calls after each program), because tsserver builds the next program only for a dirty project.
+  - Definitions and references that land in `Card.ucf.vue.ts` map into `Card.ucf` through that target's Volar language, from any file. An unmapped definition in another file than the one asked about is that `.ucf` file at its start, as Volar does for a `.vue` file.
+  - Global types: `Card.ucf.vue.ts` references `<typesRoot>/template-helpers.d.ts` and `props-fallback.d.ts`. `typesRoot` defaults to the `types/` folder of the installed `@vue/language-core`, which works unbundled. `scripts/lib/bundle-vscode.mjs` copies `@vue/language-core/types/*.d.ts` to `dist/vue-types/` beside the bundle, and the extension's plugin entry is `createTypeScriptPlugin({vueTypesRoot})` (new named export of `@multifront/language-tools/typescript-plugin`; `EditorOptions.vueTypesRoot`) pointing at that copy. Without it, every `__VLS_*` helper type is missing and nothing shows it: those errors sit in unmapped generated code.
+  - `fixtures/apps/demo/tsconfig.json` (`module: preserve`, for the attribute in `mountVue.ts`). The imports set gains the `vue-default/` sub-project (plugin option and `multifront()` option `framework: 'vue'`, a bare `.ts` import) and its row.
 - Deliverable: a `.ts` file that picks Vue for a `.ucf` import gets the real Vue component type.
 - Test: `packages/e2e/editor/vue-types.spec.ts`. Use `startTsserver()` with our plugin on `fixtures/apps/demo/`:
-  - in `mountVue.ts`, quick info on `Counter` shows a `DefineComponent` with the `start: number` prop;
-  - `h(Counter, {start: 'x'})` is an error;
-  - with the plugin option `framework: 'vue'`, a bare import in a `.ts` file resolves the same way;
-  - a React importer of the same file still gets the React type;
-  - the plugin bundled by `pnpm devx vsix`: `projectInfo` with `needFileNameList` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the copy beside the bundle;
-  - `packages/e2e/editor/vsix.spec.ts`'s exact list of packed files gains the copied `types/*.d.ts`.
+  - in `mountVue.ts`, nothing reported as written; quick info on the import itself reads `import Counter` (language-core exports an expression), a binding of `Counter` is a `DefineComponent` and its `start` prop `number`;
+  - `h(Counter, {start: 'x'})` is one `TS2769`, at `start`;
+  - with the plugin option `framework: 'vue'` (`imports/vue-default/bare.ts`), a bare import in a `.ts` file resolves the same way, and so do the imports rows the importer's extension picks (`custom-importers/view.tsx`, `no-default/importer.mts`, `no-default/attribute-over-importer.tsx`);
+  - a React importer of the same file (`App.tsx`) still gets the React type;
+  - definition on `Counter` in `mountVue.ts` lands in `Counter.ucf`, and on `start` in `h(Counter, {start: 1})` on its declaration there; rename of that `start` edits `mountVue.ts` and `Counter.ucf` only;
+  - in a fresh tsserver with `bare.ts` opened using `Card`, an unsaved edit of `Card.ucf`'s prop type changes its diagnostics;
+  - `projectInfo` with `needFileNameList` lists `template-helpers.d.ts` and `props-fallback.d.ts` from the installed language-core; `getTypesScript()` with a `vueTypesRoot` references them there, and without one the installed ones again;
+  - the plugin bundled by `pnpm devx vsix`, in `bundle.spec.ts`'s "plugin pack alone" tsserver (its one pack): a vue pick gets a `DefineComponent`, and `projectInfo` lists the two files from the copy beside the bundle;
+  - `packages/e2e/editor/vsix.spec.ts`'s exact list of packed files gains the copied `dist/vue-types/*.d.ts`.
+
+  Also: `vue-block.spec.ts` checks, before any edit, that a `.ucf` file a project reaches only through an import has its Vue script in the program (`afterUpdate()`); the imports rows that pick vue from a `.ts`, `.tsx` or `.mts` importer resolve with no error and their definition lands on `Card.ucf` (`editor/imports.spec.ts`); `mixed.ts`'s vue import has no error now, only the react one's `mixed-frameworks` warning (`tsserver.spec.ts`, `bundle.spec.ts`).
+- Status: done
 
 ### 4.14 `.vue` importers beside Vue's TypeScript plugin
 
