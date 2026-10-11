@@ -270,13 +270,14 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ### 4.12 The `<vue>` block in the language server
 
 - Build: in `packages/language-tools/src/blocks/vue.ts` and the server setup:
-  - `createRootCode` (`src/languagePlugin.ts`) gives the root code getters `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` that read the nested `vue` code, when the file has one. Vue's service plugins read those from the root, not from the code they serve (spike 2).
-  - The tsserver relay. Our server sends each tsserver request to the client as an LSP notification, as Vue's server does. The extension (`packages/vscode/src/extension.ts`) runs it through VS Code's `typescript.tsserverRequest` command and sends the answer back. `packages/e2e/editor/lib/` gains a helper that links `startLanguageServer()` to `startTsserver()` the same way, so tests use the real relay path;
-  - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code, through the Vue script 4.3 serves beside the React one. Our server adds `createVueLanguageServicePlugins(ts, client)` from `@vue/language-service`, minus its `css` plugin, because our `volar-service-css` already serves the `<style>` blocks. The plugins run on the nested code through the root's forwarding getters (4.3). `client` asks tsserver for type information, as Vue's own server does. Our TypeScript plugin answers through its own protocol handlers, which call `@vue/typescript-plugin`'s request functions (`getComponentNames`, `getElementNames`, `getElementAttrs`, `getComponentProps`, `getComponentDirectives`) with the nested code. Vue's own `_vue:*` handlers need a `VueVirtualCode` root, so they cannot serve `.ucf` files;
+  - `createRootCode` (`src/languagePlugin.ts`) calls `forwardToVueCode()`: the root code gets getters `fileName`, `ir`, `vueSfc` and `vueCompilerOptions` that read the nested `vue` code, when the file has one. Vue's service plugins read those from the root, not from the code they serve (spike 2).
+  - The tsserver relay. Our server sends each tsserver request to the client as the LSP notification `tsserver/request` `[id, command, args]`, as Vue's server does. The extension (`packages/vscode/src/extension.ts`) runs it through VS Code's `typescript.tsserverRequest` command and sends `tsserver/response` `[id, body]` back, `undefined` when the command fails (no TypeScript extension). `relayTsserver(server, tsserver)` in `packages/e2e/editor/lib/lsp.ts` links `startLanguageServer()` to `startTsserver()` the same way, so tests use the real relay path; the server handle's `log` keeps every message the server logged;
+  - hybrid mode (M2): tsserver with our plugin serves the TypeScript features of the nested Vue code, through the Vue script 4.3 serves beside the React one. Our server adds `createVueLanguageServicePlugins(ts, client)` from `@vue/language-service`, minus its `css` plugin (`name: 'css'`), because our `volar-service-css` already serves the `<style>` blocks. The plugins run on the nested code through the root's forwarding getters. Three of them wait for Vue's root code id `main` (`vue-inlayhints`, `vue-document-highlights`, `typescript-semantic-tokens`) and stay idle on our `root`. `client` asks tsserver for type information, as Vue's own server does. Our TypeScript plugin answers through its own protocol handlers (`src/vueRequests.ts`, commands `_multifront:<request>`: VS Code's `typescript.tsserverRequest` passes commands starting with `_`), which call `@vue/typescript-plugin`'s request functions (`getComponentNames`, `getElementNames`, `getElementAttrs`, `getComponentProps`, `getComponentDirectives`) with the nested code and `Card.ucf.vue.ts` as its program file. Every other client request answers nothing, as with Vue's default client. Vue's own `_vue:*` handlers need a `VueVirtualCode` root, so they cannot serve `.ucf` files;
   - `$style` and named modules are typed from the root `<style module>` blocks, which are present in the same-length SFC code, so language-core types them natively;
-  - the in-block import rule for `<vue>`: `import Icon from './Icon.ucf'` in a `<vue>` block resolves to `Icon.ucf.vue.ts`.
+  - the in-block import rule for `<vue>`: `Card.ucf.vue.ts` is an importer inside the `<vue>` block (`importerFromId()`), so `import Icon from './Icon.ucf'` there resolves to `Icon.ucf.vue.ts`, and a `framework` attribute there is `framework-in-block`. Other vue picks keep `target-not-built` until 4.13.
+  - The shared `imports/Icon.ucf` gains a `size?: number` prop in its `<vue>` block; `imports/VueOnly.ucf` takes its place as the template-only case in `core/test/blocks/vue.spec.ts`.
 - Deliverable: writing a `<vue>` block feels like writing a `.vue` file.
-- Test: `packages/e2e/editor/vue-block-features.spec.ts`, the real tsserver with our plugin plus the real language server over LSP, on `Counter.ucf` and `UsesIcon.ucf`:
+- Test: `packages/e2e/editor/vue-block-features.spec.ts`, the real tsserver with our plugin plus the real language server over LSP, linked by `relayTsserver()`, on `Counter.ucf` and `UsesIcon.ucf`:
   - hover on a `<script setup>` variable used in the template shows its type;
   - completion inside `{{ }}` lists it;
   - go to definition from the template lands on its declaration in the same `.ucf` file;
@@ -284,9 +285,12 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - `<Icon :size="'big'" />` with a number prop is an error at that attribute;
   - hover and go to definition also on `vue/CounterCrlf.ucf`, at the same spots;
   - in the template, completion at `<sp|` lists `span`, `div` and the file's own component, and before an attribute it lists `:id`, `@click` and `v-if`;
-  - no plugin error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`);
-  - in `Counter.ucf`'s `<style scoped>`, completion lists `color` exactly once (Vue's `css` plugin is left out);
+  - no warning or error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`);
+  - in `Counter.ucf`'s `<style scoped>`, completion lists `color` once and its hover has its docs once (Vue's `css` plugin is left out; completion items are merged by label, a hover is not);
   - `vue/AttrInside.ucf` gets its two `framework-in-block` from tsserver alone: the language server leaves that code to tsserver (`TSSERVER_CODES`), and since 4.10 `vueKind.check` reports it too.
+
+  Also, in real VS Code (`packages/e2e/editor/vscode/suite.cjs`, the packed extension): completion before an attribute in `Counter.ucf`'s template lists `@click` (tsserver through the extension's relay), and with the TypeScript extension disabled still lists `v-if` (the relay answers when the command is missing).
+- Status: done
 
 ### 4.13 `Card.ucf.vue.ts` for `.ts` importers
 
