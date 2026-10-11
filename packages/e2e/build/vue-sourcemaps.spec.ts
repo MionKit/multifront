@@ -27,8 +27,8 @@ beforeAll(async () => {
 });
 
 /** Line 1-based, column 0-based in UTF-16 code units, as source maps count. */
-function positionOf(text: string, search: string, shift = 0): {line: number; column: number} {
-  const offset = text.indexOf(search);
+function positionOf(text: string, search: string | RegExp, shift = 0): {line: number; column: number} {
+  const offset = typeof search === 'string' ? text.indexOf(search) : (search.exec(text)?.index ?? -1);
   if (offset < 0) throw new Error(`not found: ${search}`);
   return locate(text, offset + shift);
 }
@@ -53,7 +53,7 @@ describe('a production build of the vue app with build.sourcemap', () => {
     map = new TraceMap(chunk.map!.toString());
   });
 
-  const trace = (generated: string, shift = 0) => originalPositionFor(map, positionOf(chunk.code, generated, shift));
+  const trace = (generated: string | RegExp, shift = 0) => originalPositionFor(map, positionOf(chunk.code, generated, shift));
 
   it('maps a template expression to its line and column in Counter.ucf', () => {
     // After the non-ASCII `title` on the same line: columns count UTF-16 code units.
@@ -63,7 +63,8 @@ describe('a production build of the vue app with build.sourcemap', () => {
 
   it('maps a <script setup> statement to its line and column in Counter.ucf', () => {
     const expected = positionOf(counter, 'const count = ref(');
-    expect(trace('const count = /* @__PURE__ */ ref(__props.start')).toMatchObject({
+    // compiler-sfc 3.5.27 and later mark the call pure.
+    expect(trace(/const count = (?:\/\* @__PURE__ \*\/ )?ref\(__props\.start/)).toMatchObject({
       source: expect.stringMatching(/\/Counter\.ucf$/),
       ...expected,
     });
