@@ -107,6 +107,21 @@ Each milestone has a detailed document with ordered steps, deliverables and test
 - `react`, `react-dom` and plugin-react as optional peers; every React test also runs at the bottom of their range (`react-floor` CI job).
 - If the scope transform is not reliable, fall back to CSS modules only for React and revisit.
 
+**Verdict: go** (milestone 3.16, on Vite 8.2.2, oxc-parser 0.149.0, Node 26.11.1, Playwright 1.63.0's Chromium; React
+and react-dom 19.3.0 with plugin-react 6.1.1 at the top of the range, 19.0.0 with 6.0.0 at the floor). The scope
+transform stays; the CSS-modules-only fallback is not needed. Each go criterion of the milestone document:
+
+1. **Exit test** (`packages/e2e/browser/demo-exit.spec.ts`): 20 local runs in a row, 20 passed.
+2. **Shapes:** `packages/e2e/browser/react-scope.spec.ts`, dev and preview. Every forwarded shape and branch carries
+   the parent's `data-v-<id>` on its root DOM element only; FragmentRoot and NullRoot pass it to no element. The only
+   React-side warning is FragmentRoot's, once, in dev. A shape's own stamp shows where it has a scoped style
+   (MultiReturn); `scope/Stamped.ucf` pins it on every element kind. Shapes with no style carry none, as in Vue.
+3. **Fuzz long run:** 10,000 files for each of seeds 1 to 10, no failure. Core and the Vite plugin did not change
+   after the run.
+4. **Style-only edit:** the exit test and `hmr-react.spec.ts`. No `.ucf.react.tsx` request, and the count stays.
+5. **No attribute left:** `packages/e2e/build/imports.spec.ts` (dev client and SSR, build, SSR render) and the exit
+   test's build output. `packages/e2e/editor/imports.spec.ts`: tsserver agrees with the build on every react row.
+
 ### 4. Vue target
 
 - The composition described above: real `.ucf` id, plugin-vue `include`, shared `componentIdGenerator`.
