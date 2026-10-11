@@ -185,7 +185,8 @@ describe('milestone 4 exit test', () => {
       expect(payloads.fullReloads()).toBe(0);
       expect(loads).toBe(1);
       expect(problems(messages)).toEqual([]);
-      expect(vite.output()).not.toMatch(/error/i);
+      // Its `hmr update` line holds the copy's path, which may itself spell "error".
+      expect(vite.output().replaceAll(resolve(root, '..', '..'), '')).not.toMatch(/error/i);
     } finally {
       await page.close();
       await vite.stop();
