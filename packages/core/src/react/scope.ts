@@ -203,7 +203,7 @@ interface FoundRoot {
   hop?: {via: IdentifierReference; whole: boolean};
 }
 
-// `hop` holds the one `const x = <jsx>` of the same function a root was reached through.
+// `hop` set: a const was already followed, so a second one is not.
 function jsxRoots(expression: Expression, consts: Map<string, Expression>, hop: FoundRoot['hop'], found: FoundRoot[]): void {
   switch (expression.type) {
     case 'JSXElement':

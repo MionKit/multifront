@@ -32,7 +32,6 @@ function readKnob(name: string, fallback: number, min: number, max: number): num
   return value;
 }
 
-/** `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS`, else the spec's defaults. */
 export function fuzzSettings(defaults: FuzzSettings): FuzzSettings {
   return {
     // mixSeed works on 32 bits: a larger seed would silently replay a smaller one.
@@ -79,7 +78,6 @@ export function createRandom(seed: number) {
 }
 export type Random = ReturnType<typeof createRandom>;
 
-/** Drops one action at a time while `stillFails` holds; the fewest actions that still fail. */
 export async function shrinkActions<Kind extends string>(
   actions: Action<Kind>[],
   stillFails: (fewer: Action<Kind>[], current: Action<Kind>[]) => boolean | Promise<boolean>
@@ -93,7 +91,7 @@ export async function shrinkActions<Kind extends string>(
   return kept;
 }
 
-/** The command that replays the failing run: CI shows only the assertion message, so it goes there. */
+/** CI shows only the assertion message, so the replay command goes in it. */
 export function replayLine(seed: number, runIndex: number, specPath: string): string {
   return `replay: MULTIFRONT_FUZZ_SEED=${seed} MULTIFRONT_FUZZ_RUNS=${runIndex + 1} pnpm devx test ${specPath}`;
 }
