@@ -18,7 +18,7 @@ import type {Target, VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
 import {ucfHotUpdate} from './hmr.ts';
 import {JS_LIKE, TARGET_SUFFIX, VUE_INCLUDE, splitId, virtualTarget} from './ids.ts';
-import {attributesPlugin} from './attributes.ts';
+import {attributesPlugin, vueImportersPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry} from './types.ts';
 import {getVueCompiler, hasVuePlugin, vuePluginApi} from './vueCompiler.ts';
@@ -223,5 +223,6 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     const vueApi = vuePluginApi(config!.plugins);
     return vueApi && {compiler: api.vueCompiler, options: vueApi.options};
   };
-  return [pre, vueHmrPlugin(cache, vueOf), attributesPlugin(options)];
+  const vueImporters = vueImportersPlugin(options, () => (hasVuePlugin(config!.plugins) ? api.vueCompiler : undefined));
+  return [pre, vueHmrPlugin(cache, vueOf), vueImporters, attributesPlugin(options)];
 }
