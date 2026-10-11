@@ -1,0 +1,13 @@
+# multifront for VS Code
+
+Editor support for multifront component files (`.ucf`): highlighting in every block, the language server and the TypeScript plugin.
+
+`.vue` files that import a `.ucf` component get its Vue type through Vue's own TypeScript plugin: install [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) too.
+
+Part of [multifront](https://github.com/MionKit/multifront): one component file, three frameworks.
+
+> **Status:** early development, not published yet.
+
+## License
+
+MIT

@@ -92,13 +92,14 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(output).not.toMatch(/WARNING|::warning::/);
   });
 
-  it('packs exactly the manifest, language files, generated grammars, bundles, Vue types, plugin pack and licenses', () => {
+  it('packs exactly the manifest, readme, language files, generated grammars, bundles, Vue types, plugin pack and licenses', () => {
     expect(VUE_TYPES).toEqual(expect.arrayContaining(['template-helpers.d.ts', 'props-fallback.d.ts']));
     const vendored = Object.keys(readJson<Record<string, unknown>>(join(EXTENSION_DIR, 'syntaxes', 'vendor', 'sources.json')));
     expect(vendored.length).toBeGreaterThan(0);
     const [language] = manifest.contributes.languages;
     const expected = [
       'package.json',
+      'README.md',
       'LICENSE',
       ...[language!.configuration, language!.icon.light, language!.icon.dark].map((path) => path.replace(/^\.\//, '')),
       'syntaxes/vendor/sources.json',
