@@ -13,6 +13,7 @@ const VUE_HELPERS = /openBlock|createElementBlock|createElementVNode/;
 
 let output: Awaited<ReturnType<typeof buildApp>>;
 const imports = new Map<string, readonly string[]>();
+const withFramework: string[] = [];
 
 // The bare id and plugin-vue's sub-requests; our `?ucf&` style modules belong to no framework.
 const isVueModule = (id: string) => id === COUNTER || id.startsWith(`${COUNTER}?vue&`);
@@ -23,6 +24,7 @@ beforeAll(async () => {
     generateBundle() {
       for (const id of this.getModuleIds()) {
         if (id.startsWith(COUNTER)) imports.set(id, this.getModuleInfo(id)!.importedIds);
+        if (id.includes('framework=')) withFramework.push(id);
       }
     },
   };
@@ -45,7 +47,7 @@ describe('vite build of the demo, Counter.ucf as React and as Vue', () => {
   it('keeps Vue out of the React module', () => {
     expect(imports.has(REACT_ID)).toBe(true);
     expect(importedPackages((id) => id === REACT_ID).sort()).toEqual(['react', 'react']);
-    expect([...imports.get(REACT_ID)!].some((id) => id.includes('react/jsx-runtime'))).toBe(true);
+    expect(imports.get(REACT_ID)!.some((id) => id.includes('react/jsx-runtime'))).toBe(true);
     const [code] = renderedCode((id) => id === REACT_ID);
     expect(code).toContain('jsx');
     expect(code).not.toMatch(VUE_HELPERS);
@@ -55,18 +57,12 @@ describe('vite build of the demo, Counter.ucf as React and as Vue', () => {
     expect(imports.has(COUNTER)).toBe(true);
     expect(new Set(importedPackages(isVueModule))).toEqual(new Set(['vue']));
     const code = renderedCode(isVueModule).join('\n');
-    expect(code).toMatch(VUE_HELPERS);
+    expect(code).toContain('createElementBlock');
     expect(code).not.toContain('jsx');
   });
 
-  it('leaves no framework attribute', () => {
-    expect([...imports.keys()].filter((id) => id.includes('framework='))).toEqual([]);
-    for (const chunk of output.chunks) {
-      expectNoAttribute(chunk.code);
-      expect({file: chunk.fileName, framework: chunk.code.includes('framework')}).toEqual({
-        file: chunk.fileName,
-        framework: false,
-      });
-    }
+  it('leaves no framework attribute, in the code or in a module id', () => {
+    expect(withFramework).toEqual([]);
+    for (const chunk of output.chunks) expectNoAttribute(chunk.code);
   });
 });

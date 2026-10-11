@@ -28,17 +28,22 @@ Counter's two CSS rules ship twice (spec 4.3, "CSS twice in a mixed app", accept
   rest (spec 4.3 accepts the duplicate).
 - Orchestrator, Q2: `hmr-react.spec.ts` stays on the demo, with stricter mixed-page expectations.
 - Orchestrator, Q3: no fuzz test.
-- Orchestrator: the 4.11 step text follows what shipped (real import path, `mountVue(element)`, modules not chunks).
+- Orchestrator: the 4.11 step text follows what shipped (real import path, the `mountVue.ts` island, modules not chunks).
+- Review (automatic triage), all fixed: `mixed-targets.spec.ts` drops the `framework` text check `demo-exit.spec.ts`
+  already runs on the same build, keeps `expectNoAttribute()` (the step's Test line), checks every module id of the
+  build for `framework=` (not only Counter's) and the Vue code for `createElementBlock`; `mountVue.ts` mounts on import
+  (no one-caller wrapper); `STYLED` is an object; no redundant sort or spread.
+- Found: `build/vue-cache-miss.spec.ts` timed out once in a full gate run; filed as a guidelines todo in this PR.
 
 ## Plan
 
 1. **Demo app gains a Vue island**:
    - `vite.config.ts`: `plugins: [react(), vue(), multifront()]`.
    - New `src/mountVue.ts`: imports `Counter` from `'../../../components/Counter.ucf' with {framework: 'vue'}` (a `.ts`
-     importer has no default framework) and exports `mountVue(element: Element)`, which runs
-     `createApp(Counter).mount(element)`. 4.13 runs quick info on `Counter` here.
+     importer has no default framework) and runs `createApp(Counter).mount('#vue')`. 4.13 runs quick info on
+     `Counter` here.
    - `index.html`: `<div id="vue"></div>` after `<div id="app"></div>`.
-   - `src/main.tsx`: after the React render, `mountVue(document.getElementById('vue')!)`.
+   - `src/main.tsx`: `import './mountVue.ts';`.
    - `entry-server.tsx` stays React only.
 2. **New helper `packages/e2e/browser/lib/parity.ts`**:
    `expectSameComputedStyles(first: Locator, second: Locator, properties: string[]): Promise<void>` reads each
@@ -63,7 +68,8 @@ since M3 3.9; in-process `buildApp`, `startDev`, `buildAndPreview`). No new infr
     `openBlock` / `createElementBlock` / `createElementVNode`.
   - Vue modules (bare + `?vue&…`): import neither `react` nor `react/jsx-runtime`; rendered code holds
     `createElementBlock`, no `jsx`.
-  - `expectNoAttribute()` on every chunk, no `framework` text in any output file, no module id with `framework=`.
+  - `expectNoAttribute()` on every chunk, and no module id of the build with `framework=`. The `framework` text check
+    on every output file stays in `demo-exit.spec.ts`, on the same build.
 - `packages/e2e/browser/parity.spec.ts`, dev and preview: both counters render (`#app [data-demo="counter"] > .counter`,
   `#vue > .counter`) with the same `data-v-*`, equal to `scopeAttribute()`; `expectSameComputedStyles()` on padding,
   color, font size and border for root, `.label` and button, with hand-read values on one side; clicking each counter
@@ -72,7 +78,7 @@ since M3 3.9; in-process `buildApp`, `startDev`, `buildAndPreview`). No new infr
 
 ## Docs
 
-- `docs/milestones/m4-vue-target.md` 4.11: real import path, `mountVue(element)` from `main.tsx` and the `#vue`
+- `docs/milestones/m4-vue-target.md` 4.11: real import path, `mountVue.ts` imported by `main.tsx`, mounting on the `#vue`
   container, "modules" in place of "chunk", `- Status: done`.
 - `spec.md`, `plan.md`, `architecture.md`, `publicdocs/`: none (fixture and tests only).
 

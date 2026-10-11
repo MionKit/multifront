@@ -258,7 +258,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ### 4.11 One app, both targets
 
 - Build:
-  - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue (`[react(), vue(), multifront()]`) and a Vue island. `src/mountVue.ts` imports `Counter` from `'../../../components/Counter.ucf' with { framework: 'vue' }` and exports `mountVue(element)`; `main.tsx` calls it on `#vue`, a container beside the React `#app` in `index.html`.
+  - The demo app `packages/e2e/fixtures/apps/demo/` gains plugin-vue (`[react(), vue(), multifront()]`) and a Vue island. `src/mountVue.ts`, imported by `main.tsx`, imports `Counter` from `'../../../components/Counter.ucf' with { framework: 'vue' }` and mounts it on `#vue`, a container beside the React `#app` in `index.html`.
   - New helper `packages/e2e/browser/lib/parity.ts` exports `expectSameComputedStyles(first, second, properties)` for two Playwright locators.
   - The demo's older tests follow the island: `build/hmr.spec.ts` lists its own plugins (`configFile: false`), so its "without plugin-vue" cases stay so; `browser/hmr-react.spec.ts` expects plugin-vue's style sub-request beside ours on a `<style>` edit, and a `<vue>` edit to update only the Vue counter; `browser/demo-exit.spec.ts` counts Counter's CSS once per target (spec 4.3, "CSS twice in a mixed app").
 - Deliverable: the demo renders the same file as React and as Vue, side by side (spec section 9, milestone 4).
