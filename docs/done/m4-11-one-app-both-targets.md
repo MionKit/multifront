@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.11
@@ -28,6 +28,7 @@ Counter's two CSS rules ship twice (spec 4.3, "CSS twice in a mixed app", accept
   rest (spec 4.3 accepts the duplicate).
 - Orchestrator, Q2: `hmr-react.spec.ts` stays on the demo, with stricter mixed-page expectations.
 - Orchestrator, Q3: no fuzz test.
+- Orchestrator: the 4.11 step text follows what shipped (real import path, `mountVue(element)`, modules not chunks).
 
 ## Plan
 
@@ -46,8 +47,9 @@ Counter's two CSS rules ship twice (spec 4.3, "CSS twice in a mixed app", accept
    - `build/hmr.spec.ts`: `hmrApp()` builds with `configFile: false` and `[react(), multifront(), ...plugins(), recorder]`,
      so the "without plugin-vue" describe has none and the others hold one plugin-vue, as today.
    - `browser/hmr-react.spec.ts`: a `<style scoped>` edit requests our style module and plugin-vue's
-     `?vue&type=style&index=0&scoped=…&lang.css`; a `<react>` edit only `.react.tsx`; a `<vue>` edit only the Vue
-     module plugin-vue updates, the Vue label changes, the React counter keeps 3 and `Taps`.
+     `?vue&type=style&index=0&scoped=<scope id>&lang.css`; a `<react>` edit only `.react.tsx`; a `<vue>` edit only
+     `/@fs<Counter.ucf>?import` (the Vue module `mountVue.ts` imports), the Vue label changes, the React counter keeps
+     3 and `Taps`.
    - `browser/demo-exit.spec.ts`: CSS count per file: 2 for `Counter.ucf`, 1 for `react/ScopedPanel.ucf` and `Card.ucf`.
 
 ## Tests
