@@ -22,6 +22,20 @@ export const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in yo
 
 const EMPTY_SCAN: Rolldown.SourceDescription = {code: 'export default {}', moduleType: 'js'};
 
+// plugin-vue's descriptor cache lives at its module level, so this record does too: file → source we handed it.
+const handedSources = new Map<string, string>();
+
+/** Our transform handed plugin-vue the SFC code of `source`. */
+export function handedToVue(file: string, source: string): void {
+  handedSources.set(file, source);
+}
+
+/** Before plugin-vue loads a `.ucf?vue&…` sub-request: on a cache miss it would parse the raw file from disk. */
+export async function warmUpVue(context: Rolldown.PluginContext, file: string, source: string): Promise<void> {
+  // Runs our transform and plugin-vue's main one, which fills its cache.
+  if (handedSources.get(file) !== source) await context.load({id: file});
+}
+
 function addPattern(api: VuePluginApi, key: 'include' | 'exclude', pattern: RegExp): void {
   const list = [api[key] ?? []].flat();
   // A second `configResolved` (a restart with the same plugins) comes after `options`, when the setter throws.
