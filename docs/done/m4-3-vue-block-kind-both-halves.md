@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.3
@@ -53,19 +53,23 @@ blocks yet (target-not-built)`, at the opening tag. `react-target.spec.ts` stays
   strictCssModules: true}, (id) => id)`. SFC snapshot = `vueSfcCode(...).code` with every range outside `split.blocks`
   blanked (`\r`, `\n` kept). `editor()`: no `ts` → `[]`, else the `VueVirtualCode`. Vue's `style_N` codes are left out
   by an own `embeddedCodes` getter per instance, memoised per source array. `serviceScript`: the code whose id matches
-  `/^script_(ts|tsx|js|jsx)$/`. `types()`: that script as `{ext: '.ts', code, map: undefined, mappings}`.
+  `/^script_(ts|tsx|js|jsx)$/` (`script_js` for a plain `<script>`, `script_ts` with no `<script>`). `types()`: that script as `{ext: '.ts', code, map: undefined, mappings}`.
 
 ### 4. tsserver serves `Card.ucf.vue.ts` beside the React script (new `src/targetScripts.ts`, `typescriptPlugin.ts`)
 
 Generic over kinds with `serviceScript` (svelte in M6: `Card.ucf.svelte.ts`).
 
 - Host decoration in the plugin callback (before Volar binds): `getScriptFileNames` adds `X.ucf.vue.ts` per `.ucf` root
-  with a Vue script; `getScriptSnapshot` returns it (after making sure a ScriptInfo exists, see Problem);
+  with a Vue script, and per `.ucf` file the last program reached through an import (`project.getFileNames()`: no
+  sync); `getScriptSnapshot` returns it (after making sure a ScriptInfo exists, see Problem);
   `getScriptVersion` = the `.ucf` file's; `getScriptKind`; `fileExists`.
 - One Volar `Language` + `createProxyLanguageService(base)` per extra target: `X.ucf` associated-only, `X.ucf.vue.ts`
-  a code with `associatedScriptMappings` to `X.ucf`, `preventLeadingOffset`. Volar's own mapping does the rest.
+  a code with `associatedScriptMappings` to `X.ucf` and Vue's `linkedCodeMappings` (a template use reaches its
+  `<script setup>` binding through them), `preventLeadingOffset`. Volar's own mapping does the rest.
 - Router over the main proxy: the three diagnostics methods merge main + extras on a `.ucf` file; position requests
-  go to the extra proxy whose block content holds the position; the rest to main.
+  go to the extra proxy whose block content holds the position; the rest to main. Only a target script the program
+  holds is used. Definition, reference, highlight and rename results drop locations left in a target script: Volar
+  keeps an unmapped one (generated code) as a 0:0 span in that file, which no editor can open.
 - Plugin options: `{compiler, ts, compilerOptions: info.languageServiceHost.getCompilationSettings()}`.
 
 ### 5. Language server (`server.ts`)
@@ -88,7 +92,9 @@ All in `pnpm devx test`, on this host and in CI's `check` job; tsserver and the 
   - `{{ count.toFixed('x') }}` in `Counter.ucf`: exactly one diagnostic, `TS2345` at `'x'`; same on
     `vue/CounterCrlf.ucf` at its CRLF location.
   - `$style.buton`: exactly one `TS2551` at `buton`.
-  - quickinfo in `<react>` (`setCount`) and in `<vue>` (`const count`), definition from `{{ count }}` into `Counter.ucf`.
+  - `Counter.ucf` and `CounterCrlf.ucf` have no diagnostic as written.
+  - quickinfo in `<react>` (`setCount`) and in `<vue>` (`const count`), definition from `{{ count }}` into `Counter.ucf`
+    (exactly one location).
   - `vue/VueWithUnclosedReact.ucf`: no tsserver diagnostic.
   - Language server with a tsdk (`TSDK` moves to `editor/lib/lsp.ts`): `vue/Empty.ucf` → `[vue-empty-block]` at its
     line; `VueWithUnclosedReact.ucf` → `[unclosed-block]` only; `Counter.ucf` with a CSS error → one `css` diagnostic,
@@ -128,6 +134,12 @@ None (decision 5).
 - Every test above passes; `pnpm devx check` green; docs updated; 4.3 ends with `- Status: done`.
 - This todo is in `docs/done/`, updated to what shipped.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## As shipped
+
+- Negative controls run: without the gap blanking, the virtualCode sweep and the unclosed-`<react>` tsserver case
+  fail; without the `style_N` filter, the sweep and the hover case fail.
+- Vite: the guard builds its own `target-not-built` diagnostic at the `<vue>` opening tag, as core did.
 
 ## Decisions
 

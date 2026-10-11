@@ -50,6 +50,7 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 - Only `<vue>`, `<react>`, `<svelte>` and `<style>` at the top level. Text between blocks goes in an HTML comment.
 - At least one of `<vue>`, `<react>` and `<svelte>`, each at most once. Any number of `<style>` blocks.
 - Every block has its closing tag: `<react/>` is not a block.
+- `<vue>` holds a `<template>` or a `<script>`, as a `.vue` file does.
 - `<react>` exports the component as default.
 - `<react>` code parses as TSX, and its `.ucf` imports carry no `framework` attribute: they always get react.
 - `<style>` sits at the top level, never inside `<vue>` or `<svelte>`.
