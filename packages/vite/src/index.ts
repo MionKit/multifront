@@ -26,7 +26,7 @@ export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
 const REACT_ID = /\.ucf\.react\.tsx$/;
-// The scan's id of an inline `<script>` of an HTML file.
+// Scan id of an HTML file's inline `<script>`.
 const SCAN_SCRIPT = /\.html\?id=\d+$/;
 // Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
