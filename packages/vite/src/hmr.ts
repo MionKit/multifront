@@ -1,10 +1,13 @@
 import {classMapId, styleId} from '@multifront/core';
-import type {Block, SplitResult} from '@multifront/core';
-import type {DevEnvironment, EnvironmentModuleNode, HotUpdateOptions} from 'vite';
-import type {UcfCache, UcfEntry, UcfVersion} from './cache.ts';
-import {VIRTUAL_TARGETS, isOwnId, splitId, targetId} from './ids.ts';
+import type {Block} from '@multifront/core';
+import type {Plugin} from 'vite';
+import type {createUcfCache} from './cache.ts';
+import {TARGET_SUFFIX, VIRTUAL_TARGETS, splitId} from './ids.ts';
+import type {UcfEntry, UcfSnapshot, UcfVersion} from './types.ts';
 
-function sameAttrs(left: Block['attrs'], right: Block['attrs']): boolean {
+type UcfCache = ReturnType<typeof createUcfCache>;
+
+function sameRecord(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
   const keys = Object.keys(left);
   return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
 }
@@ -12,79 +15,76 @@ function sameAttrs(left: Block['attrs'], right: Block['attrs']): boolean {
 // Offsets ignored, as plugin-vue's `isEqualBlock`: a block that only moved keeps its module.
 function sameBlock(left: Block | undefined, right: Block | undefined): boolean {
   if (!left || !right) return left === right;
-  return left.content === right.content && sameAttrs(left.attrs, right.attrs);
-}
-
-function sameClasses(left: Record<string, string> | undefined, right: Record<string, string> | undefined): boolean {
-  if (!left || !right) return left === right;
-  return sameAttrs(left, right);
+  return left.content === right.content && sameRecord(left.attrs, right.attrs);
 }
 
 async function classesOf(entry: Promise<UcfEntry> | undefined, index: number) {
   try {
-    return entry && {classes: (await entry).ctx.styles[index]?.classes};
+    return entry && (await entry).ctx.styles[index]?.classes;
   } catch {
     return undefined;
   }
 }
 
-function allIds(file: string, splits: SplitResult[]): string[] {
-  const styles = Math.max(...splits.map((split) => split.styles.length));
-  const ids = VIRTUAL_TARGETS.map((target) => targetId(file, target));
-  for (let index = 0; index < styles; index++) ids.push(styleId(file, index), classMapId(file, index));
-  return ids;
-}
-
-/** The ids of our modules that `current` changes, against the version it replaced. */
-async function changedIds(file: string, previous: NonNullable<UcfVersion['previous']>, current: UcfVersion, cache: UcfCache) {
-  const before = previous.split;
-  const after = current.split;
-  // The overlay shows the splitter error, and the fix clears it.
-  if (before.errors.length > 0 || after.errors.length > 0) return allIds(file, [before, after]);
+/** The ids of our modules that `after` changes, against `before`. */
+async function changedIds(file: string, before: UcfSnapshot, after: UcfVersion, cache: UcfCache) {
+  const old = before.split;
+  const now = after.split;
+  // The overlay shows the splitter error, and the fix clears it. Never an index `now` lacks: it would load the
+  // whole `.ucf` as CSS.
+  if (old.errors.length > 0 || now.errors.length > 0) {
+    return [
+      ...VIRTUAL_TARGETS.map((target) => file + TARGET_SUFFIX[target]),
+      ...now.styles.flatMap((_, index) => [styleId(file, index), classMapId(file, index)]),
+    ];
+  }
   const ids: string[] = [];
   // Stamping and the `$style` / named imports of every target module follow these.
-  let importsChanged = before.styles.length !== after.styles.length;
-  const common = Math.min(before.styles.length, after.styles.length);
-  for (let index = 0; index < common; index++) {
-    const old = before.styles[index]!;
-    const now = after.styles[index]!;
-    if (old.attrs.scoped !== now.attrs.scoped || old.attrs.module !== now.attrs.module) importsChanged = true;
-    if (sameBlock(old, now)) continue;
-    ids.push(styleId(file, index));
-    if (now.attrs.module === undefined) continue;
-    const oldClasses = await classesOf(previous.entry, index);
-    const newClasses = await classesOf(cache.contextOf(current), index);
-    if (!oldClasses || !newClasses || !sameClasses(oldClasses.classes, newClasses.classes)) {
-      ids.push(classMapId(file, index));
+  let importsChanged = old.styles.length !== now.styles.length;
+  for (let index = 0; index < Math.min(old.styles.length, now.styles.length); index++) {
+    const oldStyle = old.styles[index]!;
+    const newStyle = now.styles[index]!;
+    if (oldStyle.attrs.scoped !== newStyle.attrs.scoped || oldStyle.attrs.module !== newStyle.attrs.module) {
+      importsChanged = true;
     }
+    if (sameBlock(oldStyle, newStyle)) continue;
+    ids.push(styleId(file, index));
+    if (newStyle.attrs.module === undefined) continue;
+    // No old context (never compiled) or a failed one counts as changed.
+    const oldClasses = await classesOf(before.entry, index);
+    const newClasses = await classesOf(cache.contextOf(after), index);
+    if (!oldClasses || !newClasses || !sameRecord(oldClasses, newClasses)) ids.push(classMapId(file, index));
   }
   for (const target of VIRTUAL_TARGETS) {
-    if (importsChanged || !sameBlock(before.targets[target], after.targets[target])) ids.push(targetId(file, target));
+    if (importsChanged || !sameBlock(old.targets[target], now.targets[target])) ids.push(file + TARGET_SUFFIX[target]);
   }
   return ids;
-}
-
-// The bare file and plugin-vue's `?vue&…` sub-requests.
-function isVueModule(id: string): boolean {
-  const {query} = splitId(id);
-  return query.size === 0 || query.has('vue');
 }
 
 /** Spec 7: a `<style>` edit updates its style module, a target block edit only that target's module. */
-export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean) {
-  return async function hotUpdate(
-    this: {environment: DevEnvironment},
-    {type, file, modules, read}: HotUpdateOptions
-  ): Promise<EnvironmentModuleNode[] | void> {
+export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean): Plugin['hotUpdate'] {
+  // Every environment's hook of one change gets its timestamp: one read, so a later save never splits them.
+  const changes = new Map<string, {timestamp: number; before: UcfSnapshot | undefined; after: UcfVersion}>();
+  return async function hotUpdate({type, file, modules, read, timestamp}) {
     if (type !== 'update' || !file.endsWith('.ucf')) return;
-    const current = cache.updateUcf(file, await read());
-    // Never served: none of our modules exist.
-    if (!current.previous) return;
-    // Without plugin-vue the bare node is only our `addWatchFile` edge, and handing it on re-runs the react module.
-    const vue = hasVuePlugin();
-    const handedOn = modules.filter((mod) => !mod.id || (!isOwnId(mod.id) && (vue || !isVueModule(mod.id))));
+    const vuePlugin = hasVuePlugin();
+    const handedOn = modules.filter((mod) => {
+      if (!mod.id) return true;
+      const {path, query} = splitId(mod.id);
+      if (query.has('ucf')) return false;
+      // Without plugin-vue the bare node is only our `addWatchFile` edge, and handing it on re-runs the react module.
+      return vuePlugin || !(query.has('vue') || (query.size === 0 && path.endsWith('.ucf')));
+    });
+    let change = changes.get(file);
+    if (change?.timestamp !== timestamp) {
+      const after = cache.updateUcf(file, await read());
+      change = {timestamp, before: change ? change.after : after.previous, after};
+      changes.set(file, change);
+    }
+    // A save that changed nothing since we served the file.
+    if (!change.before) return handedOn;
     const graph = this.environment.moduleGraph;
-    const ours = (await changedIds(file, current.previous, current, cache)).flatMap((id) => graph.getModuleById(id) ?? []);
-    return [...new Set([...handedOn, ...ours])];
+    const ids = await changedIds(file, change.before, change.after, cache);
+    return [...handedOn, ...ids.flatMap((id) => graph.getModuleById(id) ?? [])];
   };
 }
