@@ -54,8 +54,9 @@ block when it has style imports, and has no forwarding.
 - `reactNames(program, api): Set<string>`: today's `fragmentNames` generalized. Local names that mean React's `api`:
   `{api}` / `{api as X}` / quoted, and `R.api` for a default / namespace / `{default as R}` import of `'react'`;
   type-only imports skipped. Used for `FRAGMENT` and each of `WRAPPERS` (`memo`, `forwardRef`, from `reactApis.ts`).
-- The 3.10 walk becomes `fragmentOpenings(program): Set<JSXOpeningElement>` (same shadowing rules). Stamping reads it;
-  forwarding uses it to tell a fragment root.
+- The 3.10 walk becomes `openingElements(program): Map<JSXOpeningElement, boolean>` (every opening element and whether
+  it is React's Fragment there, same shadowing rules). Stamping skips the `true` ones; forwarding reads it to tell a
+  fragment root.
 - One entry point, called by `react.build` for every build:
 
   ```ts
@@ -69,7 +70,7 @@ block when it has style imports, and has no forwarding.
   - Identifier → its module-level `function X` or `const X = …` (also under `export`); anything else (import, `let`,
     class) → no component.
   - Parentheses, `as`, `satisfies`, `!` → their expression.
-  - A call whose callee is a React wrapper (`reactNames` of `memo` / `forwardRef`, so `memo`, an `m` alias,
+  - A call whose callee is a React wrapper (`reactNames` of `memo` / `forwardRef`, so `memo`, a `memoized` alias,
     `React.memo`, `React.forwardRef`) → its first argument, nested in any order. Remember when a `forwardRef` was passed.
   - Function declaration / expression or arrow → the component. Class → none ("stamped but not forwarded").
 - **Props name.** First parameter: Identifier → its name; `props = {}` → `props`. No parameter → insert `__props`
@@ -79,10 +80,12 @@ block when it has style imports, and has no forwarding.
   (3.12 rewrites destructured props).
 - **Collect roots.** Every `return` argument in the function body, not entering nested functions, plus the expression
   body. Unwrap: parentheses, `as` / `satisfies` / `!`, both branches of `?:`, the right side of `&&` / `||` / `??`, and
-  one hop of an Identifier to the single `const x = …` of that name in the same function (not nested functions; two
-  such declarators → no hop); after that hop identifiers stop. Dedupe by node.
+  one hop of an Identifier to a `const x = …` among the body's top-level statements (the only `const`s every return
+  sees; a nested block's `const` is never followed); after that hop identifiers stop. Dedupe by node.
+- **Props name declared again** anywhere in the body (not in nested functions' bodies): no forwarding, as a root
+  could read the inner binding.
 - **Edit each root** (inserts only, `.ucf` offsets):
-  - `JSXElement` not in `fragmentOpenings` → `appendLeft(offset + (typeArguments ?? name).end, ' {...__ucfScopeAttrs(<props>)}')`,
+  - `JSXElement` not a Fragment in `openingElements` → `appendLeft(offset + (typeArguments ?? name).end, ' {...__ucfScopeAttrs(<props>)}')`,
     after the stamp (stamping runs first, so `<div data-v-own="" {...__ucfScopeAttrs(props)} …>`). Component roots too.
   - `JSXFragment` or a React-Fragment element → dev (`!ctx.production`):
     `prependRight(start, '(__ucfWarnFragment(<props>, "<Name>"), ')` + `appendLeft(end, ')')`.
@@ -116,7 +119,7 @@ block when it has style imports, and has no forwarding.
   - `Memo.ucf`: `export default memo(function Memo(props: Props) {…})`.
   - `ForwardRef.ucf`: `forwardRef<HTMLDivElement, Props>(function ForwardRef(props, ref) { return <div ref={ref} …> })`.
   - `MemoForwardRef.ucf`: `import * as React`, `React.memo(React.forwardRef(() => <div …>))` → `(__props, __ref)`.
-  - `ExportIdentifier.ucf`: `function Inner(props)`, `const ExportIdentifier = m(Inner)` (with `import {memo as m}`),
+  - `ExportIdentifier.ucf`: `function Inner(props)`, `const ExportIdentifier = memoized(Inner)` (with `import {memo as memoized}`),
     `export default ExportIdentifier`.
   - `ArrowExpression.ucf`: `export default (props: Props) => (<div …>)`.
   - `NoParams.ucf`: `export default function NoParams() { return <div …> }` → `NoParams(__props)`.
@@ -143,15 +146,24 @@ block when it has style imports, and has no forwarding.
 ## Tests
 
 - **`packages/core/test/react/scope.spec.ts`** (core project: this host, CI `check` and `react-floor`).
-  - New `SHAPES` table, hand-read from the fixtures: `{fixture, props, roots, fragments}` (`roots` = names of the
-    opening elements that get the spread, in source order; `fragments` = fragment roots). A first test fails when
-    `listComponents('react/shapes')` and the table differ.
+  - New `SHAPES` table, hand-read from the fixtures: `{fixture, roots, props?, fragments?, signature?}` (`roots` =
+    names of the opening elements that get the spread, in source order; `fragments` = fragment roots; `signature` =
+    the code text with the added parameters, for `MemoForwardRef` and `NoParams`; every other row has no `__props`).
+    A first test fails when `listComponents('react/forwarding')` + `listComponents('react/shapes')` and the table differ.
+  - Built-only edges in `packages/e2e/fixtures/components/react/forwarding/`: `ExportAsDefault.ucf`
+    (`export {X as default}`, `props: Props = {}`), `WrappedExport.ucf` (parentheses, `as`, `satisfies`, `!` around the
+    default export), and five that forward nothing: `ClassRoot.ucf` (stamped, scoped style, joins `SCOPED`),
+    `Cyclic.ucf` (`const First = Second; const Second = First`), `LetExport.ucf`, `NestedConst.ucf` (a nested-block
+    `const root` beside a `let root`), `ShadowedProps.ucf` (the body declares `props` again).
+  - `scopeHelperCode(true)` and `scopeHelperCode(false)` imported as real modules (`data:` URLs): dev exports both
+    helpers, production `__ucfScopeAttrs` only, which keeps only the `data-v-*` props.
   - Per shape, dev build (`production: false`): a code snapshot (`__snapshots__/react/scope/react/shapes/<X>.ucf.tsx.snap`);
     output parses; inserts only (`withoutInjected` + stamps removed = block content); the elements carrying a
     `__ucfScopeAttrs` spread are exactly `roots`, each spread's argument is `props`; `__ucfWarnFragment(<props>,
     "FragmentRoot")` calls = `fragments`; the helper import names exactly the helpers used (none for `NullRoot`);
     `MemoForwardRef` params are `(__props, __ref)`, `NoParams` `(__props)`.
-  - Per shape, production build: same spreads, no `__ucfWarnFragment` anywhere, import names `__ucfScopeAttrs` only.
+  - Per shape, production build: same spreads, no `__ucfWarnFragment` anywhere, import names `__ucfScopeAttrs` only, or
+    nothing when no root is an element (`FragmentRoot`, `NullRoot`).
   - `MultiReturn.ucf` joins the 3.10 `SCOPED` list (its sweep finds it); every existing case's snapshot now shows
     forwarding, `AllBlocks.ucf` included (forwarding without a scoped style).
 - **`packages/core/test/blocks/react.spec.ts`**: 3.5 snapshots updated; "adds nothing else" still passes through the
@@ -218,3 +230,5 @@ None here: 3.13 owns the scope fuzz and records which roots are JSX elements.
 - 3.5's token rows in `react.spec.ts` mark `AllBlocks(` and `DuplicateStyleModule(`: the build now adds `__props`
   inside their empty parameter lists.
 - 3.10's mapping test reads the text after a root's forwarding spread, which sits right after its stamp.
+- Review: the `const` hop follows top-level `const`s only (a nested one could be the wrong element), and a body that
+  declares the props name again gets no forwarding. Both have a `forwarding/` fixture.
