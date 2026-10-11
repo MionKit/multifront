@@ -3,6 +3,9 @@ import type {Target} from '@multifront/core';
 // After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
 export const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 
+// Ids of modules that can import a `.ucf` file; with a query too: `C.vue?vue&type=script&setup=true&lang.ts`.
+export const JS_LIKE = /\.(?:[cm]?[jt]sx?|vue|svelte)(?:\?|$)/;
+
 /** The targets whose id names no file on disk. */
 export const VIRTUAL_TARGETS = ['react', 'svelte'] as const;
 
