@@ -133,3 +133,6 @@ None (decision 2).
 - Map file name: a third argument, `vueSfcCode(source, blocks, filename)` (orchestrator: compiler-sfc's `parse()`
   takes the file name for its map's `sources`, the React build does the same; smallest change to the documented shape).
 - No fuzz test (orchestrator: milestone Risks already names the guard, `CounterCrlf.ucf` and the non-ASCII string).
+- Unclosed target blocks (review note): not in `split.blocks`, so their raw text stays in the SFC code, as the step text
+  says. The build never reaches it; the editor does, so step 4.3 gains a Build bullet (blank what the splitter could not
+  read) and a test on `vue/VueWithUnclosedReact.ucf` (orchestrator: the step whose code first hits it owns it).
