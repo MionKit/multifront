@@ -20,14 +20,12 @@ function inline(plugins: PluginOption[], input?: string[]): InlineConfig {
   return {configFile: false, plugins, build};
 }
 
-const buildOutput = (config: InlineConfig = {}) => buildCode(root, config);
-
 describe('vite build of the vue app', () => {
   it.each([
     ['before', () => ({})],
     ['after', () => inline([multifront(), vue()])],
   ])('plugin-vue listed %s multifront(): the .ucf files compile as Vue', async (_order, config) => {
-    const {code, css} = await buildOutput(config());
+    const {code, css} = await buildCode(root, config());
     expect(code).toContain('__name: "Counter"');
     expect(code).toContain('_ctx.$style.button');
     expect(code).toMatch(/__name: "VBind",\s*setup\(__props\) \{\s*useCssVars\(/);
@@ -39,7 +37,7 @@ describe('vite build of the vue app', () => {
   });
 
   it("keeps the user's own plugin-vue include", async () => {
-    const {code} = await buildOutput(inline([vue({include: [/\.vue$/]}), multifront()], ['index.html']));
+    const {code} = await buildCode(root, inline([vue({include: [/\.vue$/]}), multifront()], ['index.html']));
     expect(code).toContain('__name: "Plain"');
     expect(code).toContain('__name: "Counter"');
   });
@@ -50,7 +48,7 @@ describe('vite build of the vue app', () => {
   });
 
   it('keeps plugin-vue off our style ids when one file is imported as vue and as react', async () => {
-    const {code} = await buildOutput(inline([vue(), multifront()], ['index.html', 'src/bothTargets.ts']));
+    const {code} = await buildCode(root, inline([vue(), multifront()], ['index.html', 'src/bothTargets.ts']));
     expect(code).toContain('__name: "Counter"');
     expect(code).toContain('setCount');
   });
