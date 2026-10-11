@@ -22,5 +22,5 @@ export interface UcfVersion extends UcfSnapshot {
   previous?: UcfSnapshot;
 }
 
-/** The part of plugin-vue's `api` we use; its `compiler` stays null until plugin-vue's `buildStart`. */
+/** `compiler` stays null until plugin-vue's `buildStart`. */
 export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {options: {compiler?: VueCompiler | null; root: string}};
