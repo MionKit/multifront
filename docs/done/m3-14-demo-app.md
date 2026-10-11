@@ -56,7 +56,7 @@ updates the snapshots it feeds):
 
 ### 3. `startDev` takes a logger
 
-- `packages/e2e/browser/lib/serve.ts`: `startDev(appDir, {logger}: {logger?: Logger} = {})` passes
+- `packages/e2e/browser/lib/serve.ts`: `startDev(appDir, logger?: Logger)` passes
   `customLogger: logger` to `createServer` (Vite uses a custom logger as given, whatever `logLevel` says). The only
   way to see the optimizer's "dependencies optimized" / "optimized dependencies changed. reloading" lines. Existing
   callers unchanged; the 3.9 build line in the milestone doc shows the new shape.
@@ -71,18 +71,20 @@ fixture app (no edits, no `copyApp`):
   - Counter root `.counter` `color` `rgb(120, 40, 160)` (scoped); Counter button `padding` `4px 12px` (`$style`);
   - ScopedPanel `.panel` `padding` `8px`; ScopedBadge root span `color` `rgb(30, 120, 60)` (parent's scoped
     `.badge` through forwarding); its inner `em.badge-label` `text-decoration-line` `none`;
-  - both Cards' root `div` `padding` `16px` (`$style.card`, scss), and their `h2` texts.
+  - both Cards' root `div` `padding` `16px` (`$style.card`, scss), and their `h2` texts; Counter's button reads
+    `0`, the badge label `new`.
   - After `networkidle`: no `warning`, `error` or `pageerror` from `collectConsole`.
   - Saves every `#app *` element (tag, text of a leaf, `color`, `padding`, `text-decoration-line`, `font-size`)
     for the comparison below.
 - **Dev and preview match:** a following `it` checks both saved lists exist and are equal.
 
-Separate describe, **cold start**: `startDev(ROOT, {logger})` (its own fresh `cacheDir`, the same as an empty
-`node_modules/.vite`); the logger records every info, warn and error line. Open the page, count `load` events, wait
-for the Counter, `networkidle`, `server.environments.client.waitForRequestsIdle()`, poll until
-`depsOptimizer.metadata.discovered` is empty (first optimize run committed), wait 500 ms (Vite logs a rerun's
-"dependencies optimized" 200 ms later). Expect one `load` event, no warn or error line, no info line matching
-`/optimiz|reload/`. A broken scan (lost `multifront:scan`, a `.ucf` import failing during it) finds
+Separate describe, **cold start**: `startDev(ROOT, logger)` (its own fresh `cacheDir`, the same as an empty
+`node_modules/.vite`); the logger records every info, warn, warnOnce and error line, and the test first checks
+`server.config.logger` is that logger (a healthy cold start logs nothing, so an unwired logger would pass too). Open
+the page, count `load` events, wait for the Counter, `networkidle`, `server.environments.client.waitForRequestsIdle()`,
+await `depsOptimizer.scanProcessing`, `expect.poll` until `depsOptimizer.metadata.discovered` is empty (first
+optimize run committed, 10 s cap), wait 500 ms (Vite logs a rerun's "dependencies optimized" 200 ms later), then
+`networkidle` again. Expect one `load` event, no warn or error line, no info line matching `/optimiz|reload/i`. A broken scan (lost `multifront:scan`, a `.ucf` import failing during it) finds
 `react-dom/client` late and reloads: this test catches it.
 
 Runs on this host (Chromium from `MULTIFRONT_CHROMIUM_PATH`) and in CI `check` and `react-floor` (Chromium there
@@ -96,7 +98,7 @@ since 3.9). No new infra beyond the `startDev` logger option.
 
 ## Docs
 
-- `docs/milestones/m3-react-and-imports.md`: `- Status: done` on 3.14; the 3.9 `startDev` line shows `{logger}`.
+- `docs/milestones/m3-react-and-imports.md`: `- Status: done` on 3.14; the 3.9 `startDev` line shows `logger`.
 - `docs/spec.md`, `docs/plan.md`, `docs/architecture.md`: none (no design change). `publicdocs/`: none (the
   milestone's docs writer).
 
