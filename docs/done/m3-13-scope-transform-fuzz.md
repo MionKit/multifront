@@ -1,7 +1,7 @@
 ---
 type: chore
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 3
 step: 3.13
@@ -25,7 +25,7 @@ Moved out of `packages/core/test/split.fuzz.spec.ts`, which imports it (relative
 
 - `fuzzSettings(defaults)`: `MULTIFRONT_FUZZ_SEED` (0..0xffffffff), `MULTIFRONT_FUZZ_RUNS` (>= 1), throws on a bad value.
 - `mulberry32`, `mixSeed(base, label, index)`, `createRandom(seed)` (`next`, `int`, `pick`, `shuffle`).
-- `shrinkActions(actions, stillFails)`: drops one action at a time while the case still fails.
+- `shrinkActions(actions, stillFails)`: async, drops one action at a time while the case still fails (the scope checks build and render asynchronously).
 - `replayLine(seed, runIndex, specPath)`.
 - split.fuzz behaviour unchanged; its knob tests now test the shared `fuzzSettings`.
 
@@ -88,6 +88,7 @@ from the fixtures, parsed once with oxc-parser.
     props: string;        // the name the forwarding reads: 'props' or '__props'
     fragments: string[];  // tag names that are React's Fragment here: '', 'Fragment', 'Frag', 'React.Fragment'
     branches: {branch?: string; outcome: 'host' | 'forwarding-component' | 'dropping-component' | 'fragment' | 'none'}[];
+    model: Model;         // read by the coverage test's `shapeOf`
   }
   ```
 
@@ -152,7 +153,8 @@ plugin-react and react-dom/server are there.
   1. parses: a forwarding spread left open;
   2. only-adds: a stray `/*x*/` after a stamp; a dropped character after a stamp;
   3. stamps: the last stamp missing; a doubled stamp;
-  4. renders: every spread removed; `className=` turned into `class=` (React's server renderer warns, checked here).
+  4. renders: every spread removed; `className=` turned into a new unknown camelCase prop per module (React's server
+     renderer warns once per prop name, so `class=` would warn only on the first load).
 - Long run before the PR, result in the PR: `MULTIFRONT_FUZZ_RUNS=10000` over seeds 2026 and 1 to 9. 3.16 repeats it
   for the verdict.
 
@@ -190,3 +192,21 @@ forms, Svelte (M6), any transform change not forced by a fuzz failure.
 - Rule 4 through a dev server's SSR module runner, not `vite build --ssr`: the fragment warning and React's own warnings
   exist in dev only (orchestrator: approved).
 - `type: chore`: a test-only step, as M1.5 (orchestrator: approved).
+- The long run's one failure (seed 4, run 3700: a const's fragment warned on renders returning another root): a
+  fragment reached through the `const` hop warns at the `return` naming it, and only when it is the const's whole
+  value; a mixed value gets none (orchestrator: (B), as Vue warns only on a rendered fragment root; the 3.11 dev
+  form stays).
+
+## As shipped
+
+- The long run found one failure (seed 4, run 3700), fixed in `scope.ts` (`jsxRoots` records the const a root was
+  reached through; its fragment is wrapped at that identifier). Saved as
+  `packages/e2e/fixtures/components/react/fuzz-found/ConstFragment.ucf` (a pure and a mixed const fragment), with a
+  `SCOPED` and a `SHAPES` row in `scope.spec.ts`, whose listing test now reads `react/fuzz-found` too. Spec 3.5 item 3
+  and the 3.11 step text describe it.
+- After the fix, the long run (`MULTIFRONT_FUZZ_RUNS=10000`, seeds 2026 and 1 to 9) is green on every seed.
+- Rule 4 already allowed the warning to be absent, so the generator's expectation needed no change.
+- 10,000 runs take about 4 minutes a seed on this host (300 runs: about 2 seconds).
+- The shrunk case of a failure is written to the kept directory, never loaded in the run, so a replay of it still
+  sees React's first warning (React dedupes its dev warnings per process).
+- forwardRef always goes innermost (`memo(forwardRef(...))`): `forwardRef(memo(...))` makes React warn.
