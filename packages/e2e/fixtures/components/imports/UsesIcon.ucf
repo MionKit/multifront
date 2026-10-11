@@ -1,3 +1,13 @@
+<vue>
+  <script setup lang="ts">
+  import Icon from './Icon.ucf'
+  </script>
+
+  <template>
+    <span class="uses-icon"><Icon /> uses-icon-vue-marker</span>
+  </template>
+</vue>
+
 <react>
   import Icon from './Icon.ucf'
 
