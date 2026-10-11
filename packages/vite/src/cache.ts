@@ -8,36 +8,46 @@ export interface UcfEntry {
   ctx: BuildContext;
 }
 
-interface Cached {
+/** One content of a file; `previous` is the content it replaced, for `hotUpdate`. */
+export interface UcfVersion {
   source: string;
   split: SplitResult;
   entry?: Promise<UcfEntry>;
+  previous?: Pick<UcfVersion, 'split' | 'entry'>;
 }
+
+export type UcfCache = ReturnType<typeof createUcfCache>;
 
 /** Splits once per file content; options are read on the first `loadUcf`, after plugin-vue lent its compiler. */
 export function createUcfCache(contextOptions: () => BuildContextOptions) {
-  const files = new Map<string, Cached>();
+  const files = new Map<string, UcfVersion>();
 
-  async function read(file: string): Promise<Cached> {
-    const source = await readFile(file, 'utf8');
-    let cached = files.get(file);
-    if (cached?.source !== source) {
-      cached = {source, split: splitBlocks(source, file)};
-      files.set(file, cached);
-    }
-    return cached;
+  function store(file: string, source: string): UcfVersion {
+    const cached = files.get(file);
+    if (cached?.source === source) return cached;
+    // Only the replaced split and context: an older `previous` would chain every version.
+    const version: UcfVersion = {source, split: splitBlocks(source, file)};
+    if (cached) version.previous = {split: cached.split, entry: cached.entry};
+    files.set(file, version);
+    return version;
+  }
+
+  function contextOf(version: UcfVersion): Promise<UcfEntry> {
+    const {split} = version;
+    version.entry ??= createBuildContext(split, contextOptions()).then((ctx) => ({split, ctx}));
+    return version.entry;
   }
 
   return {
     // No style compile: for resolveId.
     async splitUcf(file: string): Promise<SplitResult> {
-      return (await read(file)).split;
+      return store(file, await readFile(file, 'utf8')).split;
     },
     async loadUcf(file: string): Promise<UcfEntry> {
-      const cached = await read(file);
-      const {split} = cached;
-      cached.entry ??= createBuildContext(split, contextOptions()).then((ctx) => ({split, ctx}));
-      return cached.entry;
+      return contextOf(store(file, await readFile(file, 'utf8')));
     },
+    // The source Vite's `hotUpdate` read; the same source again keeps `previous`, so every environment sees one diff.
+    updateUcf: store,
+    contextOf,
   };
 }

@@ -11,36 +11,25 @@ import {
   resolveTarget,
   scopeHelperCode,
 } from '@multifront/core';
-import type {Target, VueCompiler} from '@multifront/core';
+import type {VueCompiler} from '@multifront/core';
 import {createUcfCache} from './cache.ts';
+import {ucfHotUpdate} from './hmr.ts';
+import {TARGET_SUFFIX, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions} from './types.ts';
-import {getVueCompiler} from './vueCompiler.ts';
+import {getVueCompiler, hasVuePlugin} from './vueCompiler.ts';
 
 export type {VueCompiler} from '@multifront/core';
 export type {MultifrontOptions} from './types.ts';
 export {getVueCompiler} from './vueCompiler.ts';
 
-// After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
-const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 const REACT_ID = /\.ucf\.react\.tsx$/;
 // Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
 
-function splitId(id: string): {path: string; query: URLSearchParams} {
-  const queryStart = id.indexOf('?');
-  if (queryStart === -1) return {path: id, query: new URLSearchParams()};
-  return {path: id.slice(0, queryStart), query: new URLSearchParams(id.slice(queryStart + 1))};
-}
-
 function isUrlImporter(importer: string | undefined, root: string): boolean {
   return importer === undefined || normalizePath(importer) === `${root}/index.html`;
-}
-
-function virtualTarget(path: string): {target: Target; file: string} | undefined {
-  const target = (['react', 'svelte'] as const).find((candidate) => path.endsWith(`.ucf${TARGET_SUFFIX[candidate]}`));
-  return target && {target, file: path.slice(0, -TARGET_SUFFIX[target].length)};
 }
 
 export function multifront(options: MultifrontOptions = {}): Plugin[] {
@@ -84,6 +73,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     buildEnd() {
       vueCompiler = undefined;
     },
+    hotUpdate: ucfHotUpdate(cache, () => hasVuePlugin(config!.plugins)),
     resolveId: {
       filter: {id: [/\.ucf/, SCOPE_HELPER]},
       async handler(id, importer, resolveOptions) {
