@@ -39,7 +39,7 @@ function cli(args: string[], env: NodeJS.ProcessEnv) {
   return vite;
 }
 
-// plugin-vue's descriptor cache lives at its module level: each case runs in a process of its own, so it starts empty.
+// plugin-vue's descriptor cache is module level: each case gets its own process so the cache starts empty.
 describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
   it('is the first request to a fresh dev server and returns the scoped CSS', async () => {
     const vite = cli(['--port', '0'], {NODE_ENV: 'development'});
@@ -74,7 +74,7 @@ describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
   });
 });
 
-// Each test's copy is a new path, so neither our record nor plugin-vue's cache knows its Counter.ucf yet.
+// Each test's copy is a new path: neither our record nor plugin-vue's cache knows it yet.
 describe('the warm-up', () => {
   function transformsOf(target: string): {plugin: Plugin; count: () => number} {
     let count = 0;
