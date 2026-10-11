@@ -278,16 +278,17 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 ### 3.13 Fuzz the scope transform
 
 - Build: `packages/e2e/build/scope-fuzz.spec.ts` and the generator `packages/e2e/build/lib/scopeFuzz.ts`, written with the fuzzy-testing skill.
-  - Seeded with M1's `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS`.
+  - Seeded with M1's `MULTIFRONT_FUZZ_SEED` and `MULTIFRONT_FUZZ_RUNS`, through the shared harness `packages/e2e/build/lib/fuzz.ts` (`fuzzSettings`, `createRandom`, `mixSeed`, `shrinkActions`, `replayLine`), which M1's splitter fuzz now uses too.
   - Writes real `.ucf` files to `packages/e2e/.tmp/fuzz/`, made by mutating and recombining the `shapes/` and `scope/` fixtures (rule 4 never renders `scope/Namespaced.ucf`'s namespace tags: React's JSX transform rejects them in a build): wrap the default export in `memo`, `forwardRef` or both; switch function and arrow, block and expression body; destructured, plain or no props; wrap a root in `?:`, `&&` or parentheses; add early returns; swap host and component tags; splice in children from another fixture; add comments, `a < b`, `<T,>`, non-ASCII text and a `"use client"` line; toggle `scoped`.
-  - The generator records what it built (which roots are JSX elements), so the checks never redo the transform.
+  - The generator records what it built (which roots are JSX elements), so the checks never redo the transform. Every piece of text comes from the fixtures; `scope/FragmentImports.ucf` is left out, as its shadowing bindings change which names are React's Fragment.
 - Deliverable: confidence that the transform holds on shapes nobody wrote by hand. Each failure is shrunk and saved as a fixture in `fixtures/components/react/fuzz-found/`, with a snapshot added to 3.11's test.
-- Test: CI runs 300 files with a fixed seed. Before the verdict (3.16), one long run: `MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`, with 10 seeds. Both green.
+- Test: CI runs 300 files with a fixed seed (2026). Before the verdict (3.16), one long run: `MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/e2e/build/scope-fuzz.spec.ts`, with 10 seeds. Both green.
   - Rules checked, each with a negative control (a hand-broken output must make it fire once):
     1. **Parses:** the `react.build` output parses with oxc-parser with zero errors.
-    2. **Only adds:** using the hires source map, the output characters that map into the `.ucf`, put back in source order, give exactly the block content. Every unmapped piece matches one of the fixed insert patterns (` data-v-<id>=""`, `{...__ucfScopeAttrs(...)}`, `__props`, `const ` / ` = __props;`, the arrow braces and `return `, the header imports, the dev fragment call).
-    3. **Stamps:** with a scoped style, each non-fragment JSX opening element of the input carries exactly one ` data-v-<id>=""`.
-    4. **Renders:** every 20th file is built with real Vite and real plugin-react for SSR, rendered with `react-dom/server` inside a parent that passes `data-v-parent=""`, once per branch. The outer element carries `data-v-parent` exactly when the generator built a JSX element root, and React logs no warning except the fragment one.
+    2. **Only adds:** using the hires source map, the output characters that map into the `.ucf`, put back in source order, give exactly the block content. Every unmapped piece matches one of the fixed insert patterns (` data-v-<id>=""`, `{...__ucfScopeAttrs(...)}`, `__props`, `const ` / ` = __props;`, the arrow braces and `return `, the header imports, the dev fragment call). Line breaks get no mapping, so they are counted: the block's own plus one per header import.
+    3. **Stamps:** with a scoped style, each non-fragment JSX opening element of the input carries exactly one ` data-v-<id>=""`; without one, nothing is stamped.
+    4. **Renders:** every 20th file is rendered through a real Vite dev server's SSR module runner with real plugin-react, with `react-dom/server` inside a parent that passes `data-v-parent=""`, once per branch. The outer element carries `data-v-parent` exactly when the generator built a JSX element root (a host element, or a component that forwards it), and React logs no warning except the fragment one. Dev, as the fragment warning and React's own warnings exist only there.
+- Status: done
 
 ### 3.14 Demo app
 
@@ -349,7 +350,7 @@ Tests and fixtures (`packages/e2e`):
 - `fixtures/components/react/**` (shapes, scope, errors, imports, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, and the shared `Counter.ucf` and `imports/`): milestone 5 packs them, milestone 6 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 6 a Svelte row.
 - `packages/e2e/build/imports.spec.ts` and the `vite.config.ts` of each `fixtures/apps/imports/` sub-project: milestone 4 builds the `.vue` rows (the root config already has `vue()`), milestone 6 adds `svelte()` to the configs and the `.svelte` rows to the test.
-- The fuzz runner pattern, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 6 (Svelte stamping).
+- The fuzz harness `packages/e2e/build/lib/fuzz.ts` (seeded random, `shrinkActions`, `replayLine`), the generator pattern of `packages/e2e/build/lib/scopeFuzz.ts`, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 6 (Svelte stamping).
 - The spike 3 verdict in `docs/plan.md`: milestones 4 and 6.
 
 ## Exit test
