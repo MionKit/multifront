@@ -27,7 +27,6 @@ const STYLES: [string, string, string, string][] = [
 
 const LOG_LEVELS = ['info', 'warn', 'warnOnce', 'error'] as const;
 
-// Compared between dev and preview for every element of the app.
 const PARITY_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
 
 let browser: Browser | undefined;
@@ -102,7 +101,7 @@ describe('demo dev cold start', () => {
     const logs: {level: (typeof LOG_LEVELS)[number]; message: string}[] = [];
     const logger = createLogger('silent');
     for (const level of LOG_LEVELS) logger[level] = (message) => void logs.push({level, message});
-    // Each server gets its own fresh cache dir: an empty `node_modules/.vite`.
+    // Cold: `startDev` gives every server an empty cache dir.
     const app = await startDev(ROOT, logger);
     try {
       // A healthy cold start logs nothing: without this, an unwired logger would pass too.
