@@ -302,12 +302,12 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 ### 3.15 HMR: style-only and target-only
 
-- Build: `packages/vite/src/hmr.ts`, `ucfHotUpdate(cache, hasVuePlugin)`, the Vite 8 `hotUpdate` hook of the pre plugin, per environment, for `.ucf` files. The cache (`updateUcf(file, source)`) keeps the version each new source replaced, so every environment diffs one change against the same old split. Compare block by block (content and attributes, offsets ignored, as plugin-vue), return only what changed:
+- Build: `packages/vite/src/hmr.ts`, `ucfHotUpdate(cache, hasVuePlugin)`, the Vite 8 `hotUpdate` hook of the pre plugin, per environment, for `.ucf` files. The hook reads each change once (Vite gives every environment's hook of one change the same timestamp), so every environment diffs it against the same old split; the cache (`updateUcf(file, source)`) keeps the version a new source replaced. Compare block by block (content and attributes, offsets ignored, as plugin-vue), return only what changed:
   - a `<style>` changed: its CSS module; plus the class map module if the class names changed;
   - the `scoped` flag, the `module` name or the number of `<style>` blocks changed: also the react module (stamping and imports change);
   - `<react>` changed: only the react module (plugin-react's Fast Refresh does the rest);
   - another target block changed: its module only if loaded (none in this milestone);
-  - a splitter error before or after the edit: every style, class map and target module of the file;
+  - a splitter error before or after the edit: every target module, and the style and class map module of every `<style>` of the new split;
   - the bare `/abs/Card.ucf` module and its `?vue&…` sub-modules are handed on untouched when plugin-vue is in the app, so plugin-vue decides the Vue update (M4 relies on it). Without plugin-vue the bare module is only the react module's watch edge, and handing it on would re-run the react module, so it is dropped. Every other plugin's module of the file is handed on;
   - nothing relevant: none of ours.
 

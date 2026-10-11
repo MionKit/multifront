@@ -24,21 +24,21 @@ under `.tmp/demo-x/` lacks. The HMR test edits a copy of `Counter.ucf`, so `copy
 
 ## Plan
 
-### 1. Ids helper `packages/vite/src/ids.ts` (moved from `index.ts:26-44`)
+### 1. Ids helper `packages/vite/src/ids.ts`
 
-`TARGET_SUFFIX`, `splitId(id)`, `virtualTarget(path)` move out of `index.ts` unchanged, so `hmr.ts` uses them
-without a circular import. New: `targetId(file, target)` (`file + TARGET_SUFFIX[target]`) and `isOwnId(id)` (query
-has a `ucf` key: the style and class map ids). `index.ts` imports them.
+`TARGET_SUFFIX`, `splitId(id)` and `virtualTarget(path)` move out of `index.ts`, so `hmr.ts` uses them without a
+circular import (`REACT_ID`, `SCOPE_HELPER` and `isUrlImporter` stay). New: `VIRTUAL_TARGETS` (`['react',
+'svelte']`, the targets whose id names no file), which `virtualTarget` and `hmr.ts` both read. `index.ts` imports them.
 
 ### 2. Cache keeps the previous version `packages/vite/src/cache.ts`
 
-- An entry (`UcfVersion = {source, split, entry?}`) gains `previous?: {split, entry?}`, set when an entry is replaced
-  because its source changed. It copies only the old `split` and `entry`, never the old `previous` (no chain).
-- `updateUcf(file, source): UcfVersion` splits the given source (Vite's `read()`, which retries an empty mid-save
-  read) into the cache the same way `read()` does. Same source → the stored entry with its `previous`, so the client
-  and SSR calls for one change diff against the same old version, even when a `load` re-read the file in between.
+- Types in `packages/vite/src/types.ts` (shared by `cache.ts` and `hmr.ts`): `UcfEntry`, `UcfSnapshot = {split,
+  entry?}` and `UcfVersion = UcfSnapshot & {source, previous?: UcfSnapshot}`.
+- One `store(file, source)` serves `splitUcf`, `loadUcf` and `updateUcf`. A changed source makes a new version whose
+  `previous` copies only the old `split` and `entry`, never the old `previous` (no chain). Same source → the stored
+  version.
+- `updateUcf(file, source)` takes the source Vite's `read()` gave (it retries an empty mid-save read).
 - `contextOf(version): Promise<UcfEntry>` (`version.entry ??= createBuildContext(...)`); `loadUcf` uses it.
-- `export type UcfCache = ReturnType<typeof createUcfCache>`.
 
 ### 3. `packages/vite/src/hmr.ts`: `ucfHotUpdate(cache, hasVuePlugin: () => boolean)`
 
@@ -46,24 +46,29 @@ Returns the Vite 8 `hotUpdate` handler, set on the pre plugin `multifront` in `i
 environment and looks modules up in `this.environment.moduleGraph`.
 
 - Not a `.ucf` file, or `type !== 'update'` → nothing (Vite's default).
-- `updateUcf(file, await read())`. No `previous` → we never served the file, none of our modules exist → nothing.
-- **Handed on untouched**: every listed module that is not ours (`!isOwnId`). The bare `/abs/Card.ucf` and `?vue&…`
-  ids only when plugin-vue is in the app (`hasVuePlugin`): without it, nothing can have loaded them, and the bare
-  node is only our watch edge, whose hand-on re-runs the react module.
-- **Ours**, from `previous.split` against the current split. Blocks are equal when `content` and `attrs` are
-  (offsets ignored, as plugin-vue's `isEqualBlock`):
-  - either split has splitter errors → every style, class map and target module of the file, so the overlay shows
-    the error and the fix clears it;
+- **Handed on untouched**: every listed module without a `ucf` query key (not ours), like `?raw`. The bare
+  `/abs/Card.ucf` and `?vue&…` ids only when plugin-vue is in the app (`hasVuePlugin`): without it, nothing can have
+  loaded them, and the bare node is only our watch edge, whose hand-on re-runs the react module.
+- **One change, one diff**: Vite gives every environment's hook of one change the same `timestamp`. The first hook of
+  a timestamp reads the source (`updateUcf(file, await read())`); the others reuse that version, so a later save
+  never splits client and SSR. The base is the version the previous change of the file ended on, or, for the first
+  change, the version the new source replaced (`previous`). No base (a save that changed nothing since we served the
+  file, or a file never served) → only the handed-on modules.
+- **Ours**, from the base split against the new one. Blocks are equal when `content` and `attrs` are (offsets
+  ignored, as plugin-vue's `isEqualBlock`):
+  - either split has splitter errors → every target module, and the style and class map module of every `<style>`
+    of the new split, so the overlay shows the error and the fix clears it;
   - `<style>` `i` (in both) changed → `styleId(file, i)`; for a module style also `classMapId(file, i)`, only when
     its classes changed (old context's `styles[i].classes` against the new; no old context, or a failed one, counts
     as changed);
   - the number of `<style>` blocks, or any `scoped` or `module` attribute changed → also every loaded target module
     (react, svelte): stamping and the `$style` / named imports change;
-  - `<react>` or `<svelte>` changed → that target's module by id (`getModuleById(targetId(file, target))`), if loaded;
+  - `<react>` or `<svelte>` changed → that target's module by id (`getModuleById(file + TARGET_SUFFIX[target])`), if
+    loaded;
   - a removed style index is never returned: its id would load the whole `.ucf` as CSS; the react module stops
     importing it and Vite prunes it.
-- Result: the handed-on modules plus ours that exist in this environment's graph, no duplicates. Nothing relevant
-  (`<vue>` edit without plugin-vue, whitespace between blocks) → `[]`.
+- Result: the handed-on modules plus ours that exist in this environment's graph (the two never overlap). Nothing
+  relevant (`<vue>` edit without plugin-vue, whitespace between blocks) → none of ours.
 - `packages/vite/src/vueCompiler.ts`: `hasVuePlugin(plugins)` beside `getVueCompiler`, one `VUE_PLUGIN_NAME`.
 
 ### 4. `copyApp` keeps the fixture layout `packages/e2e/fixtures/index.ts:10`
@@ -88,7 +93,7 @@ reached); its 500 ms also keeps the next write past chokidar's 50 ms throttle of
 2. **`<react>` text** `Clicks` → `Taps`: poll `.label`, `quiet(500)`. Count `3`; the only request is `Counter.ucf.react.tsx`
    (nothing with `type=style`); one `load` event.
 3. **`<vue>` block** `Clicks` → `Hits`: wait for the dev server watcher's `change` on the file,
-   `waitForRequestsIdle()`, `quiet(1000)`. No request at all; count `3`, label `Taps`.
+   `waitForRequestsIdle()`, `quiet(1000)` counted from the change event. No request at all; count `3`, label `Taps`.
 
 After all three: one `load` event, no `warning`, `error` or `pageerror`. `removeApp` in `afterAll`.
 
@@ -97,11 +102,13 @@ Runs on this host (Chromium from `MULTIFRONT_CHROMIUM_PATH`) and in CI `check` a
 ### `packages/e2e/build/hmr.spec.ts` (build area)
 
 On a `copyApp('demo')` copy: a real dev server from the app's own config, plus an inline `enforce: 'pre'` recorder
-whose `hotUpdate` (sorted right after ours) records per environment `await read()`, the modules it got and
-`getModulesByFile(file)`. Before each case: the original `Counter.ucf` written back, its update awaited, both
-environments crawled from `/src/App.tsx` (`transformRequest` of it, `Counter.ucf.react.tsx` and every `?ucf` module
-that imports): Vite ties the react module's watch file to it only when the module was in the graph before it loaded. After each
-edit: wait for a client and an SSR record of the written text. Same set of ours in both environments:
+whose `hotUpdate` (sorted right after ours) records per environment the file, the event type, an update's `await
+read()`, the modules it got and `getModulesByFile(file)`. Before each case: the original `Counter.ucf` written
+back, its update awaited, both environments crawled from `/src/App.tsx` (`transformRequest` of it,
+`Counter.ucf.react.tsx` and every `?ucf` module that imports; Vite ties the react module's watch file to it only
+when the module was in the graph before it loaded), plus `Counter.ucf?raw`, another plugin's module, handed on in
+every case. After each edit: wait for a client and an SSR record of the written text. Same set of ours in both
+environments:
 
 | Edit | Ours returned |
 | --- | --- |
@@ -113,12 +120,18 @@ edit: wait for a client and an SSR record of the written text. Same set of ours 
 | whitespace between blocks | none |
 | `scoped` removed | css0, react |
 | third `<style>` added | react |
+| `<style scoped>` removed (the module style moves to index 0) | css0, react |
 | `module` → `module="classes"` | css1, react |
 | a `<svelte>` block added | none (its module never loaded) |
-| last `</style>` deleted (splitter error) | css0, css1, map1, react |
+| last `</style>` deleted (splitter error) | css0, react (the new split has one style) |
 
-Each case also checks the bare `/abs/Counter.ucf` node is in `getModulesByFile` and not in the result. A second
-server with `plugins: [vue()]` inline: a `<vue>` edit and a scoped edit both hand on the bare node next to ours.
+Each case also checks the bare `/abs/Counter.ucf` node is in `getModulesByFile` and not in the result. Plus:
+
+- the splitter error fixed again → css0, css1, map1, react;
+- a `<vue>` edit (nothing compiles that version), then a module declaration edit → css1 and map1 (no old context);
+- a second server with `plugins: [vue()]` inline: a `<vue>` edit and a scoped edit both hand on the bare node;
+- a third server, in order: a save that changes nothing before any edit (only `raw`), an `App.tsx` edit and a
+  `Counter.ucf` delete (both returned as Vite listed them).
 
 Runs in `pnpm devx test` on this host and in CI `check` and `react-floor`; no browser.
 
