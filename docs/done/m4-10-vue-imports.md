@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.10
@@ -50,6 +50,16 @@ importer's own source.
   finds"; the `.vue` importer path through plugin-vue's script compile is this step's subject).
 - Orchestrator: keep the 4.12 and 4.14 hand-off lines in the milestone doc, and the `publicdocs/` fixes.
 - Orchestrator: no fuzz test.
+- Built: the recorder's `.ucf` calls from `UsesIcon.ucf` also hold its own `?vue&type=style` sub-requests; the test
+  leaves those out.
+- Review (automatic triage):
+  - Fixed: each fix commit carries its own test and fixture; `AttrInsideJs.ucf` covers a lang-less `<vue>` script;
+    lang-less and non-literal `.vue` importer errors are tested; the vue check reads `lang` through rewrite.ts's
+    `langOf` (now exported) instead of a second table; `literalValue` is no longer exported; `rejection()` moved to
+    `build/lib/build.ts`; the spec's error types are Rolldown's own; `withImport` lost its generic; commit bodies cut.
+  - Kept: `attributesInScripts` as a named function (it keeps `check` readable); the other spec helpers stay in the
+    spec (one caller each). Not tested: `multifront:vue-importers` with no plugin-vue, where a `.vue` file cannot
+    build at all; the guard only skips loading a compiler.
 
 ## Plan
 
@@ -69,6 +79,7 @@ importer's own source.
    - New `vue/AttrInside.ucf`: a `<script lang="ts">` with
      `export {default as AgainIcon} from '../imports/Icon.ucf' with {framework: 'vue'}`, a `<script setup lang="ts">`
      with `import Icon from '../imports/Icon.ucf' with {framework: 'vue'}`, and a template rendering `<Icon />`.
+   - New `vue/AttrInsideJs.ucf`: the same `<script setup>` import with no `lang` (parsed as JavaScript).
    - `apps/vue/src/App.vue` gains `import UsesIcon from '../../../components/imports/UsesIcon.ucf' with { framework: 'vue' };`
      and `<UsesIcon />`. Its bare `Counter.ucf` import is the importer-rule case.
 3. **`.vue` importer errors at the import**: new pre plugin `multifront:vue-importers` in
@@ -94,15 +105,19 @@ All under `pnpm devx test`, on this host and in CI's `check`, `react-floor` and 
     by path (no `.react.tsx`), no attribute; the recorder saw `?framework=vue` from `/abs/App.vue`; the UsesIcon module
     references `Icon.ucf`. SSR `render()` of `entry-server.ts` has the Vue Icon inside `uses-icon` beside the Counter
     markup, and no React marker.
-  - Errors, each its own copy with one import line added to `App.vue`:
+  - Errors, each its own copy whose `App.vue` imports one more component and renders it (TypeScript drops an import
+    nothing uses, so an unrendered one never reaches the build):
     - `vue/AttrInside.ucf`: build rejects with `(framework-in-block)` at the `.ucf` position of the first
       `checkBlocks()` diagnostic, and lists the second; dev client and dev SSR reject with the same code and file.
     - `imports/ReactOnly.ucf`: build, dev client and dev SSR reject with
       `../../../components/imports/ReactOnly.ucf has no <vue> block; App.vue imports it as vue (missing-target-block)`.
-    - `Counter.ucf` `with { framework: 'nope' }`: build (no `build.sourcemap`) and dev client reject with
-      `(unknown-framework)` at the specifier in `App.vue` itself.
+    - `vue/AttrInsideJs.ucf`: the same, its one diagnostic.
+    - `.vue` importer errors, build (no `build.sourcemap`) and dev client, at the import in that file: `Counter.ucf`
+      `with { framework: 'nope' }` in `App.vue` (`lang="ts"`) and in a written lang-less `LangLess.vue`
+      (`unknown-framework`); a dynamic import `with: {framework: pick}` in a written `NonLiteral.vue`
+      (`framework-attribute-not-literal`).
 - `packages/core/test/blocks/vue.spec.ts`: `vue.check` on `vue/AttrInside.ucf` gives exactly two `framework-in-block`
-  at hand-written line, column and span; `checkBlocks()` gives the same; `Counter.ucf` and `imports/UsesIcon.ucf` none.
+  (`vue/AttrInsideJs.ucf` one) at hand-written line, column and span; `checkBlocks()` gives the same; `Counter.ucf` and `imports/UsesIcon.ucf` none.
 - `packages/e2e/build/react-target.spec.ts`: `OTHER_MARKERS` gains `uses-icon-vue-marker`.
 
 ## Docs

@@ -240,7 +240,10 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 
 ### 4.10 Imports from and into the Vue target
 
-- Build: no new resolve code is expected. M3's `resolveTarget()` and post rewrite do the work. This step proves them with plugin-vue in the middle (spike 3 for plugin-vue's script compile), and fixes what it finds.
+- Build: no new resolve code is expected. M3's `resolveTarget()` and post rewrite do the work. This step proves them with plugin-vue in the middle (spike 3 for plugin-vue's script compile), and fixes what it finds. It found two bugs:
+  - A `framework` attribute inside `<vue>` was no error in dev, nor in a build of a script without `lang`. plugin-vue inlines those scripts into the bare `/abs/Card.ucf` module, which the post rewrite does not see. Fix: `vueKind.check` reports `framework-in-block` on each attribute in the block's `<script>` and `<script setup>` (oxc-parser on their content, as `react.check` does), so our pre `transform` fails at the `.ucf` position before plugin-vue, in every mode.
+  - In a build, an import error of a `.vue` importer whose script plugin-vue does not inline (`lang="ts"`) pointed into the compiled `App.vue?vue&type=script…` module: plugin-vue makes no script map unless `build.sourcemap` is on. Fix: a fourth plugin in the array `multifront()` returns, `multifront:vue-importers` (pre, `vueImportersPlugin()` in `attributes.ts`), runs the post rewrite's checks on the raw `.vue` file's scripts (parsed with the borrowed compiler) and fails at the import in `App.vue` itself.
+  - `apps/vue/src/App.vue` gains `import UsesIcon from '…/imports/UsesIcon.ucf' with { framework: 'vue' }` and renders it.
 - Deliverable: the spec 4.1 and 4.2 rules hold for `.vue` importers and inside `<vue>` blocks.
 - Test: `packages/e2e/build/vue-imports.spec.ts`, with the shared `fixtures/components/imports/UsesIcon.ucf` (this step adds its `<vue>` block, which imports `./Icon.ucf`) and `fixtures/components/vue/AttrInside.ucf` (a `framework` attribute inside `<vue>`). Real builds and dev SSR loads check that:
   - a bare import in `App.vue` gets the Vue target (importer rule);
@@ -248,6 +251,9 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - `UsesIcon.ucf` renders the Vue `Icon` with no attribute;
   - `AttrInside.ucf` is a build error naming the file;
   - importing `ReactOnly.ucf` from `App.vue` is a build error naming both files.
+
+  Also: `vue/AttrInsideJs.ucf` (a `<script setup>` with no `lang`) fails the same way; an unknown or non-literal framework in a `.vue` importer, with or without `lang="ts"`, fails a build with no source maps at the import in that file; `core/test/blocks/vue.spec.ts` checks `vue.check` on both `AttrInside` fixtures.
+- Status: done
 
 ### 4.11 One app, both targets
 
@@ -277,7 +283,8 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - hover and go to definition also on `vue/CounterCrlf.ucf`, at the same spots;
   - in the template, completion at `<sp|` lists `span`, `div` and the file's own component, and before an attribute it lists `:id`, `@click` and `v-if`;
   - no plugin error in the server log (with a plain root, `vue-template` throws reading `info.root.ir`);
-  - in `Counter.ucf`'s `<style scoped>`, completion lists `color` exactly once (Vue's `css` plugin is left out).
+  - in `Counter.ucf`'s `<style scoped>`, completion lists `color` exactly once (Vue's `css` plugin is left out);
+  - `vue/AttrInside.ucf` gets its two `framework-in-block` from tsserver alone: the language server leaves that code to tsserver (`TSSERVER_CODES`), and since 4.10 `vueKind.check` reports it too.
 
 ### 4.13 `Card.ucf.vue.ts` for `.ts` importers
 
@@ -301,6 +308,7 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
     - `@volar/typescript` decorates a host only once per **module copy**. So our plugin must ship its own bundled copy, as the VS Code extension does, never share one with Vue's.
     - Our wrapper must pass every non-`.ucf` specifier through untouched.
   - `packages/vscode/README.md` says `.vue` importers need Vue - Official installed.
+  - `apps/vue/src/App.vue` holds a `with { framework: 'vue' }` import (4.10): its tsserver project needs `module: preserve` or `nodenext`, or TypeScript reports `TS2823` on it.
 - Deliverable: in a `.vue` file, an imported `.ucf` component has its Vue type, with both extensions installed in either order.
 - Test: `packages/e2e/editor/vue-importer.spec.ts`. Use `startTsserver()` the way VS Code does: `@vue/typescript-plugin` from its own install folder, ours from the bundled `packages/vscode` output, run in both orders, and once through `tsconfig.json` `compilerOptions.plugins`. Open `fixtures/apps/vue/src/App.vue`:
   - `<Counter :start="'x'" />` gives a type error at that attribute;
@@ -311,11 +319,11 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
 ## Hands to later milestones
 
 - `vueSfcCode(source, blocks, filename)` in `@multifront/core`: the same-length SFC code with a map. Used by **M7** (`mf-lint` / `mf-fmt` run on the `<vue>` block with positions 1:1, and `mf-tsc`).
-- `vueKind` and `vueEditorKind`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`, `serviceScript`), and the diagnostic code `vue-empty-block`. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
-- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up, `wrapVueCompiler()` giving sub-request maps the `.ucf` text; `cssModules.ts` beside it sets `css.modules.generateScopedName`), and the `multifront:vue-hmr` plugin. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
+- `vueKind` and `vueEditorKind`, the `<vue>` row in both registries (`check`, `build`, `grammar`, `editor`, `types`, `serviceScript`), and the diagnostic code `vue-empty-block`; its `check` also reports `framework-in-block` in the block's scripts. Used by **M5** (the Vue library build and its `.d.ts` from `Card.ucf.vue.ts`) and **M7** (`mf-tsc` checks the Vue target of every file).
+- `packages/vite/src/vueTarget.ts`: plugin-vue composition (`include`, the exclude pattern `/\.ucf\?(?:.*&)?ucf\b/`, `componentIdGenerator`, cache warm-up, `wrapVueCompiler()` giving sub-request maps the `.ucf` text; `cssModules.ts` beside it sets `css.modules.generateScopedName`), and the `multifront:vue-hmr` plugin; `multifront:vue-importers` in `attributes.ts` beside it. Used by **M5** (`multifront({framework: 'vue'})` plus `vue()` builds the Vue package unchanged) and **M6** (`Card.ucf.svelte.svelte` ids never match the include, so the Svelte target needs no change here).
 - The way 4.3 serves a second target script of a `.ucf` file in tsserver, beside the React one: `packages/language-tools/src/targetScripts.ts` serves every editor kind with a `serviceScript` as `targetScriptName(file, tag)`. Used by **M6** (`Card.ucf.svelte.ts`, 6.10: `svelteEditorKind` gains `serviceScript`).
 - `Card.ucf.vue.ts` through the TypeScript plugin, for `.ts` and `.vue` importers. Used by **M5** (Vue `.d.ts`) and **M7** (`mf-tsc` must also cover `.vue` importers, because `vue-tsc` does not load tsserver plugins).
-- Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `DuplicateVue.ucf`, `Empty.ucf`, `StyleOnlyInVue.ucf`, `VueWithUnclosedReact.ucf`, `TemplateError.ucf`, `AttrInside.ucf`, `ComposesFile.ucf`, `GlobalProps.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
+- Fixtures: the `<vue>` blocks of the shared `Counter.ucf`, `imports/Icon.ucf` and `imports/UsesIcon.ucf`; `imports/ReactOnly.ucf`; `packages/e2e/fixtures/components/vue/` (`CounterCrlf.ucf`, `VBind.ucf`, `DuplicateVue.ucf`, `Empty.ucf`, `StyleOnlyInVue.ucf`, `VueWithUnclosedReact.ucf`, `TemplateError.ucf`, `AttrInside.ucf`, `AttrInsideJs.ucf`, `ComposesFile.ucf`, `GlobalProps.ucf`); the app `packages/e2e/fixtures/apps/vue/` with SSR entries, and the demo app with a Vue island. Used by **M5** (base of the fresh Vite Vue consumer app) and **M6** (adds Svelte to the demo).
 - `expectSameComputedStyles()` in `packages/e2e/browser/lib/parity.ts` and `packages/e2e/browser/parity.spec.ts`. Used by **M6** (adds the Svelte counter to the same parity test).
 
 ## Exit test
