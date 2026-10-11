@@ -11,6 +11,7 @@ import type {
   ObjectExpression,
   ObjectProperty,
   ParserOptions,
+  Program,
   Span,
 } from 'oxc-parser';
 import {walk} from '../ast.ts';
@@ -32,7 +33,7 @@ const OPTIONS_NOT_LITERAL =
   'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
 
 /** A `lang.<ext>` query looks like `C.vue?vue&type=script&lang.ts`; `.ts`, `.mts`, `.cts` fall through to ts. */
-function langOf(filename: string): Lang {
+export function langOf(filename: string): Lang {
   const queryAt = filename.indexOf('?');
   const path = queryAt < 0 ? filename : filename.slice(0, queryAt);
   const fromPath = LANGS[extname(path)];
@@ -42,7 +43,7 @@ function langOf(filename: string): Lang {
 }
 
 /** The TS plugin reads a template literal without expressions as a string too. */
-export function literalValue(node: Expression): string | undefined {
+function literalValue(node: Expression): string | undefined {
   if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : undefined;
   if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0]!.value.cooked ?? undefined;
   return undefined;
@@ -51,6 +52,31 @@ export function literalValue(node: Expression): string | undefined {
 export function keyName(key: ObjectProperty['key'] | ImportAttribute['key']): string | undefined {
   if (key.type === 'Identifier') return key.name;
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
+}
+
+// The `.ucf` imports `rewriteImportAttributes` reads; the attribute is an error whatever its value.
+export function frameworkAttributes(program: Program): Span[] {
+  const found: Span[] = [];
+  const isUcf = (source: Expression) => literalValue(source)?.endsWith('.ucf') ?? false;
+  const fromStatic = (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
+    if (node.source && isUcf(node.source)) found.push(...node.attributes.filter(({key}) => keyName(key) === 'framework'));
+  };
+  const fromDynamic = ({source, options}: ImportExpression) => {
+    if (!isUcf(source) || options?.type !== 'ObjectExpression') return;
+    for (const option of options.properties) {
+      if (option.type !== 'Property' || option.computed || keyName(option.key) !== 'with') continue;
+      if (option.value.type !== 'ObjectExpression') continue;
+      for (const attribute of option.value.properties) {
+        if (attribute.type === 'Property' && !attribute.computed && keyName(attribute.key) === 'framework') found.push(attribute);
+      }
+    }
+  };
+  walk(program, (node) => {
+    if (node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration')
+      fromStatic(node);
+    else if (node.type === 'ImportExpression') fromDynamic(node);
+  });
+  return found;
 }
 
 // A spread or computed key could hold the framework, unreadable statically.

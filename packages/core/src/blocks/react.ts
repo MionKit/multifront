@@ -1,20 +1,9 @@
 import MagicString from 'magic-string';
 import {parseSync} from 'oxc-parser';
-import type {
-  ExportAllDeclaration,
-  ExportNamedDeclaration,
-  Expression,
-  ImportDeclaration,
-  ImportExpression,
-  OxcError,
-  ParseResult,
-  Program,
-  Span,
-} from 'oxc-parser';
-import {walk} from '../ast.ts';
+import type {OxcError, ParseResult, Program} from 'oxc-parser';
 import {createDiagnostic} from '../diagnostics.ts';
 import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
-import {keyName, literalValue} from '../imports/rewrite.ts';
+import {frameworkAttributes} from '../imports/rewrite.ts';
 import {transformScope} from '../react/scope.ts';
 import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
@@ -64,31 +53,6 @@ function hasDefaultExport(program: Program): boolean {
         (node.source !== null || local.type !== 'Identifier' || !types.has(local.name))
     );
   });
-}
-
-// The `.ucf` imports `rewriteImportAttributes` reads; the attribute is an error whatever its value.
-function frameworkAttributes(program: Program): Span[] {
-  const found: Span[] = [];
-  const isUcf = (source: Expression) => literalValue(source)?.endsWith('.ucf') ?? false;
-  const fromStatic = (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
-    if (node.source && isUcf(node.source)) found.push(...node.attributes.filter(({key}) => keyName(key) === 'framework'));
-  };
-  const fromDynamic = ({source, options}: ImportExpression) => {
-    if (!isUcf(source) || options?.type !== 'ObjectExpression') return;
-    for (const option of options.properties) {
-      if (option.type !== 'Property' || option.computed || keyName(option.key) !== 'with') continue;
-      if (option.value.type !== 'ObjectExpression') continue;
-      for (const attribute of option.value.properties) {
-        if (attribute.type === 'Property' && !attribute.computed && keyName(attribute.key) === 'framework') found.push(attribute);
-      }
-    }
-  };
-  walk(program, (node) => {
-    if (node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration')
-      fromStatic(node);
-    else if (node.type === 'ImportExpression') fromDynamic(node);
-  });
-  return found;
 }
 
 // buildTarget checks then builds the same Block: one parse serves both.

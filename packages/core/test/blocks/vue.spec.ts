@@ -1,6 +1,6 @@
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {describe, expect, it} from 'vitest';
-import {isTarget, loadVueCompiler, locate, splitBlocks, vueSfcCode} from '@multifront/core';
+import {checkBlocks, getBlockKind, isTarget, loadVueCompiler, locate, splitBlocks, vueSfcCode} from '@multifront/core';
 import type {Block} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {readComponent} from '../../../e2e/fixtures/index.ts';
@@ -128,4 +128,38 @@ describe('vueSfcCode', () => {
     expect(descriptor.template?.content).toContain('first-vue-block');
     expect(code).not.toContain('second-vue-block');
   });
+});
+
+describe('vue.check', () => {
+  const check = (name: string) => {
+    const {filename, source} = readComponent(name);
+    const split = splitBlocks(source, filename);
+    return {split, source, diagnostics: getBlockKind('vue').check(split.targets.vue!, split)};
+  };
+
+  // Written by hand from the fixture files; the second one's script has no `lang`, so it parses as JavaScript.
+  it.each([
+    {
+      fixture: 'vue/AttrInside.ucf',
+      spots: [
+        {line: 3, column: 65},
+        {line: 7, column: 47},
+      ],
+    },
+    {fixture: 'vue/AttrInsideJs.ucf', spots: [{line: 3, column: 47}]},
+  ])('reports framework-in-block on each framework attribute of $fixture', ({fixture, spots}) => {
+    const {split, source, diagnostics} = check(fixture);
+    expect(split.errors).toEqual([]);
+    const found = diagnostics.map(({code, line, column, start, end}) => ({code, line, column, text: source.slice(start, end)}));
+    expect(found).toEqual(spots.map((spot) => ({code: 'framework-in-block', ...spot, text: "framework: 'vue'"})));
+    expect(diagnostics.every(({message}) => message.includes('<vue> block; imports there always get vue'))).toBe(true);
+    expect(checkBlocks(split)).toEqual(diagnostics);
+  });
+
+  it.each(['Counter.ucf', 'imports/UsesIcon.ucf'])(
+    'reports nothing for %s, whose <vue> block imports with no attribute',
+    (name) => {
+      expect(check(name).diagnostics).toEqual([]);
+    }
+  );
 });

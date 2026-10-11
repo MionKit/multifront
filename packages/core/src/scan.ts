@@ -8,6 +8,7 @@ interface OpeningTag {
 
 interface FoundTag {
   name: string;
+  attrs: Block['attrs'];
   start: number; // offset of its '<'
   end: number; // just after its '>' or '/>'
 }
@@ -129,7 +130,7 @@ export function topLevelTags(
     const name = text.slice(pos + 1, nameEnd);
     const opening = readOpeningTag(text, nameEnd, true);
     if (opening.broken && opening.broken !== 'self-closing') break;
-    if (depth === 0) found.push({name, start: pos, end: opening.end});
+    if (depth === 0) found.push({name, attrs: opening.attrs, start: pos, end: opening.end});
     pos = opening.end;
     if (opening.broken) continue;
     if (name === 'script' || name === 'style' || (depth === 0 && rawAtTop(name)))

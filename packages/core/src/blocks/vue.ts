@@ -1,6 +1,9 @@
 import MagicString from 'magic-string';
+import {parseSync} from 'oxc-parser';
 import {createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
-import {topLevelTags} from '../scan.ts';
+import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
+import {frameworkAttributes, langOf} from '../imports/rewrite.ts';
+import {findClosingTag, topLevelTags} from '../scan.ts';
 import {isTarget} from '../targets.ts';
 import type {Block, BlockKind, Diagnostic, SourceMap, SplitResult} from '../types.ts';
 
@@ -8,10 +11,28 @@ import type {Block, BlockKind, Diagnostic, SourceMap, SplitResult} from '../type
 const nests = (name: string): boolean => name === 'template';
 const rawAtTop = (name: string): boolean => name !== 'template';
 
+// Spec 4.1, as `react.check` does: plugin-vue inlines some scripts into the bare `.ucf` module, which no post rewrite sees.
+function attributesInScripts(block: Block, split: SplitResult, tags: ReturnType<typeof topLevelTags>): Diagnostic[] {
+  return tags
+    .filter(({name}) => name === 'script')
+    .flatMap(({attrs, end}) => {
+      const content = block.content.slice(end, findClosingTag(block.content, 'script', end)?.start);
+      if (!content.includes('.ucf')) return [];
+      const lang = langOf(`?lang.${attrs.lang ?? 'js'}`);
+      const {program, errors} = parseSync(split.filename, content, {lang, sourceType: 'module'});
+      // compiler-sfc reports the syntax error.
+      if (errors.length > 0) return [];
+      const offset = block.contentStart + end;
+      return frameworkAttributes(program).map(({start, end: spanEnd}) =>
+        createDiagnostic(split, 'framework-in-block', offset + start, offset + spanEnd, frameworkInBlockMessage('vue'))
+      );
+    });
+}
+
 // The same raw scan as the splitter: compiler-sfc's own "at least one <template> or <script>" error, without it.
 function check(block: Block, split: SplitResult): Diagnostic[] {
-  const diagnostics = styleInsideTarget(block, split, nests, rawAtTop);
   const tags = topLevelTags(block.content, nests, rawAtTop);
+  const diagnostics = [...styleInsideTarget(block, split, nests, rawAtTop), ...attributesInScripts(block, split, tags)];
   if (tags.some(({name}) => name === 'template' || name === 'script')) return diagnostics;
   const message = '<vue> has no <template> or <script>; add one';
   return [createDiagnostic(split, 'vue-empty-block', block.start, block.contentStart, message), ...diagnostics];
