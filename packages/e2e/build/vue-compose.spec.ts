@@ -80,7 +80,7 @@ it('still compiles the .ucf file as Vue after a dev server restart with the same
     const result = await server.environments.client.transformRequest(`/@fs${counter}`);
     expect(errors).toEqual([]);
     expect(result?.code).toMatch(/__name: ["']Counter["']/);
-    // The restart's `buildStart` must not wrap plugin-vue's compiler a second time.
+    // A restart's `buildStart` must not wrap plugin-vue's compiler twice.
     expect(getVueCompiler(server.config.plugins, root)).toBe(createRequire(import.meta.url)('vue/compiler-sfc'));
   } finally {
     await server.close();

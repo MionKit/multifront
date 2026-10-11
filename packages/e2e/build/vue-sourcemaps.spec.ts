@@ -10,7 +10,7 @@ import {APP_CONFIG_LOADER, buildApp, withDevServer, withNodeEnv} from './lib/bui
 
 type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
 
-// The copied app sees the shared components at this path from its root.
+// The shared components, seen from the copied app's root.
 const COUNTER_PATH = '../../components/Counter.ucf';
 const counter = readComponent('Counter.ucf').source;
 const templateError = readComponent('vue/TemplateError.ucf').source;
