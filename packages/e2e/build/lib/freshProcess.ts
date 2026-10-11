@@ -14,7 +14,7 @@ const VITE_BIN = join(import.meta.dirname, '..', '..', '..', '..', 'node_modules
 // Node itself loads the app's `vite.config.ts`: `source` makes it pick `@multifront/vite`'s `src/`.
 const SOURCE_CONDITION = '--conditions=source';
 export const execNode = promisify(execFile);
-// Both below Vitest's 60 s timeouts, so the case fails with our message instead of a bare timeout.
+// Under Vitest's 60 s timeouts: the case fails with our message, not a bare timeout.
 const OUTPUT_TIMEOUT_MS = 30_000;
 // Vite's SIGTERM handler awaits `server.close()`, which waits for the dep scan and bundling with no bound.
 export const STOP_GRACE_MS = 5_000;
