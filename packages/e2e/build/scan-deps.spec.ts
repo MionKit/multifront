@@ -1,5 +1,5 @@
-// Seam of 3.6 (the scan plugin) and 3.7 (the attribute): a bare import found only in a `<react>` block is optimized
-// at startup, whichever rule of spec 4.2 picked react for the importer.
+// Scan plugin (3.6) meets attribute (3.7): a bare import only a `<react>` block has is optimized at startup,
+// whichever spec 4.2 rule picked react.
 import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createLogger, createServer, type ViteDevServer} from 'vite';

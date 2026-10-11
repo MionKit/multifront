@@ -7,7 +7,7 @@ import {FIXTURES_DIR, TMP_DIR, componentPath} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
-// The shared components sit beside the app, outside the one allowed folder.
+// Shared components sit beside the app, outside the only allowed folder.
 const CARD = componentPath('Card.ucf');
 
 describe('dev server of react-basic with server.fs.allow set to the app folder', () => {

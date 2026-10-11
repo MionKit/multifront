@@ -114,7 +114,7 @@ function hmrApp(plugins: () => Plugin[]) {
     }
   }
 
-  // When each file's last update was recorded, which is after the watcher let its change through.
+  // Per file: when its last update arrived, so after the watcher let the change through.
   const lastUpdate = new Map<string, number>();
 
   async function write(file: string, source: string): Promise<Record<EnvironmentName, Update>> {
