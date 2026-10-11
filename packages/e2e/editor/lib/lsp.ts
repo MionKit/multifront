@@ -6,7 +6,7 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import type {Tsserver} from './tsserver.ts';
 
 /** LSP `window/logMessage`; type 1 is an error, 2 a warning. */
-export interface LogMessage {
+interface LogMessage {
   type: number;
   message: string;
 }
@@ -76,8 +76,11 @@ export async function startLanguageServer(workspace: string, options: LanguageSe
 
 /** Links the server to a tsserver the way the extension does: each `tsserver/request` runs there, its body comes back. */
 export function relayTsserver(server: LanguageServer, tsserver: Tsserver): void {
-  server.connection.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown]) => {
-    const body = await tsserver.request(command, args as object).catch(() => undefined);
+  server.connection.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown[]]) => {
+    // A failing handler answers nothing, which Vue reads as an empty list: the log keeps it visible.
+    const body = await tsserver
+      .request(command, args)
+      .catch((err: Error) => void server.log.push({type: 1, message: err.message}));
     await server.connection.sendNotification('tsserver/response', [id, body]);
   });
 }

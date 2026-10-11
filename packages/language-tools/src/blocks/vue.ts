@@ -5,15 +5,7 @@ import type {LanguagePlugin, VirtualCode} from '@volar/language-core';
 import {VueVirtualCode, createVueLanguagePlugin, getDefaultCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
 import {stringSnapshot} from '../mappings.ts';
-import type {
-  EditorBlockKind,
-  EditorContext,
-  EditorFile,
-  EditorOptions,
-  TargetScript,
-  TypeScript,
-  VueRootFields,
-} from '../types.ts';
+import type {EditorBlockKind, EditorContext, EditorFile, EditorOptions, TargetScript, TypeScript} from '../types.ts';
 
 const SERVICE_SCRIPT = /^script_(ts|tsx|js|jsx)$/;
 const STYLE_CODE = /^style_\d+$/;
@@ -88,10 +80,10 @@ export function disposeVueCode(
   plugins.get(compilerOptions)?.disposeVirtualCode?.(fileName, code as VueVirtualCode);
 }
 
-const ROOT_FIELDS = ['fileName', 'ir', 'vueSfc', 'vueCompilerOptions'] as const satisfies (keyof VueRootFields)[];
+const ROOT_FIELDS = ['fileName', 'ir', 'vueSfc', 'vueCompilerOptions'] as const satisfies (keyof VueVirtualCode)[];
 
 /** Vue's service plugins read these from the root code, not from the code they serve (spike 2). */
-export function forwardToVueCode(root: VirtualCode & VueRootFields, code: VirtualCode): void {
+export function forwardToVueCode(root: VirtualCode, code: VirtualCode): void {
   for (const field of ROOT_FIELDS) {
     Object.defineProperty(root, field, {get: () => (code as VueVirtualCode)[field], enumerable: true});
   }
@@ -120,3 +112,17 @@ function types(_block: Block, ctx: EditorContext): EditorFile | undefined {
 }
 
 export const vueEditorKind: EditorBlockKind = {tag: 'vue', editor, types, serviceScript};
+
+/** The client requests Vue's template services make that our TypeScript plugin answers. */
+export const VUE_REQUESTS = [
+  'getComponentNames',
+  'getElementNames',
+  'getElementAttrs',
+  'getComponentProps',
+  'getComponentDirectives',
+] as const;
+
+/** VS Code's `typescript.tsserverRequest` passes only its read-only commands and those starting with `_`. */
+export function vueRequestCommand(name: (typeof VUE_REQUESTS)[number]): string {
+  return `_multifront:${name}`;
+}

@@ -27,7 +27,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 // The server's Vue template services ask tsserver for types; our TypeScript plugin answers in VS Code's tsserver.
 function relayTsserverRequests(languageClient: LanguageClient): void {
-  languageClient.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown]) => {
+  languageClient.onNotification('tsserver/request', async ([id, command, args]: [number, string, unknown[]]) => {
     let body: unknown;
     try {
       const options = {isAsync: true, lowPriority: true};

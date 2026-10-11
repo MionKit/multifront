@@ -7,7 +7,7 @@ import type {URI} from 'vscode-uri';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {multifrontService} from './multifrontService.ts';
 import type {TypeScript} from './types.ts';
-import {VUE_REQUESTS, vueRequestCommand} from './vueRequests.ts';
+import {VUE_REQUESTS, vueRequestCommand} from './blocks/vue.ts';
 
 type VueClient = NonNullable<Parameters<typeof createVueLanguageServicePlugins>[1]>;
 

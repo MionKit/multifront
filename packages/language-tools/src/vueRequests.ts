@@ -9,25 +9,11 @@ import {getComponentProps} from '@vue/typescript-plugin/lib/requests/getComponen
 import {getElementAttrs} from '@vue/typescript-plugin/lib/requests/getElementAttrs.js';
 import {getElementNames} from '@vue/typescript-plugin/lib/requests/getElementNames.js';
 import type * as ts from 'typescript';
-import {vueEditorKind} from './blocks/vue.ts';
+import {VUE_REQUESTS, vueEditorKind, vueRequestCommand} from './blocks/vue.ts';
 import {targetScriptName} from './targetScripts.ts';
 import type {TypeScript} from './types.ts';
 
-/** The client requests Vue's template services make that our TypeScript plugin answers. */
-export const VUE_REQUESTS = [
-  'getComponentNames',
-  'getElementNames',
-  'getElementAttrs',
-  'getComponentProps',
-  'getComponentDirectives',
-] as const;
-
-export type VueRequest = (typeof VUE_REQUESTS)[number];
-
-/** VS Code's `typescript.tsserverRequest` passes only its read-only commands and those starting with `_`. */
-export function vueRequestCommand(name: VueRequest): string {
-  return `_multifront:${name}`;
-}
+type VueRequest = (typeof VUE_REQUESTS)[number];
 
 type Answer = (name: VueRequest, fileName: string, args: unknown[]) => object | undefined;
 
