@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.14
@@ -42,6 +42,14 @@ and `App.vue`'s imports go through the host's `resolveModuleNameLiterals`. A spi
 - Q2, orchestrator: definition on `<Counter` lands at `Counter.ucf` 1:1 (as Volar does for `Plain.vue`, and 4.13 for
   `.ts` importers), on `:start` at `start?: number` inside the `<vue>` block. The 4.14 Test line changes.
 - No fuzz test: no cheap oracle.
+- Review (automatic): the plugin records moved out of the factory (a reload decorated the host again), a reload case
+  and the `.vue`-less "our plugin alone" setup of `imports.spec.ts` added, `freshDiagnostics()` its own commit.
+- Found while building (related, fixed here): Volar's `transformDiagnostic` caches its result per diagnostic object in
+  a module-level WeakMap. On a shared copy, a diagnostic the inner plugin's proxy left as is (its language has no
+  script for the file) came out of the outer one untransformed: `App.vue`'s `TS2322` at the file end with ours first,
+  `Counter.ucf`'s `<vue>` errors gone with Vue's first. `freshDiagnostics()` (step 2) fixes it.
+- The tsconfig setups load both plugins from the project's `node_modules` (probe `E2E_DIR` only): with Vue's install
+  folder probed first, tsserver also found ours there (pnpm's `.pnpm/node_modules`), which is no project install.
 
 ## Plan
 
@@ -59,13 +67,18 @@ and `App.vue`'s imports go through the host's `resolveModuleNameLiterals`. A spi
 
 - `createLanguageServicePlugin(callback)`, our version of Volar's quickstart, same callback, returns
   `{create, getExternalFiles}`.
-- `create(info)`: if this plugin already decorated `info.languageServiceHost` (a WeakSet in this module: a tsconfig
-  reload stays a no-op), return `info.languageService`. Else run the callback, Volar's `createProxyLanguageService`
+- `create(info)`: if this plugin already decorated `info.languageServiceHost`, return `info.languageService`. The
+  WeakSet, like both records below, lives once per `createLanguageServicePlugin()` call, not per factory call:
+  tsserver calls the factory again on each reload, and a second decoration loses the `.ucf` file's scripts. Else run the callback, Volar's `createProxyLanguageService`
   (`lib/node/proxyLanguageService.js`) and `createLanguageCommon` (`lib/quickstart/languageServicePluginCommon.js`),
   exactly as Volar's `create` does, but never reading or writing Volar's shared WeakSets / WeakMaps.
 - `getExternalFiles(project, updateLevel)`: our extension list per project, `searchExternalFiles`
   (`lib/node/decorateLanguageServiceHost.js`), cached per project, `project.refreshDiagnostics()` when the list
   changes, as Volar's `makeGetExternalFiles`.
+- `freshDiagnostics(languageService)`: a Proxy whose three diagnostics methods return a shallow copy of every
+  diagnostic (and of its related information), so no transform cache of another plugin on the same Volar copy holds
+  it. Applied to our proxy's output here, and in `typescriptPlugin.ts` to the base every one of our proxies (the main
+  one and `targetScripts.ts`'s) wraps.
 - `typescriptPlugin.ts:3` imports it instead of Volar's. The "first copy serves" check (`SERVED`) is unchanged.
 
 ### 3. Fixtures
@@ -78,14 +91,15 @@ and `App.vue`'s imports go through the host's `resolveModuleNameLiterals`. A spi
 
 - `startTsserver` passes `--pluginProbeLocations` even with no global plugins (line 77), so `compilerOptions.plugins`
   entries resolve from them.
-- New exports `VUE_PLUGIN = '@vue/typescript-plugin'` and `VUE_PLUGIN_DIR`: its install folder, three levels above the
+- New exports `VUE_PLUGIN = '@vue/typescript-plugin'` and `VUE_PLUGIN_DIR`: its install folder, four levels above the
   real path of its `package.json` (the folder whose `node_modules` holds it and its own dependencies). Those tsservers
   run non-isolated: with `--preserve-symlinks` Vue's plugin cannot find `@volar/source-map`.
 
 ### 5. `packages/vscode/README.md` (new, thin)
 
-- What it is; "`.vue` files importing a `.ucf` component get its Vue type through Vue - Official (`Vue.volar`), which
-  must be installed too"; repo link; status; license.
+- What it is; "`.vue` files importing a `.ucf` component get its Vue type through Vue - Official, which must be
+  installed too"; repo link; status; license. `packages/vscode/package.json` `files` lists it, so the staged `.vsix`
+  packs it.
 
 ### 6. Dependency
 
@@ -100,28 +114,34 @@ only new infra is the root devDependency.
 `describe.each` over four setups:
 
 1. VS Code way, Vue's plugin first: `--globalPlugins @vue/typescript-plugin,multifront-typescript-plugin-pack`,
-   probes `[VUE_PLUGIN_DIR, extension]`, on the fixture app.
+   probes `[VUE_PLUGIN_DIR, extension]`.
 2. VS Code way, ours first: same, reversed.
-3. and 4. tsconfig way, both orders: a `copyApp('vue')` copy whose `tsconfig.json` lists `@vue/typescript-plugin` and
+3. and 4. tsconfig way, both orders: the copy's `tsconfig.json` lists `@vue/typescript-plugin` and
    `@multifront/language-tools/typescript-plugin` (the project's own install, from source) in `compilerOptions.plugins`;
-   probes `[VUE_PLUGIN_DIR, E2E_DIR]`, no global plugins. A first check asserts both resolve the same real
-   `@volar/typescript` folder, so this stays the shared-copy case.
+   probe `[E2E_DIR]` only, no global plugins, so both load from the project's `node_modules`. A first check asserts
+   both resolve the same real `@volar/typescript` folder, so this stays the shared-copy case.
 
-Each opens `App.vue`:
+Each runs on a `copyApp('vue')` copy (a case adds a file) and opens `App.vue`:
 
-- the tsserver log shows each plugin loaded from its own folder (VS Code setups);
+- the tsserver log shows each plugin loaded from the expected folder;
 - `App.vue` as written: no diagnostic (every `.ucf` import resolves, no TS2823);
 - an unsaved `<Counter :start="'x'" />`: exactly one `TS2322`, from `start` to its end;
 - quick info on `<Counter` matches `/^\(property\) Counter: DefineComponent</`;
 - definition on `<Counter` is `Counter.ucf` at 1:1 (as Volar gives `Plain.vue` at 1:1);
 - definition on `:start` is `locate(Counter.source, 'start?: number')`, inside the `<vue>` block (`inBlock`);
-- the plain `.vue` import keeps working: definition on `<Plain` is `Plain.vue`.
+- `Counter.ucf` (opened too): an unsaved `{{ count.toFixed('x') }}` gives its `TS2345` at the `.ucf` range of `'x'`;
+- the plain `.vue` import keeps working: definition on `<Plain` is `Plain.vue`;
+- after `reloadProjects`, a `src/Extra.ucf` written meanwhile is in `projectInfo`'s file names, `App.vue` still has no
+  diagnostic, and `Extra.ucf`'s `TS2345` and its definition from `{{ count }}` map as before (fails with the records
+  per factory call: the definition is lost).
 
-Setups 2 and 4 fail without step 1; 3 and 4 without step 2.
+Setups 2 and 4 fail without step 1; 3 and 4 without step 2 (4's `TS2322` position and 3's `Counter.ucf` check
+without `freshDiagnostics()`).
 
-`editor/imports.spec.ts`: the tsserver also loads `@vue/typescript-plugin` (probes `[E2E_DIR, VUE_PLUGIN_DIR]`); the
-`.vue` filter goes, so `src/Page.vue` line 2 runs: no diagnostic, definition on `Card.ucf`. The project's own entry
-and a global Vue plugin on one shared Volar copy: fails without step 2.
+`editor/imports.spec.ts`: two setups, our plugin alone (every row but `.vue`, as a React-only project runs it) and
+beside `@vue/typescript-plugin` (every row). The `.vue` filter goes, so `src/Page.vue` line 2 runs in the second: no
+diagnostic, definition on `Card.ucf`. The project's own entry and a global Vue plugin on one shared Volar copy: fails
+without step 2.
 
 `editor/vsix.spec.ts`: the exact packed list gains `README.md` (vsce packs it), still no vsce warning.
 
