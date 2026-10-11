@@ -1,5 +1,5 @@
-// A `.vue` importer gets a `.ucf` file's Vue type with Vue's own TypeScript plugin beside ours, in either load order:
-// the VS Code way (each plugin from its own folder, ours bundled) and through `compilerOptions.plugins` from one install.
+// A `.vue` importer gets a `.ucf` file's Vue type with Vue's TypeScript plugin beside ours, in either load order,
+// as VS Code loads them (each from its own folder) and from one install's `compilerOptions.plugins`.
 import {mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';

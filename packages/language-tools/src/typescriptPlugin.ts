@@ -105,8 +105,8 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
       getSplit,
     });
 
-    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file. Fresh objects: a Volar
-    // plugin under ours (Vue's) on our `@volar/typescript` copy has cached its own transform of each one.
+    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file.
+    // Fresh objects: a Volar plugin under ours (Vue's) on our `@volar/typescript` copy cached its transform of each.
     const languageService = info.languageService;
     info.languageService = freshDiagnostics({
       ...languageService,
@@ -156,8 +156,8 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
               isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
             );
           };
-        // Outermost in any load order: a Volar plugin loaded later (Vue's) resolves a batch holding a `.vue` import
-        // itself, `.ucf` ones included. Its wrapper gets ours on top again; inner copies of ours then see no `.ucf`.
+        // Outermost in any order: a later Volar plugin (Vue's) resolves a batch with a `.vue` import itself, `.ucf` too.
+        // The setter wraps ours over its wrapper again; inner copies of ours then see no `.ucf`.
         let current = wrapResolve(resolve);
         Object.defineProperty(host, 'resolveModuleNameLiterals', {
           configurable: true,
