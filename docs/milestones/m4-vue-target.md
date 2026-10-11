@@ -153,11 +153,11 @@ New dependencies, all exact-pinned. Each one arrives with the step that first im
   - the output has the compiled render of Counter, and the `useCssVars` call from `VBind.ucf`'s `v-bind()`;
   - a marker string from the `<react>` block is absent;
   - the build without plugin-vue fails with the error above;
-  - a user's own plugin-vue `include` is kept: with `vue({include: [/\.vue$/]})`, the app's `Plain.vue` (a plain SFC, added here) and `Counter.ucf` both compile;
+  - a user's own plugin-vue `include` is kept: with `vue({include: [/\.vue$/]})`, the app's `Plain.vue` (a plain SFC, added here) and `Counter.ucf` both compile; a user's own `exclude` is kept too (`vue({exclude: [/VBind\.ucf$/]})` fails on `VBind.ucf`);
   - the exclude: `src/bothTargets.ts` re-exports `Counter.ucf` as vue and as react, and the build with it as an extra entry passes;
   - a dev server restart with the same plugin instances logs no error and still compiles `Counter.ucf` as Vue.
 
-  Also: `build/react-target.spec.ts` gets the plugin-vue error for a vue pick and a dev URL in react-basic (no plugin-vue); `build/scan-deps.spec.ts` gains `importer.vue`, whose pick of `Mount.ucf`'s `<vue>` block finds `@jridgewell/trace-mapping`, imported there and used only in the template; the `imports/no-default` and `imports/custom-importers` configs gain `vue()` for their vue rows.
+  Also: `build/react-target.spec.ts` gets the plugin-vue error for a vue pick and a dev URL in react-basic (no plugin-vue); `build/scan-deps.spec.ts` gains `importer.vue`, whose pick of `Mount.ucf`'s `<vue>` block (`lang="ts"`) finds `@jridgewell/trace-mapping`, imported there and used only in the template, and `vue-edges.vue`, which adds a template-only `<vue>` block and one `compileScript()` refuses: both are skipped, and the scan still finds it; the `imports/no-default` and `imports/custom-importers` configs gain `vue()` for their vue rows.
 - Status: done
 
 ### 4.5 One scope id for every target

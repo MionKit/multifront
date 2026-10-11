@@ -36,6 +36,9 @@ and with a scratch build:
 - The dev-URL error (the bare `.ucf` requested with no importer, without plugin-vue) stays, with its test: the same
   error on the other entry path.
 - No fuzz test: the new inputs are configs and plugin orders, no cheap oracle.
+- Review: `vueTarget.ts` stays its own file beside `vueCompiler.ts`, as the milestone names it the home of the
+  plugin-vue composition that 4.5, 4.7 and 4.9 extend. The split-error guard of `vueScanScript()` went: parse errors and
+  a `compileScript()` throw already give the empty module.
 
 ## Plan
 
@@ -43,12 +46,14 @@ and with a scratch build:
 
 - `VUE_INCLUDE = /\.ucf$/`, `UCF_SUB_REQUEST = /\.ucf\?(?:.*&)?ucf\b/` (our style and class map ids),
   `VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in your Vite plugins'`.
-- `composeVuePlugin(plugins)`: for every plugin named `vite:vue` (`VUE_PLUGIN_NAME`, exported from `vueCompiler.ts`),
-  `api.include` = the user's patterns (single or array, kept) + `VUE_INCLUDE`; `api.exclude` = the user's patterns +
-  `UCF_SUB_REQUEST`. Each setter only when its list lacks our RegExp, so a repeat `configResolved` is a no-op.
+- `composeVuePlugin(plugins)`: on the first plugin named `vite:vue` (as `getVueCompiler()` finds it;
+  `VUE_PLUGIN_NAME` exported from `vueCompiler.ts`), `api.include` = the user's patterns (single or array, kept) +
+  `VUE_INCLUDE`; `api.exclude` = the user's patterns + `UCF_SUB_REQUEST`. Each setter only when its list lacks our
+  RegExp, so a repeat `configResolved` is a no-op.
 - `vueScanScript(split, compiler)`: `vueSfcCode()` → `compiler.parse()` → `compiler.compileScript(descriptor, {id})`,
-  `moduleType` from the script's `lang`; `export default {}` on split errors, parse errors, no `<script>`, or a throw.
-- `VuePluginApi` moves to `types.ts` (two files use it) and gains `include` / `exclude`, typed like plugin-vue's `Api`.
+  `moduleType` from the script's `lang`; `export default {}` on parse errors, no `<script>`, or a throw.
+- `VuePluginApi` moves to `types.ts` (two files use it): `Pick<Api, 'include' | 'exclude'>` of plugin-vue's type,
+  plus `options`.
 
 ### 2. `packages/vite/src/index.ts`
 
@@ -90,13 +95,16 @@ All in `pnpm devx test` (real `vite.build()` / `createServer()`), on this host a
 - `packages/e2e/build/vue-compose.spec.ts`, on a `copyApp('vue')` copy:
   - plugin-vue before `multifront()` (the app's config) and after it: Counter, VBind (`useCssVars`) and Plain compile,
     `setCount` (`<react>` marker) absent, scoped CSS of both `.ucf` files present;
-  - `vue({include: [/\.vue$/]})`: `Plain.vue` and `Counter.ucf` both compile;
+  - `vue({include: [/\.vue$/]})`: `Plain.vue` and `Counter.ucf` both compile; `vue({exclude: [/VBind\.ucf$/]})`:
+    the build fails on `VBind.ucf` (the user's exclude is kept);
   - `index.html` + `src/bothTargets.ts` builds (the exclude);
   - no plugin-vue: `src/bothTargets.ts` fails naming `Counter.ucf` and its importer (the dev URL case is the updated
     react-basic dev test, which already requested the Vue id with no plugin-vue);
   - `server.restart()` with inline plugins: no logged error, `Counter.ucf` still compiles as Vue.
-- `packages/e2e/build/scan-deps.spec.ts`: `importer.vue` discovers `@jridgewell/trace-mapping`; each entry finds only
-  its own block's dependency.
+- `packages/e2e/build/scan-deps.spec.ts`: `importer.vue` discovers `@jridgewell/trace-mapping` (a template-only
+  import in a `lang="ts"` block with TypeScript-only syntax); `vue-edges.vue` adds `TemplateOnly.ucf` (no script) and
+  `MixedLang.ucf` (`compileScript()` throws), both skipped with no scan error; each entry finds only its own block's
+  dependency.
 - `react-target.spec.ts` updated; `imports.spec.ts`, `fs-allow.spec.ts`, `hmr.spec.ts` stay green.
 
 ## Docs
