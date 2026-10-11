@@ -94,7 +94,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - No virtual `.vue` path: on a cache miss (dev server restart, SSR) plugin-vue re-reads the file from disk, which fails for a file that does not exist.
 - plugin-vue then compiles it. Scoped CSS, `$style` and `v-bind()` work natively. The Vue target does **not** use 3.3; plugin-vue compiles the styles itself, so the CSS is identical by construction.
 - plugin-vue's `features.componentIdGenerator` is set to the scope id of 3.3, so `data-v-*` matches the other targets.
-- Source maps: offset-shift from the SFC code back to the `.ucf` file.
+- Source maps: the SFC code keeps the `.ucf` file's exact length and line breaks (every other target block is blanked to spaces), so each position is the same and the map is a shift of zero.
 
 ### 3.5 React target
 

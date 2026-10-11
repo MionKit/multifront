@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-11
 milestone: 4
 step: 4.2
@@ -54,8 +54,8 @@ A file with no `<vue>` block gets code that is only blanks plus its styles; comp
   `<button :class="$style.button" title="Zähler 𝄞" @click="count++">{{ count }}</button>`. The `<react>` button
   gains the same `title="Zähler 𝄞"`, so the non-ASCII (two-unit) text sits in the kept and the blanked region and
   both targets still render the same. Strings other tests edit stay exactly as they are.
-- `vue/CounterCrlf.ucf` (new): `Counter.ucf` with `\n` → `\r\n`. `.gitattributes` (new: that path `-text`) and an
-  `.editorconfig` section (`end_of_line = crlf`) keep it CRLF.
+- `vue/CounterCrlf.ucf` (new): `Counter.ucf` with `\n` → `\r\n`. `.gitattributes` (new: that path and its React
+  scope snapshot `-text`) and an `.editorconfig` section (`end_of_line = crlf`) keep it CRLF.
 - `vue/VBind.ucf` (new): `<vue>` with `<script setup lang="ts">` (`const color = ref('rgb(10, 120, 60)')`) and
   `<p class="bound">Bound</p>`, plus `<style scoped>` `.bound { color: v-bind(color); }`. Vue only (spec 2).
 - `imports/Icon.ucf`: gains a `<vue>` block first, the same markup as its React block, with
@@ -68,6 +68,9 @@ A file with no `<vue>` block gets code that is only blanks plus its styles; comp
   `editor/__snapshots__/virtualCode/Counter.ucf.*` and the grammar token snapshots are updated in this PR, each diff
   read: only positions, scope ids and the new fixture text change.
 - `packages/e2e/build/react-target.spec.ts`: `OTHER_MARKERS` gains `'icon-vue-marker'`.
+- `packages/core/test/react/scope.spec.ts` lists every fixture with a `<react>` block and a scoped style, so its
+  `SCOPED` table gains `vue/CounterCrlf.ucf` (found while building): the React build of the CRLF copy gets its own
+  code snapshot, equal to Counter's but for line breaks, file path and scope id.
 
 ### 5. Milestone doc
 
