@@ -106,7 +106,6 @@ uses its own copy or `outDir`.
 7. Guard: a copy with `src/styles.ucf` rejects with the `would be written as styles.css` message.
 8. Plain CSS: a copy where `utils/cx.ts` imports `./cx.css` rejects naming `src/utils/cx.css` and
    `src/utils/cx.ts`.
-
 9. Source map: in `react/Card.js`, the `return` of the JSX maps to the `return (` line of the `<react>` block. Without
    the map `renderChunk` returns it reads one line too far (checked).
 
