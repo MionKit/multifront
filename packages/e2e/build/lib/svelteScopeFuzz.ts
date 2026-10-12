@@ -124,7 +124,7 @@ function freeOf(value: unknown): Set<string> {
   return found;
 }
 
-// What a block binds for one of its fragments: `{#each}` context and index, `{:then}`, `{:catch}`, snippet parameters.
+// What a block binds for one of its fragments.
 function bindsFor(node: Node, key: (typeof FRAGMENT_KEYS)[number]): Set<string> {
   if (node.type === 'EachBlock' && key === 'body') {
     const names = namesOf(node.context);
@@ -242,7 +242,6 @@ for (const parsed of PARSED) {
     if (!slice(parsed, node).includes('$style')) addStatement(MODULE_STATEMENTS, slice(parsed, node), node);
 }
 
-// The plain file's store header takes these.
 for (const name of ['style', 'readable', '__fuzzClasses'])
   if (TAKEN.has(name)) throw new Error(`a svelte/shapes/ fixture declares ${name}, which the plain file's store header uses`);
 
@@ -285,7 +284,7 @@ for (const parsed of PARSED) {
 for (const special of SPECIALS)
   if (!SPECIAL_TEXT[special]) throw new Error(`no svelte/shapes/ fixture holds a ${SPECIAL_TYPES[special]}`);
 
-/** What a name needs to be available: a prop, a statement, a header snippet or a `$` name (runes, `$style`). */
+/** A name is available as a prop, a statement, a header snippet, a global or a `$` name (runes, `$style`). */
 function available(name: string, legacy: boolean): boolean {
   if (name.startsWith('$') || name in globalThis) return true;
   if (PROPS.some((prop) => prop.name === name) || SNIPPETS.some((snippet) => snippet.name === name)) return true;
@@ -543,7 +542,6 @@ const script = (attributes: string, lines: string[]) =>
 function writeBlock(model: Model, filename: string): Pick<SvelteCase, 'block' | 'plain' | 'layout'> {
   const pieces = model.top.map(renderPiece);
   const specials = SPECIALS.filter((special) => model.specials.includes(special));
-  // The free names of the markup, then of what it needs, until nothing new comes in.
   const need = new Set<string>();
   const add = (names: Iterable<string>) => {
     for (const name of names) need.add(name);
@@ -633,7 +631,7 @@ export function ucfSource(fuzzCase: SvelteCase): string {
   return `<svelte>${fuzzCase.block}</svelte>\n\n<style module scoped>\n${STYLE}\n</style>\n`;
 }
 
-/** Writes `<name>.ucf`, its plain `<name>.svelte` and the shapes' `Child.svelte` the cases render. */
+/** Also copies the shapes' `Child.svelte`, which the cases render. */
 export function writeCase(dir: string, fuzzCase: SvelteCase): {ucf: string; plain: string} {
   copyFileSync(componentPath(`${SHAPES_DIR}/${CHILD_FILE}`), join(dir, CHILD_FILE));
   const ucf = join(dir, `${fuzzCase.name}.ucf`);
