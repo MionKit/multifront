@@ -1,0 +1,15 @@
+{
+  // The project tsserver opens App.tsx in, with our plugin: the editor test checks the root props' types there.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
+  },
+  "include": ["src"]
+}

@@ -1,4 +1,4 @@
 
-  export default function BrokenOpeningTags() {
+  export default function BrokenOpeningTags(__props: {className?: string; style?: import('react').CSSProperties; ref?: import('react').Ref<import('react').ComponentRef<'p'>>}) {
     return <p className="broken">Broken opening tags</p>
   }

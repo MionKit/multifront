@@ -22,6 +22,30 @@ export function contentMapping(block: Block): CodeMapping {
   return {sourceOffsets: [block.contentStart], generatedOffsets: [0], lengths: [block.content.length], data: ALL_FEATURES};
 }
 
+/** The block content with `inserts` (offsets in it) added: every content piece 1:1, the inserted text unmapped. */
+export function insertMapped(block: Block, inserts: {at: number; text: string}[]): {code: string; mappings: CodeMapping[]} {
+  const {content, contentStart} = block;
+  const mappings: CodeMapping[] = [];
+  let code = '';
+  let from = 0;
+  const piece = (to: number) => {
+    mappings.push({
+      sourceOffsets: [contentStart + from],
+      generatedOffsets: [code.length],
+      lengths: [to - from],
+      data: ALL_FEATURES,
+    });
+    code += content.slice(from, to);
+    from = to;
+  };
+  for (const {at, text} of [...inserts].sort((first, second) => first.at - second.at)) {
+    if (at > from) piece(at);
+    code += text;
+  }
+  piece(content.length);
+  return {code, mappings};
+}
+
 function lineStarts(text: string): number[] {
   const starts = [0];
   for (let at = text.indexOf('\n'); at !== -1; at = text.indexOf('\n', at + 1)) starts.push(at + 1);

@@ -4,7 +4,7 @@
     title: string
   }
 
-  function Card({ title }: Card) {
+  function Card({ title }: Card & {className?: string; style?: import('react').CSSProperties; ref?: import('react').Ref<import('react').ComponentRef<'div'>>}) {
     return <div className={$style.card}><h2>{title}</h2></div>
   }
 

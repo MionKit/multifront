@@ -27,6 +27,11 @@ function declaredModules(script: EditorFile): Record<string, string[]> {
   return modules;
 }
 
+// The mappings of the `declare const` keys; the block content's carry every feature.
+function classKeys(script: EditorFile): EditorFile['mappings'] {
+  return script.mappings.filter(({data}) => !data.verification);
+}
+
 function sorted(modules: Record<string, string[]>): Record<string, string[]> {
   return Object.fromEntries(Object.entries(modules).map(([name, keys]) => [name, [...keys].sort()]));
 }
@@ -46,7 +51,7 @@ describe('getTypesScript types $style with the class names the build finds', () 
     });
 
     it('maps each key it can to its name in a <style> block of that module', () => {
-      for (const {sourceOffsets, generatedOffsets} of script.mappings.slice(1)) {
+      for (const {sourceOffsets, generatedOffsets} of classKeys(script)) {
         const [offset, generated] = [sourceOffsets[0]!, generatedOffsets[0]!];
         const line = script.code.slice(script.code.lastIndexOf('\n', generated) + 1, generated);
         const module = /^declare const ([\w$]+):/.exec(line)![1];
@@ -59,7 +64,7 @@ describe('getTypesScript types $style with the class names the build finds', () 
   it('lands $style.card on the card of .card in Card.ucf', () => {
     const {filename, source} = readComponent('Card.ucf');
     const script = getTypesScript(filename, source, 'react', {compiler})!;
-    expect(script.mappings.slice(1).map(({sourceOffsets}) => sourceOffsets[0])).toEqual([source.indexOf('.card {') + 1]);
+    expect(classKeys(script).map(({sourceOffsets}) => sourceOffsets[0])).toEqual([source.indexOf('.card {') + 1]);
   });
 
   it('finds every module key StyleModuleEdges.ucf has, and jumps to where each name is written', () => {
@@ -68,9 +73,7 @@ describe('getTypesScript types $style with the class names the build finds', () 
     expect(script.code).not.toContain('my-theme');
     const at = (text: string, skip = 0) => source.indexOf(text) + skip;
     const targets = Object.fromEntries(
-      script.mappings
-        .slice(1)
-        .map(({sourceOffsets: [offset], lengths: [length]}) => [source.slice(offset, offset! + length!), offset])
+      classKeys(script).map(({sourceOffsets: [offset], lengths: [length]}) => [source.slice(offset, offset! + length!), offset])
     );
     // Not here: card__body and row__cell (written as `&__`), dot.ted (written escaped).
     expect(targets).toEqual({

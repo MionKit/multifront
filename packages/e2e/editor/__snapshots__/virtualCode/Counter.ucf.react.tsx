@@ -1,7 +1,7 @@
 
   import { useState } from 'react'
 
-  export default function Counter({start = 0}: {start?: number}) {
+  export default function Counter({start = 0}: {start?: number} & {className?: string; style?: import('react').CSSProperties; ref?: import('react').Ref<import('react').ComponentRef<'div'>>}) {
     const [count, setCount] = useState(start)
     return (
       <div className="counter">

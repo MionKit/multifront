@@ -42,3 +42,10 @@ export default function App() {
     </main>
   );
 }
+
+// Never rendered: a ref typed for a <div> does not fit Button's <button> root, and the editor says so.
+export function WrongRef() {
+  const divRef = useRef<HTMLDivElement>(null);
+  // @ts-expect-error Button's root is a <button>.
+  return <Button label="Wrong" ref={divRef} />;
+}
