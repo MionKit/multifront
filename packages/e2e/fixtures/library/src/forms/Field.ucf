@@ -1,0 +1,30 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ label: string }>()
+  </script>
+
+  <template>
+    <label class="field">{{ label }} <input /></label>
+  </template>
+</vue>
+
+<react>
+  export default function Field({ label }: { label: string }) {
+    return <label className="field">{label} <input /></label>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+  let { label }: { label: string } = $props()
+  </script>
+
+  <label class="field">{label} <input /></label>
+</svelte>
+
+<style scoped>
+.field {
+  display: flex;
+  gap: 8px;
+}
+</style>

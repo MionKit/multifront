@@ -71,6 +71,7 @@
     "react-dom": "19.3.0",
     "sass": "1.104.0",
     "shiki": "4.4.3",
+    "source-map-js": "1.2.1",
     "svelte": "5.57.0",
     "svelte-check": "4.7.6",
     "svelte-language-server": "0.18.4",

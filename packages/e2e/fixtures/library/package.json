@@ -1,0 +1,9 @@
+{
+  "name": "@mf-fixture/ui",
+  "version": "1.2.3",
+  "description": "A small multifront component library, built by the library tests.",
+  "type": "module",
+  "license": "MIT",
+  "author": "multifront fixtures",
+  "keywords": ["multifront", "fixture"]
+}

@@ -1,0 +1,43 @@
+<vue>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const count = ref(0)
+  const pressed = ref(false)
+  </script>
+
+  <template>
+    <button class="counter" :aria-pressed="pressed" @click="count++; pressed = !pressed">Count {{ count }}</button>
+  </template>
+</vue>
+
+<react>
+  import { useState } from 'react'
+  import { useToggle } from './hooks/useToggle.js'
+
+  export default function Counter() {
+    const [count, setCount] = useState(0)
+    const [pressed, toggle] = useToggle()
+    const increment = () => {
+      setCount(count + 1)
+      toggle()
+    }
+    return <button className="counter" aria-pressed={pressed} onClick={increment}>Count {count}</button>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+  let count = $state(0)
+  let pressed = $state(false)
+  </script>
+
+  <button class="counter" aria-pressed={pressed} onclick={() => { count++; pressed = !pressed }}>Count {count}</button>
+</svelte>
+
+<style scoped>
+.counter {
+  padding: 4px 12px;
+  color: rgb(120, 40, 160);
+}
+</style>
