@@ -21,6 +21,7 @@ export const REGISTRY = [
   {name: 'GITHUB_OUTPUT', scope: 'internal', desc: 'set by GitHub Actions; the CI Playwright version step writes the cache key there'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite'},
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
+  {name: 'NODE_PATH', scope: 'internal', desc: "set by pnpm's bin shims into the repo's packages; the editor and compiler lookup tests clear it for their child processes"},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
