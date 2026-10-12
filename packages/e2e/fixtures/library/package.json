@@ -5,5 +5,11 @@
   "type": "module",
   "license": "MIT",
   "author": "multifront fixtures",
+  "homepage": "https://github.com/MionKit/multifront#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MionKit/multifront.git",
+    "directory": "packages/e2e/fixtures/library"
+  },
   "keywords": ["multifront", "fixture"]
 }

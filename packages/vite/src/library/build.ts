@@ -9,6 +9,7 @@ import {multifront} from '../plugin.ts';
 import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
 import {fileOf, filesIn, insideDir, outputName, shownFile} from './names.ts';
+import {writePackageJson} from './packageJson.ts';
 import {libraryTargets} from './targets.ts';
 import {libraryUseClient} from './useClient.ts';
 
@@ -27,6 +28,9 @@ interface TargetJob extends Omit<LibraryResult, 'files'> {
   src: string;
   entries: Record<string, string>;
   peers: Record<string, string>;
+  manifest: Record<string, unknown>;
+  index?: string; // output name
+  components: string[]; // output names
 }
 
 // Overlapping calls share one swap: first in saves the caller's value, last out restores it.
@@ -70,13 +74,12 @@ function indexEntry(root: string, src: string, index: string | false | undefined
   return undefined;
 }
 
-async function libraryName(root: string): Promise<string | undefined> {
+async function libraryManifest(root: string): Promise<Record<string, unknown>> {
   const file = join(root, 'package.json');
   try {
-    const {name} = JSON.parse(await readFile(file, 'utf8')) as {name?: unknown};
-    return typeof name === 'string' ? name : undefined;
+    return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
     throw new Error(`buildLibrary: cannot read ${file}: ${(err as Error).message}`, {cause: err});
   }
 }
@@ -177,7 +180,9 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   };
   await build(options.vite ? mergeConfig(config, options.vite) : config);
   if (options.dts !== false) await row.emitTypes({target, root, src, outDir, modules: [...modules].sort()});
-  return {target, outDir, packageName: job.packageName, files: await filesIn(outDir), skipped: job.skipped};
+  const {packageName, manifest, peers, index, components} = job;
+  await writePackageJson({target, root, outDir, packageName, manifest, peers, index, components});
+  return {target, outDir, packageName, files: await filesIn(outDir), skipped: job.skipped};
 }
 
 /** One real `vite build` per framework: `<outDir>/<framework>/` gets one ES module per component and plain module. */
@@ -194,7 +199,8 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   if (frameworks.length === 0) {
     throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a block for a framework with a library build`);
   }
-  const rootName = await libraryName(root);
+  const manifest = await libraryManifest(root);
+  const rootName = typeof manifest.name === 'string' ? manifest.name : undefined;
   const jobs = frameworks.map((target): TargetJob => {
     const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];
     if (!row) throw new Error(`buildLibrary: the '${target}' framework has no library build`);
@@ -214,6 +220,9 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
       skipped: components.filter((component) => !withTargetBlock.includes(component)).map((component) => component.relative),
       packageName,
       peers: {...row.peers, ...options.packages?.[target]?.peers},
+      manifest,
+      index: index && outputName(index, src),
+      components: withTargetBlock.map((component) => outputName(`${src}/${component.relative}`, src)),
     };
   });
   return asProduction(async () => {
