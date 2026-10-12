@@ -30,6 +30,7 @@ const compiler = loadVueCompiler(import.meta.dirname);
 const svelte = createRequire(import.meta.url)('svelte/compiler') as typeof SvelteCompilerModule;
 const ERRORS_DIR = 'svelte/errors';
 const SHAPES_DIR = 'svelte/shapes';
+const ATTR_IN_SVELTE = 'svelte/imports/AttrInSvelte.ucf';
 
 async function svelteBuild(name: string) {
   const {filename, source} = readComponent(name);
@@ -148,6 +149,7 @@ describe('the <svelte> rules', () => {
   const OTHERS = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
     .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|invalid)\//.test(name))
+    .filter((name) => name !== ATTR_IN_SVELTE)
     .filter((name) => readComponent(name).source.includes('<svelte>'))
     .sort();
 
@@ -160,6 +162,28 @@ describe('the <svelte> rules', () => {
     expect(thrown).toEqual([]);
     expect(() => svelte.compile(file!.code, {generate: 'server', filename: `${name}.svelte.svelte`})).not.toThrow();
   });
+
+  // Written by hand from the fixture: the module script has no `lang`, so it parses as JavaScript.
+  it(`reports framework-in-block on each framework attribute of a top-level script in ${ATTR_IN_SVELTE}`, async () => {
+    const {split, source, thrown} = await svelteBuild(ATTR_IN_SVELTE);
+    expect(split.errors).toEqual([]);
+    expect(thrown.map(({code, line, column, start, end}) => ({code, line, column, text: source.slice(start, end)}))).toEqual([
+      {code: 'framework-in-block', line: 3, column: 71, text: "framework: 'svelte'"},
+      {code: 'framework-in-block', line: 7, column: 51, text: "framework: 'react'"},
+      {code: 'framework-in-block', line: 9, column: 58, text: "framework: 'svelte'"},
+    ]);
+    expect(thrown.every(({message}) => message.includes('<svelte> block; imports there always get svelte'))).toBe(true);
+    expect(checkBlocks(split)).toEqual(thrown);
+  });
+
+  // The one in markup is left to the post rewrite of the compiled module.
+  it.each(['svelte/imports/AttrInSvelteMarkup.ucf', 'svelte/imports/UsesReactOnly.ucf', 'Panel.ucf', 'imports/UsesIcon.ucf'])(
+    'reports no framework-in-block for %s',
+    (name) => {
+      const {filename, source} = readComponent(name);
+      expect(checkBlocks(splitBlocks(source, filename))).toEqual([]);
+    }
+  );
 });
 
 type Node = AST.BaseNode & Record<string, unknown>;
