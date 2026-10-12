@@ -9,6 +9,7 @@ const FLOOR_PEERS = {
   react: {peers: ['react', 'react-dom', '@vitejs/plugin-react'], follow: {'@types/react': 'react', '@types/react-dom': 'react-dom'}},
   // `vue` pins its own compiler-sfc exactly, so the two move together.
   vue: {peers: ['@vitejs/plugin-vue', '@vue/compiler-sfc'], follow: {vue: '@vue/compiler-sfc'}},
+  svelte: {peers: ['svelte', '@sveltejs/vite-plugin-svelte'], follow: {}},
 };
 
 export function floorOverrides(framework) {
