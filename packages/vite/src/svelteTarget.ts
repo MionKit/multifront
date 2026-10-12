@@ -3,6 +3,7 @@ import type {Plugin, ResolvedConfig} from 'vite';
 // plugin-svelte's marker plugin, there for other plugins to detect it.
 const SVELTE_PLUGIN_NAME = 'vite-plugin-svelte';
 const COMPILE_PLUGIN_NAME = 'vite-plugin-svelte:compile';
+const HOT_UPDATE_PLUGIN_NAME = 'vite-plugin-svelte:hot-update';
 
 export const SVELTE_PLUGIN_MISSING = 'the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins';
 
@@ -17,24 +18,53 @@ export function hasSveltePlugin(plugins: readonly Plugin[]): boolean {
   return plugins.some((plugin) => plugin.name === SVELTE_PLUGIN_NAME);
 }
 
+/** `target` with `key` read as `value`; its other methods stay bound to `target`. */
+function withMember<Target extends object>(target: Target, key: PropertyKey, value: unknown): Target {
+  return new Proxy(target, {
+    get(object, name) {
+      if (name === key) return value;
+      const member: unknown = Reflect.get(object, name, object);
+      return typeof member === 'function' ? member.bind(object) : member;
+    },
+  });
+}
+
 /** plugin-svelte merges our `load` map via `getCombinedSourcemap()`, then Vite applies it again: every mapping lost. */
-export function composeSveltePlugin(config: ResolvedConfig): void {
+function wrapCompile(config: ResolvedConfig): void {
   const transform = config.plugins.find((plugin) => plugin.name === COMPILE_PLUGIN_NAME)?.transform;
   // A restart runs `configResolved` again on the same plugin-svelte instance.
   if (!transform || typeof transform === 'function' || wrappedHandlers.has(transform.handler)) return;
   const handler = transform.handler;
   transform.handler = function (code, id, ...rest) {
     if (!SVELTE_ID.test(id)) return handler.call(this, code, id, ...rest);
-    const context = new Proxy(this, {
-      get(target, key) {
-        if (key === 'getCombinedSourcemap') return () => null;
-        const value: unknown = Reflect.get(target, key, target);
-        return typeof value === 'function' ? value.bind(target) : value;
-      },
-    });
-    return handler.call(context, code, id, ...rest);
+    return handler.call(
+      withMember(this, 'getCombinedSourcemap', () => null),
+      code,
+      id,
+      ...rest
+    );
   };
   wrappedHandlers.add(transform.handler);
+}
+
+/** plugin-svelte's hot update first transforms the changed file: for a `.ucf` file the bare Vue id, which throws without plugin-vue. */
+function wrapHotUpdate(config: ResolvedConfig): void {
+  const hotUpdate = config.plugins.find((plugin) => plugin.name === HOT_UPDATE_PLUGIN_NAME)?.hotUpdate;
+  if (!hotUpdate || typeof hotUpdate === 'function' || wrappedHandlers.has(hotUpdate.handler)) return;
+  const handler = hotUpdate.handler;
+  hotUpdate.handler = function (options) {
+    if (!options.file.endsWith('.ucf')) return handler.call(this, options);
+    const {environment} = this;
+    // That request only refreshes plugin-svelte's CSS cache, and our Svelte ids emit no Svelte CSS.
+    const transformRequest = (url: string) => (url === options.file ? Promise.resolve(null) : environment.transformRequest(url));
+    return handler.call(withMember(this, 'environment', withMember(environment, 'transformRequest', transformRequest)), options);
+  };
+  wrappedHandlers.add(hotUpdate.handler);
+}
+
+export function composeSveltePlugin(config: ResolvedConfig): void {
+  wrapCompile(config);
+  wrapHotUpdate(config);
 }
 
 /** Before the attribute rewrite: our id left uncompiled would hand raw markup to Rolldown. */
