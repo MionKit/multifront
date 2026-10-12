@@ -7,12 +7,6 @@ import {fileOf, outputName, shownFile} from './names.ts';
 
 const STYLES = 'styles.css';
 
-// Vite's CSS file from one `<style>` block: the `.ucf` file it belongs to and the block's index.
-interface BlockCss {
-  file: string;
-  index: number;
-}
-
 function isStyleId(id: string): boolean {
   const {path, query} = splitId(id);
   return path.endsWith('.ucf') && query.get('type') === 'style';
@@ -33,7 +27,8 @@ function cssName(file: string, src: string): string {
 export function libraryCss(root: string, src: string): Plugin {
   // `.ucf` files with a style block Vite's CSS step compiles (not our class map, a JS module).
   const styled = new Set<string>();
-  const blocks = new Map<string, BlockCss>();
+  // Vite's CSS file of one `<style>` block → the `.ucf` file it belongs to and the block's index.
+  const blocks = new Map<string, {file: string; index: number}>();
   const shown = (file: string) => shownFile(root, file);
   return {
     name: 'multifront:library-css',
