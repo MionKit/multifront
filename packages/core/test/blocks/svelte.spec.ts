@@ -395,7 +395,7 @@ describe('svelte.build of the other fixtures', () => {
   });
 });
 
-// The rename the editor's script (M5 5.9) and the library build share with build(): same locals, same `.ucf` offsets.
+// The editor's script (M5 5.9) and the library build reuse this rename, so it must match build()'s.
 describe('renameSvelteStyles matches the rename of build()', () => {
   const FIXTURES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))

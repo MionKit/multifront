@@ -23,7 +23,6 @@ export function collectConsole(page: Page): ConsoleEntry[] {
   return entries;
 }
 
-/** The warnings and errors among `collectConsole`'s entries. */
 export function consoleProblems(entries: ConsoleEntry[]): ConsoleEntry[] {
   return entries.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
 }

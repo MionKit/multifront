@@ -27,7 +27,6 @@ const PROPERTIES = [
 ];
 const POLL = {timeout: 10_000};
 
-// Every `data-v-*` attribute name an element carries.
 const scopesOf = (page: Page, selector: string) =>
   page.locator(selector).evaluate((element) =>
     element
