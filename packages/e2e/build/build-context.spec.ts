@@ -60,7 +60,7 @@ describe('split, checkBlocks and createBuildContext inside a real Vite build, on
     const {ctx} = loaded.find((entry) => entry.name === name)!;
     const {scopeId: id, filename, source, compiler} = ctx;
     expect(ctx.styles).toEqual(await compileStyles(ctx.split.styles, {id, filename, source, compiler, production: true}));
-    for (const block of ctx.split.styles) expect(styleKind.build!(block, ctx).code).toBe(ctx.styles[block.index]!.code);
+    for (const block of ctx.split.styles) expect(styleKind.build(block, ctx).code).toBe(ctx.styles[block.index]!.code);
   });
 
   it.each(FIXTURES)('%s: places every split, check and compile diagnostic at its real line and column', (name) => {

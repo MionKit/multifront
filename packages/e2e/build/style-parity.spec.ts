@@ -50,7 +50,7 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
     // Joined as Vite joins the CSS modules of a chunk.
     await writeFile(
       join(root, 'src', `${base}.ours.css`),
-      split.styles.map((block) => styleKind.build!(block, ctx).code).join('')
+      split.styles.map((block) => styleKind.build(block, ctx).code).join('')
     );
     // Vite drops a scoped block's CSS (cssScopeTo) unless the bundle keeps the component's default export.
     await writeFile(join(root, 'src', 'vue-entry.ts'), `import Component from './${base}.vue';\nconsole.log(Component);\n`);
@@ -82,7 +82,7 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
     expect(Object.values(ctx.modules).map((module) => module.index)).toEqual(moduleBlocks.map((block) => block.index));
     for (const {index, classes} of Object.values(ctx.modules)) {
       const block = split.styles[index]!;
-      const css = styleKind.build!(block, ctx).code;
+      const css = styleKind.build(block, ctx).code;
       expect(Object.keys(classes).length).toBeGreaterThan(0);
       for (const [local, generated] of Object.entries(classes)) {
         if (!hasClass(block.content, local)) {

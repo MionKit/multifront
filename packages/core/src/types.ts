@@ -47,7 +47,7 @@ export interface BlockKind {
   grammar: BlockGrammar;
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
   fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
-  build?(block: Block, ctx: BuildContext): VirtualFile; // style, react, vue and svelte
+  build(block: Block, ctx: BuildContext): VirtualFile;
 }
 
 /** One file a block becomes, for the bundler or an editor service. */

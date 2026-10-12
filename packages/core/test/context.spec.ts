@@ -70,7 +70,7 @@ describe('createBuildContext on valid fixtures', () => {
     it("builds each <style> block into the CSS and map of its compiled style, as '.css'", () => {
       for (const block of split.styles) {
         const {code, map} = ctx.styles[block.index]!;
-        expect(styleKind.build!(block, ctx)).toEqual({ext: '.css', code, map});
+        expect(styleKind.build(block, ctx)).toEqual({ext: '.css', code, map});
       }
     });
   });
@@ -101,7 +101,7 @@ describe('createBuildContext on invalid fixtures', () => {
     const {split, ctx} = await context('invalid/ScssSyntaxError.ucf');
     expect(ctx.styles[0]!.errors.map(({code}) => code)).toEqual(['style-compile-error']);
     expect(ctx.modules.$style!.classes).toEqual({});
-    expect(styleKind.build!(split.styles[0]!, ctx)).toEqual({ext: '.css', code: '', map: undefined});
+    expect(styleKind.build(split.styles[0]!, ctx)).toEqual({ext: '.css', code: '', map: undefined});
   });
 
   // As in plugin-vue, which merges module names block by block.

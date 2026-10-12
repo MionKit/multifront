@@ -1,4 +1,4 @@
-import {DiagnosticsError, createDiagnostic, styleInsideTarget, targetNotBuilt} from '../diagnostics.ts';
+import {DiagnosticsError, createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
 import {loadSvelteCompiler} from '../compilers.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, VirtualFile} from '../types.ts';
 
@@ -102,7 +102,9 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     throw new DiagnosticsError([parseError(err, block, ctx)]);
   }
   const errors = missingStyleModules(root, block, ctx);
-  throw new DiagnosticsError(errors.length > 0 ? errors : [targetNotBuilt(ctx.split, block)]);
+  if (errors.length > 0) throw new DiagnosticsError(errors);
+  const message = 'multifront does not build <svelte> blocks yet';
+  throw new DiagnosticsError([createDiagnostic(ctx.split, 'target-not-built', block.start, block.contentStart, message)]);
 }
 
 // Svelte compiles only a root `<style>`; one inside an element (`<svelte:head>`) is valid markup.
