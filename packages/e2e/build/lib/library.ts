@@ -1,11 +1,14 @@
+import {execFile} from 'node:child_process';
 import {readFileSync} from 'node:fs';
-import {mkdir, mkdtemp, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
+import {promisify} from 'node:util';
 import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
-import {LIBRARY_DIR, TMP_DIR, copyLibrary, removeLibrary} from '../../fixtures/index.ts';
+import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, removeLibrary} from '../../fixtures/index.ts';
 
 export interface BuiltLibrary {
   outDir: string;
@@ -70,4 +73,49 @@ export function specifiersOf(file: string, code: string): string[] {
     ...module.staticExports.flatMap((entry) => entry.entries.flatMap((exported) => exported.moduleRequest?.value ?? [])),
     ...module.dynamicImports.map((entry) => code.slice(entry.moduleRequest.start + 1, entry.moduleRequest.end - 1)),
   ];
+}
+
+/** Every string-literal specifier of a declaration file: imports, re-exports and `import()` types. */
+export function typeSpecifiersOf(file: string, code: string): string[] {
+  const parsed = parseSync(file, code, {lang: 'dts', sourceType: 'module'});
+  if (parsed.errors.length > 0) throw new Error(`${file} does not parse: ${parsed.errors[0]!.message}`);
+  const found: string[] = [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== 'object') return;
+    const node = value as {type?: unknown; source?: {type?: string; value?: unknown}};
+    if (node.type !== 'Literal' && node.source?.type === 'Literal' && typeof node.source.value === 'string')
+      found.push(node.source.value);
+    for (const child of Object.values(node)) visit(child);
+  };
+  visit(parsed.program);
+  return found;
+}
+
+const require = createRequire(import.meta.url);
+const TYPE_CHECKERS = {
+  tsc: join(dirname(require.resolve('typescript/package.json')), 'bin', 'tsc'),
+  'vue-tsc': join(dirname(require.resolve('vue-tsc/package.json')), 'bin', 'vue-tsc.js'),
+};
+
+/** `fixtures/library-checks/` beside the built packages, so its `../react/…` imports reach them. */
+export async function copyLibraryChecks(outDir: string): Promise<string> {
+  const checks = join(outDir, 'checks');
+  await cp(join(FIXTURES_DIR, 'library-checks'), checks, {recursive: true});
+  return checks;
+}
+
+/** A real `tsc` / `vue-tsc --noEmit`; resolves with its output, empty when it passed. */
+export async function typeCheck(checker: keyof typeof TYPE_CHECKERS, dir: string, project: string): Promise<string> {
+  try {
+    const {stdout, stderr} = await promisify(execFile)(
+      process.execPath,
+      [TYPE_CHECKERS[checker], '-p', project, '--pretty', 'false'],
+      {cwd: dir}
+    );
+    return `${stdout}${stderr}`.trim();
+  } catch (err) {
+    const {stdout = '', stderr = ''} = err as {stdout?: string; stderr?: string};
+    return `${stdout}${stderr}`.trim() || String(err);
+  }
 }

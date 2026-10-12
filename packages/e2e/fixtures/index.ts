@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {readdirSync, readFileSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rename, rm, writeFile} from 'node:fs/promises';
-import {dirname, join, resolve, sep} from 'node:path';
+import {basename, dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +30,8 @@ export const LIBRARY_DIR = join(FIXTURES_DIR, 'library');
 export async function copyLibrary(): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
   const root = await mkdtemp(join(TMP_DIR, 'library-'));
-  await cp(LIBRARY_DIR, root, {recursive: true});
+  // Not its `node_modules`: the type stages of library builds running in parallel live there.
+  await cp(LIBRARY_DIR, root, {recursive: true, filter: (source) => basename(source) !== 'node_modules'});
   return root;
 }
 
