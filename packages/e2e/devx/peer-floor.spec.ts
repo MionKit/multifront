@@ -27,7 +27,7 @@ const REACT_FLOOR = {
 
 const VUE_FLOOR = {'@vitejs/plugin-vue': '6.0.3', '@vue/compiler-sfc': '3.5.15', vue: '3.5.15'};
 
-const SVELTE_FLOOR = {svelte: '5.46.4', '@sveltejs/vite-plugin-svelte': '7.0.0'};
+const SVELTE_FLOOR = {svelte: '5.55.6', '@sveltejs/vite-plugin-svelte': '7.0.0'};
 
 // A floor CI job has already added its overrides to the working copy.
 const COMMITTED_WORKSPACE = spawnSync('git', ['show', 'HEAD:pnpm-workspace.yaml'], {cwd: REPO_ROOT, encoding: 'utf8'}).stdout;
