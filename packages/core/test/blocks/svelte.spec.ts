@@ -145,7 +145,6 @@ describe('the <svelte> rules', () => {
     expect(error!.message).toBe('<svelte> does not parse: Unterminated regular expression');
   });
 
-  // Every other real <svelte> block builds, and Svelte compiles it.
   const OTHERS = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
     .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|invalid)\//.test(name))
@@ -165,7 +164,6 @@ describe('the <svelte> rules', () => {
 
 type Node = AST.BaseNode & Record<string, unknown>;
 
-// Every node of the fragment that has a tag name, in source order; `inHead`: inside `<svelte:head>`.
 function namedNodes(root: AST.Root): {node: Node; inHead: boolean}[] {
   const found: {node: Node; inHead: boolean}[] = [];
   const visit = (value: unknown, inHead: boolean): void => {
@@ -186,10 +184,9 @@ function offsetOf(text: string, line: number, column: number): number {
   return text.split('\n', line - 1).join('\n').length + (line > 1 ? 1 : 0) + column;
 }
 
-// Our import lines: the style ids and the class maps, both `?ucf&type=style&`.
+// Matches both our CSS imports and our class map imports.
 const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&[^"\n]*)";`;
 
-/** The block content back: stamps, our imports and an added `<script>` removed, renames undone. */
 function undoBuild(code: string, ctx: BuildContext): string {
   const names = new Map<string, string>();
   for (const [, local, id] of code.matchAll(new RegExp(IMPORT, 'g'))) {
@@ -217,7 +214,7 @@ afterAll(async () => {
   if (tmp) await rm(tmp, {recursive: true, force: true});
 });
 
-// Under the repo, so the compiled code finds `svelte`; Node's own import, as the code is plain JS.
+// TMP_DIR is under the repo so `svelte` resolves; plain JS, so Node's own import.
 async function loadServerModule(name: string, code: string): Promise<unknown> {
   const path = join(await tmpDir(), `${name}.js`);
   await writeFile(path, code);
@@ -230,7 +227,7 @@ async function childComponent(): Promise<unknown> {
   return loadServerModule('Child', js.code);
 }
 
-/** Server-renders a build: class map imports get what the Vite plugin serves for them, CSS imports go. */
+/** Class map imports get what the Vite plugin would serve; CSS imports are dropped. */
 async function renderBuild(file: VirtualFile, ctx: BuildContext, name: string, props: Record<string, unknown>) {
   const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`});
   const text = new MagicString(js.code);
@@ -250,7 +247,7 @@ async function renderBuild(file: VirtualFile, ctx: BuildContext, name: string, p
   return render(component as Component<Record<string, unknown>>, {props});
 }
 
-// Every start tag as written, duplicates included: parse5 would drop a repeated attribute.
+// Not parse5: it would drop a repeated attribute.
 function startTags(html: string, stamp: string): {name: string; stamps: number; classes: string[]}[] {
   const tags: {name: string; stamps: number; classes: string[]}[] = [];
   const parser = new Parser({
@@ -266,7 +263,7 @@ function startTags(html: string, stamp: string): {name: string; stamps: number; 
   return tags;
 }
 
-// Hand-read from the fixtures: where the imports land, and whether the fixture takes the `Child` prop.
+// Hand-read from the fixtures; `script`: where the imports land.
 type Shape = {fixture: string; script: 'module' | 'instance' | 'added'; child?: true};
 
 const SHAPES: Shape[] = (
@@ -283,7 +280,7 @@ const SHAPES: Shape[] = (
     {fixture: 'IfBlock.ucf', script: 'instance'},
     {fixture: 'KeyBlock.ucf', script: 'instance'},
     {fixture: 'LessThan.ucf', script: 'instance'},
-    // `$style` in `<script module>` reads an import there; one in the instance script would not reach it.
+    // An import in the instance script would not reach `$style` in `<script module>`.
     {fixture: 'ModuleScriptOnly.ucf', script: 'module'},
     {fixture: 'NoScript.ucf', script: 'added'},
     {fixture: 'ScriptString.ucf', script: 'instance'},
