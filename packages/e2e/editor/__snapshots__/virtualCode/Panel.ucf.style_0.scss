@@ -8,3 +8,9 @@ $pad: 1rem;
     margin: 0 0 $pad * 0.5;
   }
 }
+
+// PanelItem's root, reached through scope forwarding in every framework.
+.item {
+  padding-left: $pad * 0.5;
+  border-left: 2px solid rgb(40, 90, 160);
+}
