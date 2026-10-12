@@ -39,15 +39,10 @@ function codeId(block: Block): string {
   return isTarget(block.type) ? block.type : `${block.type}_${block.index}`;
 }
 
-function createRootCode(
-  fileName: string,
-  snapshot: IScriptSnapshot,
-  options: EditorOptions,
-  previous: UcfVirtualCode | undefined
-): UcfVirtualCode {
+function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: EditorOptions, last?: VirtualCode): UcfVirtualCode {
   const source = snapshot.getText(0, snapshot.getLength());
   const split = splitBlocks(source, fileName);
-  const ctx = createEditorContext(split, options, previous);
+  const ctx = createEditorContext(split, options, last);
   const embeddedCodes: VirtualCode[] = editorFiles(ctx).map(({block, file}) => {
     if (!('ext' in file)) return Object.assign(file, {id: codeId(block)});
     const {code, ext, mappings} = file;
@@ -62,18 +57,13 @@ function createRootCode(
 
 /** The Volar language plugin for `.ucf` files: a root code per file, one embedded code per block a service reads. */
 export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePlugin<string> {
-  // Volar recreates the root on every edit; a block that does not build now serves its code from the last one.
-  const roots = new Map<string, UcfVirtualCode>();
   return {
     getLanguageId: (fileName) => (fileName.endsWith('.ucf') ? 'ucf' : undefined),
-    createVirtualCode(fileName, languageId, snapshot) {
-      if (languageId !== 'ucf') return undefined;
-      const root = createRootCode(fileName, snapshot, options, roots.get(fileName));
-      roots.set(fileName, root);
-      return root;
-    },
+    createVirtualCode: (fileName, languageId, snapshot) =>
+      languageId === 'ucf' ? createRootCode(fileName, snapshot, options) : undefined,
+    // A block that does not build now serves its code from the last root.
+    updateVirtualCode: (fileName, root, snapshot) => createRootCode(fileName, snapshot, options, root),
     disposeVirtualCode(fileName, root) {
-      roots.delete(fileName);
       const vue = root.embeddedCodes?.find(({id}) => id === 'vue');
       if (vue) disposeVueCode(fileName, vue, options);
     },

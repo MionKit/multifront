@@ -96,18 +96,13 @@ function types(block: Block, ctx: EditorContext): EditorFile | undefined {
 
 function editor(block: Block, ctx: EditorContext): VirtualCode[] {
   const script = svelteTypes(block, ctx);
-  if (!script) return lastScript(ctx);
+  if (!script) {
+    // Markup Svelte cannot parse yet: importers keep the last script's types. Its offsets are stale, so nothing maps.
+    const last = ctx.previous?.embeddedCodes?.find(({id}) => id === 'svelte');
+    return last ? [{...last, mappings: []}] : [];
+  }
   const languageId = script.lang === 'ts' ? 'typescript' : 'javascript';
   return [{id: 'svelte', languageId, snapshot: stringSnapshot(script.code), mappings: script.mappings}];
-}
-
-// Markup Svelte cannot parse yet: importers keep the last script's types. Its offsets are stale, so nothing maps.
-// A fresh snapshot: tsserver's target script keeps its mappings until its snapshot changes.
-function lastScript(ctx: EditorContext): VirtualCode[] {
-  const last = ctx.previous?.embeddedCodes?.find(({id}) => id === 'svelte');
-  if (!last) return [];
-  const text = last.snapshot.getText(0, last.snapshot.getLength());
-  return [{id: 'svelte', languageId: last.languageId, snapshot: stringSnapshot(text), mappings: []}];
 }
 
 function serviceScript(code: VirtualCode): TargetScript {

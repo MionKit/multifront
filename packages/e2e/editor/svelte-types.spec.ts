@@ -148,22 +148,6 @@ describe('getTypesScript for the svelte target', () => {
     expect(getTypesScript(markupError.filename, markupError.source, 'svelte', {svelteCompiler})).toBeUndefined();
   });
 
-  it('the language plugin keeps the last script that built, mapped nowhere, until the file is closed', () => {
-    const language = createLanguage([createUcfLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
-    const svelteCode = (source: string) =>
-      language.scripts.set(PANEL.filename, typescript.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('svelte');
-    const text = ({snapshot}: VirtualCode) => snapshot.getText(0, snapshot.getLength());
-    const broken = PANEL.source.replace(RENDER, RENDER.slice(0, -1));
-    const good = svelteCode(PANEL.source)!;
-    expect(good.mappings).not.toEqual([]);
-    for (const source of [broken, `${broken}\n`]) {
-      const kept = svelteCode(source)!;
-      expect({text: text(kept), mappings: kept.mappings}).toEqual({text: text(good), mappings: []});
-    }
-    language.scripts.delete(PANEL.filename);
-    expect(svelteCode(broken)).toBeUndefined();
-  });
-
   it("resolves the block's own import to PanelItem.ucf.svelte.ts", () => {
     const containingFile = `${PANEL.filename}.svelte.ts`;
     const sourceFile = typescript.createSourceFile(containingFile, panelScript()!.code, typescript.ScriptTarget.ESNext, true);
@@ -196,5 +180,23 @@ describe('getTypesScript for the svelte target', () => {
       expect(code.mappings).toEqual(types.mappings);
       expect(kind.serviceScript!(code)?.scriptKind).toBe(scriptKind);
     }
+  });
+});
+
+describe('createUcfLanguagePlugin for the svelte target', () => {
+  it('the language plugin keeps the last script that built, mapped nowhere, until its script is deleted', () => {
+    const language = createLanguage([createUcfLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
+    const svelteCode = (source: string) =>
+      language.scripts.set(PANEL.filename, typescript.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('svelte');
+    const text = ({snapshot}: VirtualCode) => snapshot.getText(0, snapshot.getLength());
+    const broken = PANEL.source.replace(RENDER, RENDER.slice(0, -1));
+    const good = svelteCode(PANEL.source)!;
+    expect(good.mappings).not.toEqual([]);
+    for (const source of [broken, `${broken}\n`]) {
+      const kept = svelteCode(source)!;
+      expect({text: text(kept), mappings: kept.mappings}).toEqual({text: text(good), mappings: []});
+    }
+    language.scripts.delete(PANEL.filename);
+    expect(svelteCode(broken)).toBeUndefined();
   });
 });

@@ -1,9 +1,10 @@
 import {isTarget} from '@multifront/core';
 import type {Block, BlockTag, SplitResult} from '@multifront/core';
 import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
-import type {EditorCode, EditorContext, EditorOptions, UcfVirtualCode} from './types.ts';
+import type {VirtualCode} from '@volar/language-core';
+import type {EditorCode, EditorContext, EditorOptions} from './types.ts';
 
-export function createEditorContext(split: SplitResult, options: EditorOptions, previous?: UcfVirtualCode): EditorContext {
+export function createEditorContext(split: SplitResult, options: EditorOptions, previous?: VirtualCode): EditorContext {
   return {...options, split, modules: {}, previous};
 }
 
