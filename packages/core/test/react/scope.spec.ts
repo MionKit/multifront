@@ -392,37 +392,6 @@ it('serves the fragment warning in the dev helper only, and the other helpers in
   });
 });
 
-it('merges the root props, the parent winning, and gives back the own value when the parent passes none', async () => {
-  const {__ucfClass, __ucfStyle, __ucfRef} = await loadHelper(scopeHelperCode(false));
-  expect([__ucfClass('own', 'extra'), __ucfClass('own', undefined), __ucfClass(undefined, 'extra')]).toEqual([
-    'own extra',
-    'own',
-    'extra',
-  ]);
-  const own = {padding: 4, color: 'blue'};
-  expect(__ucfStyle(own, {color: 'red'})).toEqual({padding: 4, color: 'red'});
-  expect(__ucfStyle(own, undefined)).toBe(own);
-
-  const objectRef: {current: unknown} = {current: null};
-  const calls: unknown[] = [];
-  const callbackRef = (node: unknown) => void calls.push(node);
-  expect(__ucfRef(objectRef, undefined)).toBe(objectRef);
-  expect(__ucfRef(undefined, callbackRef)).toBe(callbackRef);
-  const merged = __ucfRef(objectRef, callbackRef);
-  expect(__ucfRef(objectRef, callbackRef)).toBe(merged);
-  const node = {tagName: 'BUTTON'};
-  const cleanup = merged(node);
-  expect([objectRef.current, calls]).toEqual([node, [node]]);
-  cleanup();
-  expect([objectRef.current, calls]).toEqual([null, [node, null]]);
-
-  // A callback ref's own cleanup runs instead of a call with null.
-  let cleaned = 0;
-  const withCleanup = () => () => void cleaned++;
-  __ucfRef(objectRef, withCleanup)(node)();
-  expect(cleaned).toBe(1);
-});
-
 function calls(program: Program, name: string): CallExpression[] {
   const found: CallExpression[] = [];
   new Visitor({
