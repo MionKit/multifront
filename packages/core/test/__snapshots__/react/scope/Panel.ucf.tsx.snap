@@ -8,5 +8,5 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
   import PanelItem from './PanelItem.ucf'
 
   export default function Panel(__props: { heading: string; children?: ReactNode }) {const { heading, children } = __props;
-    return <section data-v-7182b06b="" {...__ucfScopeAttrs(__props)} className="panel"><h3 data-v-7182b06b="" className="heading">{heading}</h3><PanelItem data-v-7182b06b="" label="first item" />{children}</section>
+    return <section data-v-7182b06b="" {...__ucfScopeAttrs(__props)} className="panel"><h3 data-v-7182b06b="" className={`heading ${$style.title}`}>{heading}</h3><PanelItem data-v-7182b06b="" label="first item" />{children}</section>
   }
