@@ -1,6 +1,6 @@
 import type {Api, Options} from '@vitejs/plugin-vue';
 import type {BuildContext, ResolveTargetOptions, SplitResult, Target} from '@multifront/core';
-import type {InlineConfig} from 'vite';
+import type {InlineConfig, PluginOption} from 'vite';
 import type {createUcfCache} from './cache.ts';
 
 /** `frameworks` (default all), `framework` (the default of spec 4.2) and `importers` (extension → framework). */
@@ -42,6 +42,12 @@ export interface LibraryOptions {
   packages?: Partial<Record<Target, {name?: string; peers?: Record<string, string>}>>;
   vite?: InlineConfig; // merged into every target's build
   dts?: boolean; // default true, used from 6.6
+}
+
+/** What differs per framework in a library build. */
+export interface LibraryTarget {
+  plugin(): Promise<PluginOption>; // the framework's Vite plugin
+  peers: Record<string, string>; // default peer ranges; also the build's externals
 }
 
 /** One target's build: `files` and `skipped` are relative to `outDir` and to `src`. */

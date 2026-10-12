@@ -7,10 +7,9 @@ import {build, mergeConfig, normalizePath} from 'vite';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {splitId, virtualTarget} from '../ids.ts';
 import {multifront} from '../plugin.ts';
-import type {LibraryOptions, LibraryResult} from '../types.ts';
+import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
 import {insideDir, outputName} from './names.ts';
 import {libraryTargets} from './targets.ts';
-import type {LibraryTarget} from './targets.ts';
 
 // A specifier that is neither relative, absolute nor a virtual id.
 const BARE = /^(?![./\0])/;
@@ -21,27 +20,17 @@ interface Component {
   split: SplitResult;
 }
 
-interface TargetJob {
-  target: Target;
+interface TargetJob extends Omit<LibraryResult, 'files'> {
   row: LibraryTarget;
   root: string;
   src: string;
-  outDir: string;
   entries: Record<string, string>;
-  skipped: string[];
-  packageName: string;
   peers: Record<string, string>;
 }
 
 /** Types a `multifront.config.ts`; returns `options` as is. */
 export function defineLibrary(options: LibraryOptions): LibraryOptions {
   return options;
-}
-
-function rowOf(target: Target): LibraryTarget {
-  const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];
-  if (!row) throw new Error(`buildLibrary: the '${target}' framework has no library build`);
-  return row;
 }
 
 async function scan(src: string): Promise<Component[]> {
@@ -121,7 +110,7 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
 
 async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
-  const name = (chunk: Rolldown.PreRenderedChunk) => `${outputName(chunk.facadeModuleId ?? chunk.moduleIds[0]!, src)}.js`;
+  const fileName = (chunk: Rolldown.PreRenderedChunk) => `${outputName(chunk.facadeModuleId ?? chunk.moduleIds[0]!, src)}.js`;
   const config: InlineConfig = {
     configFile: false,
     root,
@@ -137,7 +126,7 @@ async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise
       // 6.2 replaces Vite's one lib CSS file with a file per component.
       lib: {entry: entries, formats: ['es'], cssFileName: 'styles'},
       rolldownOptions: {
-        output: {preserveModules: true, preserveModulesRoot: src, entryFileNames: name, chunkFileNames: name},
+        output: {preserveModules: true, preserveModulesRoot: src, entryFileNames: fileName, chunkFileNames: fileName},
       },
     },
   };
@@ -154,14 +143,15 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const components = await scan(src);
   const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
   const frameworks = options.frameworks ?? TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
-  const name = await libraryName(root);
+  const rootName = await libraryName(root);
   const jobs = frameworks.map((target): TargetJob => {
-    const row = rowOf(target);
-    const built = withBlock(target);
-    if (built.length === 0) throw new Error(`buildLibrary: no .ucf file in ${src} has a <${target}> block`);
-    const packageName = options.packages?.[target]?.name ?? (name && `${name}-${target}`);
+    const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];
+    if (!row) throw new Error(`buildLibrary: the '${target}' framework has no library build`);
+    const withTargetBlock = withBlock(target);
+    if (withTargetBlock.length === 0) throw new Error(`buildLibrary: no .ucf file in ${src} has a <${target}> block`);
+    const packageName = options.packages?.[target]?.name ?? (rootName && `${rootName}-${target}`);
     if (!packageName) throw new Error(`buildLibrary: ${root}/package.json has no name; set packages.${target}.name`);
-    const entries = Object.fromEntries(built.map((component) => [component.relative, `${src}/${component.relative}`]));
+    const entries = Object.fromEntries(withTargetBlock.map((component) => [component.relative, `${src}/${component.relative}`]));
     if (index) entries[relative(src, index)] = index;
     return {
       target,
@@ -170,7 +160,7 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
       src,
       outDir: `${outDir}/${target}`,
       entries,
-      skipped: components.filter((component) => !built.includes(component)).map((component) => component.relative),
+      skipped: components.filter((component) => !withTargetBlock.includes(component)).map((component) => component.relative),
       packageName,
       peers: {...row.peers, ...options.packages?.[target]?.peers},
     };
