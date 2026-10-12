@@ -57,6 +57,12 @@ function lineStarts(text: string): number[] {
   return starts;
 }
 
+const ROOT_PROPS = [
+  ['className', '__ucfClass'],
+  ['style', '__ucfStyle'],
+  ['ref', '__ucfRef'],
+];
+
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // The fixed texts the build inserts, as one alternation; imports are counted, as each comes with one line break.
@@ -69,6 +75,9 @@ function insertPattern(fuzzCase: ScopeCase, ctx: BuildContext): {insert: RegExp;
     ` = ${props}; return `,
     ` = ${props};`,
     `${props}, __ref`,
+    // Root props: added after the spread, or merged into the root's own value.
+    ...ROOT_PROPS.map(([prop]) => ` ${prop}={${props}.${prop}}`),
+    ...ROOT_PROPS.flatMap(([prop, merge]) => [`{${merge}(`, `${merge}(`, `, ${props}.${prop})}`, `, ${props}.${prop})`]),
     props,
     '{const ',
     'const ',
