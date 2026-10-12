@@ -32,7 +32,7 @@ const APP_IMPORTS = [
 ];
 const APP_TARGETS = ['Card', 'Counter', 'Panel', 'imports/UsesIcon'].map((name) => `/components/${name}.ucf.svelte.svelte`);
 
-/** A client build of `app.ts`, which mounts App.svelte (`main.ts` mounts the 5.3 components). */
+/** `app.ts` mounts App.svelte; `main.ts` mounts the 5.3 components. */
 function buildImporter(root: string, config: InlineConfig = {}) {
   return buildApp(root, mergeConfig({build: {rolldownOptions: {input: join(root, 'src', 'app.ts')}}}, config));
 }

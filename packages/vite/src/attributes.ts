@@ -28,7 +28,7 @@ function importError(result: Rewrite, importer: Importer, options: MultifrontOpt
 
 type ImportError = NonNullable<ReturnType<typeof importError>>;
 
-/** Spec 4.4: the error sits at `offset` in `code`, mapped back into the importer's own source. */
+/** Spec 4.4: points the error into the importer's own source. */
 function failAtImport(context: Rolldown.TransformPluginContext, code: string, id: string, {offset, message}: ImportError): never {
   // Vite's dev server maps positions back itself; a `loc` would get mapped twice.
   if (context.environment.mode === 'dev') return context.error(message, offset);
@@ -45,7 +45,7 @@ interface RawScript {
   lang: string | undefined;
 }
 
-/** The first import error of a component file's own scripts, before its compiler moves them around. */
+/** A component file's own scripts, read before its compiler moves them around. */
 function scriptsError(scripts: RawScript[], id: string, options: MultifrontOptions): ImportError | undefined {
   for (const script of scripts) {
     const result = rewriteImportAttributes(script.content, `${id}?lang.${script.lang ?? 'js'}`);
@@ -96,7 +96,7 @@ interface Compilers {
   svelte: () => SvelteCompiler;
 }
 
-/** Spec 4.4 on the raw file: plugin-vue's script sub-module maps nowhere back without `build.sourcemap`, plugin-svelte's map names the file relatively. */
+/** Spec 4.4 on the raw file: plugin-vue's script maps nowhere without `build.sourcemap`, plugin-svelte's is relative. */
 export function importersPlugin(options: MultifrontOptions, compilers: Compilers): Plugin {
   return {
     name: 'multifront:importers',
@@ -130,7 +130,7 @@ export function attributesPlugin(options: MultifrontOptions): Plugin {
       handler(code, id) {
         const result = rewriteImportAttributes(code, id);
         const error = importError(result, importerFromId(id), options);
-        // `offset` is in the compiled code; the error must point into the importer's own source.
+        // `offset` is in the compiled code, not the importer's own source.
         if (error) failAtImport(this, code, id, error);
         return result.map ? {code: result.code, map: result.map} : undefined;
       },

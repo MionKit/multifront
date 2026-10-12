@@ -81,7 +81,7 @@ export function frameworkAttributes(program: Program): Span[] {
   return found;
 }
 
-/** Spec 4.1 for the block's top-level `<script>` tags: every framework attribute, at its `.ucf` span. */
+/** Spec 4.1 in the block's top-level `<script>` tags, at each framework attribute. */
 export function frameworkInBlock(
   block: Block,
   split: SplitResult,
