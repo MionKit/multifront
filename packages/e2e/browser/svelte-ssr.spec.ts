@@ -6,7 +6,7 @@ import {startNodeServer, startViteCli, startViteDev} from '../build/lib/freshPro
 import {collectConsole, launchChromium} from './lib/chromium.ts';
 import {scopeAttribute} from './lib/scope.ts';
 
-// Keeps the `section.panel` the parser inserts: hydration keeps that node, a re-mount replaces it.
+// Saves the server-rendered `section.panel`: hydration keeps that node, a re-mount replaces it.
 const KEEP_SERVER_PANEL = `new MutationObserver(() => {
   globalThis.ssrPanel ??= document.querySelector('section.panel');
 }).observe(document, {childList: true, subtree: true});`;

@@ -72,22 +72,19 @@ export function startViteCli(root: string, args: string[], env: NodeJS.ProcessEn
   return startNode(root, [VITE_BIN, '--configLoader', APP_CONFIG_LOADER, ...args], env);
 }
 
-/** `url` resolves with the first capture of `line` once the process prints it. */
 function withUrl(server: ReturnType<typeof startNode>, line: RegExp) {
   return {...server, url: server.waitForOutput(line).then((output) => line.exec(output)![1]!)};
 }
 
-/** The app's `server.ts`. */
 export function startSsrServer(root: string) {
   return withUrl(startNode(root, ['server.ts'], {NODE_ENV: 'development'}), /ssr server: (\S+)/);
 }
 
-/** `vite` dev server of `root` on a free port. */
 export function startViteDev(root: string) {
   return withUrl(startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'}), /Local:\s+(\S+)/);
 }
 
-/** The built adapter-node server, `build/index.js`, on a free port. */
+/** SvelteKit adapter-node's build output. */
 export function startNodeServer(root: string) {
   return withUrl(
     startNode(root, ['build/index.js'], {NODE_ENV: 'production', PORT: '0', HOST: '127.0.0.1'}),
