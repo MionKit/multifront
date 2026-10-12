@@ -194,10 +194,15 @@ function checkStamps(html: Html, stamp: string, parent: string): Violation[] {
 // Svelte keys each `<svelte:head>` with a hash of the file name, which differs between the twins.
 const normalizeHead = (head: string) => head.replace(/<!--[0-9a-z]+-->/g, '<!--head-->');
 
+// Svelte's server render adds these to an `<img>` or other load-event element with a spread, as a forwarded root has.
+const LOAD_REPLAY = / on(?:load|error)="this\.__e=event"/g;
+
 function checkSameHtml(ucf: Html, plain: Html, stamp: string, parent: string): Violation[] {
   const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '').replaceAll(` ${parent}=""`, '');
   for (const part of ['head', 'body'] as const) {
-    const [ours, theirs] = [strip(ucf[part]), plain[part]].map(part === 'head' ? normalizeHead : (html: string) => html);
+    const [ours, theirs] = [strip(ucf[part]), plain[part]]
+      .map((html) => html.replaceAll(LOAD_REPLAY, ''))
+      .map(part === 'head' ? normalizeHead : (html: string) => html);
     if (ours !== theirs)
       return [{rule: 'same-html', message: `the ${part} differs:\n    .ucf:   ${ours}\n    plain:  ${theirs}`}];
   }
