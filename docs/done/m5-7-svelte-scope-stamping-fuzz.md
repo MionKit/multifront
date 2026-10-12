@@ -34,7 +34,7 @@ Checked on this host (svelte 5.57.0):
 ## Decisions
 
 - 300 runs by default. Planned at 200 (each run is a real SSR Vite build, four CI jobs run every test), to be raised to
-  300 only if the measured time allowed: 200 runs took 6.5 s on this host (6 SSR builds), the whole spec 35 s.
+  300 only if the measured time allowed: 300 runs take about 9 s on this host, the whole spec about 37 s (Results).
 - The plain `.svelte` file differs from the block only by a store header at the top of its instance script (added when
   missing): `import {readable} from 'svelte/store'`, an import of the `.ucf` file's class map module
   (`classMapId(file, 0)`) and `const style = readable(<that import>)`. Why: Svelte's own `$store` subscription is the
@@ -97,12 +97,13 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
 
 - `fuzzSettings({seed: 2026, runs: 300})`.
 - One batch (50 cases, 10 in the negative controls): cases into `mkdtemp(join(TMP_DIR, 'svelte-fuzz', 'run-'))` with a
-  copy of `svelte/shapes/Child.svelte`; `batch-N.ts` imports `render` from `svelte/server`, `Child`, each
+  copy of `svelte/shapes/Child.svelte`; `batch-N.js` imports `render` from `svelte/server`, `Child`, each
   `./<name>.ucf` with `{ framework: 'svelte' }` and `./<name>.svelte`, and exports `renderCase(name, kind)`.
-  `vite.build` (`configFile: false`, `root: dir`, silent, NODE_ENV `production`, `build: {ssr: true, write: true}`,
-  plugins `[breakerPre, svelte(), multifront(), breakerPost]`), output loaded with Node `import()`.
+  `buildApp(dir, …)` from `build/lib/build.ts` (`configFile: false`, `build: {ssr: true, write: true}`, plugins
+  `[breaker('pre'), svelte(), multifront(), breaker('post')]`), output loaded with Node `import()`.
 - Build failure: the error's `id` names the module; that case leaves the batch, which builds again (no id: each case
-  alone). A failing `.ucf` module counts for rule 1 only when the plain file builds alone; else the case is unusable.
+  alone). Alone, a plain file that fails makes the case unusable; then a failing `.ucf` module breaks rule 1; when both
+  build, the pair is built and rendered together, so rules 2 and 3 still see it.
 - `renderCase` reads `head` and `body` inside the entry: `render()` renders lazily, on their first read, so a throw must
   happen there to be caught as a render error.
 - Rules (`'builds' | 'stamps' | 'same-html'`), id from `scopeId(rootRelativePath(dir, file), source, true)`:
@@ -112,15 +113,18 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
      other `data-v-*`; `head` holds no `data-v-`.
   3. `same-html`: the `.ucf` render with every ` data-v-<id>=""` removed and the head key normalized equals the plain
      render. Plain render throws → unusable; only the `.ucf` one throws → violation.
-- Runner `fuzz(settings, breakers?, onlyRule?)`: first `Failure` with `dir`, input, shrunk case, violations;
-  `shrinkActions` with a `stillFails` that builds a round's candidates in one batch; shrunk files kept;
-  `describeFailure` with `replayLine(seed, runIndex, SPEC_PATH)` and both shrunk sources.
+- Runner `fuzz(settings, breaker?, onlyRule?)`: the first `KeptFailure` (with `dir`, input, shrunk case, violations),
+  the usable count, one reason line per unusable case, and the shape facts of the usable cases; `shrinkActions` with a
+  `stillFails` that builds a round's candidates in one batch; shrunk files kept; `describeKeptFailure` (shared with
+  M3's fuzz in `build/lib/fuzz.ts`, beside `dropLast`) with the replay line, the shrunk `.ucf` source and its plain twin.
 - Tests:
-  - `holds every rule over N generated files (seed S)`, plus a floor of usable cases set from the measured share.
-  - `reaches every case`: every action, both modes, all four script layouts, depth ≥ 5, and every node type of 5.2's
-    list (`RegularElement`, `SvelteElement`, `Component`, `SvelteComponent`, `SvelteSelf`, `SlotElement`,
-    `SvelteFragment`, `IfBlock`, `EachBlock`, `AwaitBlock`, `KeyBlock`, `SnippetBlock`, `SvelteBoundary`, `SvelteHead`,
-    `SvelteWindow`, `SvelteBody`, `SvelteDocument`, `SvelteOptions`, `Comment`).
+  - `holds every rule over N generated files (seed S)`: no violation; at least 80% of cases usable, the message
+    listing why each other one is not; and, on a run of the default size or more, the usable cases (the ones the rules
+    checked) reach every action, both modes, all four script layouts, depth ≥ 5, and every node type of 5.2's list
+    plus `RenderTag` (`RegularElement`, `SvelteElement`, `Component`, `SvelteComponent`, `SvelteSelf`, `SlotElement`,
+    `SvelteFragment`, `IfBlock`, `EachBlock`, `AwaitBlock`, `KeyBlock`, `SnippetBlock`, `RenderTag`, `SvelteBoundary`,
+    `SvelteHead`, `SvelteWindow`, `SvelteBody`, `SvelteDocument`, `SvelteOptions`, `Comment`). A short replay skips
+    the coverage part.
   - Negative controls, each failing its rule with a seed, a shrunk input that still fails and a replay that regenerates
     the input: `builds` (`{#if` appended, pre); `stamps` (last stamp removed, pre; first stamp doubled in compiled
     server code, post; a stamp after `<meta` in the head, pre: not `<title>`, of which Svelte renders only the text); `same-html` (`\nbroken` appended, pre; `$style: __ucfStyle` turned
@@ -128,9 +132,17 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
 
 ## Results
 
-- Default run (seed 2026, 300 files): green, 199 of the first 200 cases usable (the floor is 80%).
-- Long runs on this host, `MULTIFRONT_FUZZ_RUNS=2000` on seeds 1, 7 and 99: green, about 60 s each. Then
-  `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000`: green, 339 s.
+Run on this host (2026-10-12), each a `pnpm devx test packages/e2e/build/svelte-scope.fuzz.spec.ts` line; result as
+Vitest printed it:
+
+- Default, `-t "holds every rule"`: `✓ … holds every rule over 300 generated files (seed 2026) 9134ms`; 298 of 300 cases
+  usable, the other two plain files Svelte rejects (`` `<p>` cannot be a child of `<p>` ``). Whole spec:
+  `Tests 7 passed (7)`, `Duration 37.71s`.
+- `MULTIFRONT_FUZZ_SEED=1 MULTIFRONT_FUZZ_RUNS=2000`, and the same for seeds 7 and 99, `-t "holds every rule"`:
+  `Tests 1 passed | 6 skipped (7)` each, `Duration 61.71s`, `64.75s`, `65.26s`.
+- `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000`, `-t "holds every rule"`: `Tests 1 passed | 7 skipped (8)`,
+  `Duration 338.93s` (before the review fixes).
+- CI: the `check` and `svelte-floor` log lines go here once CI has run on the PR.
 - The first runs found two harness bugs, fixed before the rules counted: a donor capturing a header snippet's name
   (`{item}`), and HTML-mode parsing adding a `<p>`. No bug in the build itself.
 
