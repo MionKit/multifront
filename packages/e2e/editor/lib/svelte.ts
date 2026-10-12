@@ -18,7 +18,6 @@ interface SvelteCheckProblem {
   code?: number | string;
 }
 
-/** The installed `svelte-check` on one app, with its `tsconfig.json`. */
 export async function runSvelteCheck(app: string): Promise<{exitCode: number | null; problems: SvelteCheckProblem[]}> {
   const args = [SVELTE_CHECK, '--workspace', app, '--tsconfig', './tsconfig.json', '--output', 'machine-verbose'];
   // pnpm's bin shim sets NODE_PATH into the repo's packages; the source condition is for the app's vite config.
@@ -40,7 +39,7 @@ export async function runSvelteCheck(app: string): Promise<{exitCode: number | n
   return {exitCode, problems};
 }
 
-/** Opens and saves one `.ucf` file in our language server; resolves to the log line its Svelte emit wrote. */
+/** Resolves to the log line of the Svelte emit the save triggers. */
 export async function saveUcf(server: LanguageServer, fileName: string): Promise<string> {
   const before = server.log.length;
   const document = await server.openTextDocument(fileName, 'ucf');
