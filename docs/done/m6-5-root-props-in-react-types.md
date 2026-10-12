@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.5
@@ -55,20 +55,23 @@ spreads `props`, is left to the author's type: the same rule as 6.4, from the sa
 
 ## Plan
 
-### 1. Core: one analysis for the build and the types (`packages/core/src/react/`)
+### 1. Core: one analysis for the build and the types (`packages/core/src/`)
 
-- `scope.ts`: move the analysis part of `transformScope` (`:228-262`: `findComponent`, the `this` / rest / bound /
-  pattern bail-outs, the props name, `handledRootProps`, `jsxRoots`) into an internal
-  `analyzeComponent(parsed, content)`. `transformScope` calls it and applies the edits as today; no output change.
+- `react/scope.ts`: the analysis part of `transformScope` (`:234-261`: `findComponent`, the `this` / rest / bound /
+  pattern bail-outs, the props name, `handledRootProps`, `jsxRoots`) moved into an internal `analyzeComponent(program)`.
+  `transformScope` calls it and applies the edits as before; no output change.
 - `findComponent` (`:98`) also returns the wrapper calls it went through (`{api: 'memo' | 'forwardRef', call}`).
-- `rootProps.ts`: split `addRootProps` (`:78`) into `rootPropEdits(opening, props, handled)` (pure: per prop `add`,
-  `merge`, `mergeString` or nothing, exactly today's branches) and `addRootProps`, which applies them.
-- New public `reactRootProps(code, filename): ReactRootProps | undefined` (in `scope.ts`, exported from
-  `@multifront/core` next to `needsUseClient`, same signature style). `undefined` when the build forwards nothing.
-  Types in `packages/core/src/types.ts`:
+- `react/rootProps.ts`: `addRootProps` (`:78`) split into `rootPropEdits(opening, handled)` (pure: per prop `add`,
+  `merge`, `mergeString` or nothing, exactly the old branches) and `addRootProps`, which applies them.
+- `react/scope.ts`: `rootPropsOf(parsed, content)` gives each element root once, in source order, with its tag as
+  written and the props it takes, plus the props type sites. `propsTypeInserts(site, type)`, exported from
+  `@multifront/core`, turns one site into the text inserts that type it, so the editor and the core test share it.
+- `blocks/react.ts`: public `reactRootProps(block, filename): ReactRootProps | undefined`, exported from
+  `@multifront/core`. It runs `rootPropsOf` over the block's cached parse (`parseBlock`, shared with `check` and
+  `build`). `undefined` when the build forwards nothing. Types in `packages/core/src/types.ts`:
 
   ```ts
-  type RootProp = 'className' | 'style' | 'ref';
+  type RootProp = (typeof ROOT_PROPS)[number]; // 'className' | 'style' | 'ref', from reactApis.ts
   interface ReactRoot {tag: string; props: RootProp[]} // tag as written; the props the parent's value reaches
   /** Where the default export's props type is written, as offsets in the block content. */
   type ReactPropsSite =
@@ -78,16 +81,15 @@ spreads `props`, is left to the author's type: the same rule as 6.4, from the sa
   interface ReactRootProps {roots: ReactRoot[]; sites: ReactPropsSite[]}
   ```
 
-  `wrap` is set for a union, function, constructor or conditional type. `RootProp` moves from `rootProps.ts:8` to
-  `types.ts`.
+  `wrap` is set for a union, function, constructor or conditional type.
 
 ### 2. Language-tools: the types script (`packages/language-tools/src/`)
 
 - `mappings.ts`: `insertMapped(block, inserts: {at: number; text: string}[]): {code: string; mappings: CodeMapping[]}`:
-  the content split at each insert, every piece mapped 1:1 with `ALL_FEATURES`, the inserted text unmapped.
-- `blocks/react.ts` `types()`: `reactRootProps(block.content, ctx.split.filename)`; when some root takes a prop, build
-  `X` and the inserts per site, then `insertMapped`. Else the single `contentMapping` as today. The `$style`
-  declarations follow, as today.
+  the content split at each insert, every piece mapped 1:1 with `ALL_FEATURES`, the inserted text unmapped. With no
+  insert it is the single content mapping of before.
+- `blocks/react.ts` `types()`: `reactRootProps(block, ctx.split.filename)`; when some root takes a prop, build `X` and
+  each site's `propsTypeInserts`, then `insertMapped`. The `$style` declarations follow, as before.
 
 ### 3. Fixtures
 
@@ -98,6 +100,8 @@ spreads `props`, is left to the author's type: the same rule as 6.4, from the sa
   `// @ts-expect-error`. The browser test renders `App` only, so it is unchanged.
 - `components/react/root-props/UnionProps.ucf` (new): props typed `{kind: 'a'} | {kind: 'b'; note: string}`, one
   `<div>` root. Without the parentheses, `X` would join only the last member. Gets a row in core's `SHAPES` table.
+- `components/react/root-props/MemoTyped.ucf` (new, from the review): `memo<{ branch?: string }>(…)`, the `memo` type
+  argument site. A `SHAPES` row and a probe row. Not under `shapes/`: the scope fuzz draws its sources from there.
 
 ## Tests
 
@@ -109,26 +113,37 @@ All run with `pnpm devx test`: this host and CI's `check` job (tsserver is a chi
   root exactly the props the build output added or merged (read from the output, as the existing root-props case
   does). Its sites: one row each checked by hand for the param annotation, the default value
   (`DestructuredDefaults`), `ForwardRef` (second type argument), `MemoForwardRef` (`argument` + `parameter`),
-  `NoParams` (`parameter`), `UnionProps` (`wrap`).
+  `NoParams` (`parameter`), `UnionProps` (`wrap`), `MemoTyped` (`memo` type argument). The marked text is built with
+  the shipped `propsTypeInserts`, not a copy of it.
 - Editor area, `packages/e2e/editor/react-root-props.spec.ts` (new), real tsserver with the TypeScript plugin, cwd the
   react-root-props app:
   - `App.tsx` has no diagnostics: the valid `Button`, `Badge`, `Own` uses pass and the `@ts-expect-error` is consumed
     (an unused one would be 2578).
   - Without the directive (an unsaved edit), the only diagnostic is one 2322 on that line.
   - A table of unsaved probe lines appended to `App.tsx`, each with the errors expected (none, or 2322 on its line):
-    `Badge` with `className` (author's) plus `style` and a `<span>` ref; `Own` with a callback ref typed for `<p>` only
-    (rejected: it may render a `<section>`); `shapes/ForwardRef`, `shapes/MemoForwardRef`, `shapes/Memo`,
-    `shapes/NoParams` and `shapes/DestructuredDefaults` with `className` and `style`; `NoParams` with a `<p>` ref
-    (rejected); `shapes/ComponentRoot` with an `Element` ref; `root-props/SpreadsProps` with `className` (rejected:
-    left to the author); `UnionProps` with `kind="a"` plus `className` (passes only with the parentheses).
+    `Badge` with `className` (author's) plus `style` and a `<span>` ref; `Own` with an `HTMLElement` ref and an
+    `HTMLParagraphElement` ref (both fit: it renders a `<section>` or a `<p>`) and an `SVGSVGElement` ref (rejected);
+    `shapes/ForwardRef`, `shapes/MemoForwardRef`, `shapes/Memo`, `root-props/MemoTyped`, `shapes/NoParams` and
+    `shapes/DestructuredDefaults`
+    with `className` and `style`; `NoParams` with a `<span>` ref (rejected); `shapes/ComponentRoot` with an `Element`
+    ref (fits) and a `Text` ref (rejected); `root-props/SpreadsProps` and `root-props/Valueless` with `className`
+    (rejected: left to the author), `Valueless` with `style` and a `<div>` ref; `UnionProps` with `kind="a"` plus
+    `className` (passes only with the parentheses).
+  - Probe refs are `createRef<…>()` objects: React types a callback ref's parameter bivariantly, so a callback typed
+    for a narrower element is never rejected. A `<p>` ref fits a `<div>` root (the two are the same shape), so the
+    rejected rows use `<span>`, SVG and `Text`.
   - Go-to-definition on `<Button` still lands in `Button.ucf`'s `<react>` block.
 - Existing tests that change:
   - `editor/virtualCode.spec.ts`, "maps the whole block content…": a `<react>` code now has several content mappings.
     New check: the `ALL_ON` mappings cover the block content in order with no gap or overlap, and through Volar's
     mapper every content offset has a generated location holding the same character. The first location is no longer
     enough: at a split, it is the end of the piece before, where the inserted text starts.
+    `UnionProps`, `MemoTyped` and `MemoForwardRef` join its fixture list, so a file with two inserts (and a wrapped
+    one) has its mappings checked.
   - React code snapshots (`editor/__snapshots__/virtualCode/*.ucf.react.tsx`, `editor/__snapshots__/*.ucf.react.tsx`)
     are updated and read one by one.
+  - `editor/styleClasses.spec.ts` took the `$style` key mappings as every mapping after the first; it now picks them
+    by their data (navigation only), since the content can be several pieces.
 
 ## Docs
 

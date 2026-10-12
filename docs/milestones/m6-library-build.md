@@ -173,8 +173,13 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 ### 6.5 Root props in the React types
 
 - Build: in `packages/language-tools/src/blocks/react.ts`, the `Card.ucf.react.tsx` types script types the default export with the root props added: `className?: string`, `style?: CSSProperties`, `ref?: Ref<...>`. The ref type comes from the root tag (`<button>` gives `HTMLButtonElement`, through `React.ComponentRef<'button'>`), a union for several roots, `Element` when unknown. Skipped the same way as 6.4 when the component handles the prop itself.
+  - Core: `reactRootProps(block, filename): ReactRootProps | undefined` and `propsTypeInserts(site, type)`, exported from `@multifront/core` (types `ReactRootProps`, `ReactRoot`, `ReactPropsSite`, `RootProp` in core's `types.ts`). The same analysis as 6.4's transform: each element root with the root props it takes, and where the props type is written (the first parameter's annotation, a `memo` / `forwardRef` type argument, or after the `(` when there is no parameter). A parameter with no annotation keeps its own type.
+  - Language-tools writes `& {className?: …}` there (parenthesizing a union or function type), the content mapped 1:1 in pieces around it.
 - Deliverable: the editor accepts `<Button className="x" ref={buttonRef} />` and rejects a wrong ref type, matching what 6.4 does at runtime.
-- Test: editor area, `packages/e2e/editor/react-root-props.spec.ts`: real tsserver with the TypeScript plugin over `fixtures/apps/react-root-props/src/App.tsx`. No diagnostics on the valid uses; a `// @ts-expect-error` line with `ref` typed for a `<div>` is the only error and is consumed.
+- Test:
+  - Editor area, `packages/e2e/editor/react-root-props.spec.ts`: real tsserver with the TypeScript plugin over `fixtures/apps/react-root-props/src/App.tsx` (new `tsconfig.json`). No diagnostics on the valid uses; a `// @ts-expect-error` line with `ref` typed for a `<div>` is the only error and is consumed. A table of unsaved probe lines checks the shapes (wrappers, no parameter, a union props type in the new `react/root-props/UnionProps.ucf`, a `memo` type argument in the new `react/root-props/MemoTyped.ucf`, author-handled props).
+  - Core, `packages/core/test/react/scope.spec.ts`: on every `SHAPES` row, `reactRootProps` gives the roots and props the build output shows.
+- Status: done
 
 ### 6.6 `.d.ts` per target
 
@@ -248,7 +253,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - `buildLibrary(options)`, `defineLibrary(options)`, `LibraryOptions`, `LibraryResult` from `@multifront/vite`, and the `mf-build` bin.
 - `libraryTargets` (a full `Record<Target, LibraryTarget>`) in `packages/vite/src/library/targets.ts`, and `LibraryTarget` in `packages/vite/src/types.ts`.
 - The shared library steps every row reuses: CSS per component and `styles.css` (`css.ts`), `"use client"` handling, the staged types tree (`types.ts`), `package.json` writing (`packageJson.ts`).
-- `needsUseClient(code, filename)` from `@multifront/core`. M7 may use it for an editor hint.
+- `needsUseClient(code, filename)` and `reactRootProps(block, filename)` from `@multifront/core`. M7 may use the first for an editor hint; the second places the root props in `Card.ucf.react.tsx`.
 - `__ucfClass`, `__ucfStyle`, `__ucfRef` in the React helper module, and the root props in `Card.ucf.react.tsx`. M7's `mf-tsc` sees the same props as the shipped `.d.ts`.
 - The library fixture `packages/e2e/fixtures/library/` and its `multifront.config.ts`. M7 runs `mf-tsc` and `mf-lint` over it.
 - The consumer area `packages/e2e/consumer/` with `packLibrary`, `createConsumerApp`, `runInApp`, `serveApp`, `openPage`. M7 packs `@multifront/language-tools` with it.
