@@ -19,6 +19,7 @@ import {
   classMapId,
   createBuildContext,
   loadVueCompiler,
+  locate,
   splitBlocks,
 } from '@multifront/core';
 import type {BuildContext, Diagnostic, VirtualFile} from '@multifront/core';
@@ -96,8 +97,9 @@ describe('the <svelte> rules', () => {
       );
     });
 
-    it('builds a .svelte file when no rule fails', () => {
+    it('builds a .svelte file Svelte compiles when no rule fails', () => {
       expect(file?.ext).toBe(errors.length > 0 ? undefined : '.svelte');
+      if (file) expect(() => svelte.compile(file.code, {generate: 'server', filename: `${fixture}.svelte.svelte`})).not.toThrow();
     });
 
     it('leaves the compiler rules out of checkBlocks', () => {
@@ -180,20 +182,8 @@ function namedNodes(root: AST.Root): {node: Node; inHead: boolean}[] {
 
 const STAMPED = new Set(['RegularElement', 'SvelteElement', 'Component', 'SvelteComponent', 'SvelteSelf']);
 
-function lineColumn(text: string, offset: number): {line: number; column: number} {
-  const before = text.slice(0, offset).split('\n');
-  return {line: before.length, column: before.at(-1)!.length};
-}
-
 function offsetOf(text: string, line: number, column: number): number {
-  return (
-    text
-      .split('\n')
-      .slice(0, line - 1)
-      .join('\n').length +
-    (line > 1 ? 1 : 0) +
-    column
-  );
+  return text.split('\n', line - 1).join('\n').length + (line > 1 ? 1 : 0) + column;
 }
 
 // Our import lines: the style ids and the class maps, both `?ucf&type=style&`.
@@ -283,6 +273,8 @@ const SHAPES: Shape[] = (
   [
     {fixture: 'AttributeGt.ucf', script: 'added'},
     {fixture: 'AwaitBlock.ucf', script: 'instance'},
+    // Both scripts, `$style` in the module one: only there do the imports reach it.
+    {fixture: 'BothScripts.ucf', script: 'module'},
     {fixture: 'Boundary.ucf', script: 'added'},
     {fixture: 'CommentedTag.ucf', script: 'added'},
     {fixture: 'Components.ucf', script: 'instance', child: true},
@@ -365,15 +357,16 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
     namedNodes(output).forEach(({node}, index) => {
       const [attribute] = stampsOf(node);
       if (!attribute) return;
-      const original = originalPositionFor(map, lineColumn(file!.code, attribute.end));
+      const original = originalPositionFor(map, locate(file!.code, attribute.end));
       const {node: from} = before[index]!;
       const nameEnd = block.contentStart + from.start + 1 + (from.name as string).length;
-      expect({line: original.line, column: original.column}).toEqual(lineColumn(source, nameEnd));
+      expect({line: original.line, column: original.column}).toEqual(locate(source, nameEnd));
     });
-    const locals = [...file!.code.matchAll(/(?<![\w"])__ucf\w+\b(?! from)/g)];
+    const imported = [...file!.code.matchAll(/^import (__ucf\w+) from /gm)].map(([, local]) => local);
+    const locals = [...file!.code.matchAll(/(?<![\w"])__ucf\w+\b(?! from)/g)].filter(([local]) => imported.includes(local));
     expect(locals.length).toBeGreaterThan(0);
     for (const local of locals) {
-      const original = originalPositionFor(map, lineColumn(file!.code, local.index));
+      const original = originalPositionFor(map, locate(file!.code, local.index));
       const at = source.slice(offsetOf(source, original.line!, original.column!));
       // A shorthand `{$style}` is overwritten as a whole: its local maps to the `{`.
       expect(at).toMatch(/^\{?\$style\b/);
@@ -396,7 +389,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
   });
 });
 
-describe('svelte.build of the rule fixtures', () => {
+describe('svelte.build of the other fixtures', () => {
   it('renames only the class maps: stores, runes, property, import, export and type names stay', async () => {
     const {file} = await svelteBuild(`${ERRORS_DIR}/NamedModule.ucf`);
     const dollars = [...new Set(file!.code.match(/\$\w+/g))].sort();
@@ -423,6 +416,21 @@ describe('svelte.build of the rule fixtures', () => {
     );
     expect(file!.code.match(/__ucfClasses\b/g)).toHaveLength(3);
     expect(file!.code.match(/__ucfStyle\b/g)).toHaveLength(2);
+    // No `<style scoped>`: no stamp.
+    expect(file!.code).not.toContain('data-v-');
+  });
+
+  it('gives the local a number suffix when the block already uses its name', async () => {
+    const {file} = await svelteBuild(`${SHAPES_DIR}/Elements.ucf`);
+    expect(file!.code).toMatch(/^import __ucfStyle1 from /m);
+    expect(file!.code).toContain("const __ucfStyle = 'own'");
+    expect(file!.code).toContain('class={__ucfStyle1.card}');
+  });
+
+  it('leaves a block with nothing to import or stamp as written', async () => {
+    const {split, ctx, file} = await svelteBuild('svelte/NoStyle.ucf');
+    expect(ctx.styles).toEqual([]);
+    expect(file!.code).toBe(split.targets.svelte!.content);
   });
 
   it('gives $style the module="style" class map when there is no bare <style module>', async () => {

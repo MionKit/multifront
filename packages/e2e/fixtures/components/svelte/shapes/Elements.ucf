@@ -3,9 +3,11 @@
     let {label = 'Hello'}: {label?: string} = $props()
     const classes = {$style}
     const titleClass: string = $style.title
+    // Taken: the class map's local gets a number suffix.
+    const __ucfStyle = 'own'
   </script>
   <article class={$style.card}>
-    <h2 class={titleClass}>{label}</h2>
+    <h2 class={titleClass} data-own={__ucfStyle}>{label}</h2>
     <p class={classes.$style.text}>Text <strong class={$style.text}>bold</strong><br />after</p>
     <input class={$style.field} value={label} aria-label="Label" />
     <img class={$style.image} src="/card.png" alt="Card">

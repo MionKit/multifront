@@ -1,0 +1,15 @@
+<svelte>
+  <script module lang="ts">
+    export const moduleClass: string = $style.text
+  </script>
+  <script lang="ts">
+    let {label = 'Both'}: {label?: string} = $props()
+  </script>
+  <p class={moduleClass}><b class={$style.text}>{label}</b></p>
+</svelte>
+
+<style module scoped>
+.text {
+  margin: 0;
+}
+</style>
