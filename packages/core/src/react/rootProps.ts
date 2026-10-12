@@ -96,8 +96,16 @@ export function addRootProps(
       text.appendLeft(offset + expression.end, `, ${props}.${prop})`);
       helpers.push(MERGE[prop]);
     } else if (own.value?.type === 'Literal' && prop === 'className') {
-      text.prependRight(offset + own.value.start, `{${MERGE_CLASS}(`);
-      text.appendLeft(offset + own.value.end, `, ${props}.className)}`);
+      const {start, end, value, raw} = own.value;
+      // JSX decodes `&amp;` in a string, which a JS string does not: the author's value stays, unmerged.
+      if (raw?.includes('&')) continue;
+      // JSX keeps line breaks and `\` as written; a JS string needs them escaped.
+      if (/[\n\r\\]/.test(raw ?? ''))
+        text.overwrite(offset + start, offset + end, `{${MERGE_CLASS}(${JSON.stringify(value)}, ${props}.className)}`);
+      else {
+        text.prependRight(offset + start, `{${MERGE_CLASS}(`);
+        text.appendLeft(offset + end, `, ${props}.className)}`);
+      }
       helpers.push(MERGE_CLASS);
     }
     // No value, `{}`, or a string `style` / `ref`: left as written.

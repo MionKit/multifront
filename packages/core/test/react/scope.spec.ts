@@ -139,6 +139,20 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   });
 });
 
+// The one rewrite the build makes: a merged className string with a line break or `\` becomes the JS string
+// the JSX transform makes of it.
+function withJsStrings(content: string): string {
+  const edits: [number, number, string][] = [];
+  new Visitor({
+    JSXAttribute: ({name, value}) => {
+      if (name.type !== 'JSXIdentifier' || name.name !== 'className' || value?.type !== 'Literal') return;
+      if (/[\n\r\\]/.test(value.raw ?? '') && !value.raw?.includes('&'))
+        edits.push([value.start, value.end, JSON.stringify(value.value)]);
+    },
+  }).visit(parse(content).program);
+  return edits.reduceRight((text, [start, end, string]) => text.slice(0, start) + string + text.slice(end), content);
+}
+
 // How the build left a root's `className`, `style` or `ref`.
 type RootPropState = 'added' | 'merged' | 'author' | 'none';
 
@@ -260,6 +274,15 @@ const SHAPES: {
     fixture: 'react/root-props/SpreadsProps.ucf',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'author', style: 'none', ref: 'none'}],
+  },
+  {
+    fixture: 'react/root-props/StringClass.ucf',
+    roots: ['div', 'p', 'span'],
+    rootProps: [
+      {tag: 'div', className: 'merged', style: 'added', ref: 'added'},
+      {tag: 'p', className: 'merged', style: 'added', ref: 'added'},
+      {tag: 'span', className: 'author', style: 'added', ref: 'added'},
+    ],
   },
   {
     fixture: 'react/root-props/Valueless.ucf',
@@ -414,8 +437,9 @@ describe.each(SHAPES)(
     });
 
     it('only inserts and moves the pattern: without the stamps, the forwarding and the imports, the code is the block content', () => {
+      const content = withJsStrings(block.content);
       for (const {code, ctx, program} of builds)
-        expect(withoutInjected(code, program).replaceAll(` data-v-${ctx.scopeId}=""`, '')).toBe(block.content);
+        expect(withoutInjected(code, program).replaceAll(` data-v-${ctx.scopeId}=""`, '')).toBe(content);
     });
 
     it('forwards the first parameter on every JSX element root, and nowhere else', () => {
