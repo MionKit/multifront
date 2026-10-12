@@ -146,13 +146,15 @@ From milestone 4:
 
 ### 5.8 Root forwarding with `{...rest}`
 
-- Build: in `build()`, for a runes-mode block with exactly one root (descending into `{#if}` / `{:else}`, `{#key}`, `{#await}` branches and `<svelte:boundary>`, each branch with one root):
-  - `let { title } = $props()` becomes `let { title, ...__ucfRest } = $props()` (an existing rest name is reused; `let props = $props()` forwards from `props`);
-  - each root gets `{...__ucfScopeAttrs(__ucfRest)}`, the helper imported from milestone 3's virtual module.
+- Build: `packages/core/src/svelte/forward.ts`, called by `build()`, for a runes-mode block (Svelte's own rule, read from the block: `<svelte:options runes>`, else a rune reference) with exactly one root per branch (descending into `{#if}` / `{:else}`, `{#key}`, `{#await}` branches and `<svelte:boundary>` with its `failed` / `pending` snippets; comments, snippets, `{@const}`, `{@debug}` and `<svelte:head|window|body|document>` are no roots):
+  - `let { title } = $props()` becomes `let { title, ...__ucfRest } = $props()` (an existing rest name is reused; `let props = $props()` forwards from `props`; with no `$props()` at all, `let __ucfRest = $props();` is added);
+  - each element or component root gets `{...__ucfScopeAttrs(__ucfRest)}` right after its stamp, the helper imported from milestone 3's virtual module. A text, `{@render}`, `{@html}` or `<slot>` root gets nothing and no warning, as React's `null` and `children` roots;
+  - beside that spread, Svelte 5.57's server render escapes a plain-text attribute value twice (`data-x="<b>"` renders `&amp;lt;b>`), so such a value on a forwarded root becomes an expression (`data-x={"<b>"}`).
 
-  More than one root, an `{#each}` root, or a legacy (non-runes) component: no forwarding, plus the same warning React gives for a fragment root.
+  More than one root, an `{#each}` root, or a legacy (non-runes) component: no forwarding, plus, in dev only, the warning React gives for a fragment root through the same `__ucfWarnFragment`, which takes Svelte's own `problem` and `fix`: "renders more than one root", "renders an {#each} block as its root", or "is a legacy-mode Svelte component" with "Use $props() to make it a runes-mode component.". It runs once at init, from the instance script (inside an arrow called at once in runes mode, which Svelte would otherwise flag as `state_referenced_locally`).
 - Deliverable: a parent's scoped style reaches a Svelte child's root, as in Vue and React.
-- Test: browser area, `packages/e2e/browser/svelte-scope-forward.spec.ts`: in `apps/all-targets`, `Panel.ucf` styles `PanelItem`'s root with a scoped rule; its computed style is the same in all three targets. Root shape fixtures in `fixtures/components/svelte/roots/` (if/else roots, a component root, a `<svelte:element>` root, an each root that warns). The 5.7 fuzz gets one more rule: a generated single-root child always has the parent's scope on its root. Required (spec 3.5.1): every framework forwards the same way, so this step is part of the milestone's exit.
+- Test: browser area, `packages/e2e/browser/svelte-scope-forward.spec.ts`, dev and preview: in `apps/all-targets`, `Panel.ucf` (whose `<vue>` and `<react>` blocks now render `PanelItem` too) styles `PanelItem`'s root with a scoped `.item` rule; its computed style is the same in all three targets. Root shape fixtures in `fixtures/components/svelte/roots/` (`IfElseRoot`, `ComponentRoot`, `SvelteElementRoot`, `NestedRoot`, `RestRoot`, `NoPropsRoot`, `EscapedRoot`, and `EachRoot`, `MultiRoot`, `LegacyRoot` that warn), rendered by `apps/all-targets/Roots.ucf` on `?page=roots`; core's own test (`packages/core/test/blocks/svelte.spec.ts`) builds, compiles and server-renders each. The 5.7 fuzz gets one more rule, `forwards`: every case renders through a real scoped `Parent.ucf`, and a generated single-root runes child always has the parent's scope on its root and nowhere else. Required (spec 3.5.1): every framework forwards the same way, so this step is part of the milestone's exit.
+- Status: done
 
 ### 5.9 Types: `Card.ucf.svelte.ts`
 
@@ -189,7 +191,7 @@ From milestone 4:
 
 For milestone 6 (library build), which builds the Svelte package from these:
 
-- The svelte row's `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`: the `.svelte` code the Svelte package ships, once it can point imports at real files.
+- The svelte row's `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`: the `.svelte` code the Svelte package ships, once it can point imports at real files (the style ids, the class maps and the scope helper module `virtual:multifront/scope-attrs` of root forwarding).
 - `loadSvelteCompiler(root)` in core, and `svelte` plus `@sveltejs/vite-plugin-svelte` as optional peers of `@multifront/vite`.
 - `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`).
 - The `<svelte>` blocks of the shared fixtures (`Counter.ucf`, `Panel.ucf`, `PanelItem.ucf`, `imports/Icon.ucf`), the model for the library fixture's Svelte blocks.
@@ -221,7 +223,9 @@ For milestone 7 (full editor support):
 - **Svelte names the component `Card_ucf_svelte`** (from the id's file name, `Card.ucf.svelte.svelte`). Only dev messages show it.
 - **Svelte 5 HMR resets local state** on a block edit. The tests check "no reload", not "state kept".
 - **The fallback declarations need `rootDirs`.** That setting also changes plain `tsc` for `.ts` importers in that project; our plugin and `mf-tsc` override it. Open: write them from the Vite dev server too, so CI without the editor has them?
-- **Forwarding is runes-mode only.** Legacy components would need `$$restProps`.
+- **Forwarding is runes-mode only.** Legacy components would need `$$restProps`. Runes mode is read from the block, as Svelte does without its compiler option: core cannot see plugin-svelte's `compilerOptions.runes`, so a project that forces runes there still needs one rune in a block (any `$props()`) for it to forward; a markup-only block counts as legacy and warns.
+- **Svelte escapes a plain-text attribute twice beside a spread** in its server render (5.57.0). Forwarded roots work around it (5.8); a fixed Svelte release makes the workaround a no-op.
+- **A forwarded `<img>` (or other load-event) root gets `onload` / `onerror="this.__e=event"`** in the server HTML: Svelte adds them to any element with a spread, to replay those events on hydration. A strict CSP without inline handlers blocks them, as for any Svelte spread.
 - Names now aligned: the class map id is M1's `classMapId()`, the multi-root warning reuses M3's dev-only `__ucfWarnFragment` helper, the fuzz harness is M3's with M1's env vars.
 
 ## Out of scope

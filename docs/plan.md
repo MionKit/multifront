@@ -149,6 +149,7 @@ transform stays; the CSS-modules-only fallback is not needed. Each go criterion 
 ### 5. Svelte target
 
 - `Card.ucf.svelte.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
+- Root forwarding through the props rest (`{...__ucfScopeAttrs(__ucfRest)}` on each root), runes mode only; several roots, an `{#each}` root or legacy mode warn in dev.
 - Editor: `Card.ucf.svelte.ts` through `svelte2tsx`, for `.svelte` importers and the `<svelte>` block's types.
 - plugin-svelte hands its previous source map to the Svelte compiler, which merges it, and Vite applies it again: so plugin-svelte's compile of our ids sees no previous map, and our `load` map is applied once.
 - plugin-svelte's hot update transforms the changed file first, to refresh its Svelte CSS. For a `.ucf` file that is the bare Vue id, which throws without plugin-vue: that one request is skipped, and our ids emit no Svelte CSS.

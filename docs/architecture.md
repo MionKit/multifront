@@ -96,7 +96,7 @@ What the Vite plugin does when an app imports a `.ucf` file. Only the chosen tar
 - The target rules are spec section 4. They live in one function, `resolveTarget()` in core.
 - The Vue target keeps the real file path as its module id, because plugin-vue re-reads the file from disk on a cache miss. Details in [plan.md](plan.md), "Building on plugin-vue".
 - Browsers and Node reject unknown import attributes, so a post plugin moves `with { framework }` into the module id before any runtime sees it.
-- The React scope transform calls a forwarding helper the Vite plugin serves as the virtual module `virtual:multifront/scope-attrs`, so a build bundles it once and components need no runtime package.
+- The React and Svelte scope transforms call a forwarding helper the Vite plugin serves as the virtual module `virtual:multifront/scope-attrs`, so a build bundles it once and components need no runtime package.
 
 ## Editor and types
 
