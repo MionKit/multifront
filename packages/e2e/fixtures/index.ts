@@ -23,9 +23,9 @@ export async function copyApp(name: string): Promise<string> {
   return root;
 }
 
-/** For a file a watcher sees: `writeFile` empties it first, and a watcher reading then gets an empty file. */
+/** Not `writeFile`: it empties the file first, so a watcher reading mid-write sees it empty. */
 export async function saveFile(file: string, source: string): Promise<void> {
-  // Outside every app root, so no watcher reports it; same disk as the copies, so the rename is atomic.
+  // Outside every app root so no watcher sees it; on the copies' disk so the rename is atomic.
   const temp = join(TMP_DIR, `save-${randomUUID()}`);
   await writeFile(temp, source);
   await rename(temp, file);
