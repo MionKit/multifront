@@ -1,14 +1,13 @@
 import {dirname} from 'node:path';
 import {
   importerFromId,
-  importPath,
   isTarget,
   missingTargetBlockMessage,
   resolveTarget,
   rewriteImportAttributes,
   splitBlocks,
 } from '@multifront/core';
-import type {Diagnostic, Importer, ResolveTargetOptions, Target, TargetRule} from '@multifront/core';
+import type {Diagnostic, Importer, ResolveTargetOptions, Target} from '@multifront/core';
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
 import {isServedTarget, targetScriptName} from './targetScripts.ts';
@@ -17,13 +16,6 @@ import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
 const PLUGIN_NAME = '@multifront/language-tools/typescript-plugin';
 // TypeScript looks for `Card.d.ucf.ts` when `./Card.ucf` has no TS extension; it stands for the `.ucf` file.
 const UCF_DECLARATION = '.d.ucf.ts';
-
-const RULE_REASON: Record<TargetRule, string> = {
-  block: 'the block it sits in',
-  attribute: 'its framework attribute',
-  importer: "the importer's extension",
-  default: 'the default framework',
-};
 
 function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
   for (const property of object.properties) {
@@ -91,7 +83,7 @@ export function resolveUcfImport(
   const attribute = importer.block && value ? (text ?? '') : text;
   const choice = resolveTarget(importer, attribute, options);
   if ('error' in choice) return {resolvedModule: undefined, error: choice.error};
-  const {target, rule} = choice;
+  const {target} = choice;
   // No shared cache: the same specifier gets another answer from another importer.
   const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, ucfHost(options.host));
   if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule, target};
@@ -110,16 +102,6 @@ export function resolveUcfImport(
     if (error) return {resolvedModule: undefined, target, error};
     const resolvedFileName = targetScriptName(fileName, target);
     return {resolvedModule: {resolvedFileName, extension: ts.Extension.Ts, isExternalLibraryImport}, target};
-  }
-  // Svelte gets its script in M5.
-  if (target !== MAIN_SCRIPT_TARGET) {
-    const path = importPath(containingFile, fileName);
-    const reason = RULE_REASON[rule];
-    error ??= {
-      code: 'target-not-built',
-      message: `${path} is imported as ${target} (by ${reason}); multifront has no ${target} types yet`,
-    };
-    return {resolvedModule: undefined, target, error};
   }
   // Resolved even without the block, so adding it in an unsaved edit needs no new resolution.
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};

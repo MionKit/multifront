@@ -51,6 +51,22 @@ export async function expectCardPropError(server: Tsserver, component: Component
   expect(await server.diagnostics(APP.filename)).toEqual([]);
 }
 
+/** An unsaved `const picked = <binding>;`: Svelte's `Component`, not a Vue `DefineComponent` or a React function. */
+export async function expectSvelteComponent(server: Tsserver, component: Component, binding: string): Promise<void> {
+  const last = component.source.trimEnd().split('\n').at(-1)!;
+  const added = `${last}\nconst picked = ${binding};`;
+  const revert = await edit(server, component, last, added);
+  try {
+    const info = await server.request<TsQuickInfo>('quickinfo', {
+      file: component.filename,
+      ...locate(component.source.replace(last, added), 'const picked', 6),
+    });
+    expect(info.displayString).toMatch(/^const picked: Component</);
+  } finally {
+    await revert();
+  }
+}
+
 /** The 2.9 App.tsx cases; the caller's tsserver has `APP` and `CARD` open. */
 export function appTsxCases(getServer: () => Tsserver): void {
   describe('App.tsx', () => {

@@ -25,7 +25,7 @@ export function frameworkInBlockMessage(block: Target): string {
 }
 
 /** `fileName` as the importer would write it. */
-export function importPath(importerFile: string, fileName: string): string {
+function importPath(importerFile: string, fileName: string): string {
   const path = relative(dirname(importerFile), fileName).split(sep).join('/');
   return isAbsolute(path) || /^\.\.?\//.test(path) ? path : `./${path}`;
 }

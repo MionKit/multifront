@@ -120,7 +120,7 @@ describe('getTypesScript types $style with the class names the build finds', () 
     );
   });
 
-  it('has no script for a target without a block or without types yet', () => {
+  it('has no script for a target without a block, or for svelte without its compiler', () => {
     const card = readComponent('Card.ucf');
     expect(getTypesScript(card.filename, card.source, 'svelte', {compiler})).toBeUndefined();
     const stylesOnly = readComponent('invalid/StylesOnly.ucf');

@@ -31,13 +31,7 @@ export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';
 export {DiagnosticsError, locate} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
-export {
-  DEFAULT_IMPORTERS,
-  importPath,
-  importerFromId,
-  missingTargetBlockMessage,
-  resolveTarget,
-} from './imports/resolveTarget.ts';
+export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTarget} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
 export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
 export {rootRelativePath, scopeId} from './scopeId.ts';

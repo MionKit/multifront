@@ -1,5 +1,5 @@
-import {loadVueCompiler} from '@multifront/core';
-import type {Target, VueCompiler} from '@multifront/core';
+import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
+import type {Target} from '@multifront/core';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {createLanguageServicePlugin, freshDiagnostics} from './languageServicePlugin.ts';
@@ -66,13 +66,17 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   return errors;
 }
 
-/** `@vue/compiler-sfc` is optional: a React-only app has none. */
-function projectCompiler(info: ts.server.PluginCreateInfo): VueCompiler | undefined {
+/** `@vue/compiler-sfc` and `svelte` are optional: a React-only app has neither. */
+function projectCompiler<Compiler>(
+  info: ts.server.PluginCreateInfo,
+  load: (root: string) => Compiler,
+  without: string
+): Compiler | undefined {
   try {
-    return loadVueCompiler(info.project.getCurrentDirectory());
+    return load(info.project.getCurrentDirectory());
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    info.project.projectService.logger.info(`multifront: no Vue compiler, $style reads plain CSS modules only (${reason})`);
+    info.project.projectService.logger.info(`multifront: ${without} (${reason})`);
     return undefined;
   }
 }
@@ -82,9 +86,9 @@ const routers = new WeakMap<ts.server.PluginCreateInfo, (languageService: ts.Lan
 const afterUpdates = new WeakMap<ts.server.Project, () => void>();
 
 /** What a host bundling the plugin sets. */
-type TypeScriptPluginOptions = Pick<EditorOptions, 'vueTypesRoot'>;
+type TypeScriptPluginOptions = Pick<EditorOptions, 'vueTypesRoot' | 'svelteTypesRoot'>;
 
-const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
+const createVolarPlugin = ({vueTypesRoot, svelteTypesRoot}: TypeScriptPluginOptions) =>
   createLanguageServicePlugin((ts, info) => {
     const host = info.languageServiceHost;
     // tsserver's host is a Project instance: its methods need their `this`.
@@ -132,8 +136,17 @@ const createVolarPlugin = ({vueTypesRoot}: TypeScriptPluginOptions) =>
     afterUpdates.set(info.project, targetScripts.afterUpdate);
 
     const compilerOptions = host.getCompilationSettings();
+    const editorOptions: EditorOptions = {
+      compiler: projectCompiler(info, loadVueCompiler, 'no Vue compiler, $style reads plain CSS modules only'),
+      ts,
+      compilerOptions,
+      vueTypesRoot,
+      // Without it a svelte pick has no script, so TypeScript cannot find the module.
+      svelteCompiler: projectCompiler(info, loadSvelteCompiler, 'no Svelte compiler, svelte picks have no types'),
+      svelteTypesRoot,
+    };
     return {
-      languagePlugins: [createUcfLanguagePlugin({compiler: projectCompiler(info), ts, compilerOptions, vueTypesRoot})],
+      languagePlugins: [createUcfLanguagePlugin(editorOptions)],
       setup(language) {
         targetScripts.setup(language);
         serveVueRequests(ts, info, language, base);

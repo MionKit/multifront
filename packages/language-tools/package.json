@@ -55,20 +55,26 @@
     "@vue/typescript-plugin": "3.3.11",
     "postcss": "8.5.28",
     "postcss-selector-parser": "7.1.6",
+    "svelte2tsx": "0.7.61",
     "volar-service-css": "0.0.71",
     "vscode-uri": "3.2.0"
   },
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.15",
+    "svelte": "^5.55.6",
     "typescript": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "@vue/compiler-sfc": {
       "optional": true
+    },
+    "svelte": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@vue/compiler-sfc": "3.5.42",
+    "svelte": "5.57.0",
     "typescript": "6.0.3"
   }
 }

@@ -92,7 +92,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(output).not.toMatch(/WARNING|::warning::/);
   });
 
-  it('packs exactly the manifest, readme, language files, generated grammars, bundles, Vue types, plugin pack and licenses', () => {
+  it('packs exactly the manifest, readme, language files, generated grammars, bundles, Vue and Svelte types, plugin pack and licenses', () => {
     expect(VUE_TYPES).toEqual(expect.arrayContaining(['template-helpers.d.ts', 'props-fallback.d.ts']));
     const vendored = Object.keys(readJson<Record<string, unknown>>(join(EXTENSION_DIR, 'syntaxes', 'vendor', 'sources.json')));
     expect(vendored.length).toBeGreaterThan(0);
@@ -110,6 +110,8 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
       'dist/typescript-plugin.cjs',
       'dist/parser.wasm32-wasi.wasm',
       ...VUE_TYPES.map((name) => `dist/vue-types/${name}`),
+      'dist/svelte-types/svelte-shims-v4.d.ts',
+      'dist/svelte-types/svelte-jsx-v4.d.ts',
       `${PACK}/index.js`,
       `${PACK}/package.json`,
     ];
