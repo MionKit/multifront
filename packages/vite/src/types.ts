@@ -25,6 +25,11 @@ export interface UcfVersion extends UcfSnapshot {
   previous?: UcfSnapshot;
 }
 
+/** Our part of a module's meta, under `multifront`. */
+export interface UcfModuleMeta {
+  useClient?: boolean; // the React target: its block needs `"use client"`
+}
+
 export type UcfCache = ReturnType<typeof createUcfCache>;
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
@@ -48,6 +53,7 @@ export interface LibraryOptions {
 export interface LibraryTarget {
   plugin(): Promise<PluginOption>; // the framework's Vite plugin
   peers: Record<string, string>; // default peer ranges; also the build's externals
+  useClient?: boolean; // `"use client"` atop the output files that need it (React Server Components)
 }
 
 /** `files` are relative to `outDir`, `skipped` to `src`. */

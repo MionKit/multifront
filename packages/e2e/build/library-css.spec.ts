@@ -15,6 +15,8 @@ const CSS_ORDER: Record<Framework, string[]> = {
   vue: ['Badge', 'Button', 'Icon', 'Card', 'Counter', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field'],
 };
 const FRAMEWORKS = ['react', 'vue'] as const;
+// The React components whose output starts with `"use client"`.
+const USE_CLIENT = ['Button', 'Counter', 'Tooltip'];
 
 let library: BuiltLibrary;
 
@@ -38,12 +40,14 @@ describe('buildLibrary(): CSS as real files', () => {
     }
   });
 
-  it("starts each component's JS with an import of its own CSS file", () => {
+  it('starts each component\'s JS with an import of its own CSS file, below a "use client"', () => {
     for (const target of FRAMEWORKS) {
       const result = resultOf(library.results, target);
       for (const name of CSS_ORDER[target]) {
         const file = `${name}.js`;
-        expect(readOutput(result, file).startsWith(`import "./${name.split('/').pop()}.css";\n`), `${target}/${file}`).toBe(true);
+        const directive = target === 'react' && USE_CLIENT.includes(name) ? '"use client";\n' : '';
+        const start = `${directive}import "./${name.split('/').pop()}.css";\n`;
+        expect(readOutput(result, file).startsWith(start), `${target}/${file}`).toBe(true);
         expect(cssImports(result, file), `${target}/${file}`).toEqual([`./${name.split('/').pop()}.css`]);
       }
     }
