@@ -157,27 +157,32 @@ function eachNode(
 // --- harvest from the fixtures -----------------------------------------------------------------------------------
 
 interface Parsed {
-  fixture: string;
   content: string;
   root: AST.Root;
+  styles: string[];
 }
 
 const PARSED: Parsed[] = listComponents(SHAPES_DIR).map((fixture) => {
   const {filename, source} = readComponent(fixture);
-  const content = splitBlocks(source, filename).targets.svelte!.content;
-  return {fixture, content, root: parse(content, {modern: true})};
+  const split = splitBlocks(source, filename);
+  const content = split.targets.svelte!.content;
+  return {content, root: parse(content, {modern: true}), styles: split.styles.map((style) => style.content)};
 });
 
 const slice = ({content}: Parsed, node: {start: number; end: number}) => content.slice(node.start, node.end);
+
+/** A piece of a fixture and the names it reads from outside. */
+interface Harvested {
+  text: string;
+  free: Set<string>;
+}
 
 interface Prop {
   name: string;
   text: string; // `label = 'Hello'`
 }
-interface Statement {
-  text: string;
+interface Statement extends Harvested {
   declares: string[];
-  free: Set<string>;
   runes: boolean;
 }
 
@@ -218,7 +223,7 @@ for (const parsed of PARSED) {
       for (const {id, init} of node.declarations as Node[]) {
         if (!isPropsCall(init) || !isNode(id) || id.type !== 'ObjectPattern') continue;
         for (const property of id.properties as Node[])
-          addProp(((property.key as Node).name as string) ?? '', slice(parsed, property));
+          if (property.type === 'Property') addProp((property.key as Node).name as string, slice(parsed, property));
       }
     }
     const declaration = node.type === 'ExportNamedDeclaration' && isNode(node.declaration) ? node.declaration : undefined;
@@ -250,18 +255,16 @@ function needsTypeScript(text: string): boolean {
   }
 }
 
-interface Snippet {
+interface Snippet extends Harvested {
   name: string;
-  text: string;
-  free: Set<string>;
   ts: boolean;
 }
 
 const SNIPPETS: Snippet[] = [];
 for (const parsed of PARSED) {
-  for (const node of parsed.root.fragment.nodes as unknown as Node[]) {
+  for (const node of parsed.root.fragment.nodes) {
     if (node.type !== 'SnippetBlock') continue;
-    const name = (node.expression as Node).name as string;
+    const {name} = node.expression;
     if (TAKEN.has(name)) continue;
     TAKEN.add(name);
     const text = slice(parsed, node);
@@ -269,16 +272,15 @@ for (const parsed of PARSED) {
   }
 }
 
-const SPECIAL_TEXT = {} as Record<Special, {text: string; free: Set<string>}>;
+const SPECIAL_TEXT = {} as Record<Special, Harvested>;
 for (const parsed of PARSED) {
-  for (const node of parsed.root.fragment.nodes as unknown as Node[]) {
+  for (const node of parsed.root.fragment.nodes) {
     const special = SPECIALS.find((name) => SPECIAL_TYPES[name] === node.type);
     if (special) SPECIAL_TEXT[special] ??= {text: slice(parsed, node), free: freeOf(node)};
   }
   // `<svelte:options>` is not a fragment node.
-  const options = parsed.root.options as unknown as Node | undefined;
-  if (options && SPECIAL_TEXT['options-runes'] === undefined)
-    SPECIAL_TEXT['options-runes'] = {text: slice(parsed, options), free: new Set()};
+  const {options} = parsed.root;
+  if (options) SPECIAL_TEXT['options-runes'] ??= {text: slice(parsed, options), free: new Set()};
 }
 for (const special of SPECIALS)
   if (!SPECIAL_TEXT[special]) throw new Error(`no svelte/shapes/ fixture holds a ${SPECIAL_TYPES[special]}`);
@@ -308,11 +310,7 @@ interface Slot {
   reset: boolean; // inside a component's children: the ancestors outside do not count
 }
 
-export interface Donor {
-  fixture: string;
-  type: string;
-  text: string;
-  free: Set<string>;
+interface Donor extends Harvested {
   slots: Slot[];
   tops: string[]; // elements reached from the root through blocks only
   slot: boolean;
@@ -374,14 +372,8 @@ const DONOR_TYPES = new Set([
   'SlotElement',
 ]);
 
-function contains(node: Node, type: string): boolean {
-  let found = false;
-  eachNode(node, (child) => void (found ||= child.type === type));
-  return found;
-}
-
-export const DONORS: Donor[] = [];
-export const TRICKY: Donor[] = [];
+const DONORS: Donor[] = [];
+const TRICKY: Donor[] = [];
 for (const parsed of PARSED) {
   eachNode(
     parsed.root.fragment,
@@ -397,15 +389,15 @@ for (const parsed of PARSED) {
       const free = freeOf(node);
       // `{item}` inside `{#each empty as item}` must not read the header snippet `item` once moved out.
       if ([...free].some((name) => bound.has(name) || !available(name, false))) return;
+      const types = new Set<string>();
+      eachNode(node, (child) => void types.add(child.type));
       (tricky ? TRICKY : DONORS).push({
-        fixture: parsed.fixture,
-        type: node.type,
         text,
         free,
         slots: tricky ? [] : slotsOf(node, node.start),
         tops: topsOf(node),
-        slot: contains(node, 'SlotElement'),
-        render: contains(node, 'RenderTag'),
+        slot: types.has('SlotElement'),
+        render: types.has('RenderTag'),
         ts: needsTypeScript(text),
       });
     },
@@ -416,14 +408,12 @@ for (const parsed of PARSED) {
 // The shapes' class rules, the first one of each selector.
 const STYLE = (() => {
   const rules = new Map<string, string>();
-  for (const {fixture} of PARSED) {
-    const {filename, source} = readComponent(fixture);
-    for (const style of splitBlocks(source, filename).styles)
-      for (const rule of style.content.match(/\.[\w-]+\s*\{[^}]*\}/g) ?? []) {
+  for (const {styles} of PARSED)
+    for (const style of styles)
+      for (const rule of style.match(/\.[\w-]+\s*\{[^}]*\}/g) ?? []) {
         const selector = rule.slice(0, rule.indexOf('{')).trim();
         if (!rules.has(selector)) rules.set(selector, rule);
       }
-  }
   return [...rules.values()].join('\n');
 })();
 
@@ -448,7 +438,6 @@ export interface SvelteCase {
   base: number; // index into DONORS
   actions: SvelteAction[];
   applied: ActionKind[];
-  model: Model;
   block: string; // the `<svelte>` content
   plain: string; // the same with the store header
   layout: ScriptLayout;
@@ -522,7 +511,7 @@ function apply(model: Model, kind: ActionKind, random: Random): void {
 }
 
 // Skips an action that no longer applies, so the shrinker can drop an action another one needed.
-function replay(legacy: boolean, base: number, actions: SvelteAction[]): {model: Model; applied: ActionKind[]} {
+function replay(legacy: boolean, base: number, actions: SvelteAction[]): Pick<SvelteCase, 'applied'> & {model: Model} {
   const model: Model = {legacy, top: [{donor: DONORS[base]!, ancestors: [], inserts: []}], specials: [], moduleScript: false};
   const applied: ActionKind[] = [];
   for (const action of actions) {
@@ -548,9 +537,10 @@ function renderPiece(piece: Piece): string {
   return out + text.slice(from);
 }
 
-const indent = (lines: string[], depth: string) => lines.map((line) => `${depth}${line}`).join('\n');
+const script = (attributes: string, lines: string[]) =>
+  `<script${attributes} lang="ts">\n${lines.map((line) => `  ${line}`).join('\n')}\n</script>`;
 
-function writeBlock(model: Model, filename: string): {block: string; plain: string; layout: ScriptLayout} {
+function writeBlock(model: Model, filename: string): Pick<SvelteCase, 'block' | 'plain' | 'layout'> {
   const pieces = model.top.map(renderPiece);
   const specials = SPECIALS.filter((special) => model.specials.includes(special));
   // The free names of the markup, then of what it needs, until nothing new comes in.
@@ -589,13 +579,13 @@ function writeBlock(model: Model, filename: string): {block: string; plain: stri
     if (specials.includes('options-runes')) lines.push(SPECIAL_TEXT['options-runes'].text);
     if (hasModule)
       lines.push(
-        `<script module lang="ts">\n${indent(
-          moduleStatements.map(({text}) => text),
-          '  '
-        )}\n</script>`
+        script(
+          ' module',
+          moduleStatements.map(({text}) => text)
+        )
       );
     const body = [...header, ...instance];
-    if (body.length || hasInstance) lines.push(`<script lang="ts">\n${indent(body, '  ')}\n</script>`);
+    if (body.length || hasInstance) lines.push(script('', body));
     for (const snippet of SNIPPETS) if (need.has(snippet.name)) lines.push(snippet.text);
     for (const special of specials) if (special !== 'options-runes') lines.push(SPECIAL_TEXT[special].text);
     lines.push(...pieces);
@@ -611,13 +601,13 @@ function writeBlock(model: Model, filename: string): {block: string; plain: stri
 }
 
 export function buildCase(
-  {legacy, base}: {legacy: boolean; base: number},
+  {legacy, base}: Pick<SvelteCase, 'legacy' | 'base'>,
   actions: SvelteAction[],
   {name, dir}: {name: string; dir: string}
 ): SvelteCase {
   const {model, applied} = replay(legacy, base, actions);
   const {block, plain, layout} = writeBlock(model, join(dir, `${name}.ucf`));
-  return {name, legacy, base, actions, applied, model, block, plain, layout};
+  return {name, legacy, base, actions, applied, block, plain, layout};
 }
 
 const WEIGHTS: Partial<Record<ActionKind, number>> = {splice: 6, tricky: 2};
