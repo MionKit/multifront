@@ -28,6 +28,24 @@ type ScriptLayout = (typeof SCRIPT_LAYOUTS)[number];
 const SHAPES_DIR = 'svelte/shapes';
 export const FUZZ_DIR = join(TMP_DIR, 'svelte-fuzz');
 export const CHILD_FILE = 'Child.svelte';
+export const PARENT_FILE = 'Parent.ucf';
+
+// Renders every case as a stamped child, so its scope reaches the case as a prop, as from any scoped parent.
+export const PARENT_SOURCE = `<svelte>
+  <script lang="ts">
+    import type {Component} from 'svelte'
+
+    let {Case, Child}: {Case: Component<Record<string, unknown>>; Child: unknown} = $props()
+  </script>
+  <Case {Child} />
+</svelte>
+
+<style scoped>
+.parent {
+  color: rgb(200, 40, 80);
+}
+</style>
+`;
 
 // --- the Svelte AST ----------------------------------------------------------------------------------------------
 
@@ -631,9 +649,10 @@ export function ucfSource(fuzzCase: SvelteCase): string {
   return `<svelte>${fuzzCase.block}</svelte>\n\n<style module scoped>\n${STYLE}\n</style>\n`;
 }
 
-/** Also copies the shapes' `Child.svelte`, which the cases render. */
+/** Also copies the shapes' `Child.svelte`, which the cases render, and writes the parent that renders them. */
 export function writeCase(dir: string, fuzzCase: SvelteCase): {ucf: string; plain: string} {
   copyFileSync(componentPath(`${SHAPES_DIR}/${CHILD_FILE}`), join(dir, CHILD_FILE));
+  writeFileSync(join(dir, PARENT_FILE), PARENT_SOURCE);
   const ucf = join(dir, `${fuzzCase.name}.ucf`);
   const plain = join(dir, `${fuzzCase.name}.svelte`);
   writeFileSync(ucf, ucfSource(fuzzCase));
@@ -641,9 +660,64 @@ export function writeCase(dir: string, fuzzCase: SvelteCase): {ucf: string; plai
   return {ucf, plain};
 }
 
+// --- roots, as spec 3.6 defines them ------------------------------------------------------------------------------
+
+// Render nothing in place: never a root.
+const NOT_ROOTS = new Set([
+  'Comment',
+  'SnippetBlock',
+  'ConstTag',
+  'DebugTag',
+  'SvelteHead',
+  'SvelteWindow',
+  'SvelteBody',
+  'SvelteDocument',
+]);
+const ELEMENT_ROOTS = new Set(['RegularElement', 'SvelteElement', 'Component', 'SvelteComponent', 'SvelteSelf']);
+
+const nodesOf = (fragment: unknown): Node[] =>
+  isNode(fragment) && fragment.type === 'Fragment' ? (fragment.nodes as Node[]) : [];
+
+// The branches a root block renders one of; none for a node that is itself a root.
+function branchesOf(node: Node): Node[][] | undefined {
+  if (node.type === 'IfBlock') return [nodesOf(node.consequent), nodesOf(node.alternate)];
+  if (node.type === 'KeyBlock') return [nodesOf(node.fragment)];
+  if (node.type === 'AwaitBlock') return [nodesOf(node.pending), nodesOf(node.then), nodesOf(node.catch)];
+  if (node.type !== 'SvelteBoundary') return undefined;
+  const children = nodesOf(node.fragment);
+  const snippets = children.filter((child) => child.type === 'SnippetBlock');
+  return [children.filter((child) => !snippets.includes(child)), ...snippets.map((snippet) => nodesOf(snippet.body))];
+}
+
+/**
+ * `single`: every branch has at most one root, each an element or a component; `other`: the same, but some root is
+ * text, a tag or a slot; `many`: a branch with more roots; `each`: an `{#each}` root; `none`: no root at all.
+ */
+export type RootKind = 'single' | 'other' | 'many' | 'each' | 'none';
+
+export function rootKind(block: string): RootKind {
+  const found = {many: false, each: false, element: false, other: false};
+  const visit = (nodes: Node[]): void => {
+    const roots = nodes.filter((node) => !NOT_ROOTS.has(node.type) && !(node.type === 'Text' && !/\S/.test(node.data as string)));
+    if (roots.length > 1) found.many = true;
+    for (const node of roots) {
+      const branches = branchesOf(node);
+      if (branches) branches.forEach(visit);
+      else if (node.type === 'EachBlock') found.each = true;
+      else if (ELEMENT_ROOTS.has(node.type)) found.element = true;
+      else found.other = true;
+    }
+  };
+  visit(parse(block, {modern: true}).fragment.nodes as unknown as Node[]);
+  if (found.each) return 'each';
+  if (found.many) return 'many';
+  if (found.other) return 'other';
+  return found.element ? 'single' : 'none';
+}
+
 /** The shape facts the coverage test reads. */
 export function shapeOf(fuzzCase: SvelteCase): string[] {
-  const facts = [`mode:${fuzzCase.legacy ? 'legacy' : 'runes'}`, `script:${fuzzCase.layout}`];
+  const facts = [`mode:${fuzzCase.legacy ? 'legacy' : 'runes'}`, `script:${fuzzCase.layout}`, `root:${rootKind(fuzzCase.block)}`];
   const root = parse(fuzzCase.block, {modern: true});
   if (root.options) facts.push('type:SvelteOptions');
   let deepest = 0;

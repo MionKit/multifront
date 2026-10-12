@@ -4,6 +4,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {svelte} from '@sveltejs/vite-plugin-svelte';
 import {Parser} from 'htmlparser2';
+import {compile} from 'svelte/compiler';
 import type {Plugin, Rolldown} from 'vite';
 import {describe, expect, it} from 'vitest';
 import {rootRelativePath, scopeId} from '@multifront/core';
@@ -15,9 +16,12 @@ import {
   ACTION_KINDS,
   CHILD_FILE,
   FUZZ_DIR,
+  PARENT_FILE,
+  PARENT_SOURCE,
   SCRIPT_LAYOUTS,
   buildCase,
   caseAt,
+  rootKind,
   shapeOf,
   ucfSource,
   writeCase,
@@ -32,7 +36,7 @@ const CONTROL_BATCH = 10;
 // Below this share of usable cases (the plain file builds and renders), the rules would test too little.
 const USABLE_FLOOR = 0.8;
 
-type Rule = 'builds' | 'stamps' | 'same-html';
+type Rule = 'builds' | 'stamps' | 'same-html' | 'forwards';
 type Violation = SeededViolation<Rule>;
 type Failure = KeptFailure<SvelteCase, Rule>;
 
@@ -48,7 +52,9 @@ interface Run {
   onlyRule?: Rule;
 }
 
-type Outcome = {usable: false; reason: string} | {usable: true; violations: Violation[]};
+// Where the parent's scope must show: on each top-level element, on at most one, or nowhere.
+type Forwarded = 'root' | 'maybe-root' | 'none';
+type Outcome = {usable: false; reason: string} | {usable: true; violations: Violation[]; forwarded?: Forwarded};
 
 type Kind = 'ucf' | 'plain';
 type Entry = [SvelteCase, Kind];
@@ -58,14 +64,15 @@ interface Html {
 }
 type Render = (name: string, kind: Kind) => Html;
 
-const SVELTE_ID = /\.ucf\.svelte\.svelte$/;
+// The cases' Svelte ids, never Parent.ucf's.
+const CASE_ID = /\/Fuzz\d+(?:s\d+)?\.ucf\.svelte\.svelte$/;
 let builds = 0;
 
 function breaker(enforce: keyof Breaker, edit: Breaker[keyof Breaker]): Plugin {
   return {
     name: `svelte-scope-fuzz:${enforce}-breaker`,
     enforce,
-    transform: (code, id) => (edit && SVELTE_ID.test(id) ? edit(code) : undefined),
+    transform: (code, id) => (edit && CASE_ID.test(id) ? edit(code) : undefined),
   };
 }
 
@@ -81,7 +88,11 @@ function firstLine(err: unknown): string {
 async function buildEntries(run: Run, entries: Entry[]): Promise<Render> {
   const label = `batch-${++builds}`;
   const entry = join(run.dir, `${label}.js`);
-  const lines = [`import {render} from 'svelte/server'`, `import Child from './${CHILD_FILE}'`];
+  const lines = [
+    `import {render} from 'svelte/server'`,
+    `import Child from './${CHILD_FILE}'`,
+    `import Parent from './${PARENT_FILE}' with { framework: 'svelte' }`,
+  ];
   const rows: string[] = [];
   entries.forEach(([{name}, kind], index) => {
     lines.push(`import C${index} from './${name}${kind === 'ucf' ? `.ucf' with { framework: 'svelte' }` : `.svelte'`}`);
@@ -90,7 +101,7 @@ async function buildEntries(run: Run, entries: Entry[]): Promise<Render> {
   lines.push(`const cases = {\n${rows.join('\n')}\n}`);
   // `render()` renders lazily, on the first read of `head` or `body`.
   lines.push('export function renderCase(name, kind) {');
-  lines.push('  const {head, body} = render(cases[`${name}:${kind}`], {props: {Child}})');
+  lines.push('  const {head, body} = render(Parent, {props: {Case: cases[`${name}:${kind}`], Child}})');
   lines.push('  return {head, body}');
   lines.push('}');
   writeFileSync(entry, `${lines.join('\n')}\n`);
@@ -142,13 +153,22 @@ async function checkAlone(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
 
 // --- the rules ---------------------------------------------------------------------------------------------------
 
-function startTags(html: string): {name: string; attributes: string[]}[] {
-  const tags: {name: string; attributes: string[]}[] = [];
+const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
+
+function startTags(html: string): {name: string; attributes: string[]; top: boolean}[] {
+  const tags: {name: string; attributes: string[]; top: boolean}[] = [];
+  let depth = 0;
   // Not parse5, which drops a repeated attribute; XML mode reads the tags as written, with no `<p>` the HTML rules imply.
   const parser = new Parser(
     {
-      onopentagname: (name) => void tags.push({name, attributes: []}),
+      onopentagname: (name) => {
+        tags.push({name, attributes: [], top: depth === 0});
+        if (!VOID.has(name)) depth++;
+      },
       onattribute: (name) => void tags.at(-1)!.attributes.push(name),
+      onclosetag: (name) => {
+        if (!VOID.has(name)) depth--;
+      },
     },
     {xmlMode: true}
   );
@@ -157,10 +177,13 @@ function startTags(html: string): {name: string; attributes: string[]}[] {
   return tags;
 }
 
-function checkStamps(html: Html, stamp: string): Violation[] {
+// The parent's scope is the `forwards` rule's.
+function checkStamps(html: Html, stamp: string, parent: string): Violation[] {
   for (const {name, attributes} of startTags(html.body)) {
     const own = attributes.filter((attribute) => attribute === stamp).length;
-    const other = attributes.filter((attribute) => attribute.startsWith('data-v-') && attribute !== stamp);
+    const other = attributes.filter(
+      (attribute) => attribute.startsWith('data-v-') && attribute !== stamp && attribute !== parent
+    );
     if (own !== 1 || other.length)
       return [{rule: 'stamps', message: `<${name}> carries ${stamp} ${own} times and ${JSON.stringify(other)}`}];
   }
@@ -171,14 +194,32 @@ function checkStamps(html: Html, stamp: string): Violation[] {
 // Svelte keys each `<svelte:head>` with a hash of the file name, which differs between the twins.
 const normalizeHead = (head: string) => head.replace(/<!--[0-9a-z]+-->/g, '<!--head-->');
 
-function checkSameHtml(ucf: Html, plain: Html, stamp: string): Violation[] {
-  const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '');
+function checkSameHtml(ucf: Html, plain: Html, stamp: string, parent: string): Violation[] {
+  const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '').replaceAll(` ${parent}=""`, '');
   for (const part of ['head', 'body'] as const) {
     const [ours, theirs] = [strip(ucf[part]), plain[part]].map(part === 'head' ? normalizeHead : (html: string) => html);
     if (ours !== theirs)
       return [{rule: 'same-html', message: `the ${part} differs:\n    .ucf:   ${ours}\n    plain:  ${theirs}`}];
   }
   return [];
+}
+
+function checkForwards(html: Html, parent: string, forwarded: Forwarded): Violation[] {
+  for (const {name, attributes, top} of startTags(html.body)) {
+    const count = attributes.filter((attribute) => attribute === parent).length;
+    const allowed = !top ? [0] : forwarded === 'root' ? [1] : forwarded === 'maybe-root' ? [0, 1] : [0];
+    if (!allowed.includes(count))
+      return [{rule: 'forwards', message: `${top ? 'root' : 'inner'} <${name}> carries ${parent} ${count} times (${forwarded})`}];
+  }
+  return [];
+}
+
+// Svelte's own reading decides runes mode: the plain twin's, the same as the block's.
+function forwardedOf(fuzzCase: SvelteCase): Forwarded {
+  const {metadata} = compile(fuzzCase.plain, {generate: false, filename: `${fuzzCase.name}.svelte`});
+  const kind = rootKind(fuzzCase.block);
+  if (!metadata.runes) return 'none';
+  return kind === 'single' ? 'root' : kind === 'other' ? 'maybe-root' : 'none';
 }
 
 function checkRendered(run: Run, fuzzCase: SvelteCase, render: Render): Outcome {
@@ -196,7 +237,17 @@ function checkRendered(run: Run, fuzzCase: SvelteCase, render: Render): Outcome 
   }
   const id = scopeId(rootRelativePath(run.dir, join(run.dir, `${fuzzCase.name}.ucf`)), ucfSource(fuzzCase), true);
   const stamp = `data-v-${id}`;
-  return {usable: true, violations: [...checkStamps(ucf, stamp), ...checkSameHtml(ucf, plain, stamp)]};
+  const parent = `data-v-${scopeId(rootRelativePath(run.dir, join(run.dir, PARENT_FILE)), PARENT_SOURCE, true)}`;
+  const forwarded = forwardedOf(fuzzCase);
+  return {
+    usable: true,
+    forwarded,
+    violations: [
+      ...checkStamps(ucf, stamp, parent),
+      ...checkSameHtml(ucf, plain, stamp, parent),
+      ...checkForwards(ucf, parent, forwarded),
+    ],
+  };
 }
 
 /** Builds the cases together; a module that fails leaves the batch, which then builds again. */
@@ -226,7 +277,7 @@ async function checkCases(run: Run, cases: SvelteCase[]): Promise<Map<string, Ou
   }
   for (const [name, outcome] of outcomes) {
     if (!outcome.usable || !run.onlyRule) continue;
-    outcomes.set(name, {usable: true, violations: outcome.violations.filter(({rule}) => rule === run.onlyRule)});
+    outcomes.set(name, {...outcome, violations: outcome.violations.filter(({rule}) => rule === run.onlyRule)});
   }
   return outcomes;
 }
@@ -261,6 +312,7 @@ async function fuzz(settings: FuzzSettings, breaker?: Breaker, onlyRule?: Rule):
       }
       result.usable++;
       for (const kind of input.applied) result.reached.add(kind);
+      result.reached.add(`forwards:${outcome.forwarded}`);
       for (const fact of shapeOf(input)) {
         if (fact.startsWith('depth:')) result.deepest = Math.max(result.deepest, Number(fact.slice('depth:'.length)));
         else result.reached.add(fact);
@@ -311,6 +363,11 @@ const EXPECTED_FACTS = [
   'mode:runes',
   'mode:legacy',
   ...SCRIPT_LAYOUTS.map((layout) => `script:${layout}`),
+  'root:single',
+  'root:many',
+  'root:each',
+  'forwards:root',
+  'forwards:none',
   ...[
     'RegularElement',
     'SvelteElement',
@@ -359,6 +416,14 @@ describe('svelte scope stamping fuzz', () => {
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const STAMP = / data-v-[0-9a-f]{8}=""/;
+    const SPREAD = / \{\.\.\.__ucfScopeAttrs\(\w+\)\}/;
+    const spreadOnLastStamp = (code: string) => {
+      const spread = SPREAD.exec(code)?.[0];
+      const last = [...code.matchAll(new RegExp(STAMP.source, 'g'))].at(-1);
+      if (!spread || !last) return code;
+      const end = last.index + last[0].length;
+      return code.slice(0, end) + spread + code.slice(end);
+    };
     const BROKEN: [string, Rule, Breaker][] = [
       ['an unclosed block', 'builds', {pre: (code) => `${code}\n{#if true}`}],
       ['the last stamp missing', 'stamps', {pre: (code) => dropLast(code, STAMP)}],
@@ -372,6 +437,9 @@ describe('svelte scope stamping fuzz', () => {
       ],
       ['an added text', 'same-html', {pre: (code) => `${code}\nbroken`}],
       ['a renamed shorthand key', 'same-html', {pre: (code) => code.replace(/\$style: (__ucf\w+)/, '$1')}],
+      ['a dropped forward', 'forwards', {pre: (code) => code.replace(SPREAD, '')}],
+      // On the last stamped element, an inner one when the root has children.
+      ['a forward on an inner element', 'forwards', {pre: (code) => spreadOnLastStamp(code)}],
     ];
 
     it.each(BROKEN)(
