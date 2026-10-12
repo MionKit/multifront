@@ -1,10 +1,11 @@
-import {mkdtempSync, readFileSync, realpathSync, rmSync} from 'node:fs';
+import {mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join, relative, resolve} from 'node:path';
 import {rewriteImportAttributes} from '@multifront/core';
+import {emitSvelteTypes} from '@multifront/language-tools';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {FIXTURES_DIR} from '../fixtures/index.ts';
+import {copyApp, FIXTURES_DIR, removeApp} from '../fixtures/index.ts';
 import {
   APP,
   APP_DIR,
@@ -22,6 +23,7 @@ import {
 } from './lib/cases.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
+import {saveUcf} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 import {packVsix, REPO_ROOT} from './lib/vsix.ts';
@@ -62,6 +64,36 @@ describe('the bundled language server, dist/server.cjs, with no source condition
   });
 
   languageServerCases(() => server);
+});
+
+describe('the bundled server writes Svelte declarations on save', () => {
+  let app: string;
+  let server: LanguageServer;
+
+  beforeAll(async () => {
+    app = await copyApp('svelte-vite');
+    server = await startLanguageServer(resolve(app, '..', '..'), {
+      server: join(extension, 'dist', 'server.cjs'),
+      initializationOptions: {typescript: {tsdk: TSDK}},
+    });
+  });
+
+  afterAll(async () => {
+    await server?.stop();
+    if (app) await removeApp(app);
+  });
+
+  it("the same files as emitSvelteTypes from source: svelte2tsx ran on the tsdk's TypeScript", async () => {
+    const copy = resolve(app, '..', '..');
+    const outDir = join(copy, '.ucf', 'svelte');
+    expect(await saveUcf(server, join(copy, 'components', 'Panel.ucf'))).toMatch(/^multifront: wrote \d+ Svelte declarations/);
+    const direct = join(temp, 'svelte-direct');
+    const expected = emitSvelteTypes({root: copy, outDir: direct}).map((file) => relative(direct, file));
+    expect(expected.length).toBeGreaterThan(10);
+    const bundled = readdirSync(outDir, {recursive: true, encoding: 'utf8'}).filter((name) => name.endsWith('.d.ts'));
+    expect(bundled.sort()).toEqual(expected);
+    for (const name of expected) expect(readFileSync(join(outDir, name), 'utf8')).toBe(readFileSync(join(direct, name), 'utf8'));
+  });
 });
 
 describe('tsserver with the plugin pack alone, as VS Code with its own TypeScript loads it', () => {
