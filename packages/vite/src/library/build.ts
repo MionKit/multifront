@@ -125,8 +125,25 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
   };
 }
 
-async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise<LibraryResult> {
+/** The real files of `src` the build wrote, `.ucf` sub-modules counted as their file. */
+function writtenModules(src: string, modules: Set<string>): Plugin {
+  return {
+    name: 'multifront:library-modules',
+    generateBundle(_options, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type !== 'chunk') continue;
+        for (const id of chunk.moduleIds) {
+          const relative = id.startsWith('\0') ? undefined : insideDir(src, fileOf(id));
+          if (relative !== undefined) modules.add(relative);
+        }
+      }
+    },
+  };
+}
+
+async function buildOne(job: TargetJob, options: LibraryOptions): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
+  const modules = new Set<string>();
   const owners = new Map<string, string>();
   // Rolldown would silently rename a same-name second module to `Card2.js`.
   const fileName = (chunk: Rolldown.PreRenderedChunk) => {
@@ -153,6 +170,7 @@ async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise
       libraryCss(root, src),
       // After `libraryCss`: its CSS import must come below the directive.
       row.useClient && libraryUseClient(),
+      writtenModules(src, modules),
     ],
     build: {
       outDir,
@@ -165,7 +183,8 @@ async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise
       },
     },
   };
-  await build(vite ? mergeConfig(config, vite) : config);
+  await build(options.vite ? mergeConfig(config, options.vite) : config);
+  if (options.dts !== false) await row.emitTypes({target, root, src, outDir, modules: [...modules].sort()});
   return {target, outDir, packageName: job.packageName, files: await writtenFiles(outDir), skipped: job.skipped};
 }
 
@@ -207,7 +226,7 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   });
   return asProduction(async () => {
     const results: LibraryResult[] = [];
-    for (const job of jobs) results.push(await buildOne(job, options.vite));
+    for (const job of jobs) results.push(await buildOne(job, options));
     return results;
   });
 }

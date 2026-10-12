@@ -7,5 +7,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [{"path": "../core/tsconfig.build.json"}]
+  "references": [{"path": "../core/tsconfig.build.json"}, {"path": "../language-tools/tsconfig.build.json"}]
 }
