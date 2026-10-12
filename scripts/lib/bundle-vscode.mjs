@@ -43,8 +43,8 @@ const svelte2tsxImports = {
 
 const ENTRIES = {
   extension: {entry: 'src/extension.ts', external: ['vscode']},
-  // The bin other editors start, so the extension runs the same server.
-  server: {entry: join(linked('language-tools'), 'bin', 'multifront-language-server.js'), external: []},
+  // The same `startServer` other editors run, with the bundle's svelte types and TypeScript.
+  server: {entry: 'src/server.ts', external: []},
   'typescript-plugin': {entry: 'src/typescriptPlugin.ts', external: []},
 };
 

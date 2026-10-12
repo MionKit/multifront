@@ -1,5 +1,5 @@
 // svelte2tsx imports `typescript`, which the pack does not ship: the bundle points that import here, at the copy
-// tsserver hands our plugin (`typescriptPlugin.ts` stores it). The language server never runs svelte2tsx.
+// tsserver hands our plugin, or the tsdk's in the language server (`typescriptPlugin.ts`, `server.ts` store it).
 import type * as ts from 'typescript';
 
 export const HOST_TYPESCRIPT = Symbol.for('multifront.host-typescript');
