@@ -42,7 +42,7 @@ render function does not (it gets it as the second parameter).
   and the production `scopeHelperCode()`:
   - `__ucfClass(own, extra)`: `extra ? (own ? own + ' ' + extra : extra) : own`.
   - `__ucfStyle(own, extra)`: `extra ? (own ? {...own, ...extra} : extra) : own` (props win).
-  - `__ucfRef(own, extra)`: one of them missing (or both the same) → the other; else a callback ref, cached per
+  - `__ucfRef(own, extra)`: one of them missing → the other; else a callback ref, cached per
     (own, extra) pair in nested `WeakMap`s, that sets both and returns a cleanup clearing both (React 19 ref cleanups;
     a callback ref that returns no cleanup is called with `null`).
   - No incoming prop → the author's own value comes back unchanged.
@@ -60,7 +60,7 @@ render function does not (it gets it as the second parameter).
   - For each `P` not handled, in the order `className`, `style`, `ref`:
     - Own `P={expr}` → `P={__ucfX(expr, <props>.P)}`; own `className="lit"` → `className={__ucfClass("lit", <props>.className)}`.
       Inserts only. Several own `P` → the last one.
-    - Own `P` with no value, an empty `{}`, or a string `style` / `ref` → left alone.
+    - Own `P` with no value, or a string `style` / `ref` (braced or not) → left alone.
     - No own `P` → ` P={<props>.P}` added at `afterName`, right after the forwarding spread, before every author
       attribute (an author spread carrying `P` still wins at runtime).
 - Same roots as the scope forward; nothing when forwarding is off.
@@ -91,9 +91,9 @@ render function does not (it gets it as the second parameter).
 ## Tests
 
 - **`packages/core/test/react/scope.spec.ts`** (core project: this host, CI `check` and `react-floor`): a `ROOT_PROPS`
-  table per fixture and root (`added` / `merged` / `author` / `none` for each prop) with a completeness test; dev and
-  production builds parse, snapshot, only insert, and match the table. `forwardRef` rows get no `ref`. Helper imports =
-  the `__ucf*` functions called. The helper module test checks the merge helpers' behaviour. 3.10's mapping test reads
+  `rootProps` column in the `SHAPES` rows, per root (`added` / `merged` / `author` / `none` for each prop); dev and
+  production builds parse, only insert, and match the table; the dev build is snapshotted. `forwardRef` rows get no `ref`. Helper imports =
+  the `__ucf*` functions called. The helper module test checks the exports of both builds. 3.10's mapping test reads
   past the added attributes. Snapshots updated and reviewed.
 - **`packages/core/test/blocks/react.spec.ts`**: snapshots updated.
 - **`packages/e2e/build/scope-fuzz.spec.ts`**: rule 2's insert list gains the new fixed texts. Negative controls unchanged.
@@ -140,3 +140,16 @@ render function does not (it gets it as the second parameter).
 - `Valueless.ucf` holds a `// @ts-expect-error` on its valueless `className`, the type error it carries on purpose.
 - The hydration test serves the dev page through `page.route` with the SSR HTML in `#app`, and a `MutationObserver`
   from `addInitScript` sees no element removed under `#app`.
+- Review fixes:
+  - The `react/root-props/` rows joined the `SHAPES` table (`rootProps` column) instead of a second table.
+  - A `className` string with a line break or `\` merges as the JS string the JSX transform makes of it
+    (`StringClass.ucf`); one with an entity (`&amp;`) is left unmerged, since only the JSX transform decodes it.
+  - Detection also reads through `props?.`, `props!`, `props as Props`, `satisfies`, template-literal and computed
+    pattern keys (`WrappedReads.ucf`, `ComputedKeys.ucf`), and stops below an inner binding of the props name
+    (`NestedProps.ucf`). A braced string `style` / `ref` is left as written; the last of several own `className` is
+    merged (`LeftAlone.ucf`). `{}` cannot reach the build: oxc rejects an empty attribute expression.
+  - A helper name the block already uses is imported under a fresh one (`HelperClash.ucf`), `__ucfScopeAttrs` included.
+  - `__ucfRef` lost its same-ref branch (untested, harmless without it). The merge cases (style overlap, a callback
+    ref with its own cleanup, the cached merged ref) run in the browser app; the data-URL merge test is gone.
+  - The binding helpers (`patternNames`, `declaredIn`, `scopeNames`) moved from `scope.ts` to `ast.ts`, shared with
+    `rootProps.ts`.
