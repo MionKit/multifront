@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.1
@@ -145,6 +145,13 @@ Svelte blocks at large.
 - Every test above passes; `pnpm devx check` green; docs updated; 5.1 ends with `- Status: done`.
 - This todo is in `docs/done/`, updated to what shipped.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## As shipped
+
+- `NamedModule.ucf` reads `options.$theme` into `mode`, not `theme`: a top-level `theme` would make `$theme` a store
+  and hide a broken key skip.
+- Negative controls run: without the store skip, the rune skip, the key skip, the member-property skip, the module
+  lookup or the first-line cut of Svelte's message, `blocks/svelte.spec.ts` fails.
 
 ## Decisions
 

@@ -140,6 +140,7 @@ Svelte does the same through its props rest (3.6). It is pinned by browser tests
 ### 3.6 Svelte target
 
 - Emit a virtual `.svelte` file from the `<svelte>` block, inject the `$style` import into its `<script>`, and import the style virtual modules.
+- Parse the block with the project's own `svelte/compiler` first and report, at `.ucf` positions, Svelte's parse error (`svelte-parse-error`) and a `$style` or `$name` with no matching `<style module>` (`missing-style-module`; a `$name` whose `name` is a declared store is Svelte's).
 - Apply the same scope-attribute stamping to the markup (host elements and component elements) using `svelte/compiler`'s `parse` for locations.
 - Do not emit a Svelte `<style>`. Svelte's own scoping is unused, so CSS behaves identically across targets.
 - Root forwarding (3.5.1) through the props rest: `let { title, ...__ucfRest } = $props()` and `{...__ucfScopeAttrs(__ucfRest)}` on the root. Required, not a stretch goal. A component with several roots warns, like a React fragment root.

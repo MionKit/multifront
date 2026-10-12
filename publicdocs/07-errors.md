@@ -16,6 +16,8 @@ These mark a `.ucf` file that breaks a [block rule](02-component-files.md#block-
 | `vue-empty-block` | Add a `<template>` or a `<script>` to the `<vue>` block. |
 | `react-no-default-export` | Add `export default` to the component. A type-only export does not count. |
 | `react-syntax-error` | Fix the syntax error the message names, inside the `<react>` block. |
+| `svelte-parse-error` | Fix the syntax error the message names, inside the `<svelte>` block. |
+| `missing-style-module` | Add the `<style module>` (for `$style`) or `<style module="name">` (for `$name`) the message names, or declare the store `name` in the block's `<script>`. |
 | `style-inside-target` | Move the `<style>` block to the top level of the file. |
 | `unknown-style-lang` | Use `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`. |
 | `duplicate-style-module` | Give each `<style module>` its own name. |
