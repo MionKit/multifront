@@ -120,6 +120,25 @@ function propsName(text: MagicString, instance: AST.Script | null, block: Block,
   return name;
 }
 
+/**
+ * Beside a spread, Svelte's server render escapes a plain-text attribute twice (5.57.0: `data-x="<b>"` renders
+ * `&amp;lt;b>`); as an expression it is escaped once.
+ */
+function escapeOnce(text: MagicString, node: Node, block: Block): void {
+  if (node.type !== 'RegularElement' && node.type !== 'SvelteElement') return;
+  for (const attribute of node.attributes as Node[]) {
+    const parts = attribute.type === 'Attribute' && Array.isArray(attribute.value) ? (attribute.value as Node[]) : [];
+    if (parts.length === 0 || parts.some((part) => part.type !== 'Text')) continue;
+    if (!parts.some((part) => /[&<"]/.test(part.raw as string))) continue;
+    const value = JSON.stringify(parts.map((part) => part.data as string).join(''));
+    text.overwrite(
+      block.contentStart + attribute.start,
+      block.contentStart + attribute.end,
+      `${attribute.name as string}={${value}}`
+    );
+  }
+}
+
 const LEGACY = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
 /** What `build()` adds besides the edits made here: helper imports and lines for the end of the instance script. */
@@ -147,6 +166,7 @@ export function forwardScope(
       // Same offset as the stamp, so the spread lands after it.
       const nameEnd = block.contentStart + node.start + 1 + (node.name as string).length;
       text.appendLeft(nameEnd, ` {...${SCOPE_ATTRS}(${props})}`);
+      escapeOnce(text, node, block);
     }
     return {helpers: [SCOPE_ATTRS], lines};
   }

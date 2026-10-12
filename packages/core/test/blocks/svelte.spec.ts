@@ -535,6 +535,7 @@ type RootShape = {
   roots?: number;
   problem?: string;
   renders: Record<string, unknown>[];
+  html?: string[];
 };
 
 const LEGACY_PROBLEM = 'is a legacy-mode Svelte component';
@@ -543,6 +544,14 @@ const ROOT_SHAPES: RootShape[] = (
   [
     {fixture: 'ComponentRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
     {fixture: 'EachRoot.ucf', problem: 'renders an {#each} block as its root', renders: [{}]},
+    // Escaped once, as with no spread.
+    {
+      fixture: 'EscapedRoot.ucf',
+      from: '__ucfRest',
+      roots: 1,
+      renders: [{}],
+      html: ['title="a &amp; b"', 'data-html="&lt;div>"', 'data-quote="&quot;quoted&quot;"', 'data-mixed="&amp; escaped"'],
+    },
     // A trailing comma in its `$props()` pattern.
     {fixture: 'IfElseRoot.ucf', from: '__ucfRest', roots: 3, renders: [{branch: 'a'}, {branch: 'b'}, {branch: 'c'}]},
     {fixture: 'LegacyRoot.ucf', problem: LEGACY_PROBLEM, renders: [{}]},
@@ -560,7 +569,7 @@ it('has a row for every svelte/roots/ fixture', () => {
   expect(listComponents(ROOTS_DIR)).toEqual(ROOT_SHAPES.map(({fixture}) => fixture));
 });
 
-describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async ({fixture, from, roots, problem, renders}) => {
+describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async ({fixture, from, roots, problem, renders, html}) => {
   const dev = await svelteBuild(fixture);
   const production = await svelteBuild(fixture, true);
   const name = basename(fixture, '.ucf');
@@ -602,5 +611,6 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async ({fixtur
     const tags = parentScopes(body);
     expect(tags.length).toBeGreaterThan(0);
     for (const {name: tag, top, scopes} of tags) expect({tag, top, scopes}).toEqual({tag, top, scopes: top && !problem ? 1 : 0});
+    for (const attribute of html ?? []) expect(body).toContain(attribute);
   });
 });
