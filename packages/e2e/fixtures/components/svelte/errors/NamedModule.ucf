@@ -1,16 +1,34 @@
 <svelte>
-  <script lang="ts">
+  <script module lang="ts">
     import {writable} from 'svelte/store'
 
-    let {style}: {style: string} = $props()
+    export const shared = writable(0)
+    export {shared as $exported}
+  </script>
+  <script lang="ts">
+    import {$fetch as fetcher} from 'ofetch'
+    import type {$Props} from './props'
+    import {user} from './stores'
+
+    type $Row = {label: string}
+    let {style}: $Props = $props()
     const count = writable(0)
+    const {
+      first,
+      nested: [second = writable(1), ...others],
+      ...extra
+    } = {first: writable(''), nested: [writable(2)], last: writable(3)}
+    function makeStore() {}
+    class Store {}
     let clicks = $state(0)
     const doubled = $derived(clicks * 2)
     const options = {$theme: 'dark'}
     const mode = options.$theme
+    const row: $Row = {label: ($classes as Record<string, string>).title}
   </script>
   <div class={$style.card} {style}>
-    <p class={$classes.title}>{$count} {doubled} {mode}</p>
+    <p class={$classes.title}>{$count} {doubled} {mode} {row.label} {fetcher}</p>
+    <p>{$shared} {$user} {$first} {$second} {$others} {$extra} {$makeStore} {$Store}</p>
     <button onclick={() => clicks++}>More</button>
   </div>
 </svelte>

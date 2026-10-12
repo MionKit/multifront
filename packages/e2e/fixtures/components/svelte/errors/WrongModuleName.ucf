@@ -1,7 +1,11 @@
 <svelte>
+  <script>
+    const keyed = {[$theme]: 'accent'}
+  </script>
   <div class={$classes.title}>
     <p class={$style.card}>Wrong module</p>
     <p class={$theme.accent}>Wrong module</p>
+    <p class={$classes[$theme]}>{keyed}</p>
   </div>
 </svelte>
 
