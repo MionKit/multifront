@@ -1,6 +1,7 @@
 import {parseSync} from 'oxc-parser';
 import type {Expression, JSXAttribute, Node} from 'oxc-parser';
 import {walk} from '../ast.ts';
+import {literalValue} from '../imports/rewrite.ts';
 import {CLASS_COMPONENTS, CREATE_CONTEXT, HOOK, USE_CLIENT} from './reactApis.ts';
 
 // `name` or `x.name`: the last name an expression reads.
@@ -12,10 +13,11 @@ function lastName(node: Expression | null): string | undefined {
 
 function isString(value: JSXAttribute['value']): boolean {
   if (value?.type === 'Literal') return true;
-  if (value?.type !== 'JSXExpressionContainer') return false;
-  const {expression} = value;
-  if (expression.type === 'Literal') return typeof expression.value === 'string';
-  return expression.type === 'TemplateLiteral' && expression.expressions.length === 0;
+  return (
+    value?.type === 'JSXExpressionContainer' &&
+    value.expression.type !== 'JSXEmptyExpression' &&
+    literalValue(value.expression) !== undefined
+  );
 }
 
 function isClientNode(node: Node): boolean {

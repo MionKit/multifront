@@ -1,9 +1,9 @@
 <react>
-  function Toggle(props: { onToggle: string; onClick: string; onBlur: string; onclick: string }) {
+  function Toggle(props: { onToggle: string; onClick: string; onBlur: string; onclick: string; onActive?: boolean }) {
     return <p title={props.onToggle}>{props.onClick}</p>
   }
 
   export default function ServerHandlerString() {
-    return <Toggle onToggle="x" onClick={'x'} onBlur={`x`} onclick={String(1)} />
+    return <Toggle onToggle="x" onClick={'x'} onBlur={`x`} onclick={String(1)} onActive />
   }
 </react>
