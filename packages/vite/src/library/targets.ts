@@ -1,11 +1,5 @@
 import type {Target} from '@multifront/core';
-import type {PluginOption} from 'vite';
-
-/** What differs per framework in a library build. */
-export interface LibraryTarget {
-  plugin(): Promise<PluginOption>; // the framework's Vite plugin
-  peers: Record<string, string>; // default peer ranges; also the build's externals
-}
+import type {LibraryTarget} from '../types.ts';
 
 // Imported on use: the framework plugins are optional peers of this package.
 export const libraryTargets = {
