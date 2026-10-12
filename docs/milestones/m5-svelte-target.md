@@ -173,11 +173,11 @@ From milestone 4:
 
 ### 5.10 The `<svelte>` block in the language server
 
-- Build: the `editor(block, ctx)` half: the `svelte2tsx` output as embedded TypeScript code, served by tsserver with our plugin (hybrid mode, M2). `sourceMapMappings(map, source, generated, data)` (`packages/language-tools/src/sourceMaps.ts`) turns a source map into Volar mappings: each segment runs to the next one; where the source and generated text match it maps 1:1 (TypeScript errors, hover, completion, navigation), the rest of the run maps to the point the match ended, for diagnostics only (svelte2tsx writes the prop `label` as `"label"`). svelte2tsx reads the renamed block, so its mappings go through `composeMappings` with those of the rename, whose map `renameSvelteStyles` now returns; a renamed use maps whole, `$style` to `__ucfStyle`. While typing, `renameSvelteStyles` also renames a class map `$name` lexically in text Svelte cannot read (`{$style.}`, a script syntax error), so `$style.` completes. `check` diagnostics show up as well: our language server reports `style-inside-target`, tsserver `framework-in-block` at the specifier. Markup completions (tags, attributes, component props) are milestone 7.
+- Build: the `editor(block, ctx)` half: the `svelte2tsx` output as embedded TypeScript code, served by tsserver with our plugin (hybrid mode, M2). `sourceMapMappings(map, source, generated, data)` (`packages/language-tools/src/mappings.ts`) turns a source map into Volar mappings: each segment runs to the next one; where the source and generated text match it maps 1:1 (TypeScript errors, hover, completion, navigation), the rest of the run maps to the point the match ended, for diagnostics only (svelte2tsx writes the prop `label` as `"label"`). svelte2tsx reads the renamed block, so its mappings go through `composeMappings` with those of the rename, whose source map `mappings` `renameSvelteStyles` now returns; a renamed use maps whole, `$style` to `__ucfStyle`, shorthands included. While typing, `renameSvelteStyles` also renames a class map `$name` lexically in text Svelte cannot read (`{$style.}`, a script syntax error), so `$style.` completes. `check` diagnostics show up as well: our language server reports `style-inside-target`, tsserver `framework-in-block` at the specifier. Markup completions (tags, attributes, component props) are milestone 7.
 - Deliverable: errors, hover, go to definition and script completions inside `<svelte>`, including type errors in markup expressions.
 - Test: editor area, `packages/e2e/editor/svelte-block.spec.ts`, the real tsserver with our plugin (TypeScript features) and our real language server over LSP (our diagnostics), on `fixtures/components/`:
   - hover on `heading` in `{heading}` gives `string`, and definition lands on its `$props()` binding; hover on `{count}` in `Counter.ucf` and `vue/CounterCrlf.ucf`;
-  - `$style.cardd` is an error at the exact `.ucf` range, and completion after `$style.` lists the class names, also while typing `{$style.}` and in a script that does not parse; hover on `$style`, definition on a class name;
+  - `$style.cardd` is an error at the exact `.ucf` range, and completion after `$style.` lists the class names, also while typing `{$style.}` and in a script that does not parse; hover on `$style`, a shorthand one included, definition on a class name;
   - type errors in markup expressions (`{heading.toFixed(2)}`, a wrong prop on `<PanelItem>`) at their `.ucf` range;
   - go to definition on `<PanelItem>` lands in `PanelItem.ucf`;
   - the shared fixtures' `<svelte>` blocks give no error as written;
@@ -204,14 +204,14 @@ For milestone 6 (library build), which builds the Svelte package from these:
 
 - The svelte row's `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`: the `.svelte` code the Svelte package ships, once it can point imports at real files (the style ids, the class maps and the scope helper module `virtual:multifront/scope-attrs` of root forwarding).
 - `loadSvelteCompiler(root)` in core, and `svelte` plus `@sveltejs/vite-plugin-svelte` as optional peers of `@multifront/vite`.
-- `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`), and `renameSvelteStyles(block, split, compiler, modules)` in core, the rename the editor's script shares with `build()` (with its source map).
+- `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`), and `renameSvelteStyles(block, split, compiler, modules)` in core, the rename the editor's script shares with `build()` (with its source map's `mappings`).
 - The `<svelte>` blocks of the shared fixtures (`Counter.ucf`, `Panel.ucf`, `PanelItem.ucf`, `imports/Icon.ucf`), the model for the library fixture's Svelte blocks.
 - `@sveltejs/kit` 2.70.3 and `@sveltejs/adapter-node` 5.5.7 as root devDependencies, and `startNodeServer(root)` (`build/index.js`) in `packages/e2e/build/lib/freshProcess.ts`, for 6.13's SvelteKit node server.
 
 For milestone 7 (full editor support):
 
 - `packages/language-tools/src/blocks/svelte.ts`: `types()` (`Card.ucf.svelte.ts`) for `mf-tsc` checking every target, and `editor()` for adding markup completions on top. `EditorOptions.svelteCompiler` and `svelteTypesRoot`.
-- The source-map-to-Volar-mappings converter of 5.10, `sourceMapMappings(map, source, generated, data)` and `composeMappings(outer, inner)` in `packages/language-tools/src/sourceMaps.ts`, for any other tool that gives a source map.
+- The source-map-to-Volar-mappings converter of 5.10, `sourceMapMappings(map, source, generated, data)` and `composeMappings(outer, inner)` in `packages/language-tools/src/mappings.ts`, for any other tool that gives a source map.
 - `emitSvelteTypes({ root, outDir })`, for `mf-tsc` to run it before `svelte-check` in CI.
 - `packages/core/src/blocks/svelte.ts` `build()`: the `.svelte` file `mf-lint` hands to oxlint; `mf-fmt` leaves `<svelte>` as written (spec 6.1).
 - `loadSvelteCompiler(root)` in core.
