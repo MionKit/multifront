@@ -1,5 +1,6 @@
 import type * as CompilerSfc from '@vue/compiler-sfc';
 import type * as SvelteCompilerModule from 'svelte/compiler';
+import type {ROOT_PROPS} from './react/reactApis.ts';
 
 /** The frameworks a component file can hold one implementation for. */
 export type Target = 'vue' | 'react' | 'svelte';
@@ -190,4 +191,25 @@ export interface UcfImport {
   framework?: string; // the attribute's value, not checked; unset without one or when it is not a literal
   start: number; // the specifier literal, quotes included, as offsets into the importer's code
   end: number;
+}
+
+/** What every React root accepts and merges (spec 3.5, item 5). */
+export type RootProp = (typeof ROOT_PROPS)[number];
+
+/** An element root of a `<react>` block's default export. */
+export interface ReactRoot {
+  tag: string; // as written: `button`, `Icon`, `motion.div`
+  props: RootProp[]; // the root props the parent's value reaches here, added or merged
+}
+
+/** Where the default export's props type is written, as offsets in the block content. */
+export type ReactPropsSite =
+  | {kind: 'type'; start: number; end: number; wrap: boolean} // a props type; `wrap`: an intersection needs it parenthesized
+  | {kind: 'argument'; at: number} // after `forwardRef<El`, which leaves the props type out
+  | {kind: 'parameter'; at: number; name: string}; // right after the `(` of a component with no parameter
+
+/** `reactRootProps`: the roots the build hands root props to, and where to type them. */
+export interface ReactRootProps {
+  roots: ReactRoot[];
+  sites: ReactPropsSite[];
 }

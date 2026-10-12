@@ -1,7 +1,9 @@
 import {basename} from 'node:path';
 import type MagicString from 'magic-string';
 import type {
+  ArrayPattern,
   ArrowFunctionExpression,
+  CallExpression,
   Comment,
   Expression,
   Function as FunctionNode,
@@ -11,14 +13,16 @@ import type {
   JSXFragment,
   JSXOpeningElement,
   Node,
+  ObjectPattern,
   ParseResult,
   Program,
+  TSType,
 } from 'oxc-parser';
 import {children, declaredIn, freshName, patternNames, scopeNames, walk} from '../ast.ts';
 import {keyName} from '../imports/rewrite.ts';
-import type {Block, BuildContext} from '../types.ts';
+import type {Block, BuildContext, ReactPropsSite, ReactRootProps} from '../types.ts';
 import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
-import {addRootProps, handledRootProps} from './rootProps.ts';
+import {addRootProps, handledRootProps, rootPropEdits} from './rootProps.ts';
 import {MERGE_CLASS, MERGE_REF, MERGE_STYLE, SCOPE_ATTRS, WARN_FRAGMENT} from './scopeHelper.ts';
 
 type Component = FunctionNode | ArrowFunctionExpression;
@@ -94,16 +98,22 @@ function defaultExport(program: Program): Node | undefined {
   return undefined;
 }
 
+// A `memo` or `forwardRef` call the default export goes through, outermost first.
+interface Wrapper {
+  api: (typeof WRAPPERS)[number];
+  call: CallExpression;
+}
+
 /** The default-exported function through identifiers, `memo` and `forwardRef`; `forwardRef`: one wrapped it. */
-function findComponent(program: Program): {component: Component; forwardRef: boolean} | undefined {
+function findComponent(program: Program): {component: Component; forwardRef: boolean; wrappers: Wrapper[]} | undefined {
   const declarations = moduleDeclarations(program);
   const [memo, forwardRef] = WRAPPERS.map((api) => reactNames(program, api));
   const seen = new Set<Node>();
-  let inForwardRef = false;
+  const wrappers: Wrapper[] = [];
   let node = defaultExport(program);
   while (node && !seen.has(node)) {
     seen.add(node);
-    if (isFunction(node)) return {component: node, forwardRef: inForwardRef};
+    if (isFunction(node)) return {component: node, forwardRef: wrappers.some(({api}) => api === 'forwardRef'), wrappers};
     switch (node.type) {
       case 'Identifier':
         node = declarations.get(node.name);
@@ -117,7 +127,7 @@ function findComponent(program: Program): {component: Component; forwardRef: boo
       case 'CallExpression': {
         const name = calleeName(node.callee);
         if (name === undefined || !(memo!.has(name) || forwardRef!.has(name))) return undefined;
-        inForwardRef ||= forwardRef!.has(name);
+        wrappers.push({api: memo!.has(name) ? 'memo' : 'forwardRef', call: node});
         node = node.arguments[0];
         break;
       }
@@ -216,6 +226,106 @@ function inComment(comments: Comment[], at: number): boolean {
   return comments.some(({start, end}) => start <= at && at < end);
 }
 
+interface ComponentAnalysis extends NonNullable<ReturnType<typeof findComponent>> {
+  param: Node | undefined; // the props parameter, without its default
+  pattern: ObjectPattern | ArrayPattern | undefined; // when the props parameter destructures
+  props: string; // its name, or the one the build adds
+  used: Set<string>;
+  handled: ReturnType<typeof handledRootProps>;
+  roots: FoundRoot[];
+}
+
+/** What the build forwards to: undefined when it forwards nothing (spec 3.5, items 3 and 4). */
+function analyzeComponent(program: Program): ComponentAnalysis | undefined {
+  const found = findComponent(program);
+  if (!found) return undefined;
+  const {component, forwardRef} = found;
+  // oxc lists a TypeScript `this` parameter first; it is no prop.
+  const hasThis = component.params[0]?.type === 'Identifier' && component.params[0].name === 'this';
+  const params = hasThis ? component.params.slice(1) : component.params;
+  if (hasThis && params.length === 0) return undefined;
+  const first = params[0];
+  const param = first?.type === 'AssignmentPattern' ? first.left : first;
+  if (param?.type === 'RestElement') return undefined;
+  const pattern = param?.type === 'ObjectPattern' || param?.type === 'ArrayPattern' ? param : undefined;
+  const used = new Set(identifierNames(program));
+  const props = param?.type === 'Identifier' ? param.name : freshName(used, '__props');
+
+  const {returns, consts, bound} = ownBody(component);
+  // A body redeclaring the props name could hide it from a root; telling which needs scope analysis.
+  if (bound.has(props)) return undefined;
+  if (pattern) {
+    const names = patternNames(pattern);
+    // Moved into the body, the pattern would meet body names, and later parameters would lose its bindings.
+    if (patternReads(pattern).some((name) => bound.has(name))) return undefined;
+    if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return undefined;
+  }
+  const handled = handledRootProps(component, props, pattern, forwardRef);
+  const roots: FoundRoot[] = [];
+  for (const expression of returns) jsxRoots(expression, consts, undefined, roots);
+  return {...found, param, pattern, props, used, handled, roots};
+}
+
+// Right after the `(` of a component's parameter list.
+function paramsStart(component: Component, content: string, comments: Comment[]): number {
+  let at = component.typeParameters?.end ?? component.id?.end ?? component.start;
+  while (content[at] !== '(' || inComment(comments, at)) at++;
+  return at + 1;
+}
+
+// `A | B & X` would join X to `B` alone.
+const LOOSE_TYPES = new Set(['TSUnionType', 'TSFunctionType', 'TSConstructorType', 'TSConditionalType']);
+
+function typeSite(type: TSType): ReactPropsSite {
+  return {kind: 'type', start: type.start, end: type.end, wrap: LOOSE_TYPES.has(type.type)};
+}
+
+// Every wrapper's explicit props type argument, and the parameter's annotation: each one can decide the export's props.
+function propsSites(analysis: ComponentAnalysis, content: string, comments: Comment[]): ReactPropsSite[] {
+  const sites: ReactPropsSite[] = [];
+  for (const {api, call} of analysis.wrappers) {
+    const types = call.typeArguments?.params;
+    if (!types) continue;
+    const props = types[api === 'forwardRef' ? 1 : 0];
+    if (props) sites.push(typeSite(props));
+    else if (api === 'forwardRef' && types[0]) sites.push({kind: 'argument', at: types[0].end});
+  }
+  const {param, component, props} = analysis;
+  const typed = param?.type === 'Identifier' || param?.type === 'ObjectPattern' || param?.type === 'ArrayPattern';
+  const annotation = typed ? param.typeAnnotation?.typeAnnotation : undefined;
+  if (annotation) sites.push(typeSite(annotation));
+  else if (!param) sites.push({kind: 'parameter', at: paramsStart(component, content, comments), name: props});
+  return sites;
+}
+
+/** `reactRootProps` over a block's parse: the content's own roots and props type sites. */
+export function rootPropsOf(parsed: Pick<ParseResult, 'program' | 'comments'>, content: string): ReactRootProps | undefined {
+  const {program, comments} = parsed;
+  const analysis = analyzeComponent(program);
+  if (!analysis) return undefined;
+  const elements = openingElements(program);
+  // Each element root once, in source order.
+  const openings = new Set<JSXOpeningElement>();
+  for (const {root} of analysis.roots)
+    if (root.type === 'JSXElement' && !elements.get(root.openingElement)) openings.add(root.openingElement);
+  const roots = [...openings].map((opening) => ({
+    tag: content.slice(opening.name.start, opening.name.end),
+    props: rootPropEdits(opening, analysis.handled).map(({prop}) => prop),
+  }));
+  return {roots, sites: propsSites(analysis, content, comments)};
+}
+
+/** The text that types one site: `type` intersected into a props type, or written where there is none. */
+export function propsTypeInserts(site: ReactPropsSite, type: string): {at: number; text: string}[] {
+  if (site.kind === 'argument') return [{at: site.at, text: `, ${type}`}];
+  if (site.kind === 'parameter') return [{at: site.at, text: `${site.name}: ${type}`}];
+  if (!site.wrap) return [{at: site.end, text: ` & ${type}`}];
+  return [
+    {at: site.start, text: '('},
+    {at: site.end, text: `) & ${type}`},
+  ];
+}
+
 /** Stamps all but Fragments when scoped; always forwards `data-v-*` and root props on the default export's roots. */
 export function transformScope(
   text: MagicString,
@@ -231,34 +341,11 @@ export function transformScope(
     for (const [node, fragment] of elements) if (!fragment) text.appendLeft(offset + afterName(node), stamp);
   }
 
-  const found = findComponent(program);
-  if (!found) return [];
-  const {component, forwardRef} = found;
-  // oxc lists a TypeScript `this` parameter first; it is no prop.
-  const hasThis = component.params[0]?.type === 'Identifier' && component.params[0].name === 'this';
-  const params = hasThis ? component.params.slice(1) : component.params;
-  if (hasThis && params.length === 0) return [];
-  const first = params[0];
-  const param = first?.type === 'AssignmentPattern' ? first.left : first;
-  if (param?.type === 'RestElement') return [];
-  const pattern = param?.type === 'ObjectPattern' || param?.type === 'ArrayPattern' ? param : undefined;
-  const used = new Set(identifierNames(program));
+  const analysis = analyzeComponent(program);
+  if (!analysis) return [];
+  const {component, forwardRef, param, pattern, props, used, handled, roots} = analysis;
   // A helper takes another local name when the block uses its own.
   const local = (helper: string) => freshName(used, helper);
-  const props = param?.type === 'Identifier' ? param.name : freshName(used, '__props');
-
-  const {returns, consts, bound} = ownBody(component);
-  // A body redeclaring the props name could hide it from a root; telling which needs scope analysis.
-  if (bound.has(props)) return [];
-  if (pattern) {
-    const names = patternNames(pattern);
-    // Moved into the body, the pattern would meet body names, and later parameters would lose its bindings.
-    if (patternReads(pattern).some((name) => bound.has(name))) return [];
-    if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
-  }
-  const rootProps = handledRootProps(component, props, pattern, forwardRef);
-  const roots: FoundRoot[] = [];
-  for (const expression of returns) jsxRoots(expression, consts, undefined, roots);
   const spread = new Set<Root>();
   const dev = !ctx.production;
   const helpers = new Set<string>();
@@ -271,7 +358,7 @@ export function transformScope(
       const at = afterName(root.openingElement);
       text.appendLeft(offset + at, ` {...${local(SCOPE_ATTRS)}(${props})}`);
       helpers.add(SCOPE_ATTRS);
-      for (const helper of addRootProps(text, offset, root.openingElement, at, props, rootProps, local)) helpers.add(helper);
+      for (const helper of addRootProps(text, offset, root.openingElement, at, props, handled, local)) helpers.add(helper);
       continue;
     }
     // A const's value runs on every render: warned there, it would fire when another root is returned.
@@ -302,10 +389,9 @@ export function transformScope(
     // After the root edits, so a fragment warning's `)` closes first.
     if (!inBlock) text.appendLeft(offset + body.end, '}');
   } else if (!param) {
-    let at = component.typeParameters?.end ?? component.id?.end ?? component.start;
-    while (block.content[at] !== '(' || inComment(comments, at)) at++;
+    const at = paramsStart(component, block.content, comments);
     // React checks a `forwardRef` render function takes zero or two parameters.
-    text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
+    text.appendLeft(offset + at, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }
   return [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF]
     .filter((helper) => helpers.has(helper))

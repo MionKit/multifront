@@ -1,11 +1,10 @@
 import type MagicString from 'magic-string';
-import type {ArrayPattern, Expression, JSXAttribute, JSXOpeningElement, Node, ObjectPattern} from 'oxc-parser';
+import type {ArrayPattern, Expression, JSXAttribute, JSXOpeningElement, Node, ObjectPattern, StringLiteral} from 'oxc-parser';
+import type {RootProp} from '../types.ts';
 import {children, scopeNames} from '../ast.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
 import {ROOT_PROPS} from './reactApis.ts';
 import {MERGE_CLASS, MERGE_REF, MERGE_STYLE} from './scopeHelper.ts';
-
-type RootProp = (typeof ROOT_PROPS)[number];
 
 const MERGE: Record<RootProp, string> = {className: MERGE_CLASS, style: MERGE_STYLE, ref: MERGE_REF};
 
@@ -74,6 +73,38 @@ export function handledRootProps(
   return found;
 }
 
+type RootPropEdit =
+  | {prop: RootProp; kind: 'add'}
+  | {prop: RootProp; kind: 'merge'; value: Expression}
+  | {prop: 'className'; kind: 'mergeString'; value: StringLiteral};
+
+/** What the build does with each root prop the author leaves alone on this root; none when it spreads the props. */
+export function rootPropEdits(opening: JSXOpeningElement, {handled, spreads}: HandledProps): RootPropEdit[] {
+  const spreadsProps = opening.attributes.some(
+    (item) => item.type === 'JSXSpreadAttribute' && [...spreads].some((name) => isNamed(item.argument, name))
+  );
+  if (spreadsProps) return [];
+  const edits: RootPropEdit[] = [];
+  for (const prop of ROOT_PROPS) {
+    if (handled.has(prop)) continue;
+    const own = opening.attributes.findLast(
+      (item): item is JSXAttribute =>
+        item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
+    );
+    if (!own) edits.push({prop, kind: 'add'});
+    else if (own.value?.type === 'JSXExpressionContainer' && own.value.expression.type !== 'JSXEmptyExpression') {
+      const {expression} = own.value;
+      // A string `style` or `ref` is no value React takes: left as written, like the attribute form.
+      if (prop === 'className' || literalValue(expression) === undefined) edits.push({prop, kind: 'merge', value: expression});
+    } else if (own.value?.type === 'Literal' && prop === 'className') {
+      // JSX decodes `&amp;` in a string, which a JS string does not: the author's value stays, unmerged.
+      if (!own.value.raw?.includes('&')) edits.push({prop, kind: 'mergeString', value: own.value});
+    }
+    // No value, or a string `style` / `ref`: left as written.
+  }
+  return edits;
+}
+
 /** Merges or adds each root prop the author leaves alone; returns the merge helpers it calls. */
 export function addRootProps(
   text: MagicString,
@@ -81,43 +112,27 @@ export function addRootProps(
   opening: JSXOpeningElement,
   at: number,
   props: string,
-  {handled, spreads}: HandledProps,
+  handled: HandledProps,
   local: (helper: string) => string
 ): string[] {
-  const spreadsProps = opening.attributes.some(
-    (item) => item.type === 'JSXSpreadAttribute' && [...spreads].some((name) => isNamed(item.argument, name))
-  );
-  if (spreadsProps) return [];
   const helpers: string[] = [];
-  for (const prop of ROOT_PROPS) {
-    if (handled.has(prop)) continue;
-    const own = opening.attributes.findLast(
-      (item): item is JSXAttribute =>
-        item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
-    );
+  for (const edit of rootPropEdits(opening, handled)) {
+    const {prop} = edit;
+    if (edit.kind !== 'add') helpers.push(MERGE[prop]);
     // Before every author attribute, so an author spread that carries the prop still wins.
-    if (!own) text.appendLeft(offset + at, ` ${prop}={${props}.${prop}}`);
-    else if (own.value?.type === 'JSXExpressionContainer' && own.value.expression.type !== 'JSXEmptyExpression') {
-      const {expression} = own.value;
-      // A string `style` or `ref` is no value React takes: left as written, like the attribute form.
-      if (prop !== 'className' && literalValue(expression) !== undefined) continue;
-      text.prependRight(offset + expression.start, `${local(MERGE[prop])}(`);
-      text.appendLeft(offset + expression.end, `, ${props}.${prop})`);
-      helpers.push(MERGE[prop]);
-    } else if (own.value?.type === 'Literal' && prop === 'className') {
-      const {start, end, value, raw} = own.value;
-      // JSX decodes `&amp;` in a string, which a JS string does not: the author's value stays, unmerged.
-      if (raw?.includes('&')) continue;
-      // JSX keeps line breaks and `\` as written; a JS string needs them escaped.
-      if (/[\n\r\\]/.test(raw ?? ''))
-        text.overwrite(offset + start, offset + end, `{${local(MERGE_CLASS)}(${JSON.stringify(value)}, ${props}.className)}`);
-      else {
-        text.prependRight(offset + start, `{${local(MERGE_CLASS)}(`);
-        text.appendLeft(offset + end, `, ${props}.className)}`);
-      }
-      helpers.push(MERGE_CLASS);
+    if (edit.kind === 'add') text.appendLeft(offset + at, ` ${prop}={${props}.${prop}}`);
+    else if (edit.kind === 'merge') {
+      text.prependRight(offset + edit.value.start, `${local(MERGE[prop])}(`);
+      text.appendLeft(offset + edit.value.end, `, ${props}.${prop})`);
     }
-    // No value, or a string `style` / `ref`: left as written.
+    // JSX keeps line breaks and `\` as written; a JS string needs them escaped.
+    else if (/[\n\r\\]/.test(edit.value.raw ?? '')) {
+      const {start, end, value} = edit.value;
+      text.overwrite(offset + start, offset + end, `{${local(MERGE_CLASS)}(${JSON.stringify(value)}, ${props}.className)}`);
+    } else {
+      text.prependRight(offset + edit.value.start, `{${local(MERGE_CLASS)}(`);
+      text.appendLeft(offset + edit.value.end, `, ${props}.className)}`);
+    }
   }
   return helpers;
 }

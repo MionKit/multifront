@@ -11,7 +11,10 @@ export type {
   DiagnosticCode,
   GrammarScope,
   Importer,
+  ReactPropsSite,
+  ReactRootProps,
   ResolveTargetOptions,
+  RootProp,
   SourceMap,
   SplitResult,
   StyleModule,
@@ -25,6 +28,7 @@ export type {
   VueCompiler,
 } from './types.ts';
 export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
+export {reactRootProps} from './blocks/react.ts';
 export {renameSvelteStyles} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
@@ -35,6 +39,7 @@ export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTar
 export {rewriteImportAttributes} from './imports/rewrite.ts';
 export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
 export {USE_CLIENT} from './react/reactApis.ts';
+export {propsTypeInserts} from './react/scope.ts';
 export {needsUseClient} from './react/useClient.ts';
 export {rootRelativePath, scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';

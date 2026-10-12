@@ -1,0 +1,8 @@
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+
+  import { memo } from 'react'
+
+  // An explicit `memo` type argument decides the export's props: the root props go there.
+  export default memo<{ branch?: string }>(function MemoTyped(props) {
+    return <div {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("memo-typed", props.className)}>{props.branch}</div>
+  })
