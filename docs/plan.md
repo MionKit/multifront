@@ -85,7 +85,7 @@ We **compose** `@vitejs/plugin-vue`, never fork it. It is a peer dependency of `
 
 - Our packages share one version (`version.json`), our own semver. It never copies a framework's number: one plugin serves three frameworks, and our fixes need numbers of their own. plugin-vue and plugin-react do the same.
 - We never ship or run a framework compiler of our own. Vue: we borrow plugin-vue's. React: we hand plain `.tsx` to the user's plugin-react. So the user's versions are always the ones in use.
-- Each framework and its Vite plugin is an optional peer range of `@multifront/vite`. React: `^19.0.0`. Vue: `@vue/compiler-sfc` `^3.5.15` (older ones break production template source maps, and before 3.5.12 use the legacy Sass API) and plugin-vue `^6.0.3` (6.0.0 to 6.0.2 refuse Vite 8). The Svelte range comes with its milestone.
+- Each framework and its Vite plugin is an optional peer range of `@multifront/vite`. React: `^19.0.0`. Vue: `@vue/compiler-sfc` `^3.5.15` (older ones break production template source maps, and before 3.5.12 use the legacy Sass API) and plugin-vue `^6.0.3` (6.0.0 to 6.0.2 refuse Vite 8). Svelte: `svelte` `^5.55.6` (plugin-svelte 7 needs 5.46.4; below 5.55.6 the server render drops a dotted component read from `$derived`, `<ui.Child>`) and plugin-svelte `^7.0.0`.
 - The framework API names our transforms look for live in one file per framework (`packages/core/src/react/reactApis.ts`). A new framework version edits that file only.
 - CI tests each range at both ends: the pinned devDependencies (top) and `pnpm devx peer-floor <framework>` (bottom).
 - A new framework major joins the range in a minor release of ours. Dropping one is a major release of ours.
@@ -150,6 +150,8 @@ transform stays; the CSS-modules-only fallback is not needed. Each go criterion 
 
 - `Card.ucf.svelte.svelte` with the `$style` import, stamping via `svelte/compiler` `parse`, no Svelte `<style>`.
 - Editor: `Card.ucf.svelte.ts` through `svelte2tsx`, for `.svelte` importers and the `<svelte>` block's types.
+- plugin-svelte hands its previous source map to the Svelte compiler, which merges it, and Vite applies it again: so plugin-svelte's compile of our ids sees no previous map, and our `load` map is applied once.
+- Every test also runs at the bottom of the Svelte ranges (`svelte-floor` CI job).
 
 ### 6. Library build
 
