@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.7
@@ -33,8 +33,8 @@ Checked on this host (svelte 5.57.0):
 
 ## Decisions
 
-- 200 runs by default (M3: 300): each run is a real SSR Vite build, and four CI jobs run every test. Raised to 300 only
-  if the measured time allows; the measured time goes here and in the PR.
+- 300 runs by default. Planned at 200 (each run is a real SSR Vite build, four CI jobs run every test), to be raised to
+  300 only if the measured time allowed: 200 runs took 6.5 s on this host (6 SSR builds), the whole spec 35 s.
 - The plain `.svelte` file differs from the block only by a store header at the top of its instance script (added when
   missing): `import {readable} from 'svelte/store'`, an import of the `.ucf` file's class map module
   (`classMapId(file, 0)`) and `const style = readable(<that import>)`. Why: Svelte's own `$store` subscription is the
@@ -67,7 +67,9 @@ Harvest once at load, from every `svelte/shapes/*.ucf` (`splitBlocks`, then `sve
   its source slice, kept only when its free names are all props, statements, header snippets or globals. Never a donor
   root: `SvelteSelf` (outside `{#if}` an error), `SvelteFragment` (a component's child only), anything in
   `<svelte:head>`. Free names: a walker over Svelte's AST (`{#each}` context and index, `{:then}` / `{:catch}`, snippet
-  parameters, snippet names per fragment, arrow parameters, component tag roots), skipping TS type keys.
+  parameters, snippet names per fragment, arrow parameters, component tag roots), skipping TS type keys. A donor
+  whose free name an enclosing block of its fixture binds is dropped: `{item}` of `{#each empty as item}`, moved out,
+  would read the header snippet `item`.
 - **Slots** per donor: before and after each child of each fragment (`fragment`, `consequent`, `alternate`, `body`,
   `fallback`, `pending`, `then`, `catch`) at any depth; none inside void elements, `<svg>`, `<title>`, `<textarea>`,
   none beside an `{:else if}` `IfBlock`. Each slot records its ancestor tags, each donor its top-level tags (through
@@ -85,13 +87,15 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
 - Written block: imports, props (`let {…} = $props()` or `export let …`), the statements the markup needs (closure of
   free names); module script only when needed or forced; no instance script when nothing is needed. Then header
   snippets, specials, pieces.
-- `buildCase(legacy, actions, {name})`, `caseAt(seed, runIndex)` (1 to 10 actions), `writeCase(dir, case)` (writes
+- `caseAt` draws `splice` 6 times and `tricky` 2 times as often as the one-off kinds, so depth comes quickly.
+- Tricky text also takes an `ExpressionTag` reading a statement whose string looks like markup (`{html}`).
+- `buildCase({legacy, base}, actions, {name, dir})`, `caseAt(seed, runIndex, dir)` (1 to 10 actions), `writeCase(dir, case)` (writes
   `<name>.ucf` with `<style module scoped>` and the plain `<name>.svelte`), `shapeOf(case)` (node types, mode, script
   layout, depth).
 
 ### `packages/e2e/build/svelte-scope.fuzz.spec.ts`
 
-- `fuzzSettings({seed: 2026, runs: 200})`.
+- `fuzzSettings({seed: 2026, runs: 300})`.
 - One batch (50 cases, 10 in the negative controls): cases into `mkdtemp(join(TMP_DIR, 'svelte-fuzz', 'run-'))` with a
   copy of `svelte/shapes/Child.svelte`; `batch-N.ts` imports `render` from `svelte/server`, `Child`, each
   `./<name>.ucf` with `{ framework: 'svelte' }` and `./<name>.svelte`, and exports `renderCase(name, kind)`.
@@ -99,9 +103,12 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
   plugins `[breakerPre, svelte(), multifront(), breakerPost]`), output loaded with Node `import()`.
 - Build failure: the error's `id` names the module; that case leaves the batch, which builds again (no id: each case
   alone). A failing `.ucf` module counts for rule 1 only when the plain file builds alone; else the case is unusable.
+- `renderCase` reads `head` and `body` inside the entry: `render()` renders lazily, on their first read, so a throw must
+  happen there to be caught as a render error.
 - Rules (`'builds' | 'stamps' | 'same-html'`), id from `scopeId(rootRelativePath(dir, file), source, true)`:
   1. `builds`: the `.ucf` module builds whenever the plain file builds.
-  2. `stamps`: htmlparser2 over the `.ucf` render's `body`: every start tag carries `data-v-<id>` exactly once and no
+  2. `stamps`: htmlparser2 in XML mode (tags as written: HTML mode adds a `<p>` for the stray `</p>` of
+     `<p><h3></h3></p>`) over the `.ucf` render's `body`: every start tag carries `data-v-<id>` exactly once and no
      other `data-v-*`; `head` holds no `data-v-`.
   3. `same-html`: the `.ucf` render with every ` data-v-<id>=""` removed and the head key normalized equals the plain
      render. Plain render throws → unusable; only the `.ucf` one throws → violation.
@@ -116,19 +123,28 @@ Model and actions (`Action<Kind>` from `fuzz.ts`; replay skips actions that no l
     `SvelteWindow`, `SvelteBody`, `SvelteDocument`, `SvelteOptions`, `Comment`).
   - Negative controls, each failing its rule with a seed, a shrunk input that still fails and a replay that regenerates
     the input: `builds` (`{#if` appended, pre); `stamps` (last stamp removed, pre; first stamp doubled in compiled
-    server code, post; a stamp after `<title`, pre); `same-html` (`\nbroken` appended, pre; `$style: __ucfStyle` turned
+    server code, post; a stamp after `<meta` in the head, pre: not `<title>`, of which Svelte renders only the text); `same-html` (`\nbroken` appended, pre; `$style: __ucfStyle` turned
     into `__ucfStyle`, pre).
+
+## Results
+
+- Default run (seed 2026, 300 files): green, 199 of the first 200 cases usable (the floor is 80%).
+- Long runs on this host, `MULTIFRONT_FUZZ_RUNS=2000` on seeds 1, 7 and 99: green, about 60 s each. Then
+  `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000`: green, 339 s.
+- The first runs found two harness bugs, fixed before the rules counted: a donor capturing a header snippet's name
+  (`{item}`), and HTML-mode parsing adding a `<p>`. No bug in the build itself.
 
 ## Tests
 
 - The spec itself in `pnpm devx test`: this host, CI `check` and `svelte-floor` (svelte 5.55.6, plugin-svelte 7.0.0),
   which already run every e2e test. No new infra.
-- Before the PR, a long run on this host: `MULTIFRONT_FUZZ_RUNS=2000` on seeds 1, 7, 99; result here and in the PR.
+- Before the PR, long runs on this host (see Results).
 - CI log lines showing the fuzz tests executing in `check` and `svelte-floor`, quoted.
 
 ## Docs
 
-- `scripts/lib/env.mjs` (`MULTIFRONT_FUZZ_RUNS` description) and `.env.sample`: "200 for the Svelte scope stamping".
+- `scripts/lib/env.mjs` (`MULTIFRONT_FUZZ_RUNS` description) and `.env.sample`: "300 for the scope transform and the
+  Svelte scope stamping".
 - `SETUP.md` fuzz paragraph names `packages/e2e/build/svelte-scope.fuzz.spec.ts`.
 - Milestone 5.7: Build line names the generator path and the plain file's store header; `- Status: done`.
 

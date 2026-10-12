@@ -134,14 +134,15 @@ From milestone 4:
 
 ### 5.7 Scope stamping fuzz (generated real files)
 
-- Build: `packages/e2e/build/svelte-scope.fuzz.spec.ts` on milestone 3's harness. The generator recombines the markup pieces of `fixtures/components/svelte/shapes/` (elements, components, every block and special element of 5.2, nested at random depth, with tricky text) into real `.ucf` files with a scoped style, and writes the same block as a plain `.svelte` file next to it.
+- Build: `packages/e2e/build/svelte-scope.fuzz.spec.ts` on milestone 3's harness. The generator, `packages/e2e/build/lib/svelteScopeFuzz.ts`, recombines the markup pieces of `fixtures/components/svelte/shapes/` (elements, components, every block and special element of 5.2, nested at random depth, with tricky text) into real `.ucf` files with a scoped style, and writes the same block as a plain `.svelte` file next to it, which reads `$style` as a Svelte store of the `.ucf` file's class map (`readable`), so only our stamps and rename differ.
 - Deliverable: a seeded fuzz run in CI; a failing seed is printed and can be replayed.
 - Test: each generated pair goes through real Vite plus real plugin-svelte (SSR build) and is rendered with `svelte/server`. Rules that must always hold:
   - the `.ucf` build never fails when the plain `.svelte` file compiles;
   - every element rendered from the block carries `data-v-<id>` exactly once, and nothing inside `<svelte:head>` does;
   - with the `data-v-*` attributes stripped, the HTML equals the plain `.svelte` file's HTML.
 
-  Each rule is proven by breaking the output on purpose once (drop one stamp, add one twice) and watching it fail.
+  Each rule is proven by breaking the output on purpose once (drop one stamp, add one twice) and watching it fail. CI runs 300 files with a fixed seed (2026); the HTML comparison ignores Svelte's `<svelte:head>` key comment, a hash of the file name.
+- Status: done
 
 ### 5.8 Root forwarding with `{...rest}`
 
