@@ -1,0 +1,22 @@
+[
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $style, but no <style module> exists; add one",
+    "filename": "svelte/errors/WrongModuleName.ucf",
+    "start": 54,
+    "end": 60,
+    "line": 3,
+    "column": 14
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
+    "filename": "svelte/errors/WrongModuleName.ucf",
+    "start": 98,
+    "end": 104,
+    "line": 4,
+    "column": 14
+  }
+]

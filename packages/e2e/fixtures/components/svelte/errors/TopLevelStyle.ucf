@@ -1,0 +1,18 @@
+<svelte>
+  <script lang="ts">
+    let {label}: {label: string} = $props()
+  </script>
+  <svelte:head>
+    <style>.head { color: gray; }</style>
+  </svelte:head>
+  <p class="top-level">{label}</p>
+  <style>
+    .top-level { color: crimson; }
+  </style>
+</svelte>
+
+<style>
+.top-level {
+  margin: 0;
+}
+</style>

@@ -1,0 +1,12 @@
+<svelte>
+  <script lang="ts">
+    let {title}: {title: string} = $props()
+  </script>
+  <h2 class="title">{title</h2>
+</svelte>
+
+<style>
+.title {
+  margin: 0;
+}
+</style>

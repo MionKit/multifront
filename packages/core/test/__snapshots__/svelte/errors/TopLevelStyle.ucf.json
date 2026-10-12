@@ -1,0 +1,12 @@
+[
+  {
+    "code": "style-inside-target",
+    "severity": "error",
+    "message": "<style> cannot sit inside the <svelte> block; move it to the root of the file",
+    "filename": "svelte/errors/TopLevelStyle.ucf",
+    "start": 198,
+    "end": 205,
+    "line": 9,
+    "column": 2
+  }
+]

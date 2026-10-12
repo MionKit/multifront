@@ -15,6 +15,7 @@ export type {
   SourceMap,
   SplitResult,
   StyleModule,
+  SvelteCompiler,
   Target,
   TargetChoice,
   TargetErrorCode,
@@ -39,6 +40,7 @@ export {rewriteImportAttributes} from './imports/rewrite.ts';
 export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
 export {rootRelativePath, scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
+export {loadSvelteCompiler} from './svelteCompiler.ts';
 export {compileStyles, moduleClassName, moduleName, stylePreprocessOptions} from './styles.ts';
 export {TARGETS, isTarget} from './targets.ts';
 export {loadVueCompiler} from './vueCompiler.ts';
