@@ -64,6 +64,15 @@ export interface LibraryTypesJob extends Pick<LibraryResult, 'target' | 'outDir'
   modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
 }
 
+/** What `writePackageJson()` gets; posix paths, output names without `.js`. */
+export interface LibraryPackageJob extends Pick<LibraryResult, 'target' | 'outDir' | 'packageName'> {
+  root: string; // library folder: its README.md and LICENSE
+  manifest: Record<string, unknown>; // the library's package.json, {} when it has none
+  peers: Record<string, string>;
+  index?: string; // 'index'
+  components: string[]; // 'Card', 'forms/Field'
+}
+
 /** `files` are relative to `outDir`, `skipped` to `src`. */
 export interface LibraryResult {
   target: Target;
