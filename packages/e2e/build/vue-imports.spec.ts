@@ -1,50 +1,16 @@
 import {readFile, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {checkBlocks, locate, splitBlocks} from '@multifront/core';
-import type {Plugin, Rolldown, ViteDevServer} from 'vite';
+import type {Rolldown, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, rejection, withDevServer} from './lib/build.ts';
-import {expectNoAttribute, moduleReferences} from './lib/references.ts';
+import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
 
 const COUNTER = '../../../components/Counter.ucf';
 const USES_ICON = '../../../components/imports/UsesIcon.ucf';
 const VUE_MARKERS = ['icon-vue-marker', 'uses-icon-vue-marker'];
 const OTHER_MARKERS = ['icon-react-marker', 'uses-icon-react-marker', 'icon-svelte-marker', 'uses-icon-svelte-marker'];
-
-interface Resolution {
-  environment: string;
-  id: string;
-  importer: string; // its path, query dropped
-  query: string; // the importer's
-}
-
-/** Logs each `.ucf` import before any plugin resolves it, so the specifier still holds what our rewrite put there. */
-function resolutionRecorder() {
-  const calls: Resolution[] = [];
-  const plugin: Plugin = {
-    name: 'ucf-resolution-recorder',
-    resolveId: {
-      order: 'pre',
-      handler(id, importer) {
-        if (!id.includes('.ucf') || !importer) return;
-        const [path, query = ''] = importer.split('?');
-        calls.push({environment: this.environment.name, id, importer: path!, query});
-      },
-    },
-  };
-  const from = (importer: string, environment = 'client') =>
-    calls.filter((call) => call.importer.endsWith(importer) && call.environment === environment);
-  return {plugin, from};
-}
-
-/** A module's `.ucf` references from `/components/` on: dev URLs start with `/@fs`, SSR ones do not. */
-function ucfPaths(code: string): string[] {
-  return moduleReferences(code)
-    .map(({specifier}) => specifier.split('?')[0]!)
-    .filter((path) => path.includes('.ucf'))
-    .map((path) => path.slice(path.indexOf('/components/')));
-}
 
 /** A copy of its own whose `App.vue` also imports `specifier` as `name` and renders it. */
 async function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {

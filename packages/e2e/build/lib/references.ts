@@ -1,4 +1,4 @@
-import {parseAst, Visitor, type ESTree} from 'vite';
+import {parseAst, Visitor, type ESTree, type Plugin} from 'vite';
 import {expect} from 'vitest';
 import {keyName} from './build.ts';
 
@@ -50,4 +50,38 @@ export function expectNoAttribute(code: string) {
     expect(keys, specifier).not.toContain('with');
     expect(keys, specifier).not.toContain('framework');
   }
+}
+
+interface Resolution {
+  environment: string;
+  id: string;
+  importer: string; // its path, query dropped
+  query: string; // the importer's
+}
+
+/** Logs each `.ucf` import before any plugin resolves it, so the specifier still holds what our rewrite put there. */
+export function resolutionRecorder() {
+  const calls: Resolution[] = [];
+  const plugin: Plugin = {
+    name: 'ucf-resolution-recorder',
+    resolveId: {
+      order: 'pre',
+      handler(id, importer) {
+        if (!id.includes('.ucf') || !importer) return;
+        const [path, query = ''] = importer.split('?');
+        calls.push({environment: this.environment.name, id, importer: path!, query});
+      },
+    },
+  };
+  const from = (importer: string, environment = 'client') =>
+    calls.filter((call) => call.importer.endsWith(importer) && call.environment === environment);
+  return {plugin, from};
+}
+
+/** A module's `.ucf` references from `/components/` on: dev URLs start with `/@fs`, SSR ones do not. */
+export function ucfPaths(code: string): string[] {
+  return moduleReferences(code)
+    .map(({specifier}) => specifier.split('?')[0]!)
+    .filter((path) => path.includes('.ucf'))
+    .map((path) => path.slice(path.indexOf('/components/')));
 }
