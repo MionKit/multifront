@@ -1,6 +1,7 @@
 <svelte>
   <script module>
   export { default as AgainIcon } from '../../imports/Icon.ucf' with { framework: 'svelte' }
+  export const size: number = 16
   </script>
 
   <script lang="ts">
