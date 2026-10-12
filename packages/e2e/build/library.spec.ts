@@ -123,6 +123,25 @@ describe('buildLibrary(): one JS file per component, per target', () => {
   });
 });
 
+describe('buildLibrary() and NODE_ENV', () => {
+  it("builds for production while other library builds overlap, then puts back the caller's NODE_ENV", async () => {
+    expect(process.env.NODE_ENV).toBe('test');
+    // The short build starts first and ends first, in the middle of the long one.
+    const [short, long] = await Promise.all([buildFixtureLibrary(LIBRARY_DIR, {frameworks: ['react']}), buildFixtureLibrary()]);
+    try {
+      expect(process.env.NODE_ENV).toBe('test');
+      for (const {results} of [short, long]) {
+        const react = results.find(({target}) => target === 'react')!;
+        const code = readFileSync(join(react.outDir, 'Card.js'), 'utf8');
+        expect(specifiersOf('Card.js', code)).toContain('react/jsx-runtime');
+      }
+    } finally {
+      await short.remove();
+      await long.remove();
+    }
+  });
+});
+
 describe('buildLibrary() errors', () => {
   it('fails on an import that is not a peer: a library package has peer dependencies only', async () => {
     const leftPad = "import leftPad from 'left-pad';\n\nexport const cx = (...names: string[]) => leftPad(names.join(' '));\n";
@@ -130,6 +149,7 @@ describe('buildLibrary() errors', () => {
       const build = buildFixtureLibrary(root);
       await expect(build).rejects.toThrow('"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of');
       await expect(build).rejects.toThrow('a library package has peer dependencies only');
+      expect(process.env.NODE_ENV).toBe('test');
     });
   });
 

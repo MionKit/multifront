@@ -28,6 +28,24 @@ interface TargetJob extends Omit<LibraryResult, 'files'> {
   peers: Record<string, string>;
 }
 
+// Overlapping calls share one swap: the first in saves the caller's value, the last out puts it back.
+let productionBuilds = 0;
+let callerNodeEnv: string | undefined;
+
+/** Vite reads `isProduction` from NODE_ENV: a library is a production build whatever the caller's environment. */
+async function asProduction<Result>(run: () => Promise<Result>): Promise<Result> {
+  if (productionBuilds++ === 0) callerNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    return await run();
+  } finally {
+    if (--productionBuilds === 0) {
+      if (callerNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = callerNodeEnv;
+    }
+  }
+}
+
 /** Types a `multifront.config.ts`; returns `options` as is. */
 export function defineLibrary(options: LibraryOptions): LibraryOptions {
   return options;
@@ -165,15 +183,9 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
       peers: {...row.peers, ...options.packages?.[target]?.peers},
     };
   });
-  // Vite reads `isProduction` from it: a library is a production build whatever the caller's environment.
-  const nodeEnv = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
-  try {
+  return asProduction(async () => {
     const results: LibraryResult[] = [];
     for (const job of jobs) results.push(await buildOne(job, options.vite));
     return results;
-  } finally {
-    if (nodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = nodeEnv;
-  }
+  });
 }
