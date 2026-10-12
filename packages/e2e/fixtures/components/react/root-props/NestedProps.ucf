@@ -1,0 +1,8 @@
+<react>
+  type Props = { items: { label: string; className?: string }[] }
+
+  // The inner `props` is an item, not the component's props: the list still merges the parent's className.
+  export default function NestedProps(props: Props) {
+    return <ul className="list">{props.items.map((props) => <li key={props.label} className={props.className}>{props.label}</li>)}</ul>
+  }
+</react>

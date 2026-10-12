@@ -244,11 +244,30 @@ const SHAPES: {
     ],
   },
   {
+    fixture: 'react/root-props/ComputedKeys.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
     fixture: 'react/root-props/Destructures.ucf',
     roots: ['span'],
     props: '__props',
     signature: 'function Destructures(__props: Props) {const { label, className, style: own = {} } = __props;',
     rootProps: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/LeftAlone.ucf',
+    roots: ['div', 'p', 'section'],
+    rootProps: [
+      {tag: 'div', className: 'merged', style: 'added', ref: 'added'},
+      {tag: 'p', className: 'added', style: 'author', ref: 'author'},
+      {tag: 'section', className: 'added', style: 'author', ref: 'author'},
+    ],
+  },
+  {
+    fixture: 'react/root-props/NestedProps.ucf',
+    roots: ['ul'],
+    rootProps: [{tag: 'ul', className: 'merged', style: 'added', ref: 'added'}],
   },
   {
     fixture: 'react/root-props/OtherSpread.ucf',
@@ -290,6 +309,11 @@ const SHAPES: {
     props: '__props',
     signature: 'function Valueless(__props) {',
     rootProps: [{tag: 'div', className: 'author', style: 'added', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/WrappedReads.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'author'}],
   },
   {fixture: 'react/shapes/AndRoot.ucf', roots: ['p', 'section', 'div']},
   {fixture: 'react/shapes/ArrowExpression.ucf', roots: ['div']},

@@ -24,3 +24,46 @@ export function freshName(used: Set<string>, base: string): string {
   for (let index = 1; used.has(name); index++) name = `${base}${index}`;
   return name;
 }
+
+export function patternNames(node: Node | null): string[] {
+  if (!node) return [];
+  if (node.type === 'Identifier') return [node.name];
+  if (node.type === 'ObjectPattern')
+    return node.properties.flatMap((prop) => patternNames(prop.type === 'RestElement' ? prop.argument : prop.value));
+  if (node.type === 'ArrayPattern') return node.elements.flatMap(patternNames);
+  if (node.type === 'AssignmentPattern') return patternNames(node.left);
+  if (node.type === 'RestElement') return patternNames(node.argument);
+  return node.type === 'TSParameterProperty' ? patternNames(node.parameter) : [];
+}
+
+// A `var` counts in its own block only.
+export function declaredIn(statements: Node[]): string[] {
+  return statements.flatMap((node) => {
+    if (node.type === 'VariableDeclaration') return node.declarations.flatMap(({id}) => patternNames(id));
+    return (node.type === 'FunctionDeclaration' || node.type === 'ClassDeclaration') && node.id ? [node.id.name] : [];
+  });
+}
+
+// The names a node binds for its own subtree.
+export function scopeNames(node: Node): string[] {
+  switch (node.type) {
+    case 'FunctionDeclaration':
+    case 'FunctionExpression':
+    case 'ArrowFunctionExpression':
+      return [...(node.type === 'FunctionExpression' && node.id ? [node.id.name] : []), ...node.params.flatMap(patternNames)];
+    case 'BlockStatement':
+    case 'StaticBlock':
+      return declaredIn(node.body);
+    case 'SwitchStatement':
+      return declaredIn(node.cases.flatMap(({consequent}) => consequent));
+    case 'CatchClause':
+      return patternNames(node.param);
+    case 'ForStatement':
+      return node.init ? declaredIn([node.init]) : [];
+    case 'ForInStatement':
+    case 'ForOfStatement':
+      return declaredIn([node.left]);
+    default:
+      return [];
+  }
+}

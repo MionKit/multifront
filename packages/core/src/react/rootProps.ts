@@ -1,7 +1,7 @@
 import type MagicString from 'magic-string';
-import type {ArrayPattern, JSXAttribute, JSXOpeningElement, Node, ObjectPattern} from 'oxc-parser';
-import {walk} from '../ast.ts';
-import {keyName} from '../imports/rewrite.ts';
+import type {ArrayPattern, Expression, JSXAttribute, JSXOpeningElement, Node, ObjectPattern} from 'oxc-parser';
+import {children, scopeNames} from '../ast.ts';
+import {keyName, literalValue} from '../imports/rewrite.ts';
 import {ROOT_PROPS} from './reactApis.ts';
 import {MERGE_CLASS, MERGE_REF, MERGE_STYLE} from './scopeHelper.ts';
 
@@ -10,7 +10,7 @@ type RootProp = (typeof ROOT_PROPS)[number];
 const MERGE: Record<RootProp, string> = {className: MERGE_CLASS, style: MERGE_STYLE, ref: MERGE_REF};
 
 /** The root props the component handles itself, and the names whose spread on a root hands it every prop. */
-export interface HandledProps {
+interface HandledProps {
   handled: Set<RootProp>;
   spreads: Set<string>;
 }
@@ -19,56 +19,59 @@ function isRootProp(name: string | undefined): name is RootProp {
   return (ROOT_PROPS as readonly string[]).includes(name ?? '');
 }
 
+// `props!` and `(props as Props)` are still the props object.
+function unwrap(node: Node): Node {
+  while (
+    node.type === 'TSNonNullExpression' ||
+    node.type === 'TSAsExpression' ||
+    node.type === 'TSSatisfiesExpression' ||
+    node.type === 'ParenthesizedExpression'
+  )
+    node = node.expression;
+  return node;
+}
+
+function isNamed(node: Node | null | undefined, name: string): boolean {
+  if (!node) return false;
+  const inner = unwrap(node);
+  return inner.type === 'Identifier' && inner.name === name;
+}
+
 // Top-level keys only: `{a: {className}}` reads a nested object's prop.
 function readPattern(pattern: ObjectPattern, found: HandledProps): void {
   for (const property of pattern.properties) {
     if (property.type === 'RestElement') {
       if (property.argument.type === 'Identifier') found.spreads.add(property.argument.name);
-    } else if (!property.computed) {
-      const name = keyName(property.key);
-      if (isRootProp(name)) found.handled.add(name);
+      continue;
     }
+    const name = property.computed ? literalValue(property.key as Expression) : keyName(property.key);
+    if (isRootProp(name)) found.handled.add(name);
   }
 }
 
-/** Spec 3.5, item 5: what the author handles is left to the author. `plain`: the first parameter's own name. */
+/** Spec 3.5, item 5: what the author handles is left to the author. `pattern`: the destructured first parameter. */
 export function handledRootProps(
   component: Node,
-  options: {plain?: string; pattern?: ObjectPattern | ArrayPattern; forwardRef: boolean}
+  props: string,
+  pattern: ObjectPattern | ArrayPattern | undefined,
+  forwardRef: boolean
 ): HandledProps {
-  const {plain, pattern, forwardRef} = options;
-  const found: HandledProps = {handled: new Set(), spreads: new Set()};
+  const found: HandledProps = {handled: new Set(), spreads: new Set([props])};
   // React hands a `forwardRef` render function the ref as its second parameter, never as a prop.
   if (forwardRef) found.handled.add('ref');
   if (pattern?.type === 'ObjectPattern') readPattern(pattern, found);
-  if (plain === undefined) return found;
-  found.spreads.add(plain);
-  walk(component, (node) => {
-    if (node.type === 'MemberExpression' && node.object.type === 'Identifier' && node.object.name === plain) {
-      const {property, computed} = node;
-      const name = computed
-        ? property.type === 'Literal' && typeof property.value === 'string'
-          ? property.value
-          : undefined
-        : property.type === 'Identifier'
-          ? property.name
-          : undefined;
+  const visit = (node: Node): void => {
+    // Below a binding of the same name, `props` is another object.
+    if (node !== component && scopeNames(node).includes(props)) return;
+    if (node.type === 'MemberExpression' && isNamed(node.object, props)) {
+      const name = node.computed ? literalValue(node.property) : keyName(node.property);
       if (isRootProp(name)) found.handled.add(name);
-    } else if (
-      node.type === 'VariableDeclarator' &&
-      node.id.type === 'ObjectPattern' &&
-      node.init?.type === 'Identifier' &&
-      node.init.name === plain
-    )
-      readPattern(node.id, found);
-  });
+    } else if (node.type === 'VariableDeclarator' && node.id.type === 'ObjectPattern' && isNamed(node.init, props))
+      readPattern(node.id as ObjectPattern, found);
+    for (const child of children(node)) visit(child);
+  };
+  visit(component);
   return found;
-}
-
-function ownAttribute(opening: JSXOpeningElement, prop: RootProp): JSXAttribute | undefined {
-  return opening.attributes.findLast(
-    (item): item is JSXAttribute => item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
-  );
 }
 
 /** Merges or adds each root prop the author leaves alone; returns the merge helpers it calls. */
@@ -81,17 +84,22 @@ export function addRootProps(
   {handled, spreads}: HandledProps
 ): string[] {
   const spreadsProps = opening.attributes.some(
-    (item) => item.type === 'JSXSpreadAttribute' && item.argument.type === 'Identifier' && spreads.has(item.argument.name)
+    (item) => item.type === 'JSXSpreadAttribute' && [...spreads].some((name) => isNamed(item.argument, name))
   );
   if (spreadsProps) return [];
   const helpers: string[] = [];
   for (const prop of ROOT_PROPS) {
     if (handled.has(prop)) continue;
-    const own = ownAttribute(opening, prop);
+    const own = opening.attributes.findLast(
+      (item): item is JSXAttribute =>
+        item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
+    );
     // Before every author attribute, so an author spread that carries the prop still wins.
     if (!own) text.appendLeft(offset + at, ` ${prop}={${props}.${prop}}`);
     else if (own.value?.type === 'JSXExpressionContainer' && own.value.expression.type !== 'JSXEmptyExpression') {
       const {expression} = own.value;
+      // A string `style` or `ref` is no value React takes: left as written, like the attribute form.
+      if (prop !== 'className' && literalValue(expression) !== undefined) continue;
       text.prependRight(offset + expression.start, `${MERGE[prop]}(`);
       text.appendLeft(offset + expression.end, `, ${props}.${prop})`);
       helpers.push(MERGE[prop]);
@@ -108,7 +116,7 @@ export function addRootProps(
       }
       helpers.push(MERGE_CLASS);
     }
-    // No value, `{}`, or a string `style` / `ref`: left as written.
+    // No value, or a string `style` / `ref`: left as written.
   }
   return helpers;
 }

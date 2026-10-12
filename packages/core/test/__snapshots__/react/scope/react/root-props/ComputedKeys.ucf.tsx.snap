@@ -1,0 +1,11 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { CSSProperties } from 'react'
+
+  type Props = { className?: string; style?: CSSProperties }
+
+  // A template-literal key and a computed pattern key name the prop as plainly as `props.className`.
+  export default function ComputedKeys(props: Props) {
+    const { ['style']: own } = props satisfies Props
+    return <div {...__ucfScopeAttrs(props)} ref={props.ref} className={props[`className`]} style={own}>computed</div>
+  }

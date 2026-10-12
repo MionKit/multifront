@@ -52,7 +52,7 @@ function attach(ref, node) {
   };
 }
 export function ${MERGE_REF}(own, extra) {
-  if (!own || !extra || own === extra) return own || extra;
+  if (!own || !extra) return own || extra;
   let byExtra = mergedRefs.get(own);
   if (!byExtra) mergedRefs.set(own, (byExtra = new WeakMap()));
   let merged = byExtra.get(extra);

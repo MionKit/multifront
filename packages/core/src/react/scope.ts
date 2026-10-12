@@ -14,15 +14,12 @@ import type {
   ParseResult,
   Program,
 } from 'oxc-parser';
-import {children, freshName, walk} from '../ast.ts';
+import {children, declaredIn, freshName, patternNames, scopeNames, walk} from '../ast.ts';
 import {keyName} from '../imports/rewrite.ts';
 import type {Block, BuildContext} from '../types.ts';
 import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
 import {addRootProps, handledRootProps} from './rootProps.ts';
 import {MERGE_CLASS, MERGE_REF, MERGE_STYLE, SCOPE_ATTRS, WARN_FRAGMENT} from './scopeHelper.ts';
-
-// The order the helper import names them in.
-const HELPERS = [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF];
 
 type Component = FunctionNode | ArrowFunctionExpression;
 type Root = JSXElement | JSXFragment;
@@ -41,49 +38,6 @@ function reactNames(program: Program, api: string): Set<string> {
     }
   }
   return names;
-}
-
-function patternNames(node: Node | null): string[] {
-  if (!node) return [];
-  if (node.type === 'Identifier') return [node.name];
-  if (node.type === 'ObjectPattern')
-    return node.properties.flatMap((prop) => patternNames(prop.type === 'RestElement' ? prop.argument : prop.value));
-  if (node.type === 'ArrayPattern') return node.elements.flatMap(patternNames);
-  if (node.type === 'AssignmentPattern') return patternNames(node.left);
-  if (node.type === 'RestElement') return patternNames(node.argument);
-  return node.type === 'TSParameterProperty' ? patternNames(node.parameter) : [];
-}
-
-// A `var` counts in its own block only.
-function declaredIn(statements: Node[]): string[] {
-  return statements.flatMap((node) => {
-    if (node.type === 'VariableDeclaration') return node.declarations.flatMap(({id}) => patternNames(id));
-    return (node.type === 'FunctionDeclaration' || node.type === 'ClassDeclaration') && node.id ? [node.id.name] : [];
-  });
-}
-
-// The names a node binds for its own subtree.
-function scopeNames(node: Node): string[] {
-  switch (node.type) {
-    case 'FunctionDeclaration':
-    case 'FunctionExpression':
-    case 'ArrowFunctionExpression':
-      return [...(node.type === 'FunctionExpression' && node.id ? [node.id.name] : []), ...node.params.flatMap(patternNames)];
-    case 'BlockStatement':
-    case 'StaticBlock':
-      return declaredIn(node.body);
-    case 'SwitchStatement':
-      return declaredIn(node.cases.flatMap(({consequent}) => consequent));
-    case 'CatchClause':
-      return patternNames(node.param);
-    case 'ForStatement':
-      return node.init ? declaredIn([node.init]) : [];
-    case 'ForInStatement':
-    case 'ForOfStatement':
-      return declaredIn([node.left]);
-    default:
-      return [];
-  }
 }
 
 function isFragment(name: JSXElementName, fragments: Set<string>, shadowed: ReadonlySet<string>): boolean {
@@ -300,8 +254,7 @@ export function transformScope(
     if (patternReads(pattern).some((name) => bound.has(name))) return [];
     if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
   }
-  const plain = param?.type === 'Identifier' ? param.name : undefined;
-  const rootProps = handledRootProps(component, {plain, pattern, forwardRef});
+  const rootProps = handledRootProps(component, props, pattern, forwardRef);
   const roots: FoundRoot[] = [];
   for (const expression of returns) jsxRoots(expression, consts, undefined, roots);
   const spread = new Set<Root>();
@@ -352,5 +305,5 @@ export function transformScope(
     // React checks a `forwardRef` render function takes zero or two parameters.
     text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }
-  return HELPERS.filter((helper) => helpers.has(helper));
+  return [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF].filter((helper) => helpers.has(helper));
 }
