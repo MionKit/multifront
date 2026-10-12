@@ -18,7 +18,6 @@ export function hasSveltePlugin(plugins: readonly Plugin[]): boolean {
   return plugins.some((plugin) => plugin.name === SVELTE_PLUGIN_NAME);
 }
 
-/** `target` with `key` read as `value`; its other methods stay bound to `target`. */
 function withMember<Target extends object>(target: Target, key: keyof Target, value: unknown): Target {
   return new Proxy(target, {
     get(object, name) {
@@ -43,7 +42,7 @@ function wrapCompile(config: ResolvedConfig): void {
   wrappedHandlers.add(transform.handler);
 }
 
-/** plugin-svelte's hot update first transforms the changed file: for a `.ucf` file the bare Vue id, which throws without plugin-vue. */
+/** plugin-svelte's hot update first transforms the changed file: a `.ucf` file's bare Vue id, which throws without plugin-vue. */
 function wrapHotUpdate(config: ResolvedConfig): void {
   const hotUpdate = config.plugins.find((plugin) => plugin.name === HOT_UPDATE_PLUGIN_NAME)?.hotUpdate;
   if (!hotUpdate || typeof hotUpdate === 'function' || wrappedHandlers.has(hotUpdate.handler)) return;
