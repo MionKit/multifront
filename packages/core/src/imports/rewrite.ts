@@ -16,7 +16,9 @@ import type {
 } from 'oxc-parser';
 import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
-import type {Diagnostic, SourceMap, UcfImport} from '../types.ts';
+import {findClosingTag, type topLevelTags} from '../scan.ts';
+import type {Block, Diagnostic, SourceMap, SplitResult, Target, UcfImport} from '../types.ts';
+import {frameworkInBlockMessage} from './resolveTarget.ts';
 
 type Lang = Exclude<NonNullable<ParserOptions['lang']>, 'dts'>;
 type PlainObject = Omit<ObjectExpression, 'properties'> & {properties: ObjectProperty[]};
@@ -77,6 +79,29 @@ export function frameworkAttributes(program: Program): Span[] {
     else if (node.type === 'ImportExpression') fromDynamic(node);
   });
   return found;
+}
+
+/** Spec 4.1 for the block's top-level `<script>` tags: every framework attribute, at its `.ucf` span. */
+export function frameworkInBlock(
+  block: Block,
+  split: SplitResult,
+  tags: ReturnType<typeof topLevelTags>,
+  target: Target
+): Diagnostic[] {
+  return tags
+    .filter(({name}) => name === 'script')
+    .flatMap(({attrs, end}) => {
+      const content = block.content.slice(end, findClosingTag(block.content, 'script', end)?.start);
+      if (!content.includes('.ucf')) return [];
+      const lang = langOf(`?lang.${attrs.lang ?? 'js'}`);
+      const {program, errors} = parseSync(split.filename, content, {lang, sourceType: 'module'});
+      // The framework's own compiler reports the syntax error.
+      if (errors.length > 0) return [];
+      const offset = block.contentStart + end;
+      return frameworkAttributes(program).map(({start, end: spanEnd}) =>
+        createDiagnostic(split, 'framework-in-block', offset + start, offset + spanEnd, frameworkInBlockMessage(target))
+      );
+    });
 }
 
 // A spread or computed key could hold the framework, unreadable statically.

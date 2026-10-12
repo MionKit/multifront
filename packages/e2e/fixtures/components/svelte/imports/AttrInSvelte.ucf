@@ -1,0 +1,14 @@
+<svelte>
+  <script module>
+  export { default as AgainIcon } from '../../imports/Icon.ucf' with { framework: 'svelte' }
+  </script>
+
+  <script lang="ts">
+  import Icon from '../../imports/Icon.ucf' with { framework: 'react' }
+
+  const lazy = import('../../imports/Icon.ucf', { with: { framework: 'svelte' } })
+  </script>
+
+  <Icon />
+  {#await lazy then { default: Lazy }}<Lazy />{/await}
+</svelte>

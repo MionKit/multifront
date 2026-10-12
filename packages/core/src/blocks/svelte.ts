@@ -3,7 +3,9 @@ import type {AST, CompileError} from 'svelte/compiler';
 import {freshName} from '../ast.ts';
 import {DiagnosticsError, createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
 import {loadSvelteCompiler} from '../compilers.ts';
-import type {Block, BlockKind, BuildContext, Diagnostic, StyleModule, VirtualFile} from '../types.ts';
+import {frameworkInBlock} from '../imports/rewrite.ts';
+import {topLevelTags} from '../scan.ts';
+import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, StyleModule, VirtualFile} from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
   'area base br col embed hr img input link meta param source track wbr'.split(' ')
@@ -204,10 +206,18 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
 }
 
 // Svelte compiles only a root `<style>`; one inside an element (`<svelte:head>`) is valid markup.
+const nests = (name: string): boolean => !VOID_ELEMENTS.has(name);
+
+// An `import()` in markup is left to the post rewrite of the compiled module.
+function check(block: Block, split: SplitResult): Diagnostic[] {
+  const tags = topLevelTags(block.content, nests);
+  return [...styleInsideTarget(block, split, nests), ...frameworkInBlock(block, split, tags, 'svelte')];
+}
+
 export const svelteKind: BlockKind = {
   tag: 'svelte',
   role: 'target',
   grammar: {scopeName: 'source.svelte', languageId: 'svelte'},
-  check: (block, split) => styleInsideTarget(block, split, (name) => !VOID_ELEMENTS.has(name)),
+  check,
   build,
 };
