@@ -40,13 +40,13 @@ A dry run (Vite 8.2.2, the fixture library, `cssCodeSplit: true`, a spy plugin) 
 
 ## Plan
 
-### `packages/vite/src/library/css.ts`: `libraryCss(job)`, a plugin only library builds add
+### `packages/vite/src/library/css.ts`: `libraryCss(root, src)`, a plugin only library builds add
 
-Added to `buildOne()`'s `plugins` (`packages/vite/src/library/build.ts:155`) after `libraryPlugin(job)`.
+Added to `buildOne()`'s `plugins` in `packages/vite/src/library/build.ts`, after `libraryPlugin(job)`.
 `enforce: 'post'`, so its hooks run after `vite:css-post`.
 
 - `config()` returns `{build: {cssCodeSplit: true}}`: the plugin needs it, and a plugin's `config` result wins over the
-  user's `vite` option. `cssFileName: 'styles'` and its "6.2 replaces" comment go from `build.ts:165`.
+  user's `vite` option. `cssFileName: 'styles'` and its "6.2 replaces" comment go from `build.ts`.
 - **Which components have CSS** (`renderStart`): over `this.getModuleIds()`, an id whose path is a `.ucf` file, whose
   query has `type=style`, and for which `isCSSRequest(id)` (from `vite`) is true marks its `.ucf` file as styled. That
   covers `?ucf&type=style&index=0&lang.css` and plugin-vue's `lang.module.css` / `lang.scss`, not our class map
@@ -61,13 +61,13 @@ Added to `buildOne()`'s `plugins` (`packages/vite/src/library/build.ts:155`) aft
   `buildLibrary: src/theme.css is imported by src/utils/theme.ts: a library package ships CSS from .ucf <style> blocks
   only`.
 - **Write the files** (`generateBundle`):
-  - per styled `.ucf` file, its CSS files in `index` order, each trimmed plus one `\n`, emitted as
+  - per styled `.ucf` file, its CSS files in `index` order, each trimmed plus one `\n` (a block that compiles to nothing adds nothing), emitted as
     `this.emitFile({type: 'asset', fileName: outputName(file, src) + '.css', source})`. A styled file with no CSS
     asset gets an empty file, so its import always resolves.
   - Vite's per-block CSS assets are deleted from the bundle.
   - each component chunk's `importedCss` becomes its new file, the others' is cleared (a user's `build.manifest`
     stays true).
-  - `styles.css`: every component CSS file, dependencies first. Component chunks in sorted `fileName` order, each
+  - `styles.css`: every component CSS file, dependencies first. Every chunk in sorted `fileName` order (code-unit order), each
     walked depth first over `chunk.imports` (only entries in the bundle, so peers like `vue` and `react/jsx-runtime`
     are skipped) and added after its imports; a visited set stops cycles. Rolldown's own order only, so the same every
     run. React: Badge, Button, Icon, Card, Counter, Panel, Tooltip, forms/Field. Vue: the same with VueOnly before
@@ -106,12 +106,18 @@ uses its own copy or `outDir`.
 7. Guard: a copy with `src/styles.ucf` rejects with the `would be written as styles.css` message.
 8. Plain CSS: a copy where `utils/cx.ts` imports `./cx.css` rejects naming `src/utils/cx.css` and
    `src/utils/cx.ts`.
-9. Source map: in `react/Card.js`, the `return` of the JSX maps to the `return (` line of the `<react>` block. Without
-   the map `renderChunk` returns it reads one line too far (checked).
+9. Empty CSS: a copy with `src/Empty.ucf` whose only `<style lang="scss">` compiles to nothing writes an empty
+   `Empty.css` in both targets, and `Empty.js` still imports it first.
+10. Manifest: with `vite: {build: {manifest: true}}`, `Card.js`'s manifest entry lists `css: ['Card.css']`, and every
+    CSS path in the manifest is a written file.
+11. `cssCodeSplit`: with `vite: {build: {cssCodeSplit: false}}`, `Card.css` still holds the scoped rules and
+    `styles.css` holds `Card.css`.
 
-6.1's `library.spec.ts` source map case ("maps a line of the JSX in react/Card.js back into Card.ucf") turned out
-not to catch a dropped map: several output lines of the `<h2>` call map to one source line. Hence case 9. The other
-`library.spec.ts` cases list only `.js` files and stay as they are.
+Source map: 6.1's `library.spec.ts` case anchored on the `"h2"` call, whose output lines all map to one source line,
+so it did not catch a dropped map. It now anchors on the `return` of the JSX, which maps to the `return (` line of the
+`<react>` block: one line too far without the map `renderChunk` returns (checked). The other `library.spec.ts` cases
+list only `.js` files; they now read the build through `resultOf()` / `readOutput()` from `build/lib/library.ts`,
+shared with `library-css.spec.ts`.
 
 ## Docs
 
@@ -128,10 +134,13 @@ not to catch a dropped map: several output lines of the `<h2>` call map to one s
   - `fileOf()` and `shownFile()` moved from `build.ts` to `names.ts`, as `css.ts` needs them and `build.ts` imports
     `css.ts`.
   - Each block's CSS is trimmed at both ends: Vue's class-map CSS starts with a blank line.
-  - Test case 9 added (above).
+  - The review added test cases 9 to 11 and the stronger 6.1 source map case (above), and made a block that
+    compiles to nothing add no stray newline (an empty file stays empty).
+  - The `styles.css` walk starts from every chunk, not only component chunks: the same walk resets each chunk's
+    `importedCss`.
   - `pnpm add` deduped vitest's transitive `magic-string` 1.2.3 to the 1.3.1 already in the lockfile (pnpm's
     `resolutionMode: highest`); no new package downloaded.
-- `library-css.spec.ts`: 9 cases, all green; without the plugin, the 6 cases that check what it adds fail.
+- `library-css.spec.ts`: 11 cases, all green; the cases that check what the plugin adds fail without the code they cover (checked by removing it).
   `library.spec.ts` still passes; `pnpm devx check` passes.
 
 ## Fuzzing

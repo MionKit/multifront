@@ -143,7 +143,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
   - `Card.css` has the `[data-v-<scopeId>]` selector, with the id from core's `scopeId()` for `src/Card.ucf`, and the compiled SCSS (no `&` left).
   - `styles.css` equals the component CSS files joined in dependency order. Two builds give byte-identical CSS.
   - no JS file injects CSS at runtime (no `document.createElement('style')`, no `__vite__updateStyle`).
-  - the source map of `react/Card.js` still points into `Card.ucf` after the added line; each build error on its own fixture copy.
+  - each build error on its own fixture copy. 6.1's source map case of `react/Card.js` catches the one-line shift.
 - Status: done
 
 ### 6.3 `"use client"` per output file
