@@ -52,8 +52,8 @@ more `missing-style-module` row (line/column hand-written, snapshot updated).
 
 Same walk and skips as 5.1; returns `{missing: Diagnostic[], uses: {node, module, shorthand?}[]}`.
 `shorthand`: the identifier is a shorthand object property (`parent.type === 'Property' && parent.shorthand`) or a
-shorthand attribute (an `Attribute` whose `ExpressionTag` identifier starts at `attribute.start + 1` with the same
-name, recorded when the walk passes the attribute). `walk` (`:22-32`) gains "visit returns `false` → skip children".
+shorthand attribute (an `Attribute` whose `ExpressionTag` identifier starts at `attribute.start + 1`, recorded when
+the walk passes the attribute). The same walk collects every identifier name the block uses, for step 3.2. `walk` (`:22-32`) gains "visit returns `false` → skip children".
 
 ### 3. `build(block, ctx)` returns `{ext: '.svelte', code, map}`
 
@@ -63,7 +63,7 @@ includeContent: true})`).
 
 1. Parse once (today's code); `missing` non-empty → throw as today.
 2. **Locals**: per used module, `__ucf` + its Svelte name with the first letter upper-cased (`$style` →
-   `__ucfStyle`, `$classes` → `__ucfClasses`); a name already bound in the block, or taken by another module
+   `__ucfStyle`, `$classes` → `__ucfClasses`); a name already used anywhere in the block, or taken by another module
    (`classes` / `Classes`), gets a number suffix (React's `freshName`, moved from `react/scope.ts` to `ast.ts`).
 3. **Renames**: each use → `overwrite(identifier, local)`; shorthand property → `$style: __ucfStyle`; shorthand
    attribute → overwrite the attribute with `$style={__ucfStyle}`. Runes, stores, property, import / export and type
@@ -91,8 +91,12 @@ unless noted.
   `<svelte:head>` with title / meta / style, `<svelte:window>`, `<svelte:body>`, `<svelte:document>`).
 - Text edges: `LessThan.ucf` (`{a < b}`), `AttributeGt.ucf` (`>` in quoted values), `CommentedTag.ucf`
   (`<!-- <div> -->`), `ScriptString.ucf` (`'<div>'` in script strings), `NoScript.ucf`, `ModuleScriptOnly.ucf`.
-- `Child.svelte`: plain Svelte 5, `let {children, ...rest} = $props()`, one `<b {...rest}>` root. The test compiles it
-  and passes it as the `Child` prop.
+- `BothScripts.ucf`: `<script module>` using `$style` beside an instance `<script>`: the imports land in the module
+  one.
+- `Child.svelte`: plain Svelte 5, `let {children, label, ...rest} = $props()`, one `<b>` root spreading only the
+  `data-v-*` keys of `rest`. The test compiles it and passes it as the `Child` prop.
+- `svelte/NoStyle.ucf` (beside `shapes/`): no `<script>`, no `<style>`: the build is the block content as written.
+- `Elements.ucf` also declares its own `__ucfStyle`, so the class map's local is `__ucfStyle1`.
 
 ### 5. Tests that change
 
@@ -146,7 +150,12 @@ All in `pnpm devx test`, this host and CI `check` job; they need only root devDe
 - `NamedModule.ucf`: `$classes` and `$style` renamed (counted); `$count`, `$shared`, `$user`, `$first`, `$second`, `$others`,
   `$extra`, `$makeStore`, `$Store`, runes, `options.$theme`, `{$theme: …}`, `$Row`, `$Props`, `$fetch`, `$exported`
   unchanged. `ModuleNamedStyle.ucf`: `__ucfStyle` imports the `module="style"` class map.
-- Sweep: every other fixture with a `<svelte>` block builds and compiles without throwing.
+- Sweep: every other fixture with a `<svelte>` block, and every valid `svelte/errors/` one, builds and compiles
+  without throwing. `NamedModule.ucf` (no `scoped` style) gets no stamp; `NoStyle.ucf` builds to its block content;
+  `Elements.ucf` imports `__ucfStyle1`.
+- The svelte-pick e2e test checks both `[PARSE_ERROR]` and the `.svelte.svelte` id.
+- The render plumbing (class map files written from `ctx`, CSS imports dropped) is the stopgap the milestone text
+  sets for this core test; 5.3 renders the same id through real Vite, our plugin and plugin-svelte.
 - `Components.ucf` holds `const ui = $derived({Child})`: a plain `const` of a prop is Svelte's
   `state_referenced_locally` warning.
 
