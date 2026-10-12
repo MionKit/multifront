@@ -51,7 +51,7 @@ In `<react>`, `$style` holds the class names of `<style module>`: completion lis
 
 ## Component Types in Importing Files
 
-A file that imports a `.ucf` file gets the component its import picks: React in a `.tsx` file, Vue in a `.vue` file. Hover, go to definition and type errors work there. An unsaved edit in the `.ucf` file shows there at once.
+A file that imports a `.ucf` file gets the component its import picks: React in a `.tsx` file, Vue in a `.vue` file, a Svelte `Component` for a svelte pick in a `.ts` file. Hover, go to definition and type errors work there. An unsaved edit in the `.ucf` file shows there at once.
 
 `App.tsx`
 

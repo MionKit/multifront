@@ -42,9 +42,9 @@ export const SvelteCard = await import('../../../components/Card.ucf', {with: {f
 
 > **Tip:** In one file, TypeScript gives every import of the same path the type of the last one. To use a component as two frameworks, import each from its own small file that re-exports it.
 
-## Using Both Frameworks in One App
+## Mixing Frameworks in One App
 
-A React app can also render a `.ucf` file as Vue: add `vue()` to its Vite plugins and pick vue in the import.
+A React app can also render a `.ucf` file as Vue or Svelte: add `vue()` or `svelte()` to its Vite plugins and pick that framework in the import.
 
 `mountVue.ts`
 

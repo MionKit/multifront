@@ -52,8 +52,9 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 - Every block has its closing tag: `<react/>` is not a block.
 - `<vue>` holds a `<template>` or a `<script>`, as a `.vue` file does.
 - `<react>` exports the component as default.
-- `<react>` code parses as TSX.
-- `.ucf` imports in `<react>` and `<vue>` carry no `framework` attribute: they get that block's framework.
+- `<react>` code parses as TSX, `<svelte>` code as Svelte.
+- `.ucf` imports in `<react>`, `<vue>` and `<svelte>` carry no `framework` attribute: they get that block's framework.
+- In `<svelte>`, `$style` needs a `<style module>`, and `$name` a `<style module="name">` unless the block declares a store `name`.
 - `<style>` sits at the top level, never inside `<vue>` or `<svelte>`.
 - `lang` is `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`.
 - Two `<style module>` blocks need two names, for example `module` and `module="classes"`.
