@@ -1,0 +1,16 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/IfBlock.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/IfBlock.ucf?ucf&type=style&index=0&module&lang.js";
+    let {count = 2}: {count?: number} = $props()
+  </script>
+  <div data-v-a65fd61e="" class={__ucfStyle.box}>
+    {#if count > 5}
+      <p data-v-a65fd61e="" class={__ucfStyle.big}>Big</p>
+    {:else if count > 1}
+      <p data-v-a65fd61e="" class={__ucfStyle.mid}>Mid <b data-v-a65fd61e="" class={__ucfStyle.mid}>nested</b></p>
+    {:else}
+      <p data-v-a65fd61e="" class={__ucfStyle.small}>Small</p>
+    {/if}
+    {#if count}<span data-v-a65fd61e="" class={__ucfStyle.small}>{count}</span>{/if}
+  </div>

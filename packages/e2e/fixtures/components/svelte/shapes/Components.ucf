@@ -1,0 +1,25 @@
+<svelte>
+  <script lang="ts">
+    import type {Component} from 'svelte'
+
+    let {Child}: {Child: Component<Record<string, unknown>>} = $props()
+    const ui = $derived({Child})
+  </script>
+  {#snippet extra()}<em class={$style.note}>Snippet prop</em>{/snippet}
+  <div class={$style.list}>
+    <Child label="Plain" />
+    <Child label="With children"><span class={$style.note}>Child content</span></Child>
+    <ui.Child label="Dotted" />
+    <Child {$style} />
+    <Child label="Snippet" children={extra} />
+  </div>
+</svelte>
+
+<style module scoped>
+.list {
+  display: grid;
+}
+.note {
+  font-style: italic;
+}
+</style>

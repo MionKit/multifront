@@ -1,28 +1,46 @@
-import {readdirSync} from 'node:fs';
-import {sep} from 'node:path';
-import {describe, expect, it} from 'vitest';
-import {DiagnosticsError, buildTarget, checkBlocks, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
-import type {Diagnostic} from '@multifront/core';
+import {readFileSync, readdirSync} from 'node:fs';
+import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import {basename, join, sep} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
+import {Parser} from 'htmlparser2';
+import MagicString from 'magic-string';
+import {parseSync} from 'oxc-parser';
+import type * as SvelteCompilerModule from 'svelte/compiler';
+import type {AST} from 'svelte/compiler';
+import type {Component} from 'svelte';
+import {render} from 'svelte/server';
+import {afterAll, describe, expect, it} from 'vitest';
+import {
+  DiagnosticsError,
+  buildTarget,
+  checkBlocks,
+  classMapId,
+  createBuildContext,
+  loadVueCompiler,
+  splitBlocks,
+} from '@multifront/core';
+import type {BuildContext, Diagnostic, VirtualFile} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, TMP_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
 
 const compiler = loadVueCompiler(import.meta.dirname);
+const svelte = createRequire(import.meta.url)('svelte/compiler') as typeof SvelteCompilerModule;
 const ERRORS_DIR = 'svelte/errors';
+const SHAPES_DIR = 'svelte/shapes';
 
 async function svelteBuild(name: string) {
   const {filename, source} = readComponent(name);
   const split = splitBlocks(source, filename);
-  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: true});
+  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: false});
   try {
-    buildTarget(split, ctx, 'svelte');
+    return {split, source, ctx, file: buildTarget(split, ctx, 'svelte'), thrown: []};
   } catch (err) {
     expect(err).toBeInstanceOf(DiagnosticsError);
-    return {split, source, thrown: (err as DiagnosticsError).diagnostics};
+    return {split, source, ctx, file: undefined, thrown: (err as DiagnosticsError).diagnostics};
   }
-  throw new Error(`${name} built as svelte`);
 }
-
-const rulesOf = (thrown: Diagnostic[]) => thrown.filter(({code}) => code !== 'target-not-built');
 
 const NO_STYLE = '<svelte> uses $style, but no <style module> exists; add one';
 
@@ -68,8 +86,7 @@ describe('the <svelte> rules', () => {
   });
 
   describe.each(ERROR_CASES)('$fixture', async ({fixture, errors}) => {
-    const {split, source, thrown} = await svelteBuild(fixture);
-    const rules = rulesOf(thrown);
+    const {split, source, file, thrown: rules} = await svelteBuild(fixture);
     const block = split.targets.svelte!;
 
     it('reports each rule at its hand-written line, column and span, in source order', () => {
@@ -79,9 +96,8 @@ describe('the <svelte> rules', () => {
       );
     });
 
-    it('throws target-not-built only when no rule fails', () => {
-      if (errors.length > 0) expect(thrown).toEqual(rules);
-      else expect(thrown.map(({code}) => code)).toEqual(['target-not-built']);
+    it('builds a .svelte file when no rule fails', () => {
+      expect(file?.ext).toBe(errors.length > 0 ? undefined : '.svelte');
     });
 
     it('leaves the compiler rules out of checkBlocks', () => {
@@ -127,10 +143,10 @@ describe('the <svelte> rules', () => {
     expect(error!.message).toBe('<svelte> does not parse: Unterminated regular expression');
   });
 
-  // Every other real <svelte> block: only the missing build is left.
+  // Every other real <svelte> block builds, and Svelte compiles it.
   const OTHERS = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
-    .filter((name) => name.endsWith('.ucf') && !name.startsWith(`${ERRORS_DIR}/`) && !name.startsWith('invalid/'))
+    .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|invalid)\//.test(name))
     .filter((name) => readComponent(name).source.includes('<svelte>'))
     .sort();
 
@@ -138,7 +154,279 @@ describe('the <svelte> rules', () => {
     expect(OTHERS).toEqual(expect.arrayContaining(['Card.ucf', 'react/AllBlocks.ucf', 'editor/GrammarEdges.ucf']));
   });
 
-  it.each(OTHERS)('finds nothing wrong in %s', async (name) => {
-    expect((await svelteBuild(name)).thrown.map(({code}) => code)).toEqual(['target-not-built']);
+  it.each(OTHERS)('builds %s, and Svelte compiles it', async (name) => {
+    const {file, thrown} = await svelteBuild(name);
+    expect(thrown).toEqual([]);
+    expect(() => svelte.compile(file!.code, {generate: 'server', filename: `${name}.svelte.svelte`})).not.toThrow();
+  });
+});
+
+type Node = AST.BaseNode & Record<string, unknown>;
+
+// Every node of the fragment that has a tag name, in source order; `inHead`: inside `<svelte:head>`.
+function namedNodes(root: AST.Root): {node: Node; inHead: boolean}[] {
+  const found: {node: Node; inHead: boolean}[] = [];
+  const visit = (value: unknown, inHead: boolean): void => {
+    if (Array.isArray(value)) return value.forEach((item) => visit(item, inHead));
+    if (typeof value !== 'object' || value === null) return;
+    const node = value as Node;
+    if (typeof node.type === 'string' && typeof node.name === 'string' && 'fragment' in node) found.push({node, inHead});
+    const head = inHead || node.type === 'SvelteHead';
+    for (const child of Object.values(node)) if (typeof child === 'object' && child !== null) visit(child, head);
+  };
+  visit(root.fragment, false);
+  return found.sort((first, second) => first.node.start - second.node.start);
+}
+
+const STAMPED = new Set(['RegularElement', 'SvelteElement', 'Component', 'SvelteComponent', 'SvelteSelf']);
+
+function lineColumn(text: string, offset: number): {line: number; column: number} {
+  const before = text.slice(0, offset).split('\n');
+  return {line: before.length, column: before.at(-1)!.length};
+}
+
+function offsetOf(text: string, line: number, column: number): number {
+  return (
+    text
+      .split('\n')
+      .slice(0, line - 1)
+      .join('\n').length +
+    (line > 1 ? 1 : 0) +
+    column
+  );
+}
+
+// Our import lines: the style ids and the class maps, both `?ucf&type=style&`.
+const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&[^"\n]*)";`;
+
+/** The block content back: stamps, our imports and an added `<script>` removed, renames undone. */
+function undoBuild(code: string, ctx: BuildContext): string {
+  const names = new Map<string, string>();
+  for (const [, local, id] of code.matchAll(new RegExp(IMPORT, 'g'))) {
+    const module = Object.values(ctx.modules).find((candidate) => candidate.id === id);
+    if (local && module) names.set(local, module.name === '$style' ? '$style' : `$${module.name}`);
+  }
+  return code
+    .replaceAll(` data-v-${ctx.scopeId}=""`, '')
+    .replace(new RegExp(String.raw`^<script>\n(?:${IMPORT}\n)*${IMPORT}\n</script>`), '')
+    .replaceAll(new RegExp(String.raw`\n${IMPORT}`, 'g'), '')
+    .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
+    .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
+    .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local);
+}
+
+let tmp: string | undefined;
+
+async function tmpDir(): Promise<string> {
+  await mkdir(TMP_DIR, {recursive: true});
+  tmp ??= await mkdtemp(join(TMP_DIR, 'svelte-shapes-'));
+  return tmp;
+}
+
+afterAll(async () => {
+  if (tmp) await rm(tmp, {recursive: true, force: true});
+});
+
+// Under the repo, so the compiled code finds `svelte`; Node's own import, as the code is plain JS.
+async function loadServerModule(name: string, code: string): Promise<unknown> {
+  const path = join(await tmpDir(), `${name}.js`);
+  await writeFile(path, code);
+  return ((await import(/* @vite-ignore */ pathToFileURL(path).href)) as {default: unknown}).default;
+}
+
+async function childComponent(): Promise<unknown> {
+  const filename = componentPath(`${SHAPES_DIR}/Child.svelte`);
+  const {js} = svelte.compile(readFileSync(filename, 'utf8'), {generate: 'server', filename});
+  return loadServerModule('Child', js.code);
+}
+
+/** Server-renders a build: class map imports get what the Vite plugin serves for them, CSS imports go. */
+async function renderBuild(file: VirtualFile, ctx: BuildContext, name: string, props: Record<string, unknown>) {
+  const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`});
+  const text = new MagicString(js.code);
+  for (const node of parseSync('Shape.js', js.code, {sourceType: 'module'}).program.body) {
+    if (node.type !== 'ImportDeclaration') continue;
+    const id = node.source.value;
+    const module = Object.values(ctx.modules).find((candidate) => candidate.id === id);
+    if (ctx.styles.some((style) => style.id === id)) text.remove(node.start, node.end);
+    else if (module) {
+      const classes = `${name}.classes${module.index}.js`;
+      await writeFile(join(await tmpDir(), classes), `export default ${JSON.stringify(module.classes)};`);
+      text.overwrite(node.source.start, node.source.end, JSON.stringify(`./${classes}`));
+    }
+  }
+  const component = await loadServerModule(name, text.toString());
+  // A compiled component of unknown props: the fixture's own declare what it takes.
+  return render(component as Component<Record<string, unknown>>, {props});
+}
+
+// Every start tag as written, duplicates included: parse5 would drop a repeated attribute.
+function startTags(html: string, stamp: string): {name: string; stamps: number; classes: string[]}[] {
+  const tags: {name: string; stamps: number; classes: string[]}[] = [];
+  const parser = new Parser({
+    onopentagname: (name) => void tags.push({name, stamps: 0, classes: []}),
+    onattribute: (name, value) => {
+      const tag = tags.at(-1)!;
+      if (name === stamp) tag.stamps++;
+      if (name === 'class') tag.classes.push(...value.split(/\s+/).filter(Boolean));
+    },
+  });
+  parser.write(html);
+  parser.end();
+  return tags;
+}
+
+// Hand-read from the fixtures: where the imports land, and whether the fixture takes the `Child` prop.
+type Shape = {fixture: string; script: 'module' | 'instance' | 'added'; child?: true};
+
+const SHAPES: Shape[] = (
+  [
+    {fixture: 'AttributeGt.ucf', script: 'added'},
+    {fixture: 'AwaitBlock.ucf', script: 'instance'},
+    {fixture: 'Boundary.ucf', script: 'added'},
+    {fixture: 'CommentedTag.ucf', script: 'added'},
+    {fixture: 'Components.ucf', script: 'instance', child: true},
+    {fixture: 'EachBlock.ucf', script: 'instance'},
+    {fixture: 'Elements.ucf', script: 'instance'},
+    {fixture: 'IfBlock.ucf', script: 'instance'},
+    {fixture: 'KeyBlock.ucf', script: 'instance'},
+    {fixture: 'LessThan.ucf', script: 'instance'},
+    // `$style` in `<script module>` reads an import there; one in the instance script would not reach it.
+    {fixture: 'ModuleScriptOnly.ucf', script: 'module'},
+    {fixture: 'NoScript.ucf', script: 'added'},
+    {fixture: 'ScriptString.ucf', script: 'instance'},
+    {fixture: 'Slots.ucf', script: 'instance', child: true},
+    {fixture: 'Snippets.ucf', script: 'instance'},
+    {fixture: 'SpecialElements.ucf', script: 'instance'},
+    {fixture: 'SvelteComponent.ucf', script: 'instance', child: true},
+    {fixture: 'SvelteElement.ucf', script: 'instance'},
+  ] satisfies Shape[]
+).map((row) => ({...row, fixture: `${SHAPES_DIR}/${row.fixture}`}));
+
+it('has a row for every svelte/shapes/ fixture', () => {
+  expect(listComponents(SHAPES_DIR)).toEqual(SHAPES.map(({fixture}) => fixture));
+});
+
+describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child}) => {
+  const {split, source, ctx, file} = await svelteBuild(fixture);
+  const block = split.targets.svelte!;
+  const stamp = `data-v-${ctx.scopeId}`;
+  const output = svelte.parse(file!.code, {modern: true});
+  const input = svelte.parse(block.content, {modern: true});
+  const stampsOf = (node: Node) => (node.attributes as Node[]).filter(({type, name}) => type === 'Attribute' && name === stamp);
+
+  it('is a scoped, valid fixture that builds a .svelte file', () => {
+    expect(checkBlocks(split)).toEqual([]);
+    expect(ctx.hasScoped).toBe(true);
+    expect(file!.ext).toBe('.svelte');
+  });
+
+  it('compiles with no warning and no Svelte CSS, on the server and the client', () => {
+    for (const generate of ['server', 'client'] as const) {
+      const result = svelte.compile(file!.code, {generate, filename: `${ctx.filename}.svelte.svelte`});
+      expect(result.warnings.map(({code, message}) => `${code}: ${message}`)).toEqual([]);
+      expect(result.css).toBeNull();
+    }
+    expect(output.css).toBeNull();
+  });
+
+  it('matches the code snapshot', async () => {
+    const code = file!.code.replaceAll(FIXTURES_DIR, '<fixtures>');
+    await expect(code).toMatchFileSnapshot(`../__snapshots__/${fixture}.svelte.snap`);
+  });
+
+  it('only inserts: without the stamps and imports, and with the renames undone, the code is the block content', () => {
+    expect(undoBuild(file!.code, ctx)).toBe(block.content);
+  });
+
+  it('stamps every element and component once, nothing else, nothing in <svelte:head>', () => {
+    const before = namedNodes(input);
+    const after = namedNodes(output);
+    expect(after.map(({node}) => node.name)).toEqual(before.map(({node}) => node.name));
+    for (const {node, inHead} of after) {
+      expect(stampsOf(node).length, `${node.type} ${node.name}`).toBe(STAMPED.has(node.type) && !inHead ? 1 : 0);
+    }
+    expect(after.some(({node}) => STAMPED.has(node.type))).toBe(true);
+  });
+
+  it(`imports the CSS and the used class map in the ${script} script`, () => {
+    const scripts = {module: output.module, instance: output.instance};
+    const target = script === 'module' ? output.module : output.instance;
+    const imports = target!.content.body.flatMap((node) => (node.type === 'ImportDeclaration' ? [node.source.value] : []));
+    expect(imports).toEqual(expect.arrayContaining([...ctx.styles.map(({id}) => id), classMapId(ctx.filename, 0)]));
+    if (script === 'added') expect(target!.content.body).toHaveLength(ctx.styles.length + 1);
+    const other = script === 'module' ? scripts.instance : scripts.module;
+    expect(other ? file!.code.slice(other.start, other.end) : '').not.toMatch(/\?ucf&type=style&/);
+  });
+
+  it('maps the text after each stamp to the end of the element name, and each local to its $name', () => {
+    const map = new TraceMap(file!.map!);
+    const before = namedNodes(input);
+    namedNodes(output).forEach(({node}, index) => {
+      const [attribute] = stampsOf(node);
+      if (!attribute) return;
+      const original = originalPositionFor(map, lineColumn(file!.code, attribute.end));
+      const {node: from} = before[index]!;
+      const nameEnd = block.contentStart + from.start + 1 + (from.name as string).length;
+      expect({line: original.line, column: original.column}).toEqual(lineColumn(source, nameEnd));
+    });
+    const locals = [...file!.code.matchAll(/(?<![\w"])__ucf\w+\b(?! from)/g)];
+    expect(locals.length).toBeGreaterThan(0);
+    for (const local of locals) {
+      const original = originalPositionFor(map, lineColumn(file!.code, local.index));
+      const at = source.slice(offsetOf(source, original.line!, original.column!));
+      // A shorthand `{$style}` is overwritten as a whole: its local maps to the `{`.
+      expect(at).toMatch(/^\{?\$style\b/);
+    }
+  });
+
+  it('renders every element from the block with the scope once and only module class names', async () => {
+    const props = child ? {Child: await childComponent()} : {};
+    const {body, head} = await renderBuild(file!, ctx, basename(fixture, '.ucf'), props);
+    const tags = startTags(body, stamp);
+    expect(tags.length).toBeGreaterThan(0);
+    for (const {name, stamps} of tags) expect(stamps, name).toBe(1);
+    expect(head).not.toContain('data-v-');
+    const generated = new Set(Object.values(ctx.modules).flatMap(({classes}) => Object.values(classes)));
+    const classes = tags.flatMap((tag) => tag.classes);
+    expect(classes.length).toBeGreaterThan(0);
+    for (const name of classes) expect(generated, name).toContain(name);
+    expect(body).not.toMatch(/svelte-/);
+    await expect(`${head}\n${body}\n`).toMatchFileSnapshot(`../__snapshots__/${fixture}.html`);
+  });
+});
+
+describe('svelte.build of the rule fixtures', () => {
+  it('renames only the class maps: stores, runes, property, import, export and type names stay', async () => {
+    const {file} = await svelteBuild(`${ERRORS_DIR}/NamedModule.ucf`);
+    const dollars = [...new Set(file!.code.match(/\$\w+/g))].sort();
+    expect(dollars).toEqual(
+      [
+        '$Props',
+        '$Row',
+        '$Store',
+        '$count',
+        '$derived',
+        '$exported',
+        '$extra',
+        '$fetch',
+        '$first',
+        '$makeStore',
+        '$others',
+        '$props',
+        '$second',
+        '$shared',
+        '$state',
+        '$theme',
+        '$user',
+      ].sort()
+    );
+    expect(file!.code.match(/__ucfClasses\b/g)).toHaveLength(3);
+    expect(file!.code.match(/__ucfStyle\b/g)).toHaveLength(2);
+  });
+
+  it('gives $style the module="style" class map when there is no bare <style module>', async () => {
+    const {ctx, file} = await svelteBuild(`${ERRORS_DIR}/ModuleNamedStyle.ucf`);
+    expect(file!.code).toContain(`import __ucfStyle from ${JSON.stringify(classMapId(ctx.filename, 0))};`);
   });
 });

@@ -1,0 +1,18 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/EachBlock.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/EachBlock.ucf?ucf&type=style&index=0&module&lang.js";
+    let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = []}: {
+      rows?: {id: number; cells: string[]}[]
+      empty?: string[]
+    } = $props()
+  </script>
+  <ul data-v-d7512b55="" class={__ucfStyle.list}>
+    {#each rows as row, index (row.id)}
+      <li data-v-d7512b55="" class={__ucfStyle.row}>
+        {index}
+        {#each row.cells as cell}<span data-v-d7512b55="" class={__ucfStyle.cell}>{cell}</span>{:else}<em data-v-d7512b55="" class={__ucfStyle.cell}>No cells</em>{/each}
+      </li>
+    {/each}
+    {#each empty as item}<li data-v-d7512b55="" class={__ucfStyle.row}>{item}</li>{:else}<li data-v-d7512b55="" class={__ucfStyle.row}>Empty</li>{/each}
+  </ul>

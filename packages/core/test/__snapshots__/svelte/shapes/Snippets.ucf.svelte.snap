@@ -1,0 +1,14 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/Snippets.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/Snippets.ucf?ucf&type=style&index=0&module&lang.js";
+    let {items = ['one', 'two']}: {items?: string[]} = $props()
+  </script>
+  {#snippet item(text: string)}
+    <li data-v-8eebef98="" class={__ucfStyle.item}><span data-v-8eebef98="" class={__ucfStyle.text}>{text}</span></li>
+  {/snippet}
+  <ul data-v-8eebef98="" class={__ucfStyle.list}>
+    {#snippet last()}<li data-v-8eebef98="" class={__ucfStyle.item}>Last</li>{/snippet}
+    {#each items as text}{@render item(text)}{/each}
+    {@render last()}
+  </ul>

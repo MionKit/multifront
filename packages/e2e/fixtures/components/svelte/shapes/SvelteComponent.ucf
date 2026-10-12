@@ -1,0 +1,18 @@
+<svelte>
+  <script>
+    export let Child
+  </script>
+  <div class={$style.box}>
+    <svelte:component this={Child} label="Dynamic" />
+    <svelte:component this={Child}><i class={$style.note}>Inside</i></svelte:component>
+  </div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.note {
+  font-style: italic;
+}
+</style>

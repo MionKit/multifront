@@ -1,0 +1,8 @@
+
+  <script module lang="ts">
+import "<fixtures>/components/svelte/shapes/ModuleScriptOnly.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/ModuleScriptOnly.ucf?ucf&type=style&index=0&module&lang.js";
+    export const greeting: string = 'Hi'
+    const moduleClass: string = __ucfStyle.text
+  </script>
+  <p data-v-84cd53ea="" class={moduleClass}><b data-v-84cd53ea="" class={__ucfStyle.text}>{greeting}</b></p>

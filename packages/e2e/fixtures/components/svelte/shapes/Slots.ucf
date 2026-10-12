@@ -1,0 +1,23 @@
+<svelte>
+  <script>
+    export let depth = 0
+    export let Child
+  </script>
+  <div class={$style.box}>
+    <slot><p class={$style.note}>Fallback</p></slot>
+    <slot name="named" />
+    {#if depth === 0}
+      <svelte:self depth={1} {Child}><span class={$style.note}>Default</span></svelte:self>
+    {/if}
+    <Child><svelte:fragment slot="named"><em class={$style.note}>Named</em></svelte:fragment></Child>
+  </div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.note {
+  font-style: italic;
+}
+</style>

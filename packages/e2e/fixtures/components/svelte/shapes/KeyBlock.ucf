@@ -1,0 +1,17 @@
+<svelte>
+  <script lang="ts">
+    let {id = 1}: {id?: number} = $props()
+  </script>
+  {#key id}
+    <div class={$style.box}><p class={$style.text}>Key {id}</p></div>
+  {/key}
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.text {
+  margin: 0;
+}
+</style>

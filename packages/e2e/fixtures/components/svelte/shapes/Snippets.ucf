@@ -1,0 +1,25 @@
+<svelte>
+  <script lang="ts">
+    let {items = ['one', 'two']}: {items?: string[]} = $props()
+  </script>
+  {#snippet item(text: string)}
+    <li class={$style.item}><span class={$style.text}>{text}</span></li>
+  {/snippet}
+  <ul class={$style.list}>
+    {#snippet last()}<li class={$style.item}>Last</li>{/snippet}
+    {#each items as text}{@render item(text)}{/each}
+    {@render last()}
+  </ul>
+</svelte>
+
+<style module scoped>
+.list {
+  margin: 0;
+}
+.item {
+  padding: 2px;
+}
+.text {
+  color: rgb(90, 90, 90);
+}
+</style>

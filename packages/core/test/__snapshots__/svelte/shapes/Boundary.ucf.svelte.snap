@@ -1,0 +1,13 @@
+<script>
+import "<fixtures>/components/svelte/shapes/Boundary.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/Boundary.ucf?ucf&type=style&index=0&module&lang.js";
+</script>
+  <svelte:boundary>
+    <p data-v-601db3ba="" class={__ucfStyle.text}>Inside the boundary</p>
+    {#snippet failed(error, reset)}
+      <div data-v-601db3ba="" class={__ucfStyle.error}>
+        <p data-v-601db3ba="" class={__ucfStyle.text}>{String(error)}</p>
+        <button data-v-601db3ba="" class={__ucfStyle.text} onclick={reset}>Retry</button>
+      </div>
+    {/snippet}
+  </svelte:boundary>

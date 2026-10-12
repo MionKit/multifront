@@ -1,0 +1,20 @@
+
+  <svelte:options runes />
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/SpecialElements.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/SpecialElements.ucf?ucf&type=style&index=0&module&lang.js";
+    let {title = 'Page'}: {title?: string} = $props()
+    let width = $state(0)
+    let visible = $state(true)
+  </script>
+  <svelte:head>
+    <title>{title}</title>
+    <meta name="description" content={title} />
+    <style>
+      body { margin: 0; }
+    </style>
+  </svelte:head>
+  <svelte:window bind:innerWidth={width} />
+  <svelte:body onmouseenter={() => (visible = true)} />
+  <svelte:document onvisibilitychange={() => (visible = !visible)} />
+  <main data-v-9f4a2880="" class={__ucfStyle.main}><h1 data-v-9f4a2880="" class={__ucfStyle.title}>{title} {width} {visible}</h1></main>

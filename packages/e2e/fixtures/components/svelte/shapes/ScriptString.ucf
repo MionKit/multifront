@@ -1,0 +1,14 @@
+<svelte>
+  <script lang="ts">
+    const html = '<div>'
+    const other = "<p class='x'>"
+    const template = `<span>${html}</span>`
+  </script>
+  <p class={$style.text}>{html} {other} {template}</p>
+</svelte>
+
+<style module scoped>
+.text {
+  margin: 0;
+}
+</style>

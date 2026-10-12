@@ -1,0 +1,9 @@
+<script>
+import "<fixtures>/components/svelte/shapes/CommentedTag.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/CommentedTag.ucf?ucf&type=style&index=0&module&lang.js";
+</script>
+  <!-- <div> -->
+  <div data-v-0df928e0="" class={__ucfStyle.box}>
+    <!-- <p class="hidden">not an element</p> -->
+    <p data-v-0df928e0="" class={__ucfStyle.text}>Real</p>
+  </div>

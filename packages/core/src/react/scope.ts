@@ -14,7 +14,7 @@ import type {
   ParseResult,
   Program,
 } from 'oxc-parser';
-import {children, walk} from '../ast.ts';
+import {children, freshName, walk} from '../ast.ts';
 import {keyName} from '../imports/rewrite.ts';
 import type {Block, BuildContext} from '../types.ts';
 import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
@@ -252,13 +252,6 @@ function patternReads(node: Node | null): string[] {
     if (prop.type === 'RestElement') return patternReads(prop.argument);
     return [...(prop.computed ? identifierNames(prop.key) : []), ...patternReads(prop.value)];
   });
-}
-
-// Unused anywhere in the block, so it neither shadows nor is shadowed.
-function freshName(used: Set<string>, base: string): string {
-  let name = base;
-  for (let index = 1; used.has(name); index++) name = `${base}${index}`;
-  return name;
 }
 
 function inComment(comments: Comment[], at: number): boolean {

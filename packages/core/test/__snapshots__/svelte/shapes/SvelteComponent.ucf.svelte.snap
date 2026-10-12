@@ -1,0 +1,10 @@
+
+  <script>
+import "<fixtures>/components/svelte/shapes/SvelteComponent.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/SvelteComponent.ucf?ucf&type=style&index=0&module&lang.js";
+    export let Child
+  </script>
+  <div data-v-9c3dc06e="" class={__ucfStyle.box}>
+    <svelte:component data-v-9c3dc06e="" this={Child} label="Dynamic" />
+    <svelte:component data-v-9c3dc06e="" this={Child}><i data-v-9c3dc06e="" class={__ucfStyle.note}>Inside</i></svelte:component>
+  </div>

@@ -1,0 +1,6 @@
+<script>
+import "<fixtures>/components/svelte/shapes/AttributeGt.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/AttributeGt.ucf?ucf&type=style&index=0&module&lang.js";
+</script>
+  <p data-v-b98eac92="" class={__ucfStyle.text} title="a > b" data-arrow='>'>Arrow</p>
+  <div data-v-b98eac92="" class={__ucfStyle.text} data-html="<div>"><span data-v-b98eac92="" class={__ucfStyle.text} title=">">Inner</span></div>

@@ -1,0 +1,24 @@
+<svelte>
+  <script lang="ts">
+    let {value = Promise.resolve(1), ready = 2}: {value?: Promise<number>; ready?: number} = $props()
+  </script>
+  <div class={$style.box}>
+    {#await value}
+      <p class={$style.state}>Pending</p>
+    {:then result}
+      <p class={$style.state}>{result}</p>
+    {:catch error}
+      <p class={$style.state}>{String(error)}</p>
+    {/await}
+    {#await ready then result}<span class={$style.state}>{result}</span>{/await}
+  </div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.state {
+  color: rgb(20, 90, 160);
+}
+</style>

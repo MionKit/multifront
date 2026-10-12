@@ -57,6 +57,7 @@
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "3.9.2",
     "@vue/typescript-plugin": "3.3.11",
+    "htmlparser2": "10.1.0",
     "husky": "9.1.7",
     "lint-staged": "17.5.0",
     "oxc-parser": "0.149.0",

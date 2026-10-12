@@ -1,0 +1,8 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/LessThan.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/LessThan.ucf?ucf&type=style&index=0&module&lang.js";
+    let {a = 1, b = 2}: {a?: number; b?: number} = $props()
+  </script>
+  <p data-v-5e62e07f="" class={__ucfStyle.text} title={a < b ? 'less' : 'more'}>{a < b} {a<b}</p>
+  <div data-v-5e62e07f="" class={__ucfStyle.text}>{a <b}<span data-v-5e62e07f="" class={__ucfStyle.text}>After</span></div>
