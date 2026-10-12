@@ -4,9 +4,9 @@ import type {OxcError, ParseResult, Program} from 'oxc-parser';
 import {createDiagnostic} from '../diagnostics.ts';
 import {frameworkInBlockMessage} from '../imports/resolveTarget.ts';
 import {frameworkAttributes} from '../imports/rewrite.ts';
-import {transformScope} from '../react/scope.ts';
+import {rootPropsOf, transformScope} from '../react/scope.ts';
 import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
-import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, VirtualFile} from '../types.ts';
+import type {Block, BlockKind, BuildContext, Diagnostic, ReactRootProps, SplitResult, VirtualFile} from '../types.ts';
 
 // A module name the block cannot name (`module="my-theme"`) gets no import, as the editor declares none.
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -65,6 +65,11 @@ function parseBlock(block: Block, filename: string): ParseResult {
     parses.set(block, parsed);
   }
   return parsed;
+}
+
+/** The roots the build hands `className`, `style` and `ref` to, and where the default export's props type is written. */
+export function reactRootProps(block: Block, filename: string): ReactRootProps | undefined {
+  return rootPropsOf(parseBlock(block, filename), block.content);
 }
 
 function check(block: Block, split: SplitResult): Diagnostic[] {

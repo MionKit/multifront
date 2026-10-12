@@ -5,8 +5,16 @@ import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {Visitor, parseSync} from 'oxc-parser';
 import type {CallExpression, JSXAttribute, JSXAttributeItem, JSXElementName, JSXOpeningElement, Program} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
-import {checkBlocks, createBuildContext, getBlockKind, scopeHelperCode, splitBlocks} from '@multifront/core';
-import type {VueCompiler} from '@multifront/core';
+import {
+  checkBlocks,
+  createBuildContext,
+  getBlockKind,
+  propsTypeInserts,
+  reactRootProps,
+  scopeHelperCode,
+  splitBlocks,
+} from '@multifront/core';
+import type {ReactPropsSite, VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
 import {MERGES, isAdded, isCallTo, isHelperImport, withoutInjected} from '../blocks/injected.ts';
@@ -175,6 +183,7 @@ function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, prop
 // `signature`: dev build text around the added parameters, the moved-in `const <pattern> = <props>;`, or the helper import.
 // `forwarding/` holds build-only edges of finding the component and a name for its props.
 // `rootProps`: per root in source order, how the build leaves each root prop (`react/root-props/` rows).
+// `typed`: block text around `reactRootProps`' sites, marked as `markSites` does.
 type RootProps = ({tag: string} & Record<RootProp, RootPropState>)[];
 const SHAPES: {
   fixture: string;
@@ -183,6 +192,7 @@ const SHAPES: {
   fragments?: number;
   signature?: string;
   rootProps?: RootProps;
+  typed?: string;
 }[] = [
   {
     fixture: 'react/forwarding/ArrayPattern.ucf',
@@ -270,6 +280,12 @@ const SHAPES: {
     ],
   },
   {
+    fixture: 'react/root-props/MemoTyped.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
+    typed: 'memo<{ branch?: string } & X>(function MemoTyped(props)',
+  },
+  {
     fixture: 'react/root-props/NestedProps.ucf',
     roots: ['ul'],
     rootProps: [{tag: 'ul', className: 'merged', style: 'added', ref: 'added'}],
@@ -309,6 +325,12 @@ const SHAPES: {
     ],
   },
   {
+    fixture: 'react/root-props/UnionProps.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
+    typed: "function UnionProps(props: ({ kind: 'a' } | { kind: 'b'; note: string }) & X)",
+  },
+  {
     fixture: 'react/root-props/Valueless.ucf',
     roots: ['div'],
     props: '__props',
@@ -342,26 +364,39 @@ const SHAPES: {
     props: '__props',
     signature:
       "function DestructuredDefaults(__props: Props = {}) {const {\n    /* shown without a label */\n    label = 'default label',\n    branch,\n    ...rest\n  } = __props;",
+    typed: '}: Props & X = {}) {',
   },
   {fixture: 'react/shapes/ExportIdentifier.ucf', roots: ['div']},
-  {fixture: 'react/shapes/ForwardRef.ucf', roots: ['div']},
+  {
+    fixture: 'react/shapes/ForwardRef.ucf',
+    roots: ['div'],
+    typed: 'forwardRef<HTMLDivElement, { branch?: string } & X>(function ForwardRef(props, ref)',
+  },
   {
     fixture: 'react/shapes/ForwardRefDestructured.ucf',
     roots: ['div'],
     props: '__props',
     signature: '>((__props, ref) => {const { branch } = __props; return (',
+    typed: 'forwardRef<HTMLDivElement, { branch?: string } & X>(({ branch }, ref)',
   },
   {fixture: 'react/shapes/FragmentRoot.ucf', roots: [], fragments: 2},
-  {fixture: 'react/shapes/Memo.ucf', roots: ['div']},
+  {fixture: 'react/shapes/Memo.ucf', roots: ['div'], typed: 'memo(function Memo(props: { branch?: string } & X)'},
   {
     fixture: 'react/shapes/MemoForwardRef.ucf',
     roots: ['div'],
     props: '__props',
     signature: '<HTMLDivElement>((__props, __ref) =>',
+    typed: 'React.forwardRef<HTMLDivElement, X>((__props: X) =>',
   },
   {fixture: 'react/shapes/MultiReturn.ucf', roots: ['section', 'div']},
   {fixture: 'react/shapes/NestedTernary.ucf', roots: ['div', 'p', 'section']},
-  {fixture: 'react/shapes/NoParams.ucf', roots: ['div'], props: '__props', signature: 'function NoParams /* () */ (__props) {'},
+  {
+    fixture: 'react/shapes/NoParams.ucf',
+    roots: ['div'],
+    props: '__props',
+    signature: 'function NoParams /* () */ (__props) {',
+    typed: 'function NoParams /* () */ (__props: X) {',
+  },
   {fixture: 'react/shapes/NullRoot.ucf', roots: []},
   {fixture: 'react/shapes/Ternary.ucf', roots: ['div', 'p']},
   // `content` warns at each return naming it; `mixed`, a ternary, never warns.
@@ -391,6 +426,12 @@ it('serves the fragment warning in the dev helper only, and the other helpers in
   });
 });
 
+// The block content with each site typed as the editor does it, `X` standing for the root props type.
+function markSites(content: string, sites: ReactPropsSite[]): string {
+  const inserts = sites.flatMap((site) => propsTypeInserts(site, 'X')).sort((first, second) => second.at - first.at);
+  return inserts.reduce((text, {at, text: insert}) => text.slice(0, at) + insert + text.slice(at), content);
+}
+
 function calls(program: Program, name: string): CallExpression[] {
   const found: CallExpression[] = [];
   new Visitor({
@@ -407,7 +448,7 @@ function argumentText(code: string, call: CallExpression): string[] {
 
 describe.each(SHAPES)(
   'react.build forwarding of $fixture',
-  async ({fixture, roots, props = 'props', fragments = 0, signature, rootProps}) => {
+  async ({fixture, roots, props = 'props', fragments = 0, signature, rootProps, typed}) => {
     const pattern = signature?.match(/const ([\s\S]+?) = __props\d*;/)?.[1];
     const {filename, source} = readComponent(fixture);
     const split = splitBlocks(source, filename);
@@ -503,6 +544,19 @@ describe.each(SHAPES)(
         }));
         expect(found).toEqual(rootProps);
       }
+    });
+
+    it('reactRootProps gives the roots and, per root, the root props the build added or merged', () => {
+      const found = reactRootProps(block, filename);
+      const taken = forwardedRoots(dev.program).map((opening) => ({
+        tag: nameText(opening.name),
+        props: (['className', 'style', 'ref'] as const).filter((prop) =>
+          ['added', 'merged'].includes(rootProp(dev.code, opening, prop, props))
+        ),
+      }));
+      expect(found?.roots ?? []).toEqual(taken);
+      expect(taken.map(({tag}) => tag)).toEqual(roots);
+      if (typed) expect(markSites(block.content, found!.sites)).toContain(typed);
     });
 
     it("adds or merges no ref on a forwardRef component's roots: React hands it the ref as a parameter", () => {
