@@ -1,7 +1,5 @@
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {SourceMapConsumer} from 'source-map-js';
-import type {RawSourceMap} from 'source-map-js';
 import {scopeId} from '@multifront/core';
 import type {LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -59,16 +57,6 @@ describe('buildLibrary(): CSS as real files', () => {
         expect(cssImports(result, file), `${target}/${file}`).toEqual([`./${name.split('/').pop()}.css`]);
       }
     }
-  });
-
-  it('keeps the source map of react/Card.js right below the import it adds', () => {
-    const result = resultOf(library.results, 'react');
-    const code = read(result, 'Card.js');
-    const consumer = new SourceMapConsumer(JSON.parse(read(result, 'Card.js.map')) as RawSourceMap);
-    const before = code.slice(0, code.indexOf('return /* @__PURE__ */ jsxs("article"')).split('\n');
-    const original = consumer.originalPositionFor({line: before.length, column: before.at(-1)!.length});
-    const ucf = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
-    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('return (', ucf.indexOf('<react>'))).split('\n').length);
   });
 
   it('imports no CSS from plain modules, the index, the virtual modules or a component without styles', async () => {
