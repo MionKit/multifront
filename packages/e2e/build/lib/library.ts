@@ -49,7 +49,6 @@ export function resultOf(results: LibraryResult[], target: LibraryResult['target
   return result;
 }
 
-/** A file the build wrote, by its path in the target's folder. */
 export function readOutput(result: LibraryResult, file: string): string {
   return readFileSync(join(result.outDir, file), 'utf8');
 }
