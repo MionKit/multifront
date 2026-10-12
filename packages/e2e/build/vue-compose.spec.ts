@@ -61,7 +61,7 @@ describe('vite build of the vue app', () => {
   it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {
     const importer = join(root, 'src', 'bothTargets.ts');
     await expect(buildApp(root, inline([multifront()], ['src/bothTargets.ts']))).rejects.toThrow(
-      `../../../components/Counter.ucf (imported by ${importer}): the vue target needs @vitejs/plugin-vue in your Vite plugins`
+      `../../../components/Counter.ucf (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 });

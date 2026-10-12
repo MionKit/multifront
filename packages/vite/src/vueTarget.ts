@@ -19,7 +19,7 @@ type SourceBehind = (file: string, code: string) => string | undefined;
 // plugin-vue's transform tests only the path, so its hook filter must drop our style and class map ids.
 const UCF_SUB_REQUEST = /\.ucf\?(?:.*&)?ucf\b/;
 
-export const VUE_PLUGIN_MISSING = 'the vue target needs @vitejs/plugin-vue in your Vite plugins';
+export const VUE_PLUGIN_MISSING = 'the vue framework needs @vitejs/plugin-vue in your Vite plugins';
 
 const EMPTY_SCAN: Rolldown.SourceDescription = {code: 'export default {}', moduleType: 'js'};
 
