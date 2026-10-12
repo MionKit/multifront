@@ -48,6 +48,8 @@ const NO_STYLE = '<svelte> uses $style, but no <style module> exists; add one';
 
 // Written by hand from the fixture files.
 const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' | 'column'> & {text: string})[]}[] = [
+  // A script that does not parse hides its framework attribute: Svelte's error is the one.
+  {fixture: `${ERRORS_DIR}/ImportParseError.ucf`, errors: [{code: 'svelte-parse-error', line: 5, column: 2, text: ''}]},
   // `$:` and `$$props` are Svelte's own.
   {fixture: `${ERRORS_DIR}/Legacy.ucf`, errors: []},
   // `$style` reads `module="style"` as `$name` reads `module="name"`.
@@ -163,14 +165,14 @@ describe('the <svelte> rules', () => {
     expect(() => svelte.compile(file!.code, {generate: 'server', filename: `${name}.svelte.svelte`})).not.toThrow();
   });
 
-  // Written by hand from the fixture: the module script has no `lang`, so it parses as JavaScript.
+  // Written by hand from the fixture: the module script has no `lang`, and holds TypeScript as Svelte reads it.
   it(`reports framework-in-block on each framework attribute of a top-level script in ${ATTR_IN_SVELTE}`, async () => {
     const {split, source, thrown} = await svelteBuild(ATTR_IN_SVELTE);
     expect(split.errors).toEqual([]);
     expect(thrown.map(({code, line, column, start, end}) => ({code, line, column, text: source.slice(start, end)}))).toEqual([
       {code: 'framework-in-block', line: 3, column: 71, text: "framework: 'svelte'"},
-      {code: 'framework-in-block', line: 7, column: 51, text: "framework: 'react'"},
-      {code: 'framework-in-block', line: 9, column: 58, text: "framework: 'svelte'"},
+      {code: 'framework-in-block', line: 8, column: 51, text: "framework: 'react'"},
+      {code: 'framework-in-block', line: 10, column: 58, text: "framework: 'svelte'"},
     ]);
     expect(thrown.every(({message}) => message.includes('<svelte> block; imports there always get svelte'))).toBe(true);
     expect(checkBlocks(split)).toEqual(thrown);

@@ -35,7 +35,7 @@ const OPTIONS_NOT_LITERAL =
   'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
 
 /** A `lang.<ext>` query looks like `C.vue?vue&type=script&lang.ts`; `.ts`, `.mts`, `.cts` fall through to ts. */
-export function langOf(filename: string): Lang {
+function langOf(filename: string): Lang {
   const queryAt = filename.indexOf('?');
   const path = queryAt < 0 ? filename : filename.slice(0, queryAt);
   const fromPath = LANGS[extname(path)];
@@ -88,20 +88,20 @@ export function frameworkInBlock(
   tags: ReturnType<typeof topLevelTags>,
   target: Target
 ): Diagnostic[] {
-  return tags
-    .filter(({name}) => name === 'script')
-    .flatMap(({attrs, end}) => {
-      const content = block.content.slice(end, findClosingTag(block.content, 'script', end)?.start);
-      if (!content.includes('.ucf')) return [];
-      const lang = langOf(`?lang.${attrs.lang ?? 'js'}`);
-      const {program, errors} = parseSync(split.filename, content, {lang, sourceType: 'module'});
-      // The framework's own compiler reports the syntax error.
-      if (errors.length > 0) return [];
-      const offset = block.contentStart + end;
-      return frameworkAttributes(program).map(({start, end: spanEnd}) =>
-        createDiagnostic(split, 'framework-in-block', offset + start, offset + spanEnd, frameworkInBlockMessage(target))
-      );
-    });
+  const scripts = tags.filter(({name}) => name === 'script');
+  // One language for every script: Svelte takes the first `lang`, compiler-sfc refuses two.
+  const lang = langOf(`?lang.${scripts.find(({attrs}) => attrs.lang)?.attrs.lang ?? 'js'}`);
+  return scripts.flatMap(({end}) => {
+    const content = block.content.slice(end, findClosingTag(block.content, 'script', end)?.start);
+    if (!content.includes('.ucf')) return [];
+    const {program, errors} = parseSync(split.filename, content, {lang, sourceType: 'module'});
+    // The framework's own compiler reports the syntax error.
+    if (errors.length > 0) return [];
+    const offset = block.contentStart + end;
+    return frameworkAttributes(program).map(({start, end: spanEnd}) =>
+      createDiagnostic(split, 'framework-in-block', offset + start, offset + spanEnd, frameworkInBlockMessage(target))
+    );
+  });
 }
 
 // A spread or computed key could hold the framework, unreadable statically.
