@@ -1,0 +1,11 @@
+<react>
+  import { use } from 'react'
+
+  function useless(text: string): string {
+    return text
+  }
+
+  export default function ServerUse({ message }: { message: Promise<string> }) {
+    return <p>{useless(use(message))}</p>
+  }
+</react>
