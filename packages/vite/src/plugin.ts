@@ -9,6 +9,7 @@ import {
   importerFromId,
   loadSvelteCompiler,
   missingTargetBlockMessage,
+  needsUseClient,
   resolveTarget,
   rewriteImportAttributes,
   rootRelativePath,
@@ -21,7 +22,7 @@ import {ucfHotUpdate} from './hmr.ts';
 import {JS_LIKE, TARGET_SUFFIX, VUE_INCLUDE, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin, importersPlugin} from './attributes.ts';
 import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
-import type {MultifrontOptions, UcfEntry} from './types.ts';
+import type {MultifrontOptions, UcfEntry, UcfModuleMeta} from './types.ts';
 import {getVueCompiler, hasVuePlugin, vuePluginApi} from './vueCompiler.ts';
 import {SVELTE_PLUGIN_MISSING, composeSveltePlugin, hasSveltePlugin, svelteCompiledPlugin} from './svelteTarget.ts';
 import {
@@ -206,7 +207,12 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         this.addWatchFile(own.file);
         // The raw source: our transform turns it into SFC code.
         if (own.target === 'vue') return (await cache.splitUcf(own.file)).source;
-        return built(this, await cache.loadUcf(own.file), own.target);
+        const entry = await cache.loadUcf(own.file);
+        const result = built(this, entry, own.target);
+        if (own.target !== 'react') return result;
+        // A library build puts `"use client"` atop this module's output file when set.
+        const meta: UcfModuleMeta = {useClient: needsUseClient(entry.split.targets.react!.content, own.file)};
+        return {...result, meta: {multifront: meta}};
       },
     },
     transform: {

@@ -10,6 +10,7 @@ import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
 import {fileOf, insideDir, outputName, shownFile} from './names.ts';
 import {libraryTargets} from './targets.ts';
+import {libraryUseClient} from './useClient.ts';
 
 // Not relative, absolute or virtual.
 const BARE = /^(?![./\0])/;
@@ -150,6 +151,8 @@ async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise
       multifront({framework: target, frameworks: [target]}),
       libraryPlugin(job),
       libraryCss(root, src),
+      // After `libraryCss`: its CSS import must come below the directive.
+      row.useClient && libraryUseClient(),
     ],
     build: {
       outDir,

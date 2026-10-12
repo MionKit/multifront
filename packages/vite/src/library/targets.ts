@@ -6,6 +6,7 @@ export const libraryTargets = {
   react: {
     plugin: async () => (await import('@vitejs/plugin-react')).default(),
     peers: {react: '^19.0.0', 'react-dom': '^19.0.0'},
+    useClient: true,
   },
   vue: {
     plugin: async () => (await import('@vitejs/plugin-vue')).default(),
