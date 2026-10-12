@@ -30,7 +30,6 @@ export function isCallTo(node: Expression, name: string): boolean {
 type Edit = [start: number, end: number, replacement: string];
 
 const PROPS = /^__props\d*$/;
-/** Each root prop and the helper that merges it into the root's own value. */
 export const MERGES = {className: '__ucfClass', style: '__ucfStyle', ref: '__ucfRef'};
 const REF = /^__ref\d*$/;
 

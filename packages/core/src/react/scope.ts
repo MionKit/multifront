@@ -216,10 +216,7 @@ function inComment(comments: Comment[], at: number): boolean {
   return comments.some(({start, end}) => start <= at && at < end);
 }
 
-/**
- * Stamps all but Fragments when scoped; always forwards `data-v-*` props and the root props on the default export's
- * roots. Returns the helper import specifiers, `__ucfClass as __ucfClass1` when the block uses the name itself.
- */
+/** Stamps all but Fragments when scoped; always forwards `data-v-*` and root props on the default export's roots. */
 export function transformScope(
   text: MagicString,
   parsed: Pick<ParseResult, 'program' | 'comments'>,

@@ -2,7 +2,7 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   type Props = { branch?: string; tone?: string }
 
-  // Several own `className`: the last one is merged. A string `style` or `ref` is no value React takes: left as written.
+  // The last of several own `className` is merged; a string `style` or `ref` is left as written.
   export default function LeftAlone(props: Props) {
     if (props.branch === 'twice')
       // @ts-expect-error Two `className` attributes, on purpose.
