@@ -7,7 +7,7 @@
   </script>
 
   <template>
-    <button :class="cx($style.button)" @click="$emit('click', $event)">{{ label }}</button>
+    <button :class="cx($style.button)" :style="{ fontWeight: 600 }" @click="$emit('click', $event)">{{ label }}</button>
   </template>
 </vue>
 
@@ -16,7 +16,7 @@
   import { cx } from './utils/cx.js'
 
   export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
-    return <button className={cx($style.button)} onClick={onClick}>{label}</button>
+    return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
   }
 </react>
 
@@ -28,7 +28,7 @@
   let { label, onclick }: { label: string; onclick?: MouseEventHandler<HTMLButtonElement> } = $props()
   </script>
 
-  <button class={cx($style.button)} {onclick}>{label}</button>
+  <button class={cx($style.button)} style="font-weight: 600" {onclick}>{label}</button>
 </svelte>
 
 <style module>
