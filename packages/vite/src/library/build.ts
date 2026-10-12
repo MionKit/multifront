@@ -1,0 +1,189 @@
+import {existsSync} from 'node:fs';
+import {readFile, readdir} from 'node:fs/promises';
+import {join, relative, resolve} from 'node:path';
+import {TARGETS, splitBlocks} from '@multifront/core';
+import type {SplitResult, Target} from '@multifront/core';
+import {build, mergeConfig, normalizePath} from 'vite';
+import type {InlineConfig, Plugin, Rolldown} from 'vite';
+import {splitId, virtualTarget} from '../ids.ts';
+import {multifront} from '../plugin.ts';
+import type {LibraryOptions, LibraryResult} from '../types.ts';
+import {insideDir, outputName} from './names.ts';
+import {libraryTargets} from './targets.ts';
+import type {LibraryTarget} from './targets.ts';
+
+// A specifier that is neither relative, absolute nor a virtual id.
+const BARE = /^(?![./\0])/;
+const REAL_ID = /^[^\0]/;
+
+interface Component {
+  relative: string; // from src, posix
+  split: SplitResult;
+}
+
+interface TargetJob {
+  target: Target;
+  row: LibraryTarget;
+  root: string;
+  src: string;
+  outDir: string;
+  entries: Record<string, string>;
+  skipped: string[];
+  packageName: string;
+  peers: Record<string, string>;
+}
+
+/** Types a `multifront.config.ts`; returns `options` as is. */
+export function defineLibrary(options: LibraryOptions): LibraryOptions {
+  return options;
+}
+
+function rowOf(target: Target): LibraryTarget {
+  const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];
+  if (!row) throw new Error(`buildLibrary: the '${target}' framework has no library build`);
+  return row;
+}
+
+async function scan(src: string): Promise<Component[]> {
+  const names = (await readdir(src, {recursive: true})).filter((name) => name.endsWith('.ucf')).map(normalizePath);
+  return Promise.all(
+    names.sort().map(async (name) => {
+      const file = `${src}/${name}`;
+      return {relative: name, split: splitBlocks(await readFile(file, 'utf8'), file)};
+    })
+  );
+}
+
+function indexEntry(root: string, index: string | false | undefined): string | undefined {
+  if (index === false) return undefined;
+  const file = normalizePath(resolve(root, index ?? 'src/index.ts'));
+  if (existsSync(file)) return file;
+  if (index !== undefined) throw new Error(`buildLibrary: the index ${index} does not exist in ${root}`);
+  return undefined;
+}
+
+async function libraryName(root: string): Promise<string | undefined> {
+  try {
+    const {name} = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as {name?: unknown};
+    return typeof name === 'string' ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function writtenFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, {recursive: true, withFileTypes: true});
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => normalizePath(relative(dir, join(entry.parentPath, entry.name))))
+    .sort();
+}
+
+/** Keeps the peers external, and fails on any other package or on a file outside `src`. */
+function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plugin {
+  const names = Object.keys(peers);
+  const isPeer = (id: string) => names.some((peer) => id === peer || id.startsWith(`${peer}/`));
+  const fileOf = (id: string) => {
+    const {path} = splitId(id);
+    return virtualTarget(path)?.file ?? path;
+  };
+  const shown = (file: string) => normalizePath(relative(root, file));
+  return {
+    name: 'multifront:library',
+    enforce: 'pre',
+    resolveId: {
+      filter: {id: BARE},
+      async handler(id, importer, options) {
+        if (isPeer(id)) return {id, external: true};
+        const resolved = await this.resolve(id, importer, {...options, skipSelf: true});
+        // An entry, a virtual id or an alias into `src`.
+        if (resolved && !resolved.external && (resolved.id.startsWith('\0') || insideDir(src, fileOf(resolved.id)))) {
+          return resolved;
+        }
+        const by = importer === undefined ? 'an entry' : shown(fileOf(importer));
+        this.error(
+          `"${id}" is imported by ${by}, but it is not a peer dependency of ${packageName}: ` +
+            `a library package has peer dependencies only. Add it to packages.${target}.peers to keep it external.`
+        );
+      },
+    },
+    load: {
+      filter: {id: REAL_ID},
+      handler(id) {
+        const file = fileOf(id);
+        if (insideDir(src, file) === undefined) {
+          this.error(`${shown(file)} is outside ${shown(src)}: a library package ships only the files of its src folder`);
+        }
+      },
+    },
+  };
+}
+
+async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise<LibraryResult> {
+  const {target, row, root, src, outDir, entries} = job;
+  const name = (chunk: Rolldown.PreRenderedChunk) => `${outputName(chunk.facadeModuleId ?? chunk.moduleIds[0]!, src)}.js`;
+  const config: InlineConfig = {
+    configFile: false,
+    root,
+    mode: 'production',
+    publicDir: false,
+    logLevel: 'warn',
+    plugins: [await row.plugin(), multifront({framework: target, frameworks: [target]}), libraryPlugin(job)],
+    build: {
+      outDir,
+      emptyOutDir: true,
+      minify: false,
+      sourcemap: true,
+      // 6.2 replaces Vite's one lib CSS file with a file per component.
+      lib: {entry: entries, formats: ['es'], cssFileName: 'styles'},
+      rolldownOptions: {
+        output: {preserveModules: true, preserveModulesRoot: src, entryFileNames: name, chunkFileNames: name},
+      },
+    },
+  };
+  await build(vite ? mergeConfig(config, vite) : config);
+  return {target, outDir, packageName: job.packageName, files: await writtenFiles(outDir), skipped: job.skipped};
+}
+
+/** One real `vite build` per framework: `<outDir>/<framework>/` gets one ES module per component and plain module. */
+export async function buildLibrary(options: LibraryOptions = {}): Promise<LibraryResult[]> {
+  const root = normalizePath(resolve(options.root ?? process.cwd()));
+  const src = normalizePath(resolve(root, options.src ?? 'src'));
+  const outDir = normalizePath(resolve(root, options.outDir ?? 'dist'));
+  const index = indexEntry(root, options.index);
+  const components = await scan(src);
+  const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
+  const frameworks = options.frameworks ?? TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
+  const name = await libraryName(root);
+  const jobs = frameworks.map((target): TargetJob => {
+    const row = rowOf(target);
+    const built = withBlock(target);
+    if (built.length === 0) throw new Error(`buildLibrary: no .ucf file in ${src} has a <${target}> block`);
+    const packageName = options.packages?.[target]?.name ?? (name && `${name}-${target}`);
+    if (!packageName) throw new Error(`buildLibrary: ${root}/package.json has no name; set packages.${target}.name`);
+    const entries = Object.fromEntries(built.map((component) => [component.relative, `${src}/${component.relative}`]));
+    if (index) entries[relative(src, index)] = index;
+    return {
+      target,
+      row,
+      root,
+      src,
+      outDir: `${outDir}/${target}`,
+      entries,
+      skipped: components.filter((component) => !built.includes(component)).map((component) => component.relative),
+      packageName,
+      peers: {...row.peers, ...options.packages?.[target]?.peers},
+    };
+  });
+  // Vite reads `isProduction` from it: a library is a production build whatever the caller's environment.
+  const nodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const results: LibraryResult[] = [];
+    for (const job of jobs) results.push(await buildOne(job, options.vite));
+    return results;
+  } finally {
+    if (nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = nodeEnv;
+  }
+}

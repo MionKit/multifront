@@ -1,0 +1,17 @@
+<vue>
+  <script setup lang="ts">
+  import { ref } from 'vue'
+
+  const open = ref(false)
+  </script>
+
+  <template>
+    <details class="vue-only" :open="open"><summary>Vue only</summary></details>
+  </template>
+</vue>
+
+<style scoped>
+.vue-only {
+  padding: 4px;
+}
+</style>
