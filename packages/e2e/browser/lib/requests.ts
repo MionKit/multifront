@@ -55,5 +55,6 @@ export function trackHmrPayloads(page: Page) {
     clear: () => void (payloads.length = 0),
     updatedPaths: () => payloads.flatMap((payload) => (payload.type === 'update' ? payload.updates.map(({path}) => path) : [])),
     fullReloads: () => payloads.filter((payload) => payload.type === 'full-reload').length,
+    errors: () => payloads.flatMap((payload) => (payload.type === 'error' ? [payload.err.message] : [])),
   };
 }
