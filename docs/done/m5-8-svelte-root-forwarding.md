@@ -29,7 +29,9 @@ Checked on this host (svelte 5.57.0):
   `<script>` added to a block with none (the block stays legacy).
 - Svelte's runes switch (`2-analyze/index.js:454`): the compiler option, else `<svelte:options runes>`, else any
   reference to a rune (`$state`, `$props`, …). `let props = $props()` counts: a top-level `props` whose init is a rune
-  call is no store. A block with no rune is legacy, even with no script at all.
+  call is no store, nor is svelte/store's `derived` beside `$derived`. With no rune and no `export let`, `$:`,
+  `$$props`, `$$restProps`, Svelte's `maybe_runes` (`index.js:499-505`) leaves the mode to the compiler option, and
+  runes mode rejects `$$props` (`legacy_props_invalid`).
 - `parse(…, {modern: true})`: `root.options?.runes` is `true` / `false` / `undefined`; a script's `content.end` is right
   before `</script>`; a `<svelte:boundary>`'s `{#snippet failed}` is a `SnippetBlock` in its `fragment.nodes`.
 - `compile(code, {generate: false}).metadata.runes` says whether Svelte reads a file in runes mode, without generating
@@ -37,13 +39,14 @@ Checked on this host (svelte 5.57.0):
 
 ## Decisions
 
-- **Runes mode is read from the block**, by Svelte's own rule: `<svelte:options runes={…}>` if set, else a reference to
-  a rune anywhere in the block (a `$state` whose `state` is a top-level non-rune declaration is a store, not a rune). A
-  block with no rune (markup only, like `svelte/NoStyle.ucf`) is legacy: it warns and does not forward. Adding
-  `$props()` there would switch the component to runes mode, with it the meaning of its `let`s, and bring deprecation
-  warnings for `<slot>`, `on:`, `<svelte:component>`. Core cannot see plugin-svelte's `compilerOptions.runes`: a
-  project forcing runes there still needs one rune in a block (any `$props()`) for it to forward (milestone Risks).
-  Orchestrator: confirmed (milestone Risks "Forwarding is runes-mode only", Out of scope "legacy-mode root forwarding").
+- **The mode is read from the block**, by Svelte's own rule (`SvelteMode` in `types.ts`): `runes` on
+  `<svelte:options runes>`, else a rune reference (a `$state` whose `state` is a top-level non-rune declaration is a
+  store); `legacy` on `<svelte:options runes={false}>`, `export let`, `$:`, `$$props` or `$$restProps`; else
+  `undecided`. A legacy block warns and does not forward (orchestrator: milestone Risks "Forwarding is runes-mode only",
+  Out of scope "legacy-mode root forwarding"). An undecided block (markup only, like `svelte/NoStyle.ucf`) gets no edit
+  at all (review, blocking): `$props()` would switch it to runes mode, and `$$props` breaks it where plugin-svelte's
+  `compilerOptions.runes: true` compiles it as runes; core cannot see that option. So a project forcing runes there
+  still needs one rune in a block (any `$props()`) for it to forward (milestone Risks).
 - **Whole component**, as the step says: any branch with more than one root, or an `{#each}` root, means no forwarding
   and one warning at init. React's warning fires only on a rendered fragment root; a Svelte branch cannot warn from
   markup without changing the HTML.
@@ -62,6 +65,11 @@ Checked on this host (svelte 5.57.0):
   those two attributes before comparing (milestone Risks names the CSP side of it).
 - **Instance lines go after the last statement** of the instance script (not at `content.end`), so the generated code
   keeps its closing-tag indent and 5.2's "only inserts" check stays a line strip.
+- **A props name hidden around a root is aliased** (review): `{:then props}`, `{:catch rest}` or a boundary snippet's
+  parameter named like the props source would make the spread read the wrong value, so the build adds
+  `const __ucfProps = $derived(props);` and spreads from that (no `state_referenced_locally`).
+- **`on…` attributes stay text** in `escapeOnce` (review): Svelte rejects a text event attribute
+  (`attribute_invalid_event_handler`); as an expression it would compile into a string handler.
 - **Warning text** (orchestrator, Q1 = b): `__ucfWarnFragment` takes optional `problem` and `fix`; React's call and
   text stay as they are; Svelte passes "renders more than one root", "renders an {#each} block as its root", or "is a
   legacy-mode Svelte component" with "Use $props() to make it a runes-mode component."
@@ -70,36 +78,41 @@ Checked on this host (svelte 5.57.0):
 
 ### Root analysis and forwarding: `packages/core/src/svelte/forward.ts` (new)
 
-`Node`, `isNode`, `walk` move from `packages/core/src/blocks/svelte.ts:19-39` to `packages/core/src/svelte/ast.ts`,
-shared by both.
+`isNode`, `walk` and `patternNames` move from `packages/core/src/blocks/svelte.ts` to `packages/core/src/svelte/ast.ts`;
+the node type becomes `SvelteNode` in `types.ts`, shared by both. 5.2's `STAMPED` set moves to `forward.ts` as the
+exported `ELEMENTS`, which `stampScope` reads too.
 
-- `rootsOf(fragment)`: walks branches. A branch = a list of fragment nodes. Not counted: whitespace-only `Text`,
-  `Comment`, `SnippetBlock`, `DebugTag`, `SvelteHead`, `SvelteWindow`, `SvelteBody`, `SvelteDocument`. A counted node
-  that is `IfBlock` → its `consequent` and `alternate` are branches (an `{:else if}` is the one `IfBlock` of
-  `alternate`: recursion covers it); `KeyBlock` → its `fragment`; `AwaitBlock` → `pending`, `then`, `catch` (each may be
-  `null`); `SvelteBoundary` → its non-snippet children are one branch, the body of each `{#snippet}` child (`failed`,
-  `pending`) another. Any other counted node is a root. Result: the roots, plus `forwardable` = every branch has at most
-  one root and no root is an `EachBlock`. Element roots: `RegularElement`, `SvelteElement`, `Component`,
-  `SvelteComponent`, `SvelteSelf`. Any other root (text, `{expr}`, `{@render}`, `{@html}`, `<slot>`) gets nothing and
-  no warning, as React's `null` / text / `children` roots.
-- `forwardScope(text, root, block, ctx, used, runes)`, called from `build()` after the renames and `stampScope`: no
-  element root anywhere → no edit. Forwardable and runes → forward. Otherwise, dev → warn; production → nothing.
-  Returns the helper names to import and the lines for the instance script.
-- **Props source** (instance script top-level `VariableDeclaration` whose init is a plain `$props()` call):
-  `let props = $props()` → forward from `props`; `let { a, ...rest } = $props()` → reuse `rest`;
-  `let { a }: T = $props()` → insert `, ...__ucfRest` after the last property (with a trailing comma: ` ...__ucfRest`
-  after the comma, as a comma after a rest is a syntax error; comments skipped via `root.comments`);
-  `let {} = $props()` → `{...__ucfRest}`. No `$props()` → `let __ucfRest = $props();` added to the instance script
-  (an added `<script>` when the block has none). `__ucfRest` = `freshName(used, '__ucfRest')`.
+- `branchRoots(nodes, found, bound)`: walks one branch into the `Roots` record `{elements, many, each}`. Not counted:
+  whitespace-only `Text`, `Comment`, `SnippetBlock`, `ConstTag`, `DebugTag`, `SvelteHead`, `SvelteWindow`,
+  `SvelteBody`, `SvelteDocument`; more than one counted node sets `many`. A counted `IfBlock` → its `consequent` and
+  `alternate` are branches (an `{:else if}` is the one `IfBlock` of `alternate`: recursion covers it); `KeyBlock` → its
+  `fragment`; `AwaitBlock` → `pending`, `then`, `catch` (each may be `null`); `SvelteBoundary` → its non-snippet
+  children are one branch, the body of each `{#snippet}` child (`failed`, `pending`) another; `EachBlock` sets `each`;
+  an element root (`RegularElement`, `SvelteElement`, `Component`, `SvelteComponent`, `SvelteSelf`) goes into
+  `elements` with `bound`, the names an enclosing `{:then}`, `{:catch}` or boundary snippet binds. Any other root (text,
+  `{expr}`, `{@render}`, `{@html}`, `<slot>`) gets nothing and no warning, as React's `null` / text / `children` roots.
+- `forwardScope(text, root, block, ctx, used, mode)`, called from `build()` after the renames and `stampScope`: no
+  element root and no `{#each}` root, or an undecided block → no edit. Runes, not `many`, not `each` → forward.
+  Otherwise, dev → warn; production → nothing. Returns `{helpers, lines}`: the helper names to import and the lines for
+  the instance script.
+- **Props source** (`propsName`: the first declarator of a top-level `VariableDeclaration` whose init is a plain
+  `$props()` call, `let` or `const`): `let props = $props()` → forward from `props`; `let { a, ...rest } = $props()` →
+  reuse `rest`; `let { a }: T = $props()` → insert `, ...__ucfRest` after the last property (with a trailing comma:
+  ` ...__ucfRest` after the comma, as a comma after a rest is a syntax error; spaces and `//` / `/* */` comments
+  between are skipped by one regular expression); `let {} = $props()` → `{...__ucfRest}`. No `$props()` →
+  `let __ucfRest = $props();` added to the instance script (an added `<script>` when the block has none).
+  `__ucfRest` = `freshName(used, '__ucfRest')`. A root whose `bound` holds the name → the alias (Decisions).
 - **Forward**: ` {...__ucfScopeAttrs(<props>)}` `appendLeft` at the end of each element root's name (the stamp's
   offset, so after it), mapped like the stamp; then `escapeOnce` turns the root's plain-text attribute values holding
-  `&`, `<` or `"` into expressions (Decisions).
+  `&`, `<` or `"` into expressions, `on…` ones excepted (Decisions).
 - **Warn** (dev): runes → the props source as above, then `;(() => __ucfWarnFragment(<props>, "<Name>", …))();` as
   the instance script's last line; legacy → `;__ucfWarnFragment($$props, "<Name>", …);`. `<Name>` =
   `basename(ctx.filename, '.ucf')`, as React.
-- **Runes detection**: `styleUses` (`blocks/svelte.ts:83`) already visits every identifier with the property, import,
-  export and type filters; it also returns `runes` (a `$<rune>` reference that is no store), overridden by
-  `root.options.runes`.
+- **Mode detection**: `styleUses` (`blocks/svelte.ts`) already visits every identifier with the property, import,
+  export and type filters; it also sets `runes` on a `$<rune>` reference that is no store, `legacy` on `$$props` /
+  `$$restProps`, and returns the `mode` with `root.options.runes` first. `runeDeclared` keeps `$name` a rune when the
+  top-level `name` is declared by a rune call or is svelte/store's `derived`; `legacyScript` finds `$:` and
+  `export let` (also `export {x}` of a top-level `let`).
 
 ### `packages/core/src/blocks/svelte.ts` `build()` (`:173-206`)
 
@@ -116,16 +129,23 @@ shared by both.
 ### Fixtures
 
 - `packages/e2e/fixtures/components/svelte/roots/` (each a `<svelte>` block, `.shape` on each root,
-  `<span class="inner">` inside):
-  `IfElseRoot.ucf` (`{#if}` / `{:else if}` / `{:else}` roots `div` / `p` / `section`, own `<style scoped>`, trailing
-  comma in `let { branch, }: { branch: string } = $props()`), `ComponentRoot.ucf` (root `<SvelteElementRoot tag="article" />`
-  from `./SvelteElementRoot.ucf`), `SvelteElementRoot.ucf` (`<svelte:element this={tag}>`), `NestedRoot.ucf` (`{#key}`
-  → `<svelte:boundary>` with a `{#snippet failed}` root → `{#await}` pending / then / catch roots,
-  `let props = $props()`), `RestRoot.ucf` (`let { label, ...rest } = $props()` reading `rest`), `NoPropsRoot.ucf`
-  (`$state`, no `$props()`), `EscapedRoot.ucf` (plain-text attribute values Svelte escapes, and a mixed one),
-  `EachRoot.ucf` and `MultiRoot.ucf` (runes, warn), `LegacyRoot.ucf` (`export let`, warns).
+  `<span class="inner">` inside, a row in the core test):
+  - forwarded: `IfElseRoot.ucf` (`{#if}` / `{:else if}` / `{:else}` roots, own `<style scoped>`, a `{@const}`, a comment
+    before the trailing comma of its `$props()` pattern), `PassOnRoot.ucf` (root `<SvelteElementRoot tag="article" />`),
+    `SvelteElementRoot.ucf` (`<svelte:element this={tag}>`, an escaped `title`), `NestedRoot.ucf` (`{#key}` →
+    `<svelte:boundary>` with a `{#snippet failed}` root → `{#if}` with a throwing root / `{#await}` pending / then /
+    catch roots, `let props = $props()`), `RestRoot.ucf` (`const shown = …, { label, ...rest } = $props()`),
+    `NoPropsRoot.ucf` (`$state`, no `$props()`), `EscapedRoot.ucf` (plain-text attribute values Svelte escapes, and a
+    mixed one), `EmptyPropsRoot.ucf` (`let {} = $props()`, the name `__ucfRest` taken), `OptionsRoot.ucf` and
+    `EmptyScriptRoot.ucf` (`<svelte:options runes />`, no script / an empty one), `PropsOnlyRoot.ucf` (`let props =
+    $props()` its only rune), `ShadowRoot.ucf` (`{#await … then props}` root), `StoreDerivedRoot.ucf` (`$derived`
+    beside svelte/store's `derived`), `StringHandlerRoot.ucf` (`onclick="…"` left for Svelte's error);
+  - warning: `EachRoot.ucf`, `MultiRoot.ucf` (an element root beside a text root, a line comment before the trailing
+    comma), `LegacyRoot.ucf` (`export let`), `LegacyStoreRoot.ucf` (`$state` of a store, rune names as property names);
+  - unchanged: `TextRoot.ucf` (text root only).
 - `packages/e2e/fixtures/apps/all-targets/Roots.ucf` (a Svelte parent, as M3's `react-scope/Parent.ucf`): scoped
-  `.shape { color: rgb(200, 40, 80) }`, each fixture (each `IfElseRoot` branch) in a `<div data-case="Name:branch">`.
+  `.shape { color: rgb(200, 40, 80) }`, each fixture but `StringHandlerRoot` (each `IfElseRoot` and `NestedRoot`
+  branch) in a `<div data-case="Name:branch">`.
   `src/main.tsx`: `?page=roots` mounts only `Roots` into `#svelte` (the default page stays free of warnings for 5.5's
   console checks), else the page as today.
 - `Panel.ucf`: the `<vue>` and `<react>` blocks import `./PanelItem.ucf` and render `<PanelItem label="first item" />`
@@ -138,27 +158,33 @@ shared by both.
 All run on this host and in CI's `check` and `svelte-floor` jobs (`pnpm devx test`, Playwright chromium installed
 there since M3 3.9). No new infra.
 
-- **Core**, `packages/core/test/blocks/svelte.spec.ts`, new `describe` over `svelte/roots/` (a row per fixture, a row
-  for every fixture): dev and production builds compile with no warning (server, client); dev code snapshot; forwarded
-  rows: each element root carries `{...__ucfScopeAttrs(<props>)}` once (`props` / `rest` / `__ucfRest` by row) and
-  nothing else does; warning rows: `__ucfWarnFragment(` with the file name and the row's problem, no `__ucfScopeAttrs`,
-  in production no helper import and no `$props()` edit. `EscapedRoot`'s render holds each attribute escaped once.
-  Render: server render (helper module written from
-  `scopeHelperCode`, as 5.2 points class map imports at files) with the scope prop a stamped parent passes puts it once
-  on the rendered root of each forwarded branch and on no inner element; warning rows put it nowhere.
-  5.2's shape tests take the new edits: `undoBuild` also strips the spread, the `, ...__ucfRest`, the added
-  `let __ucfRest = $props();`, the warning line and the helper import ("only inserts" still holds); the `added` script
-  count includes them; the mapping test reads the text after the stamp and its spread; `svelte/NoStyle.ucf` builds as
-  written in production and gains only the warning in dev; `.svelte.snap` snapshots updated, the `.html` snapshots did
-  not change. Panel's own snapshots (split, styles, React scope, editor virtual code) follow its new lines.
+- **Core**, `packages/core/test/svelte/forward.spec.ts` (mirrors `src/svelte/forward.ts`; the build and server render
+  helpers it shares with `test/blocks/svelte.spec.ts` live in `test/svelte/render.ts`), a row per `svelte/roots/`
+  fixture and a test that every fixture has one: dev and production builds compile with no warning (server, client),
+  or with the row's own Svelte error; dev code snapshot; forwarded rows: each element root carries
+  `{...__ucfScopeAttrs(<props>)}` once (`props` / `rest` / `__ucfRest` / `__ucfRest1` / `__ucfProps` by row) and
+  nothing else does; warning rows: `__ucfWarnFragment(` with the file name, the row's problem and fix, no
+  `__ucfScopeAttrs`, in production no helper import and no `$props()` edit; the unchanged row builds as written. Render:
+  server render (helper module written from `scopeHelperCode`, another fixture's `.ucf` import built the same way) with
+  the scope prop a stamped parent passes puts it once on each top-level element of a forwarded row (`startTags` counts
+  repeats and depth) and on no inner element; warning rows put it nowhere; `EscapedRoot` and `SvelteElementRoot`
+  hold each attribute escaped once.
+  5.2's shape tests take the new edits: `undoBuild` also strips the spread, the `, ...__ucfRest`, the added lines and
+  the helper import ("only inserts" still holds); every other line of an added script is a forwarding one; the mapping
+  test reads the text after the stamp and its spread; `svelte/NoStyle.ucf` (undecided) builds as written in dev and in
+  production; `.svelte.snap` snapshots updated, the `.html` snapshots did not change. Panel's own snapshots (split,
+  styles, React scope, editor virtual code) follow its new lines.
 - **Browser**, `packages/e2e/browser/svelte-scope-forward.spec.ts`, dev (`startDev`) and preview (`buildAndPreview`)
   of `apps/all-targets`:
   - main page: `#vue .item`, `#react .item`, `#svelte .item` each carry Panel's `data-v-*` (`scopeAttribute`) and
     PanelItem's own; `padding-left` and `border-left-*` are Panel's rule values; `expectSameComputedStyles` (M4's parity
     helper) across the three over those and PanelItem's own `color` / `margin-top`; no console warning or error.
-  - `?page=roots`: every forwarded case's single root carries the parent's attribute once and its `.shape` color, its
-    `.inner` does not; `EachRoot`, `MultiRoot`, `LegacyRoot` carry it on no element; dev logs exactly three warnings,
-    one per name with its problem text; preview none.
+  - `?page=roots`: every forwarded case's single root (`NestedRoot`'s then, catch and failed branches included) shows
+    its text, carries the parent's attribute once and its `.shape` color, its `.inner` does not; escaped attributes
+    read back as written; `TextRoot`, `EachRoot`, `MultiRoot`, `LegacyRoot`, `LegacyStoreRoot` carry it on no element;
+    dev logs exactly four warnings, each the full text with its problem and fix; preview none.
+- **React**, `packages/e2e/browser/react-scope.spec.ts`: the fragment warning is checked as its full text, so the
+  helper's default `fix` is pinned.
 - **SSR**, `packages/e2e/browser/svelte-ssr.spec.ts`: `<p ${item}="" class="item"` becomes
   `<p ${item}="" ${panel}="" class="item"`: Panel forwards to PanelItem in the server HTML, kept through hydration.
 - **Fuzz**, `packages/e2e/build/svelte-scope.fuzz.spec.ts` + `build/lib/svelteScopeFuzz.ts`: one new rule `forwards`.
