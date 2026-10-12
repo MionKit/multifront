@@ -3,7 +3,7 @@ import {join, resolve} from 'node:path';
 import {rootRelativePath, scopeId} from '@multifront/core';
 import type {Plugin} from 'vite';
 import {beforeEach, describe, expect, it} from 'vitest';
-import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {copyApp, readComponent, removeApp, saveFile} from '../fixtures/index.ts';
 import {hotUpdatesOf, withDevServer} from './lib/build.ts';
 import {runFreshDevServer, startViteCli, STOP_GRACE_MS} from './lib/freshProcess.ts';
 
@@ -119,7 +119,7 @@ describe('the warm-up', () => {
       await server.environments.client.transformRequest(`/@fs${file}`);
       await server.environments.client.transformRequest(styleUrl(0));
       const updated = hot.next();
-      await writeFile(file, counter.replace(OLD_COLOR, newColor));
+      await saveFile(file, counter.replace(OLD_COLOR, newColor));
       await updated;
       return server.environments.client.transformRequest(styleUrl(0));
     });
@@ -141,7 +141,7 @@ describe('vite build --watch', () => {
     const vite = cli(['build', '--watch', '--minify', 'false'], {NODE_ENV: 'production'});
     await vite.waitForOutput(/built in \d+/);
     expect(await read('.css')).toContain(`.counter[data-v-${idOf(counter)}]`);
-    await writeFile(file, edited);
+    await saveFile(file, edited);
     await vite.waitForOutput(/built in \d+/, 2);
     expect(vite.output()).not.toMatch(/error/i);
     expect(idOf(edited)).not.toBe(idOf(counter));

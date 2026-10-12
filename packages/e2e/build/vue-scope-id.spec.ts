@@ -15,7 +15,7 @@ import {
   type ViteDevServer,
 } from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {copyApp, readComponent, removeApp, saveFile} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildCode, exportedScopeId, withDevServer, withNodeEnv} from './lib/build.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
@@ -181,7 +181,7 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
             const assets = join(outDir, 'assets');
             const files = (await readdir(assets)).filter((file) => file.endsWith('.css'));
             builds.push((await Promise.all(files.map((file) => readFile(join(assets, file), 'utf8')))).join('\n'));
-            if (builds.length === 1) await writeFile(counter, edited);
+            if (builds.length === 1) await saveFile(counter, edited);
             else resolve();
           });
         });

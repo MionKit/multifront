@@ -1,11 +1,11 @@
-import {mkdtemp, readFile, rm, unlink, writeFile} from 'node:fs/promises';
+import {mkdtemp, readFile, rm, unlink} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import react from '@vitejs/plugin-react';
 import vue from '@vitejs/plugin-vue';
 import {multifront} from '@multifront/vite';
 import {createServer, type DevEnvironment, type Plugin, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'vitest';
-import {TMP_DIR, copyApp, removeApp} from '../fixtures/index.ts';
+import {TMP_DIR, copyApp, removeApp, saveFile} from '../fixtures/index.ts';
 
 const ENVIRONMENTS = ['client', 'ssr'] as const;
 type EnvironmentName = (typeof ENVIRONMENTS)[number];
@@ -132,7 +132,7 @@ function hmrApp(plugins: () => Plugin[]) {
     const wait = (lastUpdate.get(file) ?? 0) + WATCHER_THROTTLE_MS - performance.now();
     if (wait > 0) await new Promise((done) => setTimeout(done, wait));
     records.length = 0;
-    await writeFile(file, source);
+    await saveFile(file, source);
     const updates = await updated((update) => update.file === file && update.source === source);
     lastUpdate.set(file, performance.now());
     return updates;

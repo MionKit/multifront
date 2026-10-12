@@ -1,5 +1,6 @@
+import {randomUUID} from 'node:crypto';
 import {readdirSync, readFileSync} from 'node:fs';
-import {cp, mkdir, mkdtemp, rm} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, rename, rm, writeFile} from 'node:fs/promises';
 import {dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -20,6 +21,15 @@ export async function copyApp(name: string): Promise<string> {
     throw err;
   }
   return root;
+}
+
+/** For a file a watcher sees: `writeFile` empties it first, and a watcher reading then gets an empty file. */
+export async function saveFile(file: string, source: string): Promise<void> {
+  await mkdir(TMP_DIR, {recursive: true});
+  // Outside every app root, so no watcher reports it; same disk as the copies, so the rename is atomic.
+  const temp = join(TMP_DIR, `save-${randomUUID()}`);
+  await writeFile(temp, source);
+  await rename(temp, file);
 }
 
 /** Deletes a `copyApp()` copy, the components beside it included. */
