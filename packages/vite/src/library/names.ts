@@ -5,7 +5,7 @@ const VIRTUAL_DIR = '_virtual';
 const SCRIPT_EXT = /\.[cm]?[jt]sx?$/;
 const UNSAFE = /[^\w./-]/g;
 
-/** Where `child` sits inside `dir`, or undefined when outside it; both are Vite's posix ids. */
+/** `child` relative to `dir`, or undefined unless below it; both are Vite's posix ids. */
 export function insideDir(dir: string, child: string): string | undefined {
   const relative = posix.relative(dir, child);
   return relative === '' || relative.startsWith('../') || posix.isAbsolute(relative) ? undefined : relative;
@@ -22,7 +22,7 @@ function subModuleName(query: URLSearchParams): string {
   return index === null ? kind : `${kind}-${index}`;
 }
 
-/** A module's output path in a library package, without `.js`: `Card`, `forms/Field`, `_virtual/Card.module-0`. */
+/** Output path without `.js`: `Card`, `forms/Field`, `_virtual/Card.module-0`. */
 export function outputName(id: string, src: string): string {
   if (id.startsWith('\0')) {
     const name = id

@@ -11,7 +11,7 @@ import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
 import {insideDir, outputName} from './names.ts';
 import {libraryTargets} from './targets.ts';
 
-// A specifier that is neither relative, absolute nor a virtual id.
+// Not relative, absolute or virtual.
 const BARE = /^(?![./\0])/;
 const REAL_ID = /^[^\0]/;
 
@@ -28,11 +28,11 @@ interface TargetJob extends Omit<LibraryResult, 'files'> {
   peers: Record<string, string>;
 }
 
-// Overlapping calls share one swap: the first in saves the caller's value, the last out puts it back.
+// Overlapping calls share one swap: first in saves the caller's value, last out restores it.
 let productionBuilds = 0;
 let callerNodeEnv: string | undefined;
 
-/** Vite reads `isProduction` from NODE_ENV: a library is a production build whatever the caller's environment. */
+/** Vite reads `isProduction` from NODE_ENV; a library always builds for production. */
 async function asProduction<Result>(run: () => Promise<Result>): Promise<Result> {
   if (productionBuilds++ === 0) callerNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'production';
@@ -46,7 +46,7 @@ async function asProduction<Result>(run: () => Promise<Result>): Promise<Result>
   }
 }
 
-/** Types a `multifront.config.ts`; returns `options` as is. */
+/** Types a `multifront.config.ts`. */
 export function defineLibrary(options: LibraryOptions): LibraryOptions {
   return options;
 }
@@ -88,7 +88,7 @@ async function writtenFiles(dir: string): Promise<string[]> {
     .sort();
 }
 
-// The file behind a module id: `/abs/Card.ucf` for `/abs/Card.ucf.react.tsx` or a style id.
+// `/abs/Card.ucf.react.tsx` or a style id → `/abs/Card.ucf`.
 function fileOf(id: string): string {
   const {path} = splitId(id);
   return virtualTarget(path)?.file ?? path;
@@ -98,7 +98,7 @@ function shownFile(root: string, file: string): string {
   return normalizePath(relative(root, file));
 }
 
-/** Keeps the peers external, and fails on any other package or on a file outside `src`. */
+/** Peers stay external; any other package or file outside `src` fails. */
 function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plugin {
   const names = Object.keys(peers);
   const isPeer = (id: string) => names.some((peer) => id === peer || id.startsWith(`${peer}/`));
@@ -111,7 +111,7 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
       async handler(id, importer, options) {
         if (isPeer(id)) return {id, external: true};
         const resolved = await this.resolve(id, importer, {...options, skipSelf: true});
-        // An entry, a virtual id or an alias into `src`.
+        // A virtual id, an alias into `src` or a Windows entry (`C:/…` passes the filter).
         if (resolved && !resolved.external && (resolved.id.startsWith('\0') || insideDir(src, fileOf(resolved.id)))) {
           return resolved;
         }
@@ -137,7 +137,7 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
 async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
   const owners = new Map<string, string>();
-  // Rolldown would rename a second module of the same name (`Card2.js`) without a word.
+  // Rolldown would silently rename a same-name second module to `Card2.js`.
   const fileName = (chunk: Rolldown.PreRenderedChunk) => {
     const id = chunk.facadeModuleId ?? chunk.moduleIds[0]!;
     const name = `${outputName(id, src)}.js`;
