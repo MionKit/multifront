@@ -122,16 +122,20 @@ describe('SvelteKit dev server', () => {
 
 describe('SvelteKit build with adapter-node', () => {
   let root: string | undefined;
+  let build: ReturnType<typeof startViteCli> | undefined;
   let server: ReturnType<typeof startNodeServer> | undefined;
 
   beforeAll(async () => {
     root = await copyApp('sveltekit-src');
-    await startViteCli(root, ['build'], {NODE_ENV: 'production'}).finished();
+    build = startViteCli(root, ['build'], {NODE_ENV: 'production'});
+    await build.finished();
     server = startNodeServer(root, 'build/index.js');
     await server.url;
   });
 
   afterAll(async () => {
+    // A build past the hook timeout is still writing into the copy.
+    await build?.stop();
     await server?.stop();
     if (root) await removeApp(root);
   });
