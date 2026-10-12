@@ -1,7 +1,6 @@
 // Spec 3.5, item 5: a React root merges the parent's className, style and ref, in a real build and when hydrated.
 import {join} from 'node:path';
 import type {Browser, Page} from 'playwright';
-import {isRunnableDevEnvironment} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../fixtures/index.ts';
 import {collectConsole, computed, consoleProblems, launchChromium} from './lib/chromium.ts';
@@ -103,22 +102,13 @@ describe('renderToString, hydrated', () => {
   });
 
   it('hydrates the server-rendered App without replacing a node, with the same props and no console warning', async () => {
-    const ssr = app!.server.environments.ssr;
-    if (!isRunnableDevEnvironment(ssr)) throw new Error('the ssr environment has no module runner');
-    const {render} = (await ssr.runner.import('/src/entry-server.tsx')) as {render: () => string};
-    const html = render();
-    // Merged on the server already.
-    expect(html).toMatch(/<button [^>]*class="[^"]+ extra"[^>]*style="[^"]*color:red/);
-
     const page = await browser!.newPage();
     try {
       const messages = collectConsole(page);
       await page.addInitScript({content: WATCH_REMOVED});
-      await page.route(app!.url, async (route) => {
-        const response = await route.fetch();
-        await route.fulfill({response, body: (await response.text()).replace('<!--ssr-->', html)});
-      });
-      await page.goto(app!.url);
+      const response = await page.goto(`${app!.url}?ssr`);
+      // Merged on the server already.
+      expect(await response!.text()).toMatch(/<button [^>]*class="[^"]+ extra"[^>]*style="[^"]*color:red/);
       await expectRootProps(page);
       expect(await page.evaluate('window.removed')).toEqual([]);
       await expectRefCleanup(page);
