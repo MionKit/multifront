@@ -1,5 +1,5 @@
 import {DiagnosticsError, createDiagnostic, styleInsideTarget, targetNotBuilt} from '../diagnostics.ts';
-import {loadSvelteCompiler} from '../svelteCompiler.ts';
+import {loadSvelteCompiler} from '../compilers.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, VirtualFile} from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
