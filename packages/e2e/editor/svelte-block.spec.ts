@@ -1,5 +1,5 @@
-// The <svelte> block in the editor: tsserver serves svelte2tsx's script, mapped back through svelte2tsx's source map and
-// the `$style` rename's; the language server adds our check diagnostics.
+// The <svelte> block in the editor: tsserver serves svelte2tsx's script, mapped back through its source map and the
+// `$style` rename's; the language server adds our check diagnostics.
 import {readdirSync} from 'node:fs';
 import {checkBlocks, loadSvelteCompiler, loadVueCompiler, splitBlocks} from '@multifront/core';
 import {getTypesScript, TSSERVER_CODES} from '@multifront/language-tools';
@@ -49,7 +49,6 @@ afterAll(async () => {
   await tsserver?.stop();
 });
 
-/** Offset of `needle` inside the <svelte> block, `shift` characters past its start. */
 function svelteOffset({filename, source}: Component, needle: string, shift = 0): number {
   const block = splitBlocks(source, filename).targets.svelte!;
   const index = source.indexOf(needle, block.contentStart);
