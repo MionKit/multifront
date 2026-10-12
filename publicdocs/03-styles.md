@@ -27,20 +27,20 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 </style>
 ```
 
-| Block | In `<react>` |
+| Block | In `<react>` and `<svelte>` |
 | --- | --- |
 | `<style>` | Global CSS |
 | `<style scoped>` | Styles only the elements this file renders |
 | `<style module>` | Class names in `$style` |
-| `<style module="classes">` | Class names in `classes` |
+| `<style module="classes">` | Class names in `classes`, or `$classes` in `<svelte>` |
 
 ## Same Look in Every Framework
 
-The Vue and the React component of one file get the same scoped `data-v-*` attribute and the same `$style` class names. So they look the same, also side by side in one app.
+The Vue, React and Svelte components of one file get the same scoped `data-v-*` attribute and the same `$style` class names. So they look the same, also side by side in one app.
 
 ## Styling a Child Component
 
-A parent's scoped style reaches the root element of a child `.ucf` component, as in Vue, but not the elements inside it. Here `.badge` colors the badge's `<span>`, and `.badge-label` misses its `<em>`.
+A parent's scoped style reaches the root element of a child `.ucf` component, as in Vue, but not the elements inside it. This works in every framework. Here `.badge` colors the badge's `<span>`, and `.badge-label` misses its `<em>`.
 
 `ScopedPanel.ucf`
 
@@ -81,11 +81,16 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 </react>
 ```
 
-What the child returns decides whether its root gets the parent's style:
+What the child renders decides whether its root gets the parent's style:
 
-| The child returns | Gets the parent's scoped style |
+| The child renders | Gets the parent's scoped style |
 | --- | --- |
-| An element, also through `?:`, `&&`, `memo` or `forwardRef` | Yes |
+| `<react>`: an element, also through `?:`, `&&`, `memo` or `forwardRef` | Yes |
+| `<svelte>`: one element, also one per `{#if}`, `{#key}`, `{#await}` or `<svelte:boundary>` branch | Yes |
 | Another `.ucf` component | Yes, on that component's root |
-| A fragment, `<>...</>` | No, and a warning in the dev console |
-| `null`, text, `children` or a function call | No |
+| `<react>`: a fragment, `<>...</>` | No, and a warning in the dev console |
+| `<svelte>`: more than one root, an `{#each}` root, or legacy syntax such as `export let` | No, and a warning in the dev console |
+| `<react>`: `null`, text, `children` or a function call | No |
+| `<svelte>`: text, `{@render}`, `{@html}` or `<slot>` | No |
+
+> **Tip:** A `<svelte>` child that is only markup passes nothing on, with no warning. Add `<svelte:options runes />` or a script with `$props()`.
