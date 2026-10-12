@@ -180,7 +180,9 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const index = indexEntry(root, src, options.index);
   const components = await scan(src);
   const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
-  const frameworks = options.frameworks ?? TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
+  const frameworks = options.frameworks
+    ? [...new Set(options.frameworks)]
+    : TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
   if (frameworks.length === 0) {
     throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a block for a framework with a library build`);
   }

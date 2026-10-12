@@ -1,7 +1,10 @@
 import {readFileSync} from 'node:fs';
+import {writeFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {SourceMapConsumer} from 'source-map-js';
 import type {RawSourceMap} from 'source-map-js';
+import {buildLibrary} from '@multifront/vite';
+import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
 import {buildFixtureLibrary, specifiersOf, withEditedLibrary} from './lib/library.ts';
@@ -152,6 +155,33 @@ describe('buildLibrary() defaults', () => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow('package.json has no name; set packages.vue.name');
     });
   });
+
+  it('merges the vite option into the build, builds a framework named twice once, and empties its folder first', async () => {
+    const button = readFileSync(join(LIBRARY_DIR, 'src', 'Button.ucf'), 'utf8');
+    const reactImport = "import type { MouseEventHandler } from 'react'\n  import { cx } from './utils/cx.js'";
+    if (!button.includes(reactImport)) throw new Error('Button.ucf changed');
+    const aliased = button.replace(reactImport, reactImport.replace('./utils/cx.js', '~/utils/cx.js'));
+    await withEditedLibrary([{file: 'src/Button.ucf', content: aliased}], async (root) => {
+      const options: LibraryOptions = {
+        frameworks: ['react', 'react'],
+        index: false,
+        vite: {logLevel: 'silent', resolve: {alias: {'~': join(root, 'src')}}, build: {sourcemap: false}},
+      };
+      const built = await buildFixtureLibrary(root, options);
+      try {
+        expect(built.results.map(({target}) => target)).toEqual(['react']);
+        const [{outDir, files}] = built.results as [LibraryResult];
+        expect(files.filter((file) => file.endsWith('.map') || file === 'index.js')).toEqual([]);
+        // The alias into src passes the peer-only guard and becomes a relative import.
+        expect(specifiersOf('Button.js', readFileSync(join(outDir, 'Button.js'), 'utf8'))).toContain('./utils/cx.js');
+        await writeFile(join(outDir, 'stale.js'), 'export {};\n');
+        const [again] = await buildLibrary({...options, root, outDir: built.outDir});
+        expect(again!.files).toEqual(files);
+      } finally {
+        await built.remove();
+      }
+    });
+  });
 });
 
 describe('buildLibrary() and NODE_ENV', () => {
@@ -174,13 +204,22 @@ describe('buildLibrary() and NODE_ENV', () => {
 });
 
 describe('buildLibrary() errors', () => {
-  it('fails on an import that is not a peer: a library package has peer dependencies only', async () => {
+  it('fails on an import that is not a peer, and keeps it external once packages[framework].peers names it', async () => {
     const leftPad = "import leftPad from 'left-pad';\n\nexport const cx = (...names: string[]) => leftPad(names.join(' '));\n";
     await withEditedLibrary([{file: 'src/utils/cx.ts', content: leftPad}], async (root) => {
       const build = buildFixtureLibrary(root);
       await expect(build).rejects.toThrow('"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of');
       await expect(build).rejects.toThrow('a library package has peer dependencies only');
       expect(process.env.NODE_ENV).toBe('test');
+      const peers = {'left-pad': '^1.3.0'};
+      const built = await buildFixtureLibrary(root, {packages: {vue: {peers}, react: {peers}}});
+      try {
+        for (const {outDir} of built.results) {
+          expect(specifiersOf('cx.js', readFileSync(join(outDir, 'utils', 'cx.js'), 'utf8'))).toEqual(['left-pad']);
+        }
+      } finally {
+        await built.remove();
+      }
     });
   });
 
