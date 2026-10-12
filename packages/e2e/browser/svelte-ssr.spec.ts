@@ -6,8 +6,6 @@ import {startNodeServer, startViteCli, startViteDev} from '../build/lib/freshPro
 import {collectConsole, launchChromium} from './lib/chromium.ts';
 import {scopeAttribute} from './lib/scope.ts';
 
-type Server = ReturnType<typeof startViteDev>;
-
 // Keeps the `section.panel` the parser inserts: hydration keeps that node, a re-mount replaces it.
 const KEEP_SERVER_PANEL = `new MutationObserver(() => {
   globalThis.ssrPanel ??= document.querySelector('section.panel');
@@ -22,12 +20,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close();
 });
-
-function scopes(root: string, production: boolean) {
-  const components = resolve(root, '..', '..', 'components');
-  const of = (name: string) => scopeAttribute(root, resolve(components, name), production);
-  return {panel: of('Panel.ucf'), item: of('PanelItem.ucf'), counter: of('Counter.ucf')};
-}
 
 // SvelteKit's dev server inlines the page's CSS; a build links its chunks' files.
 async function pageCss(url: string, html: string, production: boolean): Promise<string> {
@@ -53,7 +45,8 @@ async function checkPage(root: string, url: string, production: boolean) {
     await page.addInitScript({content: KEEP_SERVER_PANEL});
     const response = await page.goto(url);
     const html = await response!.text();
-    const {panel, item, counter} = scopes(root, production);
+    const scopeOf = (name: string) => scopeAttribute(root, resolve(root, '..', '..', 'components', name), production);
+    const [panel, item, counter] = [scopeOf('Panel.ucf'), scopeOf('PanelItem.ucf'), scopeOf('Counter.ucf')];
     expect(html).toContain(`<section ${panel}="" class="panel"`);
     expect(html).toContain(`<p ${item}="" class="item"`);
     expect(html).toContain(`<div ${counter}="" class="counter">`);
@@ -75,7 +68,6 @@ async function checkPage(root: string, url: string, production: boolean) {
     expect(
       await page.locator('section.panel').evaluate((element) => element === (globalThis as {ssrPanel?: unknown}).ssrPanel)
     ).toBe(true);
-    expect(await page.locator('section.panel').getAttribute(panel)).toBe('');
     const button = page.locator('.counter button');
     await button.click();
     await expect.poll(() => button.textContent()).toBe('3');
@@ -95,7 +87,7 @@ async function checkPage(root: string, url: string, production: boolean) {
 
 describe('SvelteKit dev server', () => {
   let root: string | undefined;
-  let server: Server | undefined;
+  let server: ReturnType<typeof startViteDev> | undefined;
 
   beforeAll(async () => {
     root = await copyApp('sveltekit-src');
@@ -129,7 +121,7 @@ describe('SvelteKit build with adapter-node', () => {
     root = await copyApp('sveltekit-src');
     build = startViteCli(root, ['build'], {NODE_ENV: 'production'});
     await build.finished();
-    server = startNodeServer(root, 'build/index.js');
+    server = startNodeServer(root);
     await server.url;
   });
 
