@@ -4,14 +4,13 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {svelte} from '@sveltejs/vite-plugin-svelte';
 import {Parser} from 'htmlparser2';
-import {build} from 'vite';
 import type {Plugin, Rolldown} from 'vite';
 import {describe, expect, it} from 'vitest';
 import {rootRelativePath, scopeId} from '@multifront/core';
 import {multifront} from '@multifront/vite';
-import {withNodeEnv} from './lib/build.ts';
-import {fuzzSettings, mixSeed, replayLine, shrinkActions} from './lib/fuzz.ts';
-import type {FuzzSettings, Failure as SeededFailure, Violation as SeededViolation} from './lib/fuzz.ts';
+import {buildApp} from './lib/build.ts';
+import {describeKeptFailure, dropLast, fuzzSettings, mixSeed, shrinkActions} from './lib/fuzz.ts';
+import type {FuzzSettings, KeptFailure, Violation as SeededViolation} from './lib/fuzz.ts';
 import {
   ACTION_KINDS,
   CHILD_FILE,
@@ -35,6 +34,7 @@ const USABLE_FLOOR = 0.8;
 
 type Rule = 'builds' | 'stamps' | 'same-html';
 type Violation = SeededViolation<Rule>;
+type Failure = KeptFailure<SvelteCase, Rule>;
 
 /** A hand-broken output for the negative controls: `pre` edits our `.svelte` code, `post` Svelte's compiled code. */
 interface Breaker {
@@ -46,43 +46,46 @@ interface Run {
   dir: string;
   breaker?: Breaker;
   onlyRule?: Rule;
-  batch: number;
 }
 
 type Outcome = {usable: false; reason: string} | {usable: true; violations: Violation[]};
 
-interface Failure extends SeededFailure<SvelteCase, Rule> {
-  dir: string;
+type Kind = 'ucf' | 'plain';
+type Entry = [SvelteCase, Kind];
+interface Html {
+  head: string;
+  body: string;
 }
+type Render = (name: string, kind: Kind) => Html;
 
 const SVELTE_ID = /\.ucf\.svelte\.svelte$/;
 let builds = 0;
 
-function breakerPlugins(breaker: Breaker | undefined): Plugin[] {
-  const plugin = (enforce: 'pre' | 'post', edit: ((code: string) => string) | undefined): Plugin => ({
+function breaker(enforce: keyof Breaker, edit: Breaker[keyof Breaker]): Plugin {
+  return {
     name: `svelte-scope-fuzz:${enforce}-breaker`,
     enforce,
     transform: (code, id) => (edit && SVELTE_ID.test(id) ? edit(code) : undefined),
-  });
-  return [plugin('pre', breaker?.pre), plugin('post', breaker?.post)];
+  };
+}
+
+// Rolldown's own message only counts the errors; the first one says what failed.
+function firstLine(err: unknown): string {
+  const first = (err as Partial<Rolldown.BundleError>).errors?.[0] ?? err;
+  return String((first as Partial<Error> | undefined)?.message ?? first).split('\n')[0]!;
 }
 
 // --- building and rendering --------------------------------------------------------------------------------------
 
-type Kind = 'ucf' | 'plain';
-
-const importOf = (fuzzCase: SvelteCase, kind: Kind) =>
-  kind === 'ucf' ? `./${fuzzCase.name}.ucf' with { framework: 'svelte' }` : `./${fuzzCase.name}.svelte'`;
-
-/** One SSR build of `entries`; `render(name, kind)` uses the bundle's own `svelte/server`. */
-async function buildEntries(run: Run, entries: [SvelteCase, Kind][]) {
+/** One SSR build of `entries`; the render uses the bundle's own `svelte/server`. */
+async function buildEntries(run: Run, entries: Entry[]): Promise<Render> {
   const label = `batch-${++builds}`;
   const entry = join(run.dir, `${label}.js`);
   const lines = [`import {render} from 'svelte/server'`, `import Child from './${CHILD_FILE}'`];
   const rows: string[] = [];
-  entries.forEach(([fuzzCase, kind], index) => {
-    lines.push(`import C${index} from '${importOf(fuzzCase, kind)}`);
-    rows.push(`  ${JSON.stringify(`${fuzzCase.name}:${kind}`)}: C${index},`);
+  entries.forEach(([{name}, kind], index) => {
+    lines.push(`import C${index} from './${name}${kind === 'ucf' ? `.ucf' with { framework: 'svelte' }` : `.svelte'`}`);
+    rows.push(`  ${JSON.stringify(`${name}:${kind}`)}: C${index},`);
   });
   lines.push(`const cases = {\n${rows.join('\n')}\n}`);
   // `render()` renders lazily, on the first read of `head` or `body`.
@@ -92,57 +95,49 @@ async function buildEntries(run: Run, entries: [SvelteCase, Kind][]) {
   lines.push('}');
   writeFileSync(entry, `${lines.join('\n')}\n`);
   const outDir = join(run.dir, label);
-  const result = await withNodeEnv('production', () =>
-    build({
-      configFile: false,
-      root: run.dir,
-      logLevel: 'silent',
-      plugins: [
-        breakerPlugins(run.breaker)[0]!,
-        svelte({onwarn: () => undefined}),
-        multifront(),
-        breakerPlugins(run.breaker)[1]!,
-      ],
-      build: {ssr: true, write: true, outDir, emptyOutDir: true, minify: false, rolldownOptions: {input: {[label]: entry}}},
-    })
-  );
-  const output = (Array.isArray(result) ? result[0]! : result) as Rolldown.RolldownOutput;
-  const chunk = output.output.find((file): file is Rolldown.OutputChunk => file.type === 'chunk' && file.isEntry)!;
-  const module = (await import(/* @vite-ignore */ pathToFileURL(join(outDir, chunk.fileName)).href)) as {
-    renderCase: (name: string, kind: Kind) => {head: string; body: string};
-  };
+  const {chunks} = await buildApp(run.dir, {
+    configFile: false,
+    plugins: [
+      breaker('pre', run.breaker?.pre),
+      svelte({onwarn: () => undefined}),
+      multifront(),
+      breaker('post', run.breaker?.post),
+    ],
+    build: {ssr: true, write: true, outDir, emptyOutDir: true, rolldownOptions: {input: {[label]: entry}}},
+  });
+  const chunk = chunks.find((file) => file.isEntry)!;
+  const module = (await import(/* @vite-ignore */ pathToFileURL(join(outDir, chunk.fileName)).href)) as {renderCase: Render};
   return module.renderCase;
 }
 
-async function buildsAlone(run: Run, fuzzCase: SvelteCase, kind: Kind): Promise<string | undefined> {
-  try {
-    await buildEntries(run, [[fuzzCase, kind]]);
-    return undefined;
-  } catch (err) {
-    return firstLine(err);
-  }
-}
-
-const firstLine = (err: unknown) => String(err instanceof Error ? err.message : err).split('\n')[0]!;
-
-// The module a failed build names: `Fuzz3.ucf…` is our Svelte id, `Fuzz3.svelte` the plain file.
-function culpritOf(err: unknown, cases: SvelteCase[]): {fuzzCase: SvelteCase; kind: Kind} | undefined {
-  const errors = [err, ...((err as {errors?: unknown[]}).errors ?? [])] as {id?: string; message?: string}[];
-  for (const {id, message} of errors) {
+// A failed build names the module: `Fuzz3.ucf…` is our Svelte id, `Fuzz3.svelte` the plain file.
+function culpritOf(err: unknown, cases: SvelteCase[]): SvelteCase | undefined {
+  const bundleError = err as Partial<Rolldown.BundleError>;
+  for (const {id, message} of [bundleError, ...(bundleError.errors ?? [])] as Partial<Rolldown.RollupError>[]) {
     for (const text of [id, message]) {
-      const match = /(Fuzz\d+(?:s\d+)?)\.(ucf|svelte)\b/.exec(text ?? '');
-      const fuzzCase = match && cases.find(({name}) => name === match[1]);
-      if (fuzzCase) return {fuzzCase, kind: match[2] === 'ucf' ? 'ucf' : 'plain'};
+      const name = /(Fuzz\d+(?:s\d+)?)\.(?:ucf|svelte)\b/.exec(text ?? '')?.[1];
+      const fuzzCase = cases.find((candidate) => candidate.name === name);
+      if (fuzzCase) return fuzzCase;
     }
   }
   return undefined;
 }
 
-async function classify(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
-  const plain = await buildsAlone(run, fuzzCase, 'plain');
+/** A case whose batch failed: each file alone, then the pair rendered, so the other rules still see it. */
+async function checkAlone(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
+  const fails = (kind: Kind) => buildEntries(run, [[fuzzCase, kind]]).then(() => undefined, firstLine);
+  const plain = await fails('plain');
   if (plain) return {usable: false, reason: `the plain file does not build: ${plain}`};
-  const ucf = await buildsAlone(run, fuzzCase, 'ucf');
-  return {usable: true, violations: ucf ? [{rule: 'builds', message: `the .ucf file does not build: ${ucf}`}] : []};
+  const ucf = await fails('ucf');
+  if (ucf) return {usable: true, violations: [{rule: 'builds', message: `the .ucf file does not build: ${ucf}`}]};
+  return checkRendered(
+    run,
+    fuzzCase,
+    await buildEntries(run, [
+      [fuzzCase, 'ucf'],
+      [fuzzCase, 'plain'],
+    ])
+  );
 }
 
 // --- the rules ---------------------------------------------------------------------------------------------------
@@ -162,7 +157,7 @@ function startTags(html: string): {name: string; attributes: string[]}[] {
   return tags;
 }
 
-function checkStamps(html: {head: string; body: string}, stamp: string): Violation[] {
+function checkStamps(html: Html, stamp: string): Violation[] {
   for (const {name, attributes} of startTags(html.body)) {
     const own = attributes.filter((attribute) => attribute === stamp).length;
     const other = attributes.filter((attribute) => attribute.startsWith('data-v-') && attribute !== stamp);
@@ -176,7 +171,7 @@ function checkStamps(html: {head: string; body: string}, stamp: string): Violati
 // Svelte keys each `<svelte:head>` with a hash of the file name, which differs between the twins.
 const normalizeHead = (head: string) => head.replace(/<!--[0-9a-z]+-->/g, '<!--head-->');
 
-function checkSameHtml(ucf: {head: string; body: string}, plain: {head: string; body: string}, stamp: string): Violation[] {
+function checkSameHtml(ucf: Html, plain: Html, stamp: string): Violation[] {
   const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '');
   for (const part of ['head', 'body'] as const) {
     const [ours, theirs] = [strip(ucf[part]), plain[part]].map(part === 'head' ? normalizeHead : (html: string) => html);
@@ -186,18 +181,14 @@ function checkSameHtml(ucf: {head: string; body: string}, plain: {head: string; 
   return [];
 }
 
-function checkRendered(
-  run: Run,
-  fuzzCase: SvelteCase,
-  render: (name: string, kind: Kind) => {head: string; body: string}
-): Outcome {
-  let plain: {head: string; body: string};
+function checkRendered(run: Run, fuzzCase: SvelteCase, render: Render): Outcome {
+  let plain: Html;
   try {
     plain = render(fuzzCase.name, 'plain');
   } catch (err) {
     return {usable: false, reason: `the plain file's render threw: ${firstLine(err)}`};
   }
-  let ucf: {head: string; body: string};
+  let ucf: Html;
   try {
     ucf = render(fuzzCase.name, 'ucf');
   } catch (err) {
@@ -214,16 +205,19 @@ async function checkCases(run: Run, cases: SvelteCase[]): Promise<Map<string, Ou
   for (const fuzzCase of cases) writeCase(run.dir, fuzzCase);
   let pending = cases;
   while (pending.length) {
-    let render: (name: string, kind: Kind) => {head: string; body: string};
+    let render: Render;
     try {
       render = await buildEntries(
         run,
-        pending.flatMap((fuzzCase) => [[fuzzCase, 'ucf'] as [SvelteCase, Kind], [fuzzCase, 'plain'] as [SvelteCase, Kind]])
+        pending.flatMap((fuzzCase): Entry[] => [
+          [fuzzCase, 'ucf'],
+          [fuzzCase, 'plain'],
+        ])
       );
     } catch (err) {
       const culprit = culpritOf(err, pending);
-      const failed = culprit ? [culprit.fuzzCase] : pending;
-      for (const fuzzCase of failed) outcomes.set(fuzzCase.name, await classify(run, fuzzCase));
+      const failed = culprit ? [culprit] : pending;
+      for (const fuzzCase of failed) outcomes.set(fuzzCase.name, await checkAlone(run, fuzzCase));
       pending = pending.filter((fuzzCase) => !failed.includes(fuzzCase));
       continue;
     }
@@ -243,30 +237,43 @@ interface Result {
   failure?: Failure;
   usable: number;
   checked: number;
+  unusable: string[]; // why, one line per case
+  reached: Set<string>; // the shape facts of the usable cases
+  deepest: number;
 }
 
 async function fuzz(settings: FuzzSettings, breaker?: Breaker, onlyRule?: Rule): Promise<Result> {
   mkdirSync(FUZZ_DIR, {recursive: true});
-  const run: Run = {dir: mkdtempSync(join(FUZZ_DIR, 'run-')), breaker, onlyRule, batch: breaker ? CONTROL_BATCH : BATCH};
-  let usable = 0;
-  for (let first = 0; first < settings.runs; first += run.batch) {
-    const indices = Array.from({length: Math.min(run.batch, settings.runs - first)}, (_, offset) => first + offset);
+  const run: Run = {dir: mkdtempSync(join(FUZZ_DIR, 'run-')), breaker, onlyRule};
+  const batch = breaker ? CONTROL_BATCH : BATCH;
+  const result: Result = {usable: 0, checked: 0, unusable: [], reached: new Set(), deepest: 0};
+  for (let first = 0; first < settings.runs; first += batch) {
+    const indices = Array.from({length: Math.min(batch, settings.runs - first)}, (_, offset) => first + offset);
     const cases = indices.map((runIndex) => caseAt(settings.seed, runIndex, run.dir));
     const outcomes = await checkCases(run, cases);
     for (const [index, input] of cases.entries()) {
+      const runIndex = indices[index]!;
+      result.checked = runIndex + 1;
       const outcome = outcomes.get(input.name)!;
-      if (!outcome.usable) continue;
-      usable++;
+      if (!outcome.usable) {
+        result.unusable.push(`${input.name}: ${outcome.reason}`);
+        continue;
+      }
+      result.usable++;
+      for (const kind of input.applied) result.reached.add(kind);
+      for (const fact of shapeOf(input)) {
+        if (fact.startsWith('depth:')) result.deepest = Math.max(result.deepest, Number(fact.slice('depth:'.length)));
+        else result.reached.add(fact);
+      }
       if (!outcome.violations.length) continue;
       const shrunk = await shrink(run, input, outcome.violations[0]!.rule);
-      const runIndex = indices[index]!;
       const runSeed = mixSeed(settings.seed, 'run', runIndex);
-      const failure = {seed: settings.seed, runIndex, runSeed, dir: run.dir, input, shrunk, violations: outcome.violations};
-      return {failure, usable, checked: runIndex + 1};
+      result.failure = {seed: settings.seed, runIndex, runSeed, dir: run.dir, input, shrunk, violations: outcome.violations};
+      return result;
     }
   }
   rmSync(run.dir, {recursive: true, force: true});
-  return {usable, checked: settings.runs};
+  return result;
 }
 
 /** Each round builds all of its candidates in one batch. */
@@ -295,18 +302,38 @@ async function shrink(run: Run, input: SvelteCase, rule: Rule): Promise<SvelteCa
 }
 
 const showCase = (fuzzCase: SvelteCase) =>
-  `  ${fuzzCase.name} (${fuzzCase.legacy ? 'legacy' : 'runes'}), actions ${JSON.stringify(fuzzCase.applied)}:\n${ucfSource(fuzzCase)}`;
+  `  ${fuzzCase.name} (${fuzzCase.legacy ? 'legacy' : 'runes'}), actions ${JSON.stringify(fuzzCase.applied)}:\n${ucfSource(fuzzCase)}\n  plain twin:\n${fuzzCase.plain}`;
 
-// CI shows only the assertion message, so it carries the replay line.
-function describeFailure(failure: Failure): string {
-  return [
-    `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed}), files kept in ${failure.dir}`,
-    ...failure.violations.map((violation) => `  [${violation.rule}] ${violation.message}`),
-    replayLine(failure.seed, failure.runIndex, SPEC_PATH),
-    'shrunk:',
-    showCase(failure.shrunk),
-  ].join('\n');
-}
+const describeFailure = (failure: Failure) => describeKeptFailure(failure, SPEC_PATH, showCase);
+
+const EXPECTED_FACTS = [
+  ...ACTION_KINDS,
+  'mode:runes',
+  'mode:legacy',
+  ...SCRIPT_LAYOUTS.map((layout) => `script:${layout}`),
+  ...[
+    'RegularElement',
+    'SvelteElement',
+    'Component',
+    'SvelteComponent',
+    'SvelteSelf',
+    'SlotElement',
+    'SvelteFragment',
+    'IfBlock',
+    'EachBlock',
+    'AwaitBlock',
+    'KeyBlock',
+    'SnippetBlock',
+    'RenderTag',
+    'SvelteBoundary',
+    'SvelteHead',
+    'SvelteWindow',
+    'SvelteBody',
+    'SvelteDocument',
+    'SvelteOptions',
+    'Comment',
+  ].map((type) => `type:${type}`),
+];
 
 // --- tests -------------------------------------------------------------------------------------------------------
 
@@ -316,70 +343,25 @@ describe('svelte scope stamping fuzz', () => {
   it(
     `holds every rule over ${settings.runs} generated files (seed ${settings.seed})`,
     async () => {
-      const {failure, usable, checked} = await fuzz(settings);
+      const {failure, usable, checked, unusable, reached, deepest} = await fuzz(settings);
       if (failure) expect.fail(describeFailure(failure));
-      expect(usable, `${usable} of ${checked} cases usable`).toBeGreaterThanOrEqual(Math.ceil(checked * USABLE_FLOOR));
+      const why = `${usable} of ${checked} cases usable:\n${unusable.join('\n')}`;
+      expect(usable, why).toBeGreaterThanOrEqual(Math.ceil(checked * USABLE_FLOOR));
+      // A short replay need not reach every shape; a default-size run must, among the cases the rules checked.
+      if (settings.runs < DEFAULT_SETTINGS.runs) return;
+      expect(EXPECTED_FACTS.filter((fact) => !reached.has(fact))).toEqual([]);
+      expect(deepest).toBeGreaterThanOrEqual(5);
     },
-    60_000 + settings.runs * 1_000
+    // Node's timers take at most 2^31 - 1 ms; a longer one fires at once.
+    Math.min(60_000 + settings.runs * 1_000, 2 ** 31 - 1)
   );
-
-  it('reaches every case', () => {
-    const reached = new Set<string>();
-    let deepest = 0;
-    for (let runIndex = 0; runIndex < DEFAULT_SETTINGS.runs; runIndex++) {
-      const fuzzCase = caseAt(DEFAULT_SETTINGS.seed, runIndex, FUZZ_DIR);
-      for (const kind of fuzzCase.applied) reached.add(kind);
-      for (const fact of shapeOf(fuzzCase)) {
-        if (fact.startsWith('depth:')) deepest = Math.max(deepest, Number(fact.slice('depth:'.length)));
-        else reached.add(fact);
-      }
-    }
-    const expected = [
-      ...ACTION_KINDS,
-      'mode:runes',
-      'mode:legacy',
-      ...SCRIPT_LAYOUTS.map((layout) => `script:${layout}`),
-      ...[
-        'RegularElement',
-        'SvelteElement',
-        'Component',
-        'SvelteComponent',
-        'SvelteSelf',
-        'SlotElement',
-        'SvelteFragment',
-        'IfBlock',
-        'EachBlock',
-        'AwaitBlock',
-        'KeyBlock',
-        'SnippetBlock',
-        'SvelteBoundary',
-        'SvelteHead',
-        'SvelteWindow',
-        'SvelteBody',
-        'SvelteDocument',
-        'SvelteOptions',
-        'Comment',
-      ].map((type) => `type:${type}`),
-    ];
-    expect(expected.filter((fact) => !reached.has(fact))).toEqual([]);
-    expect(deepest).toBeGreaterThanOrEqual(5);
-  });
 
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const STAMP = / data-v-[0-9a-f]{8}=""/;
     const BROKEN: [string, Rule, Breaker][] = [
       ['an unclosed block', 'builds', {pre: (code) => `${code}\n{#if true}`}],
-      [
-        'the last stamp missing',
-        'stamps',
-        {
-          pre: (code) => {
-            const last = [...code.matchAll(new RegExp(STAMP.source, 'g'))].at(-1);
-            return last ? code.slice(0, last.index) + code.slice(last.index + last[0].length) : code;
-          },
-        },
-      ],
+      ['the last stamp missing', 'stamps', {pre: (code) => dropLast(code, STAMP)}],
       // Svelte rejects a repeated attribute, so the doubling goes into its compiled server code.
       ['a doubled stamp', 'stamps', {post: (code) => code.replace(STAMP, (stamp) => stamp + stamp)}],
       [
@@ -394,20 +376,18 @@ describe('svelte scope stamping fuzz', () => {
 
     it.each(BROKEN)(
       '%s fails rule %s',
-      async (_, rule, breaker) => {
-        const {failure} = await fuzz(DEFAULT_SETTINGS, breaker, rule);
+      async (_, rule, broken) => {
+        const {failure} = await fuzz(DEFAULT_SETTINGS, broken, rule);
         expect(failure?.violations.map((violation) => violation.rule)).toContain(rule);
         const {input, shrunk, runIndex, dir} = failure!;
         try {
-          const run: Run = {dir, breaker, onlyRule: rule, batch: CONTROL_BATCH};
-          const outcome = (await checkCases(run, [shrunk])).get(shrunk.name)!;
+          const outcome = (await checkCases({dir, breaker: broken, onlyRule: rule}, [shrunk])).get(shrunk.name)!;
           expect(outcome.usable && outcome.violations.map((violation) => violation.rule)).toContain(rule);
           expect(shrunk.applied.length).toBeLessThanOrEqual(input.applied.length);
           expect(describeFailure(failure!)).toContain(
             `MULTIFRONT_FUZZ_SEED=${DEFAULT_SETTINGS.seed} MULTIFRONT_FUZZ_RUNS=${runIndex + 1}`
           );
-          const replayed = caseAt(DEFAULT_SETTINGS.seed, runIndex, dir);
-          expect(replayed.block).toBe(input.block);
+          expect(caseAt(DEFAULT_SETTINGS.seed, runIndex, dir).block).toBe(input.block);
         } finally {
           rmSync(dir, {recursive: true, force: true});
         }
