@@ -31,6 +31,8 @@ function byUri(plugin: LanguagePlugin<string>): LanguagePlugin<URI> {
     // The .ucf plugin reads no associated script.
     createVirtualCode: (uri, languageId, snapshot) =>
       plugin.createVirtualCode?.(fileName(uri), languageId, snapshot, {getAssociatedScript: () => undefined}),
+    updateVirtualCode: (uri, code, snapshot) =>
+      plugin.updateVirtualCode?.(fileName(uri), code, snapshot, {getAssociatedScript: () => undefined}),
     disposeVirtualCode: (uri, code) => plugin.disposeVirtualCode?.(fileName(uri), code),
   };
 }
