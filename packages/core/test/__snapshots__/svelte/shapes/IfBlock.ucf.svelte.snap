@@ -2,9 +2,10 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/IfBlock.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/IfBlock.ucf?ucf&type=style&index=0&module&lang.js";
-    let {count = 2}: {count?: number} = $props()
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let {count = 2, ...__ucfRest}: {count?: number} = $props()
   </script>
-  <div data-v-a65fd61e="" class={__ucfStyle.box}>
+  <div data-v-a65fd61e="" {...__ucfScopeAttrs(__ucfRest)} class={__ucfStyle.box}>
     {#if count > 5}
       <p data-v-a65fd61e="" class={__ucfStyle.big}>Big</p>
     {:else if count > 1}

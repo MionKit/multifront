@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
+    export let label = 'legacy'
+;__ucfWarnFragment($$props, "LegacyRoot", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
+  </script>
+  <p class="shape"><span class="inner">{label}</span></p>

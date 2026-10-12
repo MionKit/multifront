@@ -1,0 +1,6 @@
+<svelte>
+  <script lang="ts">
+    let { tag = 'div', label = 'element' }: { tag?: string; label?: string } = $props()
+  </script>
+  <svelte:element this={tag} class="shape"><span class="inner">{label}</span></svelte:element>
+</svelte>

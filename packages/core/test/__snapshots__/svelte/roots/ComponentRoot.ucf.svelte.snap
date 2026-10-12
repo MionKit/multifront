@@ -1,0 +1,9 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    import SvelteElementRoot from './SvelteElementRoot.ucf'
+
+    let { label = 'component', ...__ucfRest }: { label?: string } = $props()
+  </script>
+  <!-- The child's root gets this file's scope and its parent's. -->
+  <SvelteElementRoot {...__ucfScopeAttrs(__ucfRest)} tag="article" {label} />

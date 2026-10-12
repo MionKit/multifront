@@ -1,0 +1,8 @@
+
+  <script lang="ts">
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
+    let { label = 'first', ...__ucfRest }: { label?: string } = $props()
+;(() => __ucfWarnFragment(__ucfRest, "MultiRoot", "renders more than one root"))();
+  </script>
+  <p class="shape"><span class="inner">{label}</span></p>
+  <p>second</p>

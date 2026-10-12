@@ -1,7 +1,10 @@
-
+<script>
+;__ucfWarnFragment($$props, "ModuleScriptOnly", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
+</script>
   <script module lang="ts">
 import "<fixtures>/components/svelte/shapes/ModuleScriptOnly.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/ModuleScriptOnly.ucf?ucf&type=style&index=0&module&lang.js";
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
     export const greeting: string = 'Hi'
     const moduleClass: string = __ucfStyle.text
   </script>

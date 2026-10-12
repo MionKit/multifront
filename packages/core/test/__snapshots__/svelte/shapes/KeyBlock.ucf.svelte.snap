@@ -2,8 +2,9 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/KeyBlock.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/KeyBlock.ucf?ucf&type=style&index=0&module&lang.js";
-    let {id = 1}: {id?: number} = $props()
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let {id = 1, ...__ucfRest}: {id?: number} = $props()
   </script>
   {#key id}
-    <div data-v-1caed60e="" class={__ucfStyle.box}><p data-v-1caed60e="" class={__ucfStyle.text}>Key {id}</p></div>
+    <div data-v-1caed60e="" {...__ucfScopeAttrs(__ucfRest)} class={__ucfStyle.box}><p data-v-1caed60e="" class={__ucfStyle.text}>Key {id}</p></div>
   {/key}

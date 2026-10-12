@@ -1,0 +1,8 @@
+<svelte>
+  <script lang="ts">
+    let { items = ['one', 'two'] }: { items?: string[] } = $props()
+  </script>
+  {#each items as item}
+    <p class="shape"><span class="inner">{item}</span></p>
+  {/each}
+</svelte>
