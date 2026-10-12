@@ -1,5 +1,5 @@
-import {mkdir, mkdtemp, readFile, writeFile} from 'node:fs/promises';
-import {join} from 'node:path';
+import {mkdir, mkdtemp, writeFile} from 'node:fs/promises';
+import {dirname, join} from 'node:path';
 import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
@@ -24,23 +24,17 @@ export async function buildFixtureLibrary(root = LIBRARY_DIR, options: LibraryOp
   }
 }
 
-/** Runs `run` on a fresh copy of the library fixture with `edits` applied (`[file, anchor, added]`, or a new file). */
+/** Runs `run` on a fresh copy of the library fixture with `edits` written (a whole file each, new or replaced). */
 export async function withEditedLibrary(
-  edits: ({file: string; anchor: string; added: string} | {file: string; content: string})[],
+  edits: {file: string; content: string}[],
   run: (root: string) => Promise<void>
 ): Promise<void> {
   const root = await copyLibrary();
   try {
-    for (const edit of edits) {
-      const path = join(root, edit.file);
-      if ('content' in edit) {
-        await mkdir(join(path, '..'), {recursive: true});
-        await writeFile(path, edit.content);
-        continue;
-      }
-      const source = await readFile(path, 'utf8');
-      if (!source.includes(edit.anchor)) throw new Error(`${edit.file} changed, no ${JSON.stringify(edit.anchor)}`);
-      await writeFile(path, source.replace(edit.anchor, edit.anchor + edit.added));
+    for (const {file, content} of edits) {
+      const path = join(root, file);
+      await mkdir(dirname(path), {recursive: true});
+      await writeFile(path, content);
     }
     await run(root);
   } finally {

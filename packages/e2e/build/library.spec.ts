@@ -10,9 +10,14 @@ import {LIBRARY_DIR} from '../fixtures/index.ts';
 import {buildFixtureLibrary, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
-// One JS file per component with that block and per plain module, `_virtual/` aside.
-const EXPECTED_MODULES = {
-  vue: ['Badge', 'Button', 'Card', 'Counter', 'Icon', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field', 'index', 'utils/cx'],
+// One JS file per component with that block and per plain module, sub-modules and virtual ones under `_virtual/`.
+const VIRTUAL = '_virtual/';
+const EXPECTED_JS = {
+  vue: ['Badge', 'Button', 'Card', 'Counter', 'Icon', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field', 'index', 'utils/cx'].concat(
+    ['Badge.script', 'Button.module-0', 'Button.script', 'Card.module-0', 'Card.script', 'Counter.script', 'Panel.script']
+      .concat(['Tooltip.script', 'VueOnly.script', 'forms/Field.script', 'plugin-vue/export-helper'])
+      .map((name) => VIRTUAL + name)
+  ),
   react: [
     'Badge',
     'Button',
@@ -25,7 +30,7 @@ const EXPECTED_MODULES = {
     'hooks/useToggle',
     'index',
     'utils/cx',
-  ],
+  ].concat(['Button.module-0', 'Card.module-0', 'multifront/scope-attrs'].map((name) => VIRTUAL + name)),
 };
 const OTHER_FRAMEWORKS = {vue: ['react', 'react-dom', 'svelte'], react: ['vue', 'svelte']};
 
@@ -53,12 +58,6 @@ function jsFiles(target: 'react' | 'vue'): string[] {
   return resultOf(target).files.filter((file) => file.endsWith('.js'));
 }
 
-function lineOf(source: string, text: string, from: number): number {
-  const offset = source.indexOf(text, from);
-  if (offset === -1) throw new Error(`no ${text}`);
-  return source.slice(0, offset).split('\n').length;
-}
-
 describe('buildLibrary(): one JS file per component, per target', () => {
   it('builds vue then react, one file per component with that block, and lists the files it skipped', () => {
     expect(library.results.map(({target, packageName}) => [target, packageName])).toEqual([
@@ -67,13 +66,8 @@ describe('buildLibrary(): one JS file per component, per target', () => {
     ]);
     for (const target of ['vue', 'react'] as const) {
       expect(resultOf(target).outDir).toBe(join(library.outDir, target).replaceAll('\\', '/'));
-      const modules = jsFiles(target).filter((file) => !file.startsWith('_virtual/'));
-      expect(modules, target).toEqual(EXPECTED_MODULES[target].map((name) => `${name}.js`));
+      expect(jsFiles(target), target).toEqual(EXPECTED_JS[target].map((name) => `${name}.js`).sort());
     }
-    expect(resultOf('react').files).toContain('Card.js');
-    expect(resultOf('react').files).toContain('forms/Field.js');
-    expect(resultOf('vue').files).toContain('VueOnly.js');
-    expect(resultOf('react').files).not.toContain('VueOnly.js');
     expect(resultOf('react').skipped).toEqual(['VueOnly.ucf']);
     expect(resultOf('vue').skipped).toEqual([]);
   });
@@ -122,7 +116,7 @@ describe('buildLibrary(): one JS file per component, per target', () => {
     const ucfFile = join(LIBRARY_DIR, 'src', 'Card.ucf');
     expect(resolve(dirname(join(resultOf('react').outDir, 'Card.js.map')), original.source)).toBe(ucfFile);
     const ucf = readFileSync(ucfFile, 'utf8');
-    expect(original.line).toBe(lineOf(ucf, '<h2', ucf.indexOf('<react>')));
+    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('<h2', ucf.indexOf('<react>'))).split('\n').length);
   });
 });
 
@@ -224,9 +218,10 @@ describe('buildLibrary() errors', () => {
   });
 
   it('fails on a component importing a file outside src', async () => {
+    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
     const edits = [
       {file: 'shared/tokens.ts', content: "export const accent = 'rgb(1, 2, 3)';\n"},
-      {file: 'src/Card.ucf', anchor: '<react>\n', added: "  import '../shared/tokens.js'\n"},
+      {file: 'src/Card.ucf', content: card.replace('<react>\n', "<react>\n  import '../shared/tokens.js'\n")},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow('shared/tokens.ts is outside src');
@@ -278,8 +273,10 @@ describe('buildLibrary() errors', () => {
   });
 
   it('fails on a framework with no library target', async () => {
-    await expect(buildFixtureLibrary(LIBRARY_DIR, {frameworks: ['svelte']})).rejects.toThrow(
-      "the 'svelte' framework has no library build"
-    );
+    await withEditedLibrary([], async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
+        "the 'svelte' framework has no library build"
+      );
+    });
   });
 });
