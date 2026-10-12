@@ -24,6 +24,11 @@ export interface Failure<Case, Rule extends string> {
   violations: Violation<Rule>[];
 }
 
+/** A failure whose generated files stay on disk in `dir`. */
+export interface KeptFailure<Case, Rule extends string> extends Failure<Case, Rule> {
+  dir: string;
+}
+
 function readKnob(name: string, fallback: number, min: number, max: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw === '') return fallback;
@@ -94,4 +99,25 @@ export async function shrinkActions<Kind extends string>(
 /** CI shows only the assertion message, so the replay command goes in it. */
 export function replayLine(seed: number, runIndex: number, specPath: string): string {
   return `replay: MULTIFRONT_FUZZ_SEED=${seed} MULTIFRONT_FUZZ_RUNS=${runIndex + 1} pnpm devx test ${specPath}`;
+}
+
+// CI shows only the assertion message, so it carries the replay line.
+export function describeKeptFailure<Case, Rule extends string>(
+  failure: KeptFailure<Case, Rule>,
+  specPath: string,
+  show: (fuzzCase: Case) => string
+): string {
+  return [
+    `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed}), files kept in ${failure.dir}`,
+    ...failure.violations.map((violation) => `  [${violation.rule}] ${violation.message}`),
+    replayLine(failure.seed, failure.runIndex, specPath),
+    'shrunk:',
+    show(failure.shrunk),
+  ].join('\n');
+}
+
+/** A negative control's breaker: `code` without the last match of `pattern`. */
+export function dropLast(code: string, pattern: RegExp): string {
+  const last = [...code.matchAll(new RegExp(pattern.source, 'g'))].at(-1);
+  return last ? code.slice(0, last.index) + code.slice(last.index + last[0].length) : code;
 }

@@ -12,8 +12,8 @@ import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
 import {checkBlocks, createBuildContext, getBlockKind, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {BuildContext, VirtualFile} from '@multifront/core';
 import {multifront} from '@multifront/vite';
-import {fuzzSettings, mixSeed, replayLine, shrinkActions} from './lib/fuzz.ts';
-import type {FuzzSettings, Failure as SeededFailure, Violation as SeededViolation} from './lib/fuzz.ts';
+import {describeKeptFailure, dropLast, fuzzSettings, mixSeed, shrinkActions} from './lib/fuzz.ts';
+import type {FuzzSettings, KeptFailure, Violation as SeededViolation} from './lib/fuzz.ts';
 import {ACTION_KINDS, FRAGMENT_TAGS, FUZZ_DIR, OUTCOMES, buildCase, caseAt, shapeOf, writeCase} from './lib/scopeFuzz.ts';
 import type {ScopeAction, ScopeCase} from './lib/scopeFuzz.ts';
 
@@ -33,9 +33,7 @@ interface Run {
   onlyRule?: Rule;
 }
 
-interface Failure extends SeededFailure<ScopeCase, Rule> {
-  dir: string;
-}
+type Failure = KeptFailure<ScopeCase, Rule>;
 
 mkdirSync(FUZZ_DIR, {recursive: true});
 const compiler = loadVueCompiler(FUZZ_DIR);
@@ -296,16 +294,7 @@ async function fuzz(settings: FuzzSettings, breaker?: Breaker, onlyRule?: Rule):
 const showCase = (fuzzCase: ScopeCase) =>
   `  ${fuzzCase.name}: fixture ${fuzzCase.fixture}, actions ${JSON.stringify(fuzzCase.applied)}\n${fuzzCase.source}`;
 
-// CI shows only the assertion message, so it carries the replay line.
-function describeFailure(failure: Failure): string {
-  return [
-    `fuzz failure at run ${failure.runIndex} (run seed ${failure.runSeed}), files kept in ${failure.dir}`,
-    ...failure.violations.map((violation) => `  [${violation.rule}] ${violation.message}`),
-    replayLine(failure.seed, failure.runIndex, SPEC_PATH),
-    'shrunk:',
-    showCase(failure.shrunk),
-  ].join('\n');
-}
+const describeFailure = (failure: Failure) => describeKeptFailure(failure, SPEC_PATH, showCase);
 
 // --- tests -----------------------------------------------------------------------------------------------------
 
@@ -371,14 +360,7 @@ describe('scope transform fuzz', () => {
       ['a forwarding spread left open', 'parses', (code) => code.replace(SPREAD, (spread) => spread.slice(0, -1))],
       ['a stray comment after a stamp', 'only-adds', (code) => code.replace(STAMP, (stamp) => `${stamp}/*x*/`)],
       ['a dropped character after a stamp', 'only-adds', (code) => code.replace(new RegExp(`(${STAMP.source}) \\S`), '$1 ')],
-      [
-        'the last stamp missing',
-        'stamps',
-        (code) => {
-          const last = [...code.matchAll(new RegExp(STAMP.source, 'g'))].at(-1);
-          return last ? code.slice(0, last.index) + code.slice(last.index + last[0].length) : code;
-        },
-      ],
+      ['the last stamp missing', 'stamps', (code) => dropLast(code, STAMP)],
       ['a doubled stamp', 'stamps', (code) => code.replace(STAMP, (stamp) => stamp + stamp)],
       ['every forwarding spread removed', 'renders', (code) => code.replace(new RegExp(SPREAD.source, 'g'), '')],
       // React warns once per prop name, so each module gets names of its own.
