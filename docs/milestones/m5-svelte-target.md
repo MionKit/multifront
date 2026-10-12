@@ -58,14 +58,14 @@ From milestone 4:
   - The compiler-based rules run in `build()`, which has the project root through `ctx.root` (new `BuildContext` field). They parse with `parse(content, { modern: true })` and report, with `.ucf` line and column:
     - `svelte-parse-error`: Svelte's own parse error (first line of its message), position shifted by `contentStart`.
     - `missing-style-module`: `$style` used with no `<style module>`, or `$name` with no `<style module="name">`, one per use. `$style` is always a class map, even beside a `style` prop, and also reads a `<style module="style">`; any other `$name` whose `name` is declared at the top level of a script is a Svelte store and is left alone. Runes (`$state`, `$props`, …), `$:` and `$$props`, property names (`{$x: 1}`, `o.$x`), import and export names and TypeScript type names are not uses; a computed key or member (`o[$x]`) and `($style as X)` are.
-  - Until 5.2 writes the file, a block that passes the rules still ends in `target-not-built`. Every kind now has a `build`, so `BlockKind.build` is required.
+  - Until 5.2 writes the file, a block that passes the rules still ends in the not-built error. Every kind now has a `build`, so `BlockKind.build` is required.
 - Deliverable: `splitBlocks` plus the registry reports every `<svelte>` rule with exact positions: `checkBlocks` the compiler-free one, `buildTarget(split, ctx, 'svelte')` (Vite's path) all of them.
 - Test: core's own tests. `packages/core/test/blocks/svelte.spec.ts`, over real files in `packages/e2e/fixtures/components/svelte/errors/`: `TopLevelStyle.ucf`, `StyleInHead.ucf`, `UnclosedBrace.ucf` (broken `{`), `StyleWithoutModule.ucf`, `WrongModuleName.ucf` (`$style` and `$theme` beside `module="classes"`, computed uses), `NamedModule.ucf` (`$classes` with `module="classes"`, every kind of top-level store, `$`-named imports, exports and types, a `style` prop), `Runes.ucf`, `Legacy.ucf` (`$:`, `$$props`), `ModuleNamedStyle.ucf`. Checks each code, line, column and span; the valid files and every other fixture's `<svelte>` block give no diagnostic. `packages/core/test/compilers.spec.ts` pins the lookup, the "could not find svelte" error (also from `buildTarget`, as a plain error) and a broken compiler's own error.
 - Status: done
 
 ### 5.2 The `<svelte>` kind: `build`
 
-- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`, after 5.1's rules, returns a `VirtualFile` with `ext: '.svelte'` in place of 5.1's `target-not-built`, all edits through MagicString over the `.ucf` source, so the map points into the `.ucf` file:
+- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`, after 5.1's rules, returns a `VirtualFile` with `ext: '.svelte'` in place of 5.1's not-built error, all edits through MagicString over the `.ucf` source, so the map points into the `.ucf` file:
   - Imports: `import '<style id>'` per style block, then `import __ucfStyle from '<class map id>'` per class map the block uses (`$classes` gets `__ucfClasses`; a name the block already binds gets a number suffix). They go into `<script module>` when the block has one (its imports reach the instance script and the markup, so `$style` works there too), else into the instance `<script>`, else into an added `<script>`.
   - Every `$style` / `$name` use that 5.1's rule counts as a class map, in the scripts and in markup expressions, becomes `__ucfStyle` / `__ucfName` (`$style` reads a `module="style"` block when there is no bare `<style module>`). A shorthand keeps its name: `{$style}` in an object becomes `{$style: __ucfStyle}`, `<Child {$style} />` becomes `<Child $style={__ucfStyle} />`. Runes, stores, property, import, export and type names stay as written.
   - When any style is `scoped`: `data-v-<id>=""` right after the tag name of every host element (`RegularElement`, `<svelte:element>`) and every component element (`Component`, `<svelte:component>`, `<svelte:self>`), inside `{#if}`, `{#each}`, `{#await}`, `{#key}`, `{#snippet}` and `<svelte:boundary>`. Not on `<svelte:head>` and its children, `<svelte:window>`, `<svelte:body>`, `<svelte:document>`, `<svelte:options>`, `<svelte:fragment>`, `<slot>`.
@@ -158,12 +158,18 @@ From milestone 4:
 
 ### 5.9 Types: `Card.ucf.svelte.ts`
 
-- Build: `packages/language-tools/src/blocks/svelte.ts`, the `types(block, ctx)` half: the same `$style` rewrite and imports as 5.2 (`$style` typed with `declare const` lines from `ctx.modules`, as M2 does for React; no stamping), then `svelte2tsx(code, { filename, isTsFile, mode: 'ts', parse, version })` with the project's own `svelte/compiler` (`loadSvelteCompiler`). The script references `svelte2tsx/svelte-shims-v4.d.ts` and `svelte-jsx-v4.d.ts`. Its default export is a Svelte `Component`. `svelte2tsx` 0.7.61 is a pinned dependency of language-tools, `svelte` an optional peer. The TypeScript plugin resolves to this script for the Svelte target.
+- Build: `packages/language-tools/src/blocks/svelte.ts`, the `types(block, ctx)` half: the same `$style` rewrite as 5.2 through core's `renameSvelteStyles(block, split, compiler, modules)` (`build()`'s rename alone: no stamping, no imports, no forwarding; Svelte's loose parser; never throws), then `svelte2tsx(code, { filename, isTsFile, mode: 'ts', parse, version, emitOnTemplateError: true })` with the project's own `svelte/compiler` (`loadSvelteCompiler`; `SvelteCompiler` gains `VERSION`). The script references `svelte2tsx/svelte-shims-v4.d.ts` and `svelte-jsx-v4.d.ts` by path (`EditorOptions.svelteTypesRoot`, default the installed svelte2tsx), and ends with `declare const __ucfStyle: …` lines from `ctx.modules` for each class map the block uses, as M2 does for React. Its default export is a Svelte `Component`. `svelte2tsx` 0.7.61 is a pinned dependency of language-tools, `svelte` an optional peer.
+  - `editor()` returns that script (TypeScript or JavaScript by the scripts' `lang`) and `serviceScript` serves it, so tsserver serves `Card.ucf.svelte.ts` beside the React and Vue scripts, and an import inside the block resolves from it (block rule). Its only mappings are the class map keys; 5.10 adds the block's.
+  - The TypeScript plugin loads the project's Svelte compiler (`EditorOptions.svelteCompiler`) and resolves every svelte pick to this script. With no Svelte installed there is no script: the pick is TypeScript's own `TS2307`, and the tsserver log says why. The "no types yet" error of M2 is gone, in the editor and the build alike.
+  - Definitions that fall back to the same spot of a `.ucf` file come back once (svelte2tsx declares the component as a value and a type).
+  - The VS Code pack: svelte2tsx imports TypeScript and Svelte's compiler at load, and the `.vsix` ships neither. `pnpm devx vsix` points its `typescript` import at the copy tsserver hands the plugin (`packages/vscode/src/bundle/hostTypeScript.cjs`) and its compiler at a stub, and copies the shims to `dist/svelte-types/` (`createTypeScriptPlugin({svelteTypesRoot})`). The shims' `import('svelte')` needs no install beside them: Svelte's types declare `module 'svelte'` globally.
 - Deliverable: `.ts` importers and other `.ucf` blocks see real Svelte component types.
-- Test: editor area, `packages/e2e/editor/svelte-types.spec.ts`, real tsserver with our plugin:
-  - a `.ts` file with `import Panel from './Panel.ucf' with { framework: 'svelte' }` sees `Component<{ heading: string }>`, and `mount(Panel, { target, props: { heading: 1 } })` is a type error;
-  - inside `Panel.ucf`'s `<svelte>` block, `./PanelItem.ucf` resolves to `PanelItem.ucf.svelte.ts`;
-  - the shared resolution fixture set (spec 10, "Types") gains its Svelte rows, and the build and tsserver pick the same target for each.
+- Test: editor area, `packages/e2e/editor/svelte-types.spec.ts`, real tsserver with our plugin on `apps/svelte-vite` (new `tsconfig.json`):
+  - `src/main.ts` with `import Panel from '../../../components/Panel.ucf' with { framework: 'svelte' }` sees a `Component` whose `heading` prop is `string`, and `mount(Panel, { target, props: { heading: 1 } })` is one `TS2322` at `heading`; definition on `Panel` lands in `Panel.ucf`;
+  - inside `Panel.ucf`'s `<svelte>` block, `./PanelItem.ucf` resolves to `PanelItem.ucf.svelte.ts` (an unsaved edit typing `heading` as `typeof PanelItem` gives `main.ts` a Svelte `Component`, and `resolveUcfImport` over `getTypesScript`'s code);
+  - the shared resolution fixture set (spec 10, "Types"): its Svelte rows (`src/lazy.ts`, `src/attribute-over-importer.tsx`, `custom-importers/widget.ts`, `src/Gallery.svelte`) resolve to svelte in the build (`build/imports.spec.ts`) and in tsserver (`editor/imports.spec.ts`: no error, definition on `Card.ucf`, a binding typed `Component`). `src/Gallery.svelte`'s tsserver side needs Svelte's own TypeScript plugin: 5.11 lists it in its Test.
+  - Also: `bundle.spec.ts`, the pack gives a svelte pick a `Component` with the shims beside the bundle; `vsix.spec.ts` packs them; `tsserver.spec.ts`, a project with no Svelte gets `TS2307` and the log line.
+- Status: done
 
 ### 5.10 The `<svelte>` block in the language server
 
@@ -186,6 +192,7 @@ From milestone 4:
   - real tsserver with `typescript-svelte-plugin` 0.3.52 and our plugin both loaded: a `.ts` file importing a `.svelte` file and a `.ucf` file gets correct types for both;
   - real `svelte-language-server` 0.18.4 over LSP (`svelteserver --stdio`) on a `.svelte` importer: "cannot find module" before `emitSvelteTypes`; after it, the props are typed and a wrong prop is an error;
   - real `svelte-check` 4.7.6 on the app: passes, and fails on a fixture page with a wrong prop.
+  - the shared resolution set's `src/Gallery.svelte` row (5.9 left its tsserver side here): in `editor/imports.spec.ts`, real tsserver with `typescript-svelte-plugin` and our plugin, its import has no error, definition lands on `Card.ucf`, and the binding is a Svelte `Component`, as the build picks.
 
 ## Hands to later milestones
 
@@ -193,13 +200,13 @@ For milestone 6 (library build), which builds the Svelte package from these:
 
 - The svelte row's `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`: the `.svelte` code the Svelte package ships, once it can point imports at real files (the style ids, the class maps and the scope helper module `virtual:multifront/scope-attrs` of root forwarding).
 - `loadSvelteCompiler(root)` in core, and `svelte` plus `@sveltejs/vite-plugin-svelte` as optional peers of `@multifront/vite`.
-- `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`).
+- `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`), and `renameSvelteStyles(block, split, compiler, modules)` in core, the rename the editor's script shares with `build()`.
 - The `<svelte>` blocks of the shared fixtures (`Counter.ucf`, `Panel.ucf`, `PanelItem.ucf`, `imports/Icon.ucf`), the model for the library fixture's Svelte blocks.
 - `@sveltejs/kit` 2.70.3 and `@sveltejs/adapter-node` 5.5.7 as root devDependencies, and `startNodeServer(root)` (`build/index.js`) in `packages/e2e/build/lib/freshProcess.ts`, for 6.13's SvelteKit node server.
 
 For milestone 7 (full editor support):
 
-- `packages/language-tools/src/blocks/svelte.ts`: `types()` (`Card.ucf.svelte.ts`) for `mf-tsc` checking every target, and `editor()` for adding markup completions on top.
+- `packages/language-tools/src/blocks/svelte.ts`: `types()` (`Card.ucf.svelte.ts`) for `mf-tsc` checking every target, and `editor()` for adding markup completions on top. `EditorOptions.svelteCompiler` and `svelteTypesRoot`.
 - The source-map-to-Volar-mappings converter of 5.10, for any other tool that gives a source map.
 - `emitSvelteTypes({ root, outDir })`, for `mf-tsc` to run it before `svelte-check` in CI.
 - `packages/core/src/blocks/svelte.ts` `build()`: the `.svelte` file `mf-lint` hands to oxlint; `mf-fmt` leaves `<svelte>` as written (spec 6.1).

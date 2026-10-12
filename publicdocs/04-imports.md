@@ -38,7 +38,7 @@ export {default as VueCard} from '../../../components/Card.ucf' with {framework:
 export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
 ```
 
-> **Note:** An import that picks vue needs `@vitejs/plugin-vue` in your Vite plugins, and one that picks svelte needs `@sveltejs/vite-plugin-svelte`, or the build fails. In the editor, TypeScript has types for react and vue picks only: a svelte pick gives the error `target-not-built`.
+> **Note:** An import that picks vue needs `@vitejs/plugin-vue` in your Vite plugins, and one that picks svelte needs `@sveltejs/vite-plugin-svelte`, or the build fails. In the editor, a svelte pick has its types when the project has `svelte` installed.
 
 > **Tip:** In one file, TypeScript gives every import of the same path the type of the last one. To use a component as two frameworks, import each from its own small file that re-exports it.
 
