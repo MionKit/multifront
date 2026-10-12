@@ -18,14 +18,23 @@
     "index": 0
   },
   {
+    "type": "svelte",
+    "attrs": {},
+    "start": 760,
+    "end": 1106,
+    "contentStart": 768,
+    "contentEnd": 1097,
+    "index": 0
+  },
+  {
     "type": "style",
     "attrs": {
       "scoped": true
     },
-    "start": 760,
-    "end": 824,
-    "contentStart": 774,
-    "contentEnd": 816,
+    "start": 1108,
+    "end": 1172,
+    "contentStart": 1122,
+    "contentEnd": 1164,
     "index": 0
   },
   {
@@ -33,10 +42,10 @@
     "attrs": {
       "module": true
     },
-    "start": 826,
-    "end": 882,
-    "contentStart": 840,
-    "contentEnd": 874,
+    "start": 1174,
+    "end": 1230,
+    "contentStart": 1188,
+    "contentEnd": 1222,
     "index": 1
   }
 ]

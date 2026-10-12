@@ -10,7 +10,7 @@ import {expectNoAttribute, moduleReferences} from './lib/references.ts';
 const COUNTER = '../../../components/Counter.ucf';
 const USES_ICON = '../../../components/imports/UsesIcon.ucf';
 const VUE_MARKERS = ['icon-vue-marker', 'uses-icon-vue-marker'];
-const REACT_MARKERS = ['icon-react-marker', 'uses-icon-react-marker'];
+const OTHER_MARKERS = ['icon-react-marker', 'uses-icon-react-marker', 'icon-svelte-marker', 'uses-icon-svelte-marker'];
 
 interface Resolution {
   environment: string;
@@ -110,7 +110,7 @@ describe('imports through plugin-vue in the vue app', () => {
       );
       const code = chunks.map((chunk) => chunk.code).join('\n');
       for (const marker of VUE_MARKERS) expect(code).toContain(marker);
-      for (const marker of REACT_MARKERS) expect(code).not.toContain(marker);
+      for (const marker of OTHER_MARKERS) expect(code).not.toContain(marker);
     });
   });
 
@@ -151,7 +151,7 @@ describe('imports through plugin-vue in the vue app', () => {
         /<span class="uses-icon"><svg [^>]*aria-label="icon-vue-marker"[^>]*>.*<\/svg> uses-icon-vue-marker<\/span>/s
       );
       expect(html).toMatch(/<div class="counter" data-v-[0-9a-f]+>/);
-      for (const marker of REACT_MARKERS) expect(html).not.toContain(marker);
+      for (const marker of OTHER_MARKERS) expect(html).not.toContain(marker);
     });
   });
 });

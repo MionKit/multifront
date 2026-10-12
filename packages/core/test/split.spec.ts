@@ -16,6 +16,7 @@ describe('splitBlocks on valid fixtures', () => {
       'Counter.ucf',
       'Hello.ucf',
       'Panel.ucf',
+      'PanelItem.ucf',
       'ReactDefaultSpecifier.ucf',
       'ScopedModuleScss.ucf',
       'TsxEdges.ucf',
@@ -26,7 +27,7 @@ describe('splitBlocks on valid fixtures', () => {
     const styleAttrs = (name: string) => splitBlocks(readComponent(name).source, name).styles.map((block) => block.attrs);
     expect(styleAttrs('Card.ucf')).toEqual([{module: true, lang: 'scss'}]);
     expect(styleAttrs('Button.ucf')).toEqual([{scoped: true}, {module: 'classes'}]);
-    expect(styleAttrs('Panel.ucf')).toEqual([{scoped: true, lang: 'scss'}, {}]);
+    expect(styleAttrs('Panel.ucf')).toEqual([{scoped: true, lang: 'scss'}, {}, {module: true, lang: 'scss'}]);
   });
 
   describe.each(listComponents())('%s', (name) => {

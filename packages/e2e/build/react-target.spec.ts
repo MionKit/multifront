@@ -14,7 +14,14 @@ import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
 const COMPONENTS = ['react/AllBlocks.ucf', 'imports/Icon.ucf', 'imports/UsesIcon.ucf'];
 const REACT_MARKERS = ['all-blocks-react-marker', 'icon-react-marker', 'uses-icon-react-marker'];
-const OTHER_MARKERS = ['all-blocks-vue-marker', 'all-blocks-svelte-marker', 'icon-vue-marker', 'uses-icon-vue-marker'];
+const OTHER_MARKERS = [
+  'all-blocks-vue-marker',
+  'all-blocks-svelte-marker',
+  'icon-vue-marker',
+  'icon-svelte-marker',
+  'uses-icon-vue-marker',
+  'uses-icon-svelte-marker',
+];
 
 type BuildError = Error & {errors?: {loc?: unknown}[]};
 
@@ -141,11 +148,12 @@ describe('vite build of the react-basic error entries', () => {
     expect(expected).toContainEqual(err.errors?.[0]?.loc);
   });
 
-  // No plugin compiles the Svelte code our build hands on.
-  it('fails a svelte pick without plugin-svelte on its .svelte id', async () => {
+  it('fails a svelte pick without plugin-svelte, naming the import, its importer and the .svelte id', async () => {
     const err = await buildError('src/errors/svelte-pick.ts');
-    expect(err.message).toContain('[PARSE_ERROR]');
-    expect(err.message).toContain('components/react/AllBlocks.ucf.svelte.svelte');
+    const importer = join(ROOT, 'src/errors/svelte-pick.ts');
+    expect(err.message).toContain(
+      `AllBlocks.ucf (imported by ${importer}): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles ${componentPath('react/AllBlocks.ucf')}.svelte.svelte)`
+    );
   });
 
   it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {

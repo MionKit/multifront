@@ -20,6 +20,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'ComposesScoped.ucf'},
   {fixture: 'Counter.ucf'},
   {fixture: 'Panel.ucf'},
+  {fixture: 'PanelItem.ucf'},
   {fixture: 'ScopedModuleScss.ucf'},
   {fixture: 'TsxEdges.ucf'},
   {fixture: 'invalid/CssSyntaxError.ucf'},

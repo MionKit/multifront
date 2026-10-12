@@ -32,3 +32,26 @@ $pad: 1rem;
   --panel-border: #ccc;
 }
 </style>
+
+<style module lang="scss">
+$accent: rgb(40, 90, 160);
+
+.title {
+  color: $accent;
+}
+</style>
+
+<svelte>
+  <script lang="ts">
+  import type { Snippet } from 'svelte'
+  import PanelItem from './PanelItem.ucf'
+
+  let { heading, children }: { heading: string; children?: Snippet } = $props()
+  </script>
+
+  <section class="panel" data-marker="panel-svelte-marker">
+    <h3 class="heading {$style.title}">{heading}</h3>
+    <PanelItem label="first item" />
+    {@render children?.()}
+  </section>
+</svelte>
