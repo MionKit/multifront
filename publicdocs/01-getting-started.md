@@ -26,6 +26,8 @@ The app also needs these packages:
 | `@vitejs/plugin-react` | `^6.0.0` | React apps |
 | `react`, `react-dom` | `^19.0.0` | React apps |
 | `@vitejs/plugin-vue` | `^6.0.3` | Vue apps |
+| `@sveltejs/vite-plugin-svelte` | `^7.0.0` | Svelte apps |
+| `svelte` | `^5.55.6` | Svelte apps |
 
 ## Writing a First Component
 

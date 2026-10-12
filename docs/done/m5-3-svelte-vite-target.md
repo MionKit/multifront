@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.3
@@ -32,6 +32,9 @@ Checked (plugin-svelte 7.3.0 and 7.0.0 tarballs, svelte 5.57.0):
   Our post plugins run before Vite's import analysis, so the bare specifier is still there.
 - Svelte's client source map does not map text inside the `$.from_html` template string; it maps the element and
   `{expr}` lines. The map test checks lines, not the marker's own spot.
+- plugin-svelte passes `this.getCombinedSourcemap()` to `svelte.compile`, which merges our `load` map into its own; Vite
+  (and Rolldown) then apply our map a second time and every segment is lost (found while building: zero mappings into
+  `Panel.ucf` in dev and in the build).
 - `$state(start)` on a prop warns `state_referenced_locally`; `$state(untrack(() => start))` does not.
 - A svelte-pick check in `resolveId` breaks the imports app's dev-server rows that pick svelte (`src/lazy.ts`,
   `custom-importers/widget.ts`, …) unless their configs get `svelte()`. `imports.spec.ts:19` already says
@@ -44,6 +47,9 @@ Orchestrator's answers to the plan questions:
 1. Svelte peer floor: `svelte ^5.46.4` and `@sveltejs/vite-plugin-svelte ^7.0.0` as optional peers of
    `@multifront/vite`, core's `svelte` peer raised to `^5.46.4`: the tested floor must be the claimed floor
    (plan.md "Framework versions"). Floor dry-run before pushing; a failing test at 5.46.4 raises the floor, with why.
+   Shipped: the dry run failed below 5.55.6 (5.55.5: the server render drops `<ui.Child>` read from `$derived`;
+   older releases also write other hydration markers), so both peers are `^5.55.6`. Everything passes on 5.55.6 with
+   plugin-svelte 7.0.0.
 2. Panel fixture: only what 5.3 asks. Panel gains its `<svelte>` block (rendering `PanelItem`) and the
    `<style module lang="scss">`; its `<vue>` and `<react>` blocks stay as they are (5.8 and the exit test change them
    for parity). PanelItem.ucf gets all three target blocks.
@@ -59,22 +65,27 @@ Orchestrator's answers to the plan questions:
 1. New `packages/vite/src/svelteTarget.ts`, beside `vueTarget.ts`:
    - `SVELTE_PLUGIN_NAME = 'vite-plugin-svelte'`, `hasSveltePlugin(plugins)`.
    - `SVELTE_PLUGIN_MISSING = 'the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins'`.
+   - `composeSveltePlugin(config)`, called from `configResolved` (after plugin-svelte's own, which sets up its
+     compile, and before its compile plugin's): wraps the `vite-plugin-svelte:compile` plugin's `transform.handler` so
+     that for our ids its context's `getCombinedSourcemap` returns `null`. The compiler then maps to our built code and
+     Vite applies our `load` map once. Guarded against a second `configResolved` on the same instance.
    - `svelteCompiledPlugin(): Plugin`, `multifront:svelte-compiled`, `enforce: 'post'`, transform filter id
      `/\.ucf\.svelte\.svelte$/`: code with no `from 'svelte/internal/(client|server)'` import →
      `this.error(`${id}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options
      must let ids ending in .ucf.svelte.svelte through`)`.
 2. `index.ts`:
-   - `configResolved` stores `sveltePlugin = hasSveltePlugin(resolved.plugins)` (the plugin-name check).
+   - `configResolved` stores `sveltePlugin = hasSveltePlugin(resolved.plugins)` (the plugin-name check) and calls
+     `composeSveltePlugin(resolved)`.
    - `resolveId`, after the missing-block check: target svelte and no `sveltePlugin` →
      `this.error(importErrorMessage(path, from?.fileName, `${SVELTE_PLUGIN_MISSING} (it compiles ${id})`))`, naming
      the import, its importer and the `.svelte.svelte` id. The scan path is unchanged (it sets svelte picks aside first).
    - Returned array: `[pre, vueHmr, vueImporters, svelteCompiledPlugin(), attributesPlugin(options)]`. The check runs
      before the attribute rewrite, which would otherwise read raw markup first.
    - `load` unchanged: the test proves it serves the id and watches the `.ucf` file.
-3. `packages/vite/package.json`: optional peers `"svelte": "^5.46.4"`, `"@sveltejs/vite-plugin-svelte": "^7.0.0"`;
+3. `packages/vite/package.json`: optional peers `"svelte": "^5.55.6"`, `"@sveltejs/vite-plugin-svelte": "^7.0.0"`;
    pinned devDependencies `svelte` 5.57.0, `@sveltejs/vite-plugin-svelte` 7.3.0. Root devDependency
    `@sveltejs/vite-plugin-svelte` 7.3.0. Lockfile through pnpm.
-4. `packages/core/package.json`: `svelte` peer `^5.0.0` → `^5.46.4`.
+4. `packages/core/package.json`: `svelte` peer `^5.0.0` → `^5.55.6`.
 5. `VUE_PLUGIN_MISSING` (`vueTarget.ts:22`) says "the vue framework needs @vitejs/plugin-vue in your Vite plugins";
    `react-target.spec.ts` and `vue-compose.spec.ts` expect the new text. Own commit.
 
@@ -82,7 +93,7 @@ Orchestrator's answers to the plan questions:
 
 6. `scripts/lib/peer-floor.mjs` `FLOOR_PEERS`: `svelte: {peers: ['svelte', '@sveltejs/vite-plugin-svelte'], follow: {}}`.
 7. `.github/workflows/ci.yml`: `svelte-floor` job, a copy of `vue-floor` running `pnpm devx peer-floor svelte`.
-8. Before pushing: the floor on a throwaway worktree in the scratchpad (`CI=1 pnpm devx peer-floor svelte`, then
+8. Done before pushing: the floor on a throwaway worktree in the scratchpad (`CI=1 pnpm devx peer-floor svelte`, then
    `pnpm devx test`). A failing test at 5.46.4 → floor moves up to the lowest svelte where every test passes; ranges,
    docs and PR say which and why.
 
@@ -98,6 +109,8 @@ Orchestrator's answers to the plan questions:
 11. New `<svelte>` blocks, Svelte copies of the existing ones: `Counter.ucf` (`$props`,
     `$state(untrack(() => start))`, `class={$style.button}`, `onclick`), `imports/Icon.ucf`
     (`aria-label="icon-svelte-marker"`), `imports/UsesIcon.ucf` (imports `./Icon.ucf`, `uses-icon-svelte-marker`).
+    `vue/CounterCrlf.ucf` (Counter's CRLF twin) gets the same block. `build/hmr.spec.ts`'s "a new `<svelte>` block"
+    row becomes "`<svelte>` text (its module never loaded)", as Counter now has one.
     Core's "builds every other `<svelte>` block, and Svelte compiles it" test (`core/test/blocks/svelte.spec.ts:148`)
     picks them all up.
 12. New app `fixtures/apps/svelte-vite/`: `vite.config.ts` (`plugins: [svelte(), multifront()]`), `index.html`,
@@ -121,12 +134,14 @@ All on this host and CI `check` (real Vite 8.2.2, plugin-svelte 7.3.0, svelte 5.
     carries `data-v-<ctx.scopeId>` (production id).
   - CSS: one asset; each `ctx.styles` selector of Panel, PanelItem and Counter exactly once; every class-map value in
     the JS; no `svelte-<hash>` class in the CSS.
+  - Either Panel or Counter can fail first without plugin-svelte (they resolve in parallel): the test reads which.
   - No `panel-item-vue-marker` or `panel-item-react-marker` in JS or CSS (Panel's own Vue and React blocks carry no
     marker, and stay unchanged).
   - Source map: segments with source `components/Panel.ucf` exist, all on lines of Panel's `<svelte>` block, one on
     the `{heading}` line.
-  - Dev server (`withDevServer`): `main.ts` imports Panel's `.svelte.svelte` URL; transforming it gives compiled code
-    (`svelte/internal/client`); its module node imports the real `Panel.ucf` (the `addWatchFile` edge).
+  - Dev server (`withDevServer`, cache in a temp dir: plugin-svelte pre-bundles svelte): `main.ts` imports Panel's
+    `.svelte.svelte` URL; transforming it gives compiled code (`svelte/internal/client`) whose map points into Panel's
+    `<svelte>` block; its module node imports the real `Panel.ucf` (the `addWatchFile` edge).
   - `{configFile: false, plugins: [multifront()]}`: fails with `../../../components/Panel.ucf (imported by <main.ts>):
     the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles
     <abs>/Panel.ucf.svelte.svelte)`.
@@ -135,18 +150,18 @@ All on this host and CI `check` (real Vite 8.2.2, plugin-svelte 7.3.0, svelte 5.
 - `react-target.spec.ts`: "fails a svelte pick without plugin-svelte" expects our message with the importer and the
   `AllBlocks.ucf.svelte.svelte` id, in place of `[PARSE_ERROR]`.
 - `packages/e2e/devx/peer-floor.spec.ts`: `floorOverrides('svelte')` is
-  `{svelte: '5.46.4', '@sveltejs/vite-plugin-svelte': '7.0.0'}`; refusals say `knows react, vue, svelte`.
-- Proof of infra: PR or `PUSHED` message quotes `svelte-floor` log lines (`peer-floor: svelte 5.46.4 …`, the
+  `{svelte: '5.55.6', '@sveltejs/vite-plugin-svelte': '7.0.0'}`; refusals say `knows react, vue, svelte`.
+- Proof of infra: PR or `PUSHED` message quotes `svelte-floor` log lines (`peer-floor: svelte 5.55.6 …`, the
   `svelte-target.spec.ts` tests running).
 
 ## Docs
 
-- `docs/plan.md` "Framework versions": the Svelte range (`svelte ^5.46.4`, where plugin-svelte 7 starts; plugin-svelte
-  `^7.0.0`) replaces "comes with its milestone"; milestone 5 summary names the `svelte-floor` job.
+- `docs/plan.md` "Framework versions": the Svelte range (`svelte ^5.55.6` and why, plugin-svelte `^7.0.0`) replaces
+  "comes with its milestone"; the milestone 5 summary names the source map composition and the `svelte-floor` job.
 - `SETUP.md`: peer-floor lines name svelte and the `svelte-floor` job.
-- `docs/milestones/m5-svelte-target.md`: 5.1 core peer `^5.46.4`; 5.3 peer text with the exact ranges and message,
-  `- Status: done`; 5.9 and 5.10 say `heading` for Panel's prop. `m4-vue-target.md` quotes the Vue message: new wording.
-- `publicdocs/01-getting-started.md`: rows `svelte` `^5.46.4` and `@sveltejs/vite-plugin-svelte` `^7.0.0` in the
+- `docs/milestones/m5-svelte-target.md`: 5.1 core peer `^5.55.6`; 5.3 text with the exact ranges, messages, the
+  source map composition and the fixture scope, `- Status: done`; 5.9 and 5.10 say `heading` for Panel's prop. `m4-vue-target.md` quotes the Vue message: new wording.
+- `publicdocs/01-getting-started.md`: rows `svelte` `^5.55.6` and `@sveltejs/vite-plugin-svelte` `^7.0.0` in the
   package table (it lists the plugin's peers). `publicdocs/04-imports.md`: the plugin-vue note also names
   plugin-svelte for svelte picks. Full Svelte pages: the milestone's docs writer.
 - No `docs/architecture.md` change (no structure change).
