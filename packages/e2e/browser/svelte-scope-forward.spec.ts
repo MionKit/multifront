@@ -29,21 +29,42 @@ const ITEM_RULE: [string, string][] = [
 
 // Roots.ucf's scoped `.shape` rule, which reaches a child root only through forwarding.
 const PARENT_COLOR = 'rgb(200, 40, 80)';
-const FORWARDED = [
-  'IfElseRoot:a',
-  'IfElseRoot:b',
-  'IfElseRoot:c',
-  'ComponentRoot:only',
-  'SvelteElementRoot:only',
-  'NestedRoot:then',
-  'RestRoot:only',
-  'NoPropsRoot:only',
+// `[case, the root's inner text]`, in the order Roots.ucf renders them.
+const FORWARDED: [string, string][] = [
+  ['IfElseRoot:a', 'a'],
+  ['IfElseRoot:b', 'b'],
+  ['IfElseRoot:c', 'c'],
+  ['PassOnRoot:only', 'component'],
+  ['SvelteElementRoot:only', 'element'],
+  ['NestedRoot:then', 'resolved'],
+  ['NestedRoot:catch', 'catch'],
+  ['NestedRoot:failed', 'failed'],
+  ['RestRoot:only', 'given / rest note / shown'],
+  ['NoPropsRoot:only', '1'],
+  ['EscapedRoot:only', 'escaped'],
+  ['EmptyPropsRoot:only', 'taken'],
+  ['EmptyScriptRoot:only', 'empty script'],
+  ['OptionsRoot:only', 'options'],
+  ['PropsOnlyRoot:only', 'props'],
+  ['ShadowRoot:only', 'shadow'],
+  ['StoreDerivedRoot:only', '2 1'],
 ];
-// Each warns once in dev, with its own problem.
-const WARNED: [string, string][] = [
-  ['EachRoot', 'renders an {#each} block as its root'],
-  ['MultiRoot', 'renders more than one root'],
-  ['LegacyRoot', 'is a legacy-mode Svelte component'],
+// No element root: nothing to forward, no warning.
+const SILENT = ['TextRoot'];
+const LEGACY_FIX = 'Use $props() to make it a runes-mode component.';
+// Each warns once in dev, with its own problem and fix.
+const WARNED: [string, string, string][] = [
+  ['EachRoot', 'renders an {#each} block as its root', ''],
+  ['MultiRoot', 'renders more than one root', 'Render one root element instead.'],
+  ['LegacyRoot', 'is a legacy-mode Svelte component', LEGACY_FIX],
+  ['LegacyStoreRoot', 'is a legacy-mode Svelte component', LEGACY_FIX],
+];
+// Plain-text values escaped once, as with no spread.
+const ESCAPED: [string, string, string][] = [
+  ['EscapedRoot:only', 'title', 'a & b'],
+  ['EscapedRoot:only', 'data-html', '<div>'],
+  ['EscapedRoot:only', 'data-quote', '"quoted"'],
+  ['SvelteElementRoot:only', 'title', 'a & b'],
 ];
 
 const problems = (messages: ReturnType<typeof collectConsole>) =>
@@ -109,10 +130,11 @@ describe.each([
   it('forwards to every single-root shape of svelte/roots/, and to none of the others', async () => {
     const parent = scopeAttribute(ROOT, ROOTS_PARENT, production);
     await withPage(`${app!.url}?page=roots`, async (page, messages) => {
-      // The promise resolved: NestedRoot shows its `{:then}` branch.
-      await expect.poll(() => page.locator('[data-case="NestedRoot:then"] .inner').textContent(), POLL).toBe('resolved');
-      expect(await page.locator('[data-case]').count()).toBe(FORWARDED.length + WARNED.length);
-      for (const name of FORWARDED) {
+      // The promises settled and the boundary failed: each NestedRoot case shows its own branch.
+      for (const [name, text] of FORWARDED)
+        await expect.poll(() => page.locator(`[data-case="${name}"] .inner`).textContent(), POLL).toBe(text);
+      expect(await page.locator('[data-case]').count()).toBe(FORWARDED.length + SILENT.length + WARNED.length);
+      for (const [name] of FORWARDED) {
         const wrapper = page.locator(`[data-case="${name}"]`);
         const root = wrapper.locator(':scope > *');
         expect({name, roots: await root.count(), carriers: await wrapper.locator(`[${parent}]`).count()}).toEqual({
@@ -124,9 +146,13 @@ describe.each([
         expect({name, color: await computed(root, 'color')}).toEqual({name, color: PARENT_COLOR});
         expect({name, inner: await root.locator('.inner').getAttribute(parent)}).toEqual({name, inner: null});
       }
-      // ComponentRoot passes the scope on to SvelteElementRoot's `<article>`.
-      expect(await page.locator('[data-case="ComponentRoot:only"] > article').count()).toBe(1);
-      for (const [name] of WARNED) {
+      // PassOnRoot passes the scope on to SvelteElementRoot's `<article>`.
+      expect(await page.locator('[data-case="PassOnRoot:only"] > article').count()).toBe(1);
+      for (const [name, attribute, value] of ESCAPED) {
+        const found = await page.locator(`[data-case="${name}"] > *`).getAttribute(attribute);
+        expect({name, attribute, found}).toEqual({name, attribute, found: value});
+      }
+      for (const name of [...SILENT, ...WARNED.map(([warned]) => warned)]) {
         const carriers = await page.locator(`[data-case="${name}:only"] [${parent}]`).count();
         expect({name, carriers}).toEqual({name, carriers: 0});
       }
@@ -136,10 +162,11 @@ describe.each([
       // Dev warns once per component, however often it renders; a build never does.
       expect(reported.map(({type}) => type)).toEqual(production ? [] : WARNED.map(() => 'warning'));
       if (production) return;
-      for (const [name, problem] of WARNED)
-        expect(
-          reported.filter(({text}) => text.startsWith(`[multifront] <${name}> ${problem}, so no element receives ${parent}`))
-        ).toHaveLength(1);
+      for (const [name, problem, fix] of WARNED) {
+        // `{#each}` lists no fix of its own: React's default.
+        const message = `[multifront] <${name}> ${problem}, so no element receives ${parent} and its parent's scoped styles miss it. ${fix || 'Render one root element instead.'}`;
+        expect(reported.filter(({text}) => text === message)).toHaveLength(1);
+      }
     });
   });
 });

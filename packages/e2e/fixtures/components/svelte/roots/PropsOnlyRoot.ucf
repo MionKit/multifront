@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    // `props` is declared by its rune: `$props` stays a rune, not a store.
+    let props = $props()
+  </script>
+  <p class="shape"><span class="inner">{props.label ?? 'props only'}</span></p>
+</svelte>

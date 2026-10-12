@@ -6,10 +6,19 @@ import {loadSvelteCompiler} from '../compilers.ts';
 import {frameworkInBlock} from '../imports/rewrite.ts';
 import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import {topLevelTags} from '../scan.ts';
-import {isNode, walk} from '../svelte/ast.ts';
-import type {Node} from '../svelte/ast.ts';
+import {isNode, patternNames, walk} from '../svelte/ast.ts';
 import {ELEMENTS, forwardScope} from '../svelte/forward.ts';
-import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, StyleModule, VirtualFile} from '../types.ts';
+import type {
+  Block,
+  BlockKind,
+  BuildContext,
+  Diagnostic,
+  SplitResult,
+  StyleModule,
+  SvelteMode,
+  SvelteNode,
+  VirtualFile,
+} from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
   'area base br col embed hr img input link meta param source track wbr'.split(' ')
@@ -19,18 +28,6 @@ const RUNES: ReadonlySet<string> = new Set(['state', 'derived', 'effect', 'props
 
 // Not references: a property key, an import or export name.
 const NAME_KEYS: ReadonlySet<string> = new Set(['key', 'imported', 'exported', 'local']);
-
-type Statement = AST.Script['content']['body'][number];
-type Pattern = Extract<Statement, {type: 'VariableDeclaration'}>['declarations'][number]['id'];
-
-function patternNames(pattern: Pattern | null, names: Set<string>): void {
-  if (pattern?.type === 'Identifier') names.add(pattern.name);
-  else if (pattern?.type === 'ObjectPattern') {
-    for (const property of pattern.properties) patternNames(property.type === 'RestElement' ? property : property.value, names);
-  } else if (pattern?.type === 'ArrayPattern') for (const element of pattern.elements) patternNames(element, names);
-  else if (pattern?.type === 'AssignmentPattern') patternNames(pattern.left, names);
-  else if (pattern?.type === 'RestElement') patternNames(pattern.argument, names);
-}
 
 // Svelte subscribes `$x` to a store only when `x` is declared at the top level of a script.
 function topLevelNames(scripts: (AST.Script | null)[]): Set<string> {
@@ -47,20 +44,37 @@ function topLevelNames(scripts: (AST.Script | null)[]): Set<string> {
   return names;
 }
 
-// `const state = $state(0)`: a top-level name whose value is a rune call keeps `$state` a rune.
+// Top-level names that keep `$name` a rune: `const state = $state(0)`, and svelte/store's `derived` (Svelte's rule).
 function runeDeclared(scripts: (AST.Script | null)[]): Set<string> {
   const names = new Set<string>();
   for (const script of scripts) {
-    for (const node of (script?.content.body ?? []) as unknown as Node[]) {
+    for (const node of script?.content.body ?? []) {
+      if (node.type === 'ImportDeclaration' && node.source.value === 'svelte/store')
+        for (const {local} of node.specifiers) if (local.name === 'derived') names.add('derived');
       if (node.type !== 'VariableDeclaration') continue;
-      for (const {id, init} of node.declarations as {id: Pattern; init: unknown}[]) {
-        const callee = isNode(init) && init.type === 'CallExpression' ? (init.callee as Node) : undefined;
-        const rune = callee?.type === 'MemberExpression' ? (callee.object as Node) : callee;
-        if (rune?.type === 'Identifier' && RUNES.has((rune.name as string).slice(1))) patternNames(id, names);
+      for (const {id, init} of node.declarations) {
+        const callee = init?.type === 'CallExpression' ? init.callee : undefined;
+        const rune = callee?.type === 'MemberExpression' ? callee.object : callee;
+        if (rune?.type === 'Identifier' && rune.name.startsWith('$') && RUNES.has(rune.name.slice(1))) patternNames(id, names);
       }
     }
   }
   return names;
+}
+
+// Svelte's legacy-only syntax at the top of the instance script: `$:` and `export let`.
+function legacyScript(instance: AST.Script | null): boolean {
+  const body = instance?.content.body ?? [];
+  const lets = new Set<string>();
+  for (const node of body)
+    if (node.type === 'VariableDeclaration' && node.kind === 'let') for (const {id} of node.declarations) patternNames(id, lets);
+  return body.some(
+    (node) =>
+      node.type === 'LabeledStatement' ||
+      (node.type === 'ExportNamedDeclaration' &&
+        ((node.declaration?.type === 'VariableDeclaration' && node.declaration.kind === 'let') ||
+          node.specifiers.some(({local}) => local.type === 'Identifier' && lets.has(local.name))))
+  );
 }
 
 // `ctx.modules` is a plain object: `$constructor` would otherwise read Object.prototype.
@@ -75,7 +89,7 @@ function classMap(bare: string, ctx: BuildContext): StyleModule | undefined {
 
 // `shorthand`: the span of a `{$x}` key or prop, which must keep the name `$x`.
 interface StyleUse {
-  node: Node;
+  node: SvelteNode;
   module: StyleModule;
   shorthand?: {start: number; end: number; attribute: boolean};
 }
@@ -85,29 +99,32 @@ function styleUses(
   root: AST.Root,
   block: Block,
   ctx: BuildContext
-): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>; runes: boolean} {
+): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>; mode: SvelteMode} {
   const stores = topLevelNames([root.module, root.instance]);
   const runeNames = runeDeclared([root.module, root.instance]);
   const missing: Diagnostic[] = [];
   const uses: StyleUse[] = [];
   const names = new Set<string>();
-  // Svelte's own switch: `<svelte:options runes>`, else any rune reference.
+  // Svelte's own switch: `<svelte:options runes>`, else any rune reference; legacy on `$$props` or `$$restProps`.
   let runes = false;
+  let legacy = legacyScript(root.instance);
   // `<Child {$style} />`: the attribute is passed on as a prop named `$style`.
-  const shorthandAttributes = new Map<Node, Node>();
-  const visit = (node: Node, parent: Node | undefined, key: string): void => {
+  const shorthandAttributes = new Map<SvelteNode, SvelteNode>();
+  const visit = (node: SvelteNode, parent: SvelteNode | undefined, key: string): void => {
     if (node.type === 'Attribute' && isNode(node.value) && node.value.type === 'ExpressionTag') {
-      const expression = node.value.expression as Node;
+      const expression = node.value.expression as SvelteNode;
       if (expression.type === 'Identifier' && expression.start === node.start + 1) shorthandAttributes.set(expression, node);
     }
     if (node.type !== 'Identifier') return;
     const name = node.name as string;
     names.add(name);
     const bare = name.slice(1);
-    if (!name.startsWith('$') || bare === '' || bare.startsWith('$')) return;
+    if (!name.startsWith('$') || bare === '') return;
     // `($style as X)` is a use; a TS type name or `{$x: 1}`, `o.$x` is not.
     const property = NAME_KEYS.has(key) || (key === 'property' && parent?.type === 'MemberExpression');
     if ((property && !parent?.computed) || (parent?.type.startsWith('TS') && key !== 'expression')) return;
+    legacy ||= name === '$$props' || name === '$$restProps';
+    if (bare.startsWith('$')) return;
     if (RUNES.has(bare)) {
       runes ||= !stores.has(bare) || runeNames.has(bare);
       return;
@@ -132,8 +149,9 @@ function styleUses(
     missing.push(createDiagnostic(ctx.split, 'missing-style-module', start, block.contentStart + node.end, message));
   };
   for (const part of [root.module, root.instance, root.fragment]) walk(part, visit);
-  runes = root.options?.runes ?? runes;
-  return {missing: missing.sort((first, second) => first.start - second.start), uses, names, runes};
+  const runesOption = root.options?.runes;
+  const mode = (runesOption ?? runes) ? 'runes' : runesOption === false || legacy ? 'legacy' : 'undecided';
+  return {missing: missing.sort((first, second) => first.start - second.start), uses, names, mode};
 }
 
 // `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
@@ -179,7 +197,7 @@ function parseBlock(block: Block, ctx: BuildContext): AST.Root {
 // The compiler rules run here, not in `check`: core checks never load a compiler.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const root = parseBlock(block, ctx);
-  const {missing, uses, names: used, runes} = styleUses(root, block, ctx);
+  const {missing, uses, names: used, mode} = styleUses(root, block, ctx);
   if (missing.length > 0) throw new DiagnosticsError(missing);
 
   // Over the whole .ucf source, so the map points straight into the .ucf file.
@@ -195,7 +213,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     text.overwrite(block.contentStart + start, block.contentStart + end, replacement);
   }
   if (ctx.hasScoped) stampScope(text, root, block, ctx);
-  const {helpers, lines} = forwardScope(text, root, block, ctx, used, runes);
+  const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode);
 
   // JSON quoting keeps any path a valid string.
   const imports = [

@@ -1,17 +1,25 @@
 <svelte>
   <script lang="ts">
     let props = $props()
-    const value = $derived(Promise.resolve(String(props.value ?? 'then')))
+    const value = $derived(props.fail ? Promise.reject(new Error('fail')) : Promise.resolve(String(props.value ?? 'then')))
+
+    function boom(): string {
+      throw new Error('boom')
+    }
   </script>
   {#key props.value}
     <svelte:boundary>
-      {#await value}
-        <p class="shape"><span class="inner">pending</span></p>
-      {:then text}
-        <div class="shape"><span class="inner">{text}</span></div>
-      {:catch}
-        <section class="shape"><span class="inner">catch</span></section>
-      {/await}
+      {#if props.boom}
+        <p class="shape"><span class="inner">{boom()}</span></p>
+      {:else}
+        {#await value}
+          <p class="shape"><span class="inner">pending</span></p>
+        {:then text}
+          <div class="shape"><span class="inner">{text}</span></div>
+        {:catch}
+          <section class="shape"><span class="inner">catch</span></section>
+        {/await}
+      {/if}
       {#snippet failed()}
         <section class="shape"><span class="inner">failed</span></section>
       {/snippet}

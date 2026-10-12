@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    const __ucfRest = 'taken'
+    let {} = $props()
+  </script>
+  <p class="shape"><span class="inner">{__ucfRest}</span></p>
+</svelte>

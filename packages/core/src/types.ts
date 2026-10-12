@@ -101,6 +101,12 @@ export type VueCompiler = Pick<
   'compileScript' | 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'
 >;
 
+/** How Svelte compiles a block: `undecided` has no rune and no legacy-only syntax, so the compiler option decides. */
+export type SvelteMode = 'runes' | 'legacy' | 'undecided';
+
+/** A node of Svelte's modern AST, read by key. */
+export type SvelteNode = SvelteCompilerModule.AST.BaseNode & Record<string, unknown>;
+
 /** Loaded from the project's own Svelte. */
 export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse'>;
 

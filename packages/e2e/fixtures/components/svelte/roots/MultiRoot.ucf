@@ -1,7 +1,10 @@
 <svelte>
   <script lang="ts">
-    let { label = 'first' }: { label?: string } = $props()
+    let {
+      label = 'first' // a comment before the trailing comma
+      ,
+    }: { label?: string } = $props()
   </script>
   <p class="shape"><span class="inner">{label}</span></p>
-  <p>second</p>
+  second
 </svelte>

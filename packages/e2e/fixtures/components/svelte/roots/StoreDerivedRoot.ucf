@@ -1,0 +1,10 @@
+<svelte>
+  <script lang="ts">
+    import { derived, readable } from 'svelte/store'
+
+    // `$derived` stays a rune beside svelte/store's `derived`.
+    const doubled = $derived(2)
+    const store = derived(readable(1), (value) => value)
+  </script>
+  <p class="shape"><span class="inner">{doubled} {$store}</span></p>
+</svelte>

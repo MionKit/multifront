@@ -1,9 +1,10 @@
 <svelte>
   <script lang="ts">
-    let { branch, }: { branch: string } = $props()
+    let { branch /* the case */, }: { branch: string } = $props()
   </script>
   {#if branch === 'a'}
-    <div class="shape"><span class="inner">a</span></div>
+    {@const label = 'a'}
+    <div class="shape"><span class="inner">{label}</span></div>
   {:else if branch === 'b'}
     <p class="shape"><span class="inner">b</span></p>
   {:else}
