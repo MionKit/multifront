@@ -3,7 +3,7 @@ import {basename, sep} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import type {AST} from 'svelte/compiler';
 import {afterAll, describe, expect, it} from 'vitest';
-import {checkBlocks, classMapId, locate, splitBlocks} from '@multifront/core';
+import {checkBlocks, classMapId, locate, renameSvelteStyles, splitBlocks} from '@multifront/core';
 import type {BuildContext, Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
@@ -392,5 +392,57 @@ describe('svelte.build of the other fixtures', () => {
   it('gives $style the module="style" class map when there is no bare <style module>', async () => {
     const {ctx, file} = await svelteBuild(`${ERRORS_DIR}/ModuleNamedStyle.ucf`);
     expect(file!.code).toContain(`import __ucfStyle from ${JSON.stringify(classMapId(ctx.filename, 0))};`);
+  });
+});
+
+// The rename the editor's script (M5 5.9) and the library build share with build(): same locals, same `.ucf` offsets.
+describe('renameSvelteStyles matches the rename of build()', () => {
+  const FIXTURES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
+    .map((name) => name.split(sep).join('/'))
+    .filter((name) => name.endsWith('.ucf') && !name.startsWith('invalid/'))
+    .filter((name) => readComponent(name).source.includes('<svelte>'))
+    .sort();
+  // build() rejects these, so they have no rename to ship.
+  const REJECTED = [
+    `${ERRORS_DIR}/ImportParseError.ucf`,
+    `${ERRORS_DIR}/StyleWithoutModule.ucf`,
+    `${ERRORS_DIR}/TopLevelStyle.ucf`,
+    `${ERRORS_DIR}/UnclosedBrace.ucf`,
+    `${ERRORS_DIR}/WrongModuleName.ucf`,
+    ATTR_IN_SVELTE,
+  ];
+
+  // `<.ucf offset> <local>` for each use of a class map local in `code`, read back through its map.
+  function uses(code: string, map: TraceMap, locals: string[], source: string): string[] {
+    const found: string[] = [];
+    for (const local of locals) {
+      for (const match of code.matchAll(new RegExp(String.raw`(?<![\w$"])${local}\b(?! from )`, 'g'))) {
+        const {line, column} = originalPositionFor(map, locate(code, match.index));
+        found.push(`${line === null ? 'unmapped' : offsetOf(source, line, column!)} ${local}`);
+      }
+    }
+    return found.sort();
+  }
+
+  it('covers the shared fixtures and the svelte/ ones', () => {
+    expect(FIXTURES).toEqual(expect.arrayContaining(['Panel.ucf', 'PanelItem.ucf', 'Counter.ucf', `${SHAPES_DIR}/Elements.ucf`]));
+  });
+
+  it.each(FIXTURES)('%s', async (name) => {
+    const {split, source, ctx, file: built} = await svelteBuild(name);
+    if (!built) return expect(REJECTED).toContain(name);
+    const renamed = renameSvelteStyles(split.targets.svelte!, split, svelte, ctx.modules);
+
+    const ids = new Set(Object.values(ctx.modules).map(({id}) => id));
+    const imported = [...built.code.matchAll(/^import (__ucf\w+) from "([^"]+)";$/gm)].filter(([, , id]) => ids.has(id!));
+    const builtLocals = Object.fromEntries(imported.map(([, local, id]) => [id!, local!]));
+    const renamedLocals = Object.fromEntries([...renamed.locals].map(([module, local]) => [module.id, local]));
+    expect(renamedLocals).toEqual(builtLocals);
+
+    const locals = Object.values(builtLocals);
+    const builtUses = uses(built.code, new TraceMap(built.map!), locals, source);
+    const renameMap = new TraceMap({version: 3, sources: [ctx.filename], names: [], mappings: renamed.mappings});
+    expect(uses(renamed.code, renameMap, locals, source)).toEqual(builtUses);
+    for (const use of builtUses) expect(source.slice(Number(use.split(' ')[0])), use).toMatch(/^\$\w/);
   });
 });
