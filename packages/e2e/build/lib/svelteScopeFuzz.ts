@@ -689,10 +689,7 @@ function branchesOf(node: Node): Node[][] | undefined {
   return [children.filter((child) => !snippets.includes(child)), ...snippets.map((snippet) => nodesOf(snippet.body))];
 }
 
-/**
- * `single`: every branch has at most one root, each an element or a component; `other`: the same, but some root is
- * text, a tag or a slot; `many`: a branch with more roots; `each`: an `{#each}` root; `none`: no root at all.
- */
+/** Per branch: `single` has at most one root, an element or component; `other` lets one be text, a tag or a slot. */
 type RootKind = 'single' | 'other' | 'many' | 'each' | 'none';
 
 export function rootKind(block: string): RootKind {

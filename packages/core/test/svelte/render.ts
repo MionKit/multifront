@@ -58,7 +58,7 @@ export async function loadServerModule(name: string, code: string): Promise<unkn
   return ((await import(/* @vite-ignore */ pathToFileURL(path).href)) as {default: unknown}).default;
 }
 
-/** Writes the server-compiled build; imports point at what the Vite plugin would serve, CSS imports are dropped. */
+/** Imports point at what the Vite plugin would serve; CSS imports are dropped. */
 async function serverModule(file: VirtualFile, ctx: BuildContext, name: string): Promise<unknown> {
   const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`});
   const text = new MagicString(js.code);
@@ -94,7 +94,7 @@ export async function renderBuild(file: VirtualFile, ctx: BuildContext, name: st
   return render(component as Component<Record<string, unknown>>, {props});
 }
 
-/** Each start tag, how often it carries `stamp`, its classes, and whether it sits at the top of the HTML. */
+/** `top`: the tag sits at the top level of the HTML. */
 export function startTags(html: string, stamp: string) {
   const tags: {name: string; stamps: number; classes: string[]; top: boolean}[] = [];
   let depth = 0;
