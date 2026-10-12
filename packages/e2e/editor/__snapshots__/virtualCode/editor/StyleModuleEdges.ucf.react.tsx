@@ -1,5 +1,5 @@
 
-  export default function StyleModuleEdges({ label }: { label: string }) {
+  export default function StyleModuleEdges({ label }: { label: string } & {className?: string; style?: import('react').CSSProperties; ref?: import('react').Ref<import('react').ComponentRef<'section'>>}) {
     return (
       <section className={`${$style.card} ${$style.card__body} ${$style['card-title']}`}>
         <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>

@@ -13,7 +13,16 @@ const compiler = loadVueCompiler(FIXTURES_DIR);
 const plugin = createUcfLanguagePlugin({compiler});
 // Volar's own registry: it picks the language, creates the codes, keeps them by id.
 const language = createLanguage([plugin], new Map(), () => {});
-const NAMES = [...listComponents(), ...listComponents('invalid'), ...listComponents('langs'), ...listComponents('editor')];
+// Plus the root props sites no other fixture has: a memo type argument, a wrapped union, two inserts in one file.
+const NAMES = [
+  ...listComponents(),
+  ...listComponents('invalid'),
+  ...listComponents('langs'),
+  ...listComponents('editor'),
+  'react/root-props/MemoTyped.ucf',
+  'react/root-props/UnionProps.ucf',
+  'react/shapes/MemoForwardRef.ucf',
+];
 const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx'};
 const ALL_ON = {verification: true, completion: true, semantic: true, navigation: true, structure: true, format: true};
 
@@ -114,19 +123,23 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
         const code = byId.get(id)!;
         const text = textOf(code);
         const mapper = language.maps.get(code, script);
-        const [content, ...classKeys] = code.mappings;
-        expect(content).toEqual({
-          sourceOffsets: [block.contentStart],
-          generatedOffsets: [0],
-          lengths: [block.content.length],
-          data: ALL_ON,
-        });
+        const content = code.mappings.filter(({data}) => data.verification);
+        const classKeys = code.mappings.filter(({data}) => !data.verification);
+        // In order, with no gap or overlap; a style code and a <react> code with no root props are one piece.
+        let next = block.contentStart;
+        for (const piece of content) {
+          expect(piece).toMatchObject({sourceOffsets: [next], data: ALL_ON});
+          next += piece.lengths[0]!;
+        }
+        expect(next).toBe(block.contentEnd);
+        if (id !== 'react') expect(content).toHaveLength(1);
         // React's CSS module keys, jumping to their class names.
         for (const mapping of classKeys) expect(mapping.data).toEqual({navigation: true});
         if (id !== 'react') expect(classKeys).toEqual([]);
+        // Where the root props type is inserted, the first location is the end of the piece before it.
         for (let offset = block.contentStart; offset < block.contentEnd; offset++) {
-          const [generated] = mapper.toGeneratedLocation(offset).next().value ?? [];
-          expect(generated === undefined ? undefined : text[generated], `${id} at ${offset}`).toBe(source[offset]);
+          const chars = [...mapper.toGeneratedLocation(offset)].map(([generated]) => text[generated]);
+          expect(chars, `${id} at ${offset}`).toContain(source[offset]);
         }
       }
     });

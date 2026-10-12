@@ -1,7 +1,7 @@
 
   import type { ReactNode } from 'react'
 
-  function ReactTypeOnlyDefaultForms() {
+  function ReactTypeOnlyDefaultForms(__props: {className?: string; style?: import('react').CSSProperties; ref?: import('react').Ref<import('react').ComponentRef<'p'>>}) {
     return <p>Type-only default exports</p>
   }
 
