@@ -5,6 +5,7 @@ import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
 import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript, resolveUcfImport} from '@multifront/language-tools';
 import {createLanguage} from '@volar/language-core';
+import type {VirtualCode} from '@volar/language-core';
 import typescript from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, readComponent} from '../fixtures/index.ts';
@@ -19,6 +20,7 @@ const PANEL_ITEM = readComponent('PanelItem.ucf');
 const NO_STYLE = readComponent('svelte/NoStyle.ucf');
 const IMPORT_MOUNT = "import {mount} from 'svelte';";
 const SVELTE_PROPS = '{ heading: string; children?: Snippet }';
+const RENDER = '{@render children?.()}';
 const svelteCompiler = loadSvelteCompiler(FIXTURES_DIR);
 const compiler = loadVueCompiler(FIXTURES_DIR);
 const fromLanguageTools = createRequire(createRequire(import.meta.url).resolve('@multifront/language-tools'));
@@ -97,6 +99,24 @@ describe('tsserver with our plugin: a .ts file picking svelte gets Card.ucf.svel
       await revert();
     }
   });
+
+  it("while Panel.ucf's markup has an unclosed brace, main.ts keeps Panel's types and the block maps nothing", async () => {
+    const binding = 'let { heading';
+    const before = await quickInfo(server, PANEL, binding, 'let { '.length);
+    expect(before.displayString).toBe('let heading: string');
+    const revert = await edit(server, PANEL, RENDER, RENDER.slice(0, -1));
+    try {
+      await withUses("type Heading = ComponentProps<typeof Panel>['heading'];", async (edited) => {
+        expect((await quickInfo(server, edited, 'type Heading', 5)).displayString).toBe('type Heading = string');
+        expect(await server.diagnostics(MAIN.filename)).toEqual([]);
+      });
+      // The edit is after `heading`: a mapping kept from the last script would still answer here.
+      await expect(quickInfo(server, PANEL, binding, 'let { '.length)).rejects.toThrow('No content available');
+    } finally {
+      await revert();
+    }
+    expect(await quickInfo(server, PANEL, binding, 'let { '.length)).toEqual(before);
+  });
 });
 
 describe('getTypesScript for the svelte target', () => {
@@ -126,6 +146,22 @@ describe('getTypesScript for the svelte target', () => {
     expect(types.code).not.toContain('__ucfStyle');
     const markupError = readComponent('svelte/errors/UnclosedBrace.ucf');
     expect(getTypesScript(markupError.filename, markupError.source, 'svelte', {svelteCompiler})).toBeUndefined();
+  });
+
+  it('the language plugin keeps the last script that built, mapped nowhere, until the file is closed', () => {
+    const language = createLanguage([createUcfLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
+    const svelteCode = (source: string) =>
+      language.scripts.set(PANEL.filename, typescript.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('svelte');
+    const text = ({snapshot}: VirtualCode) => snapshot.getText(0, snapshot.getLength());
+    const broken = PANEL.source.replace(RENDER, RENDER.slice(0, -1));
+    const good = svelteCode(PANEL.source)!;
+    expect(good.mappings).not.toEqual([]);
+    for (const source of [broken, `${broken}\n`]) {
+      const kept = svelteCode(source)!;
+      expect({text: text(kept), mappings: kept.mappings}).toEqual({text: text(good), mappings: []});
+    }
+    language.scripts.delete(PANEL.filename);
+    expect(svelteCode(broken)).toBeUndefined();
   });
 
   it("resolves the block's own import to PanelItem.ucf.svelte.ts", () => {

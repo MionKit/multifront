@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-12
 ---
 
@@ -27,3 +27,18 @@ While a `<svelte>` block's markup does not parse even with Svelte's loose parser
 - With `UnclosedBrace.ucf`'s brace unclosed in an unsaved edit, a `.ts` importer of its svelte pick keeps its types (no `TS2307`), in the real tsserver with our plugin.
 - The block serves no wrong positions while the old script is in use.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: keep the last script in the language plugin (approved 2026-10-12, automatic mode)
+
+- `<vue>` has no gap: `@vue/language-core` keeps `script_ts` through a broken template, script or tag.
+- `createUcfLanguagePlugin` keeps a `Map` of each file's last root code, cleared in `disposeVirtualCode`.
+  Volar has no `updateVirtualCode` here, so every edit goes through `createVirtualCode`.
+- `createEditorContext` takes that root as `ctx.previous`. Svelte's `editor()`, when svelte2tsx throws a
+  `CompileError`, serves the previous root's `svelte` code: same text, a fresh snapshot, no mappings.
+  The fresh snapshot matters: the tsserver target language keeps its code (and mappings) while the snapshot is the same.
+- `getTypesScript` stays stateless: a file that never built still gets no script.
+- Tests (`packages/e2e/editor/svelte-types.spec.ts`): in the real tsserver with our plugin, `Panel.ucf` edited to an
+  unclosed `{@render …` keeps `main.ts`'s `ComponentProps<typeof Panel>['heading']` a `string`, no diagnostics, and a
+  hover inside the block gets nothing. Through the language plugin: the kept code has the last text and no mappings
+  across two broken edits, and none after the file is closed.
+- Docs: one line in `docs/architecture.md` "Inside a `.ucf` file".
