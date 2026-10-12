@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'handler' }: { label?: string } = $props()
+  </script>
+  <!-- Svelte rejects a text event attribute; forwarding must leave it for that error. -->
+  <button class="shape" onclick="go('<a>')">{label}</button>
+</svelte>

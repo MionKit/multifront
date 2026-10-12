@@ -1,29 +1,50 @@
 <svelte>
   <script lang="ts">
-    import ComponentRoot from '../../components/svelte/roots/ComponentRoot.ucf'
     import EachRoot from '../../components/svelte/roots/EachRoot.ucf'
+    import EmptyPropsRoot from '../../components/svelte/roots/EmptyPropsRoot.ucf'
+    import EmptyScriptRoot from '../../components/svelte/roots/EmptyScriptRoot.ucf'
+    import EscapedRoot from '../../components/svelte/roots/EscapedRoot.ucf'
     import IfElseRoot from '../../components/svelte/roots/IfElseRoot.ucf'
     import LegacyRoot from '../../components/svelte/roots/LegacyRoot.ucf'
+    import LegacyStoreRoot from '../../components/svelte/roots/LegacyStoreRoot.ucf'
     import MultiRoot from '../../components/svelte/roots/MultiRoot.ucf'
     import NestedRoot from '../../components/svelte/roots/NestedRoot.ucf'
     import NoPropsRoot from '../../components/svelte/roots/NoPropsRoot.ucf'
+    import OptionsRoot from '../../components/svelte/roots/OptionsRoot.ucf'
+    import PassOnRoot from '../../components/svelte/roots/PassOnRoot.ucf'
+    import PropsOnlyRoot from '../../components/svelte/roots/PropsOnlyRoot.ucf'
     import RestRoot from '../../components/svelte/roots/RestRoot.ucf'
+    import ShadowRoot from '../../components/svelte/roots/ShadowRoot.ucf'
+    import StoreDerivedRoot from '../../components/svelte/roots/StoreDerivedRoot.ucf'
     import SvelteElementRoot from '../../components/svelte/roots/SvelteElementRoot.ucf'
+    import TextRoot from '../../components/svelte/roots/TextRoot.ucf'
   </script>
 
-  <!-- Each root shape once per branch; `data-case` names the shape and branch the test reads. -->
+  <!-- Each root shape once per branch; `data-case` names the shape and branch the test reads. StringHandlerRoot
+       does not compile, by design. -->
   <main class="parent">
     <div data-case="IfElseRoot:a"><IfElseRoot branch="a" /></div>
     <div data-case="IfElseRoot:b"><IfElseRoot branch="b" /></div>
     <div data-case="IfElseRoot:c"><IfElseRoot branch="c" /></div>
-    <div data-case="ComponentRoot:only"><ComponentRoot /></div>
+    <div data-case="PassOnRoot:only"><PassOnRoot /></div>
     <div data-case="SvelteElementRoot:only"><SvelteElementRoot tag="aside" /></div>
     <div data-case="NestedRoot:then"><NestedRoot value="resolved" /></div>
+    <div data-case="NestedRoot:catch"><NestedRoot fail /></div>
+    <div data-case="NestedRoot:failed"><NestedRoot boom /></div>
     <div data-case="RestRoot:only"><RestRoot label="given" note="rest note" /></div>
     <div data-case="NoPropsRoot:only"><NoPropsRoot /></div>
+    <div data-case="EscapedRoot:only"><EscapedRoot /></div>
+    <div data-case="EmptyPropsRoot:only"><EmptyPropsRoot /></div>
+    <div data-case="EmptyScriptRoot:only"><EmptyScriptRoot /></div>
+    <div data-case="OptionsRoot:only"><OptionsRoot /></div>
+    <div data-case="PropsOnlyRoot:only"><PropsOnlyRoot label="props" /></div>
+    <div data-case="ShadowRoot:only"><ShadowRoot /></div>
+    <div data-case="StoreDerivedRoot:only"><StoreDerivedRoot /></div>
+    <div data-case="TextRoot:only"><TextRoot /></div>
     <div data-case="EachRoot:only"><EachRoot /></div>
     <div data-case="MultiRoot:only"><MultiRoot /></div>
     <div data-case="LegacyRoot:only"><LegacyRoot /></div>
+    <div data-case="LegacyStoreRoot:only"><LegacyStoreRoot /></div>
   </main>
 </svelte>
 

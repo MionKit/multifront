@@ -1,0 +1,12 @@
+<svelte>
+  <script lang="ts">
+    import { writable } from 'svelte/store'
+
+    export let label = 'legacy store'
+    // `$state` subscribes to this store; the rune names below are property names.
+    const state = writable(label)
+    const names = { $props: 'key' }
+    const read = names.$props
+  </script>
+  <p class="shape"><span class="inner">{$state} {read}</span></p>
+</svelte>

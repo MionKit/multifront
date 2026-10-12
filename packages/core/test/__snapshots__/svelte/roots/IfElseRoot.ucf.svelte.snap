@@ -2,10 +2,11 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/roots/IfElseRoot.ucf?ucf&type=style&index=0&lang.css";
 import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let { branch, ...__ucfRest }: { branch: string } = $props()
+    let { branch /* the case */, ...__ucfRest }: { branch: string } = $props()
   </script>
   {#if branch === 'a'}
-    <div data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">a</span></div>
+    {@const label = 'a'}
+    <div data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">{label}</span></div>
   {:else if branch === 'b'}
     <p data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">b</span></p>
   {:else}

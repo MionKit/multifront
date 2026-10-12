@@ -1,0 +1,5 @@
+<svelte>
+  <svelte:options runes />
+  <script lang="ts"></script>
+  <p class="shape"><span class="inner">empty script</span></p>
+</svelte>

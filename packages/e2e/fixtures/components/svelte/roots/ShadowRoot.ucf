@@ -1,0 +1,8 @@
+<svelte>
+  <script lang="ts">
+    let props = $props()
+  </script>
+  {#await props.value ?? 'shadow' then props}
+    <p class="shape"><span class="inner">{props}</span></p>
+  {/await}
+</svelte>

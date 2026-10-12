@@ -1,0 +1,13 @@
+
+  <script lang="ts">
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
+    import { writable } from 'svelte/store'
+
+    export let label = 'legacy store'
+    // `$state` subscribes to this store; the rune names below are property names.
+    const state = writable(label)
+    const names = { $props: 'key' }
+    const read = names.$props
+;__ucfWarnFragment($$props, "LegacyStoreRoot", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
+  </script>
+  <p class="shape"><span class="inner">{$state} {read}</span></p>

@@ -1,6 +1,6 @@
 <svelte>
   <script lang="ts">
-    let { label = 'rest', ...rest }: { label?: string; note?: string } = $props()
+    const shown = 'shown', { label = 'rest', ...rest }: { label?: string; note?: string } = $props()
   </script>
-  <p class="shape"><span class="inner">{label} / {rest.note ?? 'no note'}</span></p>
+  <p class="shape"><span class="inner">{label} / {rest.note ?? 'no note'} / {shown}</span></p>
 </svelte>

@@ -1,52 +1,17 @@
 import {readFileSync, readdirSync} from 'node:fs';
-import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
-import {createRequire} from 'node:module';
-import {basename, dirname, join, relative, sep} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {basename, sep} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
-import {Parser} from 'htmlparser2';
-import MagicString from 'magic-string';
-import {parseSync} from 'oxc-parser';
-import type * as SvelteCompilerModule from 'svelte/compiler';
 import type {AST} from 'svelte/compiler';
-import type {Component} from 'svelte';
-import {render} from 'svelte/server';
 import {afterAll, describe, expect, it} from 'vitest';
-import {
-  DiagnosticsError,
-  SCOPE_HELPER_ID,
-  buildTarget,
-  checkBlocks,
-  classMapId,
-  createBuildContext,
-  loadVueCompiler,
-  locate,
-  rootRelativePath,
-  scopeHelperCode,
-  scopeId,
-  splitBlocks,
-} from '@multifront/core';
-import type {BuildContext, Diagnostic, VirtualFile} from '@multifront/core';
+import {checkBlocks, classMapId, locate, splitBlocks} from '@multifront/core';
+import type {BuildContext, Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {FIXTURES_DIR, TMP_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
+import {loadServerModule, removeRendered, renderBuild, startTags, svelte, svelteBuild} from '../svelte/render.ts';
 
-const compiler = loadVueCompiler(import.meta.dirname);
-const svelte = createRequire(import.meta.url)('svelte/compiler') as typeof SvelteCompilerModule;
 const ERRORS_DIR = 'svelte/errors';
 const SHAPES_DIR = 'svelte/shapes';
 const ATTR_IN_SVELTE = 'svelte/imports/AttrInSvelte.ucf';
-
-async function svelteBuild(name: string, production = false) {
-  const {filename, source} = readComponent(name);
-  const split = splitBlocks(source, filename);
-  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
-  try {
-    return {split, source, ctx, file: buildTarget(split, ctx, 'svelte'), thrown: []};
-  } catch (err) {
-    expect(err).toBeInstanceOf(DiagnosticsError);
-    return {split, source, ctx, file: undefined, thrown: (err as DiagnosticsError).diagnostics};
-  }
-}
 
 const NO_STYLE = '<svelte> uses $style, but no <style module> exists; add one';
 
@@ -154,7 +119,7 @@ describe('the <svelte> rules', () => {
 
   const OTHERS = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
-    .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|invalid)\//.test(name))
+    .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|svelte\/roots|invalid)\//.test(name))
     .filter((name) => name !== ATTR_IN_SVELTE)
     .filter((name) => readComponent(name).source.includes('<svelte>'))
     .sort();
@@ -219,7 +184,7 @@ const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&
 
 // The forwarding edits: the helper import, the spread, the added rest, the dev warning.
 const HELPER_IMPORT = String.raw`import \{__ucf\w+(?:, __ucf\w+)*\} from "virtual:multifront/scope-attrs";`;
-const FORWARD_LINE = String.raw`(?:let __ucfRest\d* = \$props\(\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
+const FORWARD_LINE = String.raw`(?:let __ucfRest\d* = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
 
 function undoBuild(code: string, ctx: BuildContext): string {
   const names = new Map<string, string>();
@@ -239,80 +204,12 @@ function undoBuild(code: string, ctx: BuildContext): string {
     .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local);
 }
 
-let tmp: string | undefined;
-
-async function tmpDir(): Promise<string> {
-  await mkdir(TMP_DIR, {recursive: true});
-  tmp ??= await mkdtemp(join(TMP_DIR, 'svelte-shapes-'));
-  return tmp;
-}
-
-afterAll(async () => {
-  if (tmp) await rm(tmp, {recursive: true, force: true});
-});
-
-// TMP_DIR is under the repo so `svelte` resolves; plain JS, so Node's own import.
-async function loadServerModule(name: string, code: string): Promise<unknown> {
-  const path = join(await tmpDir(), `${name}.js`);
-  await writeFile(path, code);
-  return ((await import(/* @vite-ignore */ pathToFileURL(path).href)) as {default: unknown}).default;
-}
+afterAll(removeRendered);
 
 async function childComponent(): Promise<unknown> {
   const filename = componentPath(`${SHAPES_DIR}/Child.svelte`);
   const {js} = svelte.compile(readFileSync(filename, 'utf8'), {generate: 'server', filename});
   return loadServerModule('Child', js.code);
-}
-
-/** Writes the server-compiled build; imports point at what the Vite plugin would serve, CSS imports are dropped. */
-async function serverModule(file: VirtualFile, ctx: BuildContext, name: string): Promise<unknown> {
-  const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`});
-  const text = new MagicString(js.code);
-  for (const node of parseSync('Shape.js', js.code, {sourceType: 'module'}).program.body) {
-    if (node.type !== 'ImportDeclaration') continue;
-    const id = node.source.value;
-    const module = Object.values(ctx.modules).find((candidate) => candidate.id === id);
-    const point = async (written: string, code: string) => {
-      await writeFile(join(await tmpDir(), written), code);
-      text.overwrite(node.source.start, node.source.end, JSON.stringify(`./${written}`));
-    };
-    if (ctx.styles.some((style) => style.id === id)) text.remove(node.start, node.end);
-    else if (module) await point(`${name}.classes${module.index}.js`, `export default ${JSON.stringify(module.classes)};`);
-    else if (id === SCOPE_HELPER_ID) await point(`${name}.scope.js`, scopeHelperCode(!ctx.production));
-    else if (id.endsWith('.ucf')) {
-      // Another fixture's Svelte target, built the same way.
-      const fixture = relative(componentPath(''), join(dirname(ctx.filename), id))
-        .split(sep)
-        .join('/');
-      const child = await svelteBuild(fixture, ctx.production);
-      const childName = `${name}.${basename(fixture, '.ucf')}`;
-      await serverModule(child.file!, child.ctx, childName);
-      text.overwrite(node.source.start, node.source.end, JSON.stringify(`./${childName}.js`));
-    }
-  }
-  return loadServerModule(name, text.toString());
-}
-
-async function renderBuild(file: VirtualFile, ctx: BuildContext, name: string, props: Record<string, unknown>) {
-  const component = await serverModule(file, ctx, name);
-  // A compiled component of unknown props: the fixture's own declare what it takes.
-  return render(component as Component<Record<string, unknown>>, {props});
-}
-
-// Not parse5: it would drop a repeated attribute.
-function startTags(html: string, stamp: string): {name: string; stamps: number; classes: string[]}[] {
-  const tags: {name: string; stamps: number; classes: string[]}[] = [];
-  const parser = new Parser({
-    onopentagname: (name) => void tags.push({name, stamps: 0, classes: []}),
-    onattribute: (name, value) => {
-      const tag = tags.at(-1)!;
-      if (name === stamp) tag.stamps++;
-      if (name === 'class') tag.classes.push(...value.split(/\s+/).filter(Boolean));
-    },
-  });
-  parser.write(html);
-  parser.end();
-  return tags;
 }
 
 // Hand-read from the fixtures; `script`: where the imports land.
@@ -396,13 +293,13 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
     const imports = target!.content.body.flatMap((node) => (node.type === 'ImportDeclaration' ? [node.source.value] : []));
     expect(imports).toEqual(expect.arrayContaining([...ctx.styles.map(({id}) => id), classMapId(ctx.filename, 0)]));
     if (script === 'added') {
-      const statements = target!.content.body as unknown as AST.BaseNode[];
-      const own = statements.filter(({start, end}) => new RegExp(`^${IMPORT}$`).test(file!.code.slice(start, end)));
+      const {start, end} = target!.content as unknown as AST.BaseNode;
+      const lines = file!.code.slice(start, end).split('\n').filter(Boolean);
+      const own = lines.filter((line) => new RegExp(`^${IMPORT}$`).test(line));
       expect(own).toHaveLength(ctx.styles.length + 1);
       // Any other line of the added script is a forwarding one.
-      const {start, end} = target!.content as unknown as AST.BaseNode;
-      const others = file!.code.slice(start, end).replaceAll(new RegExp(`${IMPORT}\\n`, 'g'), '');
-      expect(others).toMatch(new RegExp(`^\\n(?:(?:${HELPER_IMPORT}|${FORWARD_LINE})\\n)*$`));
+      const forwarding = new RegExp(`^(?:${HELPER_IMPORT}|${FORWARD_LINE})$`);
+      for (const line of lines.filter((candidate) => !own.includes(candidate))) expect(line).toMatch(forwarding);
     }
     const other = script === 'module' ? scripts.instance : scripts.module;
     expect(other ? file!.code.slice(other.start, other.end) : '').not.toMatch(/\?ucf&type=style&/);
@@ -485,132 +382,16 @@ describe('svelte.build of the other fixtures', () => {
     expect(file!.code).toContain('class={__ucfStyle1.card}');
   });
 
-  it('leaves a block with nothing to import or stamp as written, but for the dev warning of a legacy root', async () => {
-    const {split, ctx, file} = await svelteBuild('svelte/NoStyle.ucf', true);
-    expect(ctx.styles).toEqual([]);
-    expect(file!.code).toBe(split.targets.svelte!.content);
-    const dev = await svelteBuild('svelte/NoStyle.ucf');
-    expect(dev.file!.code).toBe(
-      [
-        '<script>',
-        'import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";',
-        ';__ucfWarnFragment($$props, "NoStyle", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");',
-        `</script>${split.targets.svelte!.content}`,
-      ].join('\n')
-    );
+  it('leaves a block with nothing to import or stamp, and no rune or legacy syntax, as written', async () => {
+    for (const production of [false, true]) {
+      const {split, ctx, file} = await svelteBuild('svelte/NoStyle.ucf', production);
+      expect(ctx.styles).toEqual([]);
+      expect(file!.code).toBe(split.targets.svelte!.content);
+    }
   });
 
   it('gives $style the module="style" class map when there is no bare <style module>', async () => {
     const {ctx, file} = await svelteBuild(`${ERRORS_DIR}/ModuleNamedStyle.ucf`);
     expect(file!.code).toContain(`import __ucfStyle from ${JSON.stringify(classMapId(ctx.filename, 0))};`);
-  });
-});
-
-const ROOTS_DIR = 'svelte/roots';
-const ROOTS_PARENT = join(FIXTURES_DIR, 'apps', 'all-targets', 'Roots.ucf');
-// The scope prop Roots.ucf's stamp passes each child, in dev.
-const PARENT_SCOPE = `data-v-${scopeId(rootRelativePath(FIXTURES_DIR, ROOTS_PARENT), readFileSync(ROOTS_PARENT, 'utf8'), false)}`;
-
-/** Each start tag's parent-scope count, and whether it sits at the top of the rendered HTML. */
-function parentScopes(html: string): {name: string; top: boolean; scopes: number}[] {
-  const tags: {name: string; top: boolean; scopes: number}[] = [];
-  let depth = 0;
-  const parser = new Parser({
-    onopentag: (name, attributes) => {
-      tags.push({name, top: depth === 0, scopes: Object.keys(attributes).filter((key) => key === PARENT_SCOPE).length});
-      depth++;
-    },
-    onclosetag: () => void depth--,
-  });
-  parser.write(html);
-  parser.end();
-  return tags;
-}
-
-// Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches,
-// `renders` the props of each branch the server render checks. A `problem` row warns instead.
-type RootShape = {
-  fixture: string;
-  from?: string;
-  roots?: number;
-  problem?: string;
-  renders: Record<string, unknown>[];
-  html?: string[];
-};
-
-const LEGACY_PROBLEM = 'is a legacy-mode Svelte component';
-
-const ROOT_SHAPES: RootShape[] = (
-  [
-    {fixture: 'ComponentRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
-    {fixture: 'EachRoot.ucf', problem: 'renders an {#each} block as its root', renders: [{}]},
-    // Escaped once, as with no spread.
-    {
-      fixture: 'EscapedRoot.ucf',
-      from: '__ucfRest',
-      roots: 1,
-      renders: [{}],
-      html: ['title="a &amp; b"', 'data-html="&lt;div>"', 'data-quote="&quot;quoted&quot;"', 'data-mixed="&amp; escaped"'],
-    },
-    // A trailing comma in its `$props()` pattern.
-    {fixture: 'IfElseRoot.ucf', from: '__ucfRest', roots: 3, renders: [{branch: 'a'}, {branch: 'b'}, {branch: 'c'}]},
-    {fixture: 'LegacyRoot.ucf', problem: LEGACY_PROBLEM, renders: [{}]},
-    {fixture: 'MultiRoot.ucf', problem: 'renders more than one root', renders: [{}]},
-    // Through `{#key}`, `<svelte:boundary>` and its `failed` snippet, and every `{#await}` branch.
-    {fixture: 'NestedRoot.ucf', from: 'props', roots: 4, renders: [{value: 'server'}]},
-    // No `$props()`: one is added.
-    {fixture: 'NoPropsRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
-    {fixture: 'RestRoot.ucf', from: 'rest', roots: 1, renders: [{note: 'rest note'}]},
-    {fixture: 'SvelteElementRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}, {tag: 'aside'}]},
-  ] satisfies RootShape[]
-).map((row) => ({...row, fixture: `${ROOTS_DIR}/${row.fixture}`}));
-
-it('has a row for every svelte/roots/ fixture', () => {
-  expect(listComponents(ROOTS_DIR)).toEqual(ROOT_SHAPES.map(({fixture}) => fixture));
-});
-
-describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async ({fixture, from, roots, problem, renders, html}) => {
-  const dev = await svelteBuild(fixture);
-  const production = await svelteBuild(fixture, true);
-  const name = basename(fixture, '.ucf');
-
-  it('builds in dev and in production, and Svelte compiles both with no warning', () => {
-    for (const {file, ctx} of [dev, production]) {
-      for (const generate of ['server', 'client'] as const) {
-        const result = svelte.compile(file!.code, {generate, filename: `${ctx.filename}.svelte.svelte`});
-        expect(result.warnings.map(({code, message}) => `${code}: ${message}`)).toEqual([]);
-      }
-    }
-  });
-
-  it('matches the dev code snapshot', async () => {
-    await expect(dev.file!.code.replaceAll(FIXTURES_DIR, '<fixtures>')).toMatchFileSnapshot(
-      `../__snapshots__/${fixture}.svelte.snap`
-    );
-  });
-
-  if (problem) {
-    it('forwards nothing, and warns in dev only, naming the file and why', () => {
-      const props = problem === LEGACY_PROBLEM ? '$$props' : '__ucfRest';
-      expect(dev.file!.code).toContain(`__ucfWarnFragment(${props}, ${JSON.stringify(name)}, ${JSON.stringify(problem)}`);
-      for (const {file} of [dev, production]) expect(file!.code).not.toContain('__ucfScopeAttrs');
-      expect(production.file!.code).not.toMatch(/scope-attrs|__ucfRest|__ucfWarnFragment/);
-    });
-  } else {
-    it(`spreads the parent's scope from ${from} on each of its ${roots} roots, in dev and in production`, () => {
-      for (const {file} of [dev, production]) {
-        expect(file!.code.split(`{...__ucfScopeAttrs(${from})}`)).toHaveLength(roots! + 1);
-        expect(file!.code.match(/__ucfScopeAttrs\(/g)).toHaveLength(roots!);
-        expect(file!.code).not.toContain('__ucfWarnFragment');
-      }
-    });
-  }
-
-  it.each(renders)(`renders the parent's scope ${problem ? 'nowhere' : 'on the root only'}, with props %o`, async (props) => {
-    const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(props)}`, {...props, [PARENT_SCOPE]: ''});
-    const tags = parentScopes(body);
-    expect(tags.length).toBeGreaterThan(0);
-    for (const {name: tag, top, scopes} of tags) expect({tag, top, scopes}).toEqual({tag, top, scopes: top && !problem ? 1 : 0});
-    for (const attribute of html ?? []) expect(body).toContain(attribute);
   });
 });

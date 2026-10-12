@@ -1,0 +1,4 @@
+<svelte>
+  <svelte:options runes />
+  <p class="shape"><span class="inner">options</span></p>
+</svelte>

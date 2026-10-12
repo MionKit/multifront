@@ -1,0 +1,9 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let props = $props()
+const __ucfProps = $derived(props);
+  </script>
+  {#await props.value ?? 'shadow' then props}
+    <p {...__ucfScopeAttrs(__ucfProps)} class="shape"><span class="inner">{props}</span></p>
+  {/await}

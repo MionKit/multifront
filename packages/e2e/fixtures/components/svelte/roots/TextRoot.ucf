@@ -1,0 +1,6 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'text only' }: { label?: string } = $props()
+  </script>
+  {label}
+</svelte>
