@@ -56,6 +56,8 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
       {code: 'missing-style-module', line: 6, column: 14, text: '$style'},
       {code: 'missing-style-module', line: 7, column: 14, text: '$theme'},
       {code: 'missing-style-module', line: 8, column: 23, text: '$theme'},
+      // A name on Object.prototype is no module.
+      {code: 'missing-style-module', line: 9, column: 8, text: '$constructor'},
     ],
   },
 ];
@@ -111,6 +113,7 @@ describe('the <svelte> rules', () => {
       NO_STYLE,
       noTheme,
       noTheme,
+      '<svelte> uses $constructor, but no <style module="constructor"> or store named constructor exists',
     ]);
     expect((await svelteBuild(`${ERRORS_DIR}/StyleWithoutModule.ucf`)).thrown.map(({message}) => message)).toEqual([
       NO_STYLE,

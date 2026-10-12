@@ -1,7 +1,7 @@
 import type {AST, CompileError} from 'svelte/compiler';
 import {DiagnosticsError, createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
 import {loadSvelteCompiler} from '../compilers.ts';
-import type {Block, BlockKind, BuildContext, Diagnostic, VirtualFile} from '../types.ts';
+import type {Block, BlockKind, BuildContext, Diagnostic, StyleModule, VirtualFile} from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
   'area base br col embed hr img input link meta param source track wbr'.split(' ')
@@ -55,6 +55,16 @@ function topLevelNames(scripts: (AST.Script | null)[]): Set<string> {
   return names;
 }
 
+// Own keys only: `ctx.modules` is a plain object, so `$constructor` would read Object.prototype.
+function ownModule(ctx: BuildContext, name: string): StyleModule | undefined {
+  return Object.hasOwn(ctx.modules, name) ? ctx.modules[name] : undefined;
+}
+
+// `$style` also reads a `module="style"` block, as `$name` reads `module="name"`.
+function classMap(bare: string, ctx: BuildContext): StyleModule | undefined {
+  return bare === 'style' ? (ownModule(ctx, '$style') ?? ownModule(ctx, 'style')) : ownModule(ctx, bare);
+}
+
 function missingStyleModules(root: AST.Root, block: Block, ctx: BuildContext): Diagnostic[] {
   const stores = topLevelNames([root.module, root.instance]);
   const diagnostics: Diagnostic[] = [];
@@ -66,8 +76,7 @@ function missingStyleModules(root: AST.Root, block: Block, ctx: BuildContext): D
     // `($style as X)` is a use; a TS type name or `{$x: 1}`, `o.$x` is not.
     const property = NAME_KEYS.has(key) || (key === 'property' && parent?.type === 'MemberExpression');
     if ((property && !parent?.computed) || (parent?.type.startsWith('TS') && key !== 'expression')) return;
-    // `$style` also reads a `module="style"` block, as `$name` reads `module="name"`.
-    if (bare === 'style' ? ctx.modules.$style || ctx.modules.style : ctx.modules[bare] || stores.has(bare)) return;
+    if (classMap(bare, ctx) || (bare !== 'style' && stores.has(bare))) return;
     const message =
       bare === 'style'
         ? '<svelte> uses $style, but no <style module> exists; add one'
