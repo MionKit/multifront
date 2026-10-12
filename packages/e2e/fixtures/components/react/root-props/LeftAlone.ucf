@@ -1,0 +1,15 @@
+<react>
+  type Props = { branch?: string; tone?: string }
+
+  // Several own `className`: the last one is merged. A string `style` or `ref` is no value React takes: left as written.
+  export default function LeftAlone(props: Props) {
+    if (props.branch === 'twice')
+      // @ts-expect-error Two `className` attributes, on purpose.
+      return <div className="first" className={props.tone}>twice</div>
+    if (props.branch === 'braced')
+      // @ts-expect-error A string style and ref, on purpose.
+      return <p style={'color: red'} ref={'braced'}>braced</p>
+    // @ts-expect-error A string style and ref, on purpose.
+    return <section style="color: red" ref="plain">plain</section>
+  }
+</react>
