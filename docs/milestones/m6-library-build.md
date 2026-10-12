@@ -198,11 +198,12 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 - Build: `packages/vite/src/library/packageJson.ts`, called last for each target:
   - `name` (from `packages[target].name`, default `<name>-<target>`), `version`, `description`, `license`, `author`, `repository`, `homepage`, `keywords` copied from the library's `package.json`. `type: "module"`. `sideEffects: ["*.css"]`.
-  - `exports`: `"."` (when there is an index), one subpath per component (`"./Card"`, `"./forms/Field"`), each `{types, default}`; `"./styles.css"`, `"./*.css"`, `"./package.json"`. A row may add conditions (Svelte needs `svelte`).
+  - `exports`: `"."` (when there is an index), one subpath per component (`"./Card"`, `"./forms/Field"`), each `{types, default}` (`types` only beside a written `.d.ts`, so `dts: false` gives `{default}`); `"./styles.css"` (always written by 6.2, empty when no component has a style), `"./*.css"`, `"./package.json"`. A top-level `types` points at the index's `.d.ts`. 6.8 adds the row's extra conditions with the svelte row (Svelte needs `svelte`).
   - `peerDependencies` from the row, overridable in `packages[target].peers`. No `dependencies`, no `devDependencies`, no `scripts`.
   - `README.md` and `LICENSE` copied when present.
 - Deliverable: `dist/react` and `dist/vue` are ready to `pnpm pack`.
-- Test: consumer area, `packages/e2e/consumer/pack.spec.ts`. Starts the consumer area folder and its helper `packages/e2e/consumer/lib/pack.ts` with `packLibrary(outDir): Promise<Record<Target, string>>` (real `pnpm pack --pack-destination`, one tarball per target). Checks the tarball file list (`tar -t`): JS, `.d.ts`, CSS, `styles.css`, `package.json`, `README.md`, `LICENSE`, no `.ucf`, no `node_modules`. Runs real `publint` and real `attw --pack --profile esm-only` on each tarball; both must pass.
+- Test: consumer area, `packages/e2e/consumer/pack.spec.ts`. Starts the consumer area folder and its helper `packages/e2e/consumer/lib/pack.ts` with `packLibrary(outDir): Promise<Partial<Record<Target, string>>>` (real `pnpm pack --pack-destination`, one tarball per built target). Checks the tarball file list (`tar -t`): JS, `.d.ts`, CSS, `styles.css`, `package.json`, `README.md`, `LICENSE`, no `.ucf`, no `node_modules`. Runs real `publint --strict` and real `attw <tgz> --profile esm-only --exclude-entrypoints styles.css --no-definitely-typed` on each tarball (a CSS subpath has no types to resolve); both must pass. Also the whole `package.json` of each target, `packages[target]` overrides, dropped manifest fields, and a minimal library (no index, no style, `dts: false`).
+- Status: done
 
 ### 6.8 The Svelte package
 

@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.7
@@ -51,8 +51,8 @@ Checked on this host with throwaway copies outside the repo:
    - `types: "./index.d.ts"` only when there is an index and its `.d.ts` was written.
    - `exports`: `"."` when there is an index, then one subpath per component in source order (`"./Card"`,
      `"./forms/Field"`), each `{types: "./Card.d.ts", default: "./Card.js"}`, with `types` only when that `.d.ts`
-     exists (`dts: false` → `{default}`). Then `"./styles.css"` and `"./*.css"` only when the build wrote `styles.css`
-     (a library with no `<style>` gets neither, no dangling file or glob). Then `"./package.json"`.
+     exists (`dts: false` → `{default}`). Then `"./styles.css"`, `"./*.css"` and `"./package.json"`. 6.2's CSS step
+     always writes `styles.css`, empty when no component has a style, so both CSS entries always point at a file.
    - `peerDependencies` = `job.peers` (row ranges merged with `packages[target].peers`). No `dependencies`,
      `devDependencies`, `scripts`, `main`, `files`, `private`.
    - Copies `README.md` and `LICENSE` from `root` when present.
@@ -72,7 +72,8 @@ Checked on this host with throwaway copies outside the repo:
    - `packLibrary(outDir): Promise<Partial<Record<Target, string>>>`: per `<outDir>/<target>/` with a
      `package.json`, real `pnpm pack --pack-destination <outDir> --json`; returns the tarball paths.
    - `tarFiles(tarball)` (real `tar -tzf`), and `publint(tarball)` / `attw(tarball)` running the root-installed bins
-     through `process.execPath`, resolving with `{code, output}`.
+     through `process.execPath`, resolving with `{code, output}`. Neither tool exports its `package.json`, so the bin
+     is found by walking `require.resolve.paths()`.
 
 ## Decisions
 
@@ -82,6 +83,8 @@ Checked on this host with throwaway copies outside the repo:
 - The row's extra export `conditions` field comes in 6.8 with the svelte row and its test, not here. (Orchestrator,
   rule 4.)
 - `packLibrary` returns `Partial<Record<Target, string>>`: only built targets are packed. (Orchestrator, rule 4.)
+- Built, not planned: `styles.css` and `./*.css` are always exported. The plan made them conditional, but 6.2 always
+  writes `styles.css` (empty without styles), so the condition could never be false.
 - No new CI job: these tests need only `pnpm` and `tar` in the `check` job. The consumer job (build and pack once,
   shared pnpm store) comes with 6.10, whose fresh-app installs first need it.
 
@@ -101,7 +104,8 @@ Checked on this host with throwaway copies outside the repo:
   '^19.1.0'}}`: name and overridden peer land, `react-dom` keeps its default, none of those fields are written;
   without `README.md` / `LICENSE` neither is written.
 - **Minimal library**: `plain/Plain.ucf` (React, no style), `src: 'plain'`, `dts: false`: `exports` is exactly
-  `"./Plain": {default}` + `"./package.json"`, no top-level `types`, and the tarball passes publint and attw.
+  `"./Plain": {default}` + the two CSS entries + `"./package.json"`, no top-level `types`, and the tarball passes
+  publint and attw.
 
 Where: this host and CI's `check` job (and the floor jobs), inside `pnpm devx test`. Needs `pnpm` and `tar`
 (ubuntu-latest, `pnpm/action-setup`) and the two root devDependencies. No network.
