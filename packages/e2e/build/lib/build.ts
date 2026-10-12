@@ -104,7 +104,6 @@ export function keyName(key: ESTree.ImportAttributeKey | ESTree.PropertyKey): st
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
 }
 
-/** A copy of fixture app `app` whose `file` gets each `[anchor, added]` text right after its anchor. */
 export async function withEditedApp(
   app: string,
   file: string,
@@ -135,7 +134,7 @@ interface ImportErrorCase {
   config?: InlineConfig; // of the dev server
 }
 
-/** Spec 4.4: the build and each dev environment fail with `code` at `loc`; returns the build's error. */
+/** Spec 4.4, build and dev alike. */
 export async function expectImportError(root: string, {build, url, environments, code, loc, config = {}}: ImportErrorCase) {
   const built = await rejection<Rolldown.BundleError>(build());
   expect(built.message).toContain(`(${code})`);

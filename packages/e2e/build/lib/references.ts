@@ -59,7 +59,7 @@ interface Resolution {
   query: string; // the importer's
 }
 
-/** Logs each `.ucf` import before any plugin resolves it, so the specifier still holds what our rewrite put there. */
+/** Runs first, so each `.ucf` specifier still holds what our rewrite put there. */
 export function resolutionRecorder() {
   const calls: Resolution[] = [];
   const plugin: Plugin = {
@@ -78,7 +78,7 @@ export function resolutionRecorder() {
   return {plugin, from};
 }
 
-/** A module's `.ucf` references from `/components/` on: dev URLs start with `/@fs`, SSR ones do not. */
+/** Cut at `/components/`: dev URLs start with `/@fs`, SSR ones do not. */
 export function ucfPaths(code: string): string[] {
   return moduleReferences(code)
     .map(({specifier}) => specifier.split('?')[0]!)
