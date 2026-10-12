@@ -70,7 +70,8 @@ export function libraryCss(root: string, src: string): Plugin {
       for (const [name, {file, index}] of blocks) {
         const asset = bundle[name];
         if (asset?.type !== 'asset') continue;
-        byFile.get(file)?.push({index, css: `${String(asset.source).trim()}\n`});
+        const css = String(asset.source).trim();
+        byFile.get(file)?.push({index, css: css && `${css}\n`});
         delete bundle[name];
       }
       const sources = new Map<string, string>();

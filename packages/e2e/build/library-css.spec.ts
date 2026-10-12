@@ -116,6 +116,53 @@ describe('buildLibrary(): CSS as real files', () => {
   });
 });
 
+describe('buildLibrary() CSS edge cases', () => {
+  it('writes an empty CSS file, still imported, for a component whose style block compiles to nothing', async () => {
+    const empty =
+      '<vue>\n  <template><p>empty</p></template>\n</vue>\n\n<react>\n  export default () => <p>empty</p>\n</react>\n\n<style lang="scss">\n$unused: 1px;\n</style>\n';
+    await withEditedLibrary([{file: 'src/Empty.ucf', content: empty}], async (root) => {
+      const built = await buildFixtureLibrary(root);
+      try {
+        for (const target of FRAMEWORKS) {
+          const result = resultOf(built.results, target);
+          expect(readOutput(result, 'Empty.css'), target).toBe('');
+          expect(readOutput(result, 'Empty.js').startsWith('import "./Empty.css";\n'), target).toBe(true);
+        }
+      } finally {
+        await built.remove();
+      }
+    });
+  });
+
+  it('lists each component its own CSS file in a manifest the vite option asks for', async () => {
+    const built = await buildFixtureLibrary(LIBRARY_DIR, {vite: {build: {manifest: true}}});
+    try {
+      for (const target of FRAMEWORKS) {
+        const result = resultOf(built.results, target);
+        const manifest = JSON.parse(readOutput(result, '.vite/manifest.json')) as Record<string, {file: string; css?: string[]}>;
+        const entries = Object.values(manifest);
+        expect(entries.find((entry) => entry.file === 'Card.js')?.css, target).toEqual(['Card.css']);
+        for (const css of entries.flatMap((entry) => entry.css ?? [])) expect(result.files, target).toContain(css);
+      }
+    } finally {
+      await built.remove();
+    }
+  });
+
+  it('splits the CSS per component even when the vite option turns cssCodeSplit off', async () => {
+    const built = await buildFixtureLibrary(LIBRARY_DIR, {vite: {build: {cssCodeSplit: false}}});
+    try {
+      for (const target of FRAMEWORKS) {
+        const result = resultOf(built.results, target);
+        expect(readOutput(result, 'Card.css'), target).toContain('.card[data-v-');
+        expect(readOutput(result, 'styles.css'), target).toContain(readOutput(result, 'Card.css'));
+      }
+    } finally {
+      await built.remove();
+    }
+  });
+});
+
 describe('buildLibrary() CSS errors', () => {
   it('fails on a component that would be written as styles.css', async () => {
     const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8');
