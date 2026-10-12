@@ -13,6 +13,7 @@ const CASES: {fixture: string; client: boolean}[] = [
   {fixture: 'react/use-client/ClientHandler.ucf', client: true},
   {fixture: 'react/use-client/ClientHook.ucf', client: true},
   {fixture: 'react/use-client/ClientMemberHook.ucf', client: true},
+  {fixture: 'react/use-client/ClientPureClass.ucf', client: true},
   {fixture: 'react/use-client/ServerHandlerString.ucf', client: false},
   {fixture: 'react/use-client/ServerUse.ucf', client: false},
   {fixture: 'library/Button.ucf', client: true},

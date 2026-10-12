@@ -34,6 +34,7 @@ export {classMapId, styleId} from './ids.ts';
 export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTarget} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
 export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
+export {USE_CLIENT} from './react/reactApis.ts';
 export {needsUseClient} from './react/useClient.ts';
 export {rootRelativePath, scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';

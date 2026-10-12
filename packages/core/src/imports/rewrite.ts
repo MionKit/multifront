@@ -45,7 +45,7 @@ function langOf(filename: string): Lang {
 }
 
 /** The TS plugin reads a template literal without expressions as a string too. */
-function literalValue(node: Expression): string | undefined {
+export function literalValue(node: Expression): string | undefined {
   if (node.type === 'Literal') return typeof node.value === 'string' ? node.value : undefined;
   if (node.type === 'TemplateLiteral' && node.expressions.length === 0) return node.quasis[0]!.value.cooked ?? undefined;
   return undefined;

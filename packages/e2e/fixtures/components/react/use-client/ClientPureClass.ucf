@@ -1,0 +1,11 @@
+<react>
+  import { PureComponent } from 'react'
+
+  const Legacy = class extends PureComponent<{ label: string }> {
+    render() {
+      return <p>{this.props.label}</p>
+    }
+  }
+
+  export default Legacy
+</react>
