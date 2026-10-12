@@ -1,4 +1,4 @@
-// Spec 3.5, item 5: a React root merges the parent's className and style and takes its ref, in a real build and when hydrated.
+// Spec 3.5, item 5: a React root merges the parent's className, style and ref, in a real build and when hydrated.
 import {join} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {isRunnableDevEnvironment} from 'vite';
@@ -56,7 +56,7 @@ async function expectRootProps(page: Page): Promise<void> {
   expect(await own.getAttribute('data-own-ref')).toBe('SECTION');
 }
 
-// The parent's callback ref: attached once over two renders (the merged ref is the same one), its own cleanup run on unmount.
+// The parent's callback ref: attached once over two renders (same merged ref), its own cleanup run on unmount.
 async function expectRefCleanup(page: Page): Promise<void> {
   const counts = page.locator('output[data-ref="counts"]');
   await expect.poll(() => counts.getAttribute('data-counts')).toBe('1/0');

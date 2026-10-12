@@ -186,7 +186,7 @@ const BUILD_CASES: {
     modules: {},
     tokens: [
       {text: 'ScopedPanel(', line: 4, column: 26},
-      // The root's own className, now the first argument of its merge.
+      // Now the first argument of the className merge.
       {text: '"panel"', line: 6, column: 25},
       {text: '<ScopedBadge', line: 8, column: 8},
     ],

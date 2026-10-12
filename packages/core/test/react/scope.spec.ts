@@ -139,8 +139,7 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   });
 });
 
-// The one rewrite the build makes: a merged className string with a line break or `\` becomes the JS string
-// the JSX transform makes of it.
+// The build's one rewrite: a merged className string with a line break or `\` becomes the JS string JSX makes of it.
 function withJsStrings(content: string): string {
   const edits: [number, number, string][] = [];
   new Visitor({
@@ -173,7 +172,7 @@ function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, prop
 }
 
 // Hand-read from the fixtures: `roots` get the spread, in source order.
-// `signature`: dev build text around the parameters it adds, the `const <pattern> = <props>;` it moves in, or the helper import.
+// `signature`: dev build text around the added parameters, the moved-in `const <pattern> = <props>;`, or the helper import.
 // `forwarding/` holds build-only edges of finding the component and a name for its props.
 // `rootProps`: per root in source order, how the build leaves each root prop (`react/root-props/` rows).
 type RootProps = ({tag: string} & Record<RootProp, RootPropState>)[];
