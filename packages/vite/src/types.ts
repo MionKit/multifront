@@ -46,7 +46,7 @@ export interface LibraryOptions {
   frameworks?: Target[]; // default: every framework with a row and at least one block
   packages?: Partial<Record<Target, {name?: string; peers?: Record<string, string>}>>;
   vite?: InlineConfig; // merged into every target's build
-  dts?: boolean; // default true, used from 6.6
+  dts?: boolean; // default true: a .d.ts beside every JS file
 }
 
 /** What differs per framework in a library build. */
@@ -54,6 +54,16 @@ export interface LibraryTarget {
   plugin(): Promise<PluginOption>; // the framework's Vite plugin
   peers: Record<string, string>; // default peer ranges; also the build's externals
   useClient?: boolean; // `"use client"` atop the output files that need it (React Server Components)
+  emitTypes(job: LibraryTypesJob): Promise<void>; // writes the `.d.ts` files beside the JS build's output
+}
+
+/** What a row's `emitTypes()` gets; posix paths, `modules` relative to `src`. */
+export interface LibraryTypesJob {
+  target: Target;
+  root: string; // library folder
+  src: string;
+  outDir: string; // <outDir>/<target>, where the JS build wrote
+  modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
 }
 
 /** `files` are relative to `outDir`, `skipped` to `src`. */
