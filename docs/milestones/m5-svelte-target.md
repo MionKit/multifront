@@ -116,12 +116,13 @@ From milestone 4:
 - Build:
   - plugin-svelte's own `hotUpdate` calls `transformRequest` on the bare file name, `/abs/Panel.ucf`, after a Svelte edit. That is the Vue id: without plugin-vue it throws (error overlay, no update), with it every Svelte edit compiles the Vue target. `composeSveltePlugin(config)` (`packages/vite/src/svelteTarget.ts`) also wraps the handler of `vite-plugin-svelte:hot-update`: for a `.ucf` file, its `transformRequest` of that one bare file resolves `null` untransformed. The request only refreshes plugin-svelte's Svelte CSS, which our ids never emit. Every other URL, our `.ucf.svelte.svelte` module included, is transformed as before.
   - `trackHmrPayloads()` in `browser/lib/requests.ts` gains `errors()`, the messages of Vite's `error` payloads.
-- Add `packages/e2e/fixtures/apps/all-targets`: one Vite app with plugin-react, plugin-vue, plugin-svelte and `multifront()`. `src/main.tsx` renders `Panel.ucf` three times through `with { framework }` (into `#vue`, `#react`, `#svelte`), plus the React `Counter.ucf` (`start={2}`) in `#react`.
+- Add `packages/e2e/fixtures/apps/all-targets`: one Vite app with plugin-react, plugin-vue, plugin-svelte and `multifront()`. `src/main.tsx` renders `Panel.ucf` three times through `with { framework }` (into `#vue`, `#react`, `#svelte`), plus the React `Counter.ucf` (`start={2}`) in `#react`, `svelte/NoStyle.ucf` (no `<vue>` block) in `#no-style` and a plain `src/Plain.svelte` with a `<style>` in `#plain`.
 - Deliverable: Svelte HMR through our plugin, in a Svelte-only app and in a mixed app.
 - Test: browser area, `packages/e2e/browser/svelte-hmr.spec.ts`, Playwright against the dev servers of `apps/svelte-vite` and `apps/all-targets`, editing real copies of the fixtures in a temp folder:
   - Edit the `<svelte>` block: the new text shows, the page does not reload (a value set on `window` survives), no error in the server log or the overlay.
   - Edit a `<style>` block: only the CSS module is fetched again (in `all-targets` also plugin-vue's style sub-module of that block, for the Vue panel); the Svelte element is the same DOM node.
   - In `all-targets`, edit the `<react>` block: the Svelte module is not fetched again; edit the `<svelte>` block: the React counter keeps its state.
+  - In `all-targets`, a `<svelte>` edit to `NoStyle.ucf` (no `<vue>` block) updates it without an error, and `Plain.svelte` still hot-updates its markup and its style.
 - Status: done
 
 ### 5.6 SSR and a SvelteKit app built from `.ucf` sources
