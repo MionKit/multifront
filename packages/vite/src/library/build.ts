@@ -5,10 +5,10 @@ import {TARGETS, splitBlocks} from '@multifront/core';
 import type {SplitResult, Target} from '@multifront/core';
 import {build, mergeConfig, normalizePath} from 'vite';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
-import {splitId, virtualTarget} from '../ids.ts';
 import {multifront} from '../plugin.ts';
 import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
-import {insideDir, outputName} from './names.ts';
+import {libraryCss} from './css.ts';
+import {fileOf, insideDir, outputName, shownFile} from './names.ts';
 import {libraryTargets} from './targets.ts';
 
 // Not relative, absolute or virtual.
@@ -88,16 +88,6 @@ async function writtenFiles(dir: string): Promise<string[]> {
     .sort();
 }
 
-// `/abs/Card.ucf.react.tsx` or a style id → `/abs/Card.ucf`.
-function fileOf(id: string): string {
-  const {path} = splitId(id);
-  return virtualTarget(path)?.file ?? path;
-}
-
-function shownFile(root: string, file: string): string {
-  return normalizePath(relative(root, file));
-}
-
 /** Peers stay external; any other package or file outside `src` fails. */
 function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plugin {
   const names = Object.keys(peers);
@@ -155,14 +145,18 @@ async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise
     mode: 'production',
     publicDir: false,
     logLevel: 'warn',
-    plugins: [await row.plugin(), multifront({framework: target, frameworks: [target]}), libraryPlugin(job)],
+    plugins: [
+      await row.plugin(),
+      multifront({framework: target, frameworks: [target]}),
+      libraryPlugin(job),
+      libraryCss(root, src),
+    ],
     build: {
       outDir,
       emptyOutDir: true,
       minify: false,
       sourcemap: true,
-      // 6.2 replaces Vite's one lib CSS file with a file per component.
-      lib: {entry: entries, formats: ['es'], cssFileName: 'styles'},
+      lib: {entry: entries, formats: ['es']},
       rolldownOptions: {
         output: {preserveModules: true, preserveModulesRoot: src, entryFileNames: fileName, chunkFileNames: fileName},
       },
