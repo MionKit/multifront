@@ -46,10 +46,7 @@ function packagesIn(dir: string): string[] {
     .flatMap((name) => (name.startsWith('@') ? readdirSync(join(dir, name)).map((scoped) => `${name}/${scoped}`) : [name]));
 }
 
-/**
- * A copy in the OS temp dir, outside the workspace, so nothing resolves from above it. Its `node_modules` links the
- * packages the repo installed, except `without`: a library that never installed them.
- */
+/** Outside the workspace so nothing resolves from above it; `without` = packages the library never installed. */
 export async function copyLibraryOutside(without: string[]): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), OUTSIDE_PREFIX));
   try {

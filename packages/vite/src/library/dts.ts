@@ -67,7 +67,7 @@ function toolBin(job: LibraryTypesJob, {peer, bin}: TypesTool): string {
   return join(dirname(manifest), bins[bin]!);
 }
 
-/** Every string-literal module specifier `renamed` maps: imports, re-exports, `import()` and `import()` types. */
+/** Rewrites each string-literal module specifier that `renamed` maps. */
 function rewriteSpecifiers(
   text: MagicString,
   code: string,
@@ -242,7 +242,6 @@ async function reachedRoots(bin: string, stage: string, target: Target, shown: M
     .sort();
 }
 
-/** The staged components; `outDir` gets the `.d.ts` files. */
 async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
   const bin = toolBin(job, tool);
   const cache = join(job.root, 'node_modules', '.cache', 'multifront');

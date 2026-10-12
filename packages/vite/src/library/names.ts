@@ -52,7 +52,6 @@ export function outputName(id: string, src: string): string {
   return query.size === 0 ? base : `${VIRTUAL_DIR}/${base}.${subModuleName(query)}`;
 }
 
-/** Every file below `dir`, relative and posix, sorted. */
 export async function filesIn(dir: string): Promise<string[]> {
   const entries = await readdir(dir, {recursive: true, withFileTypes: true});
   return entries
