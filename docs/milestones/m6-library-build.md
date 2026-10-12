@@ -106,9 +106,9 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
     ```
 
   - `packages/vite/src/library/targets.ts`: the `LibraryTarget` interface and the `libraryTargets` table (`satisfies Partial<Record<Target, LibraryTarget>>`) with `react` (plugin-react, peers `react` and `react-dom` at `^19.0.0`) and `vue` (plugin-vue, peer `vue` at `^3.5.0`). A target with no row is a clear build error naming the target (Svelte until 6.8).
-  - Per target: find every `.ucf` file under `src` with a block for that target (split once with `splitBlocks`). Files without that block are skipped and listed in `skipped`. Then run one real `vite build` with `configFile: false`, `mode: 'production'`, `build.lib` (ES only), `minify: false`, `sourcemap: true`, `emptyOutDir`, and `preserveModules` with `preserveModulesRoot` set to `src`.
-  - A naming function maps every `.ucf` module id (the bare one, `Card.ucf.react.tsx`, `Card.ucf.svelte.svelte`) to its path without `.ucf`: `Card.js`, `forms/Field.js`. Virtual modules go under `_virtual/`.
-  - The target's peers are external (a peer and its subpaths, like `react/jsx-runtime`). Any other bare import is a build error: the package has peer dependencies only.
+  - Per target: find every `.ucf` file under `src` with a block for that target (split once with `splitBlocks`). Files without that block are skipped and listed in `skipped`. Then run one real `vite build` with `configFile: false`, `mode: 'production'` (and `NODE_ENV=production` for the build, which Vite reads for `isProduction`), `publicDir: false`, `build.lib` (ES only, `cssFileName: 'styles'` until 6.2), `minify: false`, `sourcemap: true`, `emptyOutDir`, and `preserveModules` with `preserveModulesRoot` set to `src`.
+  - A naming function, `outputName(id, src)` in `packages/vite/src/library/names.ts`, maps every `.ucf` module id (the bare one, `Card.ucf.react.tsx`, `Card.ucf.svelte.svelte`) to its path without `.ucf`: `Card.js`, `forms/Field.js`. Virtual modules go under `_virtual/`: `\0` ids (`_virtual/multifront/scope-attrs.js`, `_virtual/plugin-vue/export-helper.js`) and a `.ucf` file's sub-modules, named by their query (`_virtual/Card.module-0.js` for a class map, ours or plugin-vue's; `_virtual/Card.script.js` for plugin-vue's script).
+  - The target's peers are external (a peer and its subpaths, like `react/jsx-runtime`). Any other bare import is a build error: the package has peer dependencies only. A file outside `src`, a given `index` that does not exist and an explicit framework no file has a block for are build errors too.
   - New fixture: `packages/e2e/fixtures/library/`, a small real library (not a workspace package; it resolves its tools from `packages/e2e/node_modules`). `package.json` (`@mf-fixture/ui`), `README.md`, `LICENSE`, `src/index.ts` and these components:
     - `Card.ucf`: React, Vue and Svelte, `<style module>` with CSS variables, `<style scoped lang="scss">`, imports `Icon.ucf`. No hooks.
     - `Icon.ucf`: React, Vue and Svelte, scoped style.
@@ -116,7 +116,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
     - `Button.ucf`: React, Vue and Svelte, a `<button>` root with a module class and an `onClick` from props.
     - `Badge.ucf`: React and Vue; its React block reads `className` from props itself.
     - `Panel.ucf`: React, Vue and Svelte, no hooks, renders `Counter`.
-    - `Tooltip.ucf`: React block starts with `'use client'`, no hooks.
+    - `Tooltip.ucf`: React, Vue and Svelte (so `src/index.ts` can export it); its React block starts with `'use client'`, no hooks.
     - `forms/Field.ucf`: React, Vue and Svelte, nested folder.
     - `VueOnly.ucf`: only a `<vue>` block.
     - `hooks/useToggle.ts` (used by `Counter`) and `utils/cx.ts` (used by `Card` and `Button`): plain files.
@@ -127,6 +127,8 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
   - `react/` contains no Vue or Svelte code and `vue/` no React or Svelte code (no `react` import in vue output, no `vue` import in react output, no `svelte` import in either).
   - `react` is imported, never bundled; a fixture copy that adds `import x from 'left-pad'` fails with the peer-only error.
   - the source map of `react/Card.js` maps a line of the JSX back into `Card.ucf`, using the real `source-map-js` reader.
+  - each build error above, on its own fixture copy.
+- Status: done
 
 ### 6.2 CSS as real files, plus `styles.css`
 
