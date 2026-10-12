@@ -1,8 +1,7 @@
 import MagicString from 'magic-string';
+import {USE_CLIENT} from '@multifront/core';
 import type {Plugin, Rolldown} from 'vite';
 import type {UcfModuleMeta} from '../types.ts';
-
-const USE_CLIENT = 'use client';
 
 type Statement = ReturnType<Rolldown.PluginContext['parse']>['body'][number];
 

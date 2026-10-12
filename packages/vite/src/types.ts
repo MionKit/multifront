@@ -27,7 +27,7 @@ export interface UcfVersion extends UcfSnapshot {
 
 /** Our part of a module's meta, under `multifront`. */
 export interface UcfModuleMeta {
-  useClient?: boolean; // the React target: its block needs `"use client"`
+  useClient: boolean; // the React target: its block needs `"use client"`
 }
 
 export type UcfCache = ReturnType<typeof createUcfCache>;
