@@ -63,23 +63,23 @@ Orchestrator's answers to the plan questions:
 ### `@multifront/vite`
 
 1. New `packages/vite/src/svelteTarget.ts`, beside `vueTarget.ts`:
-   - `SVELTE_PLUGIN_NAME = 'vite-plugin-svelte'`, `hasSveltePlugin(plugins)`.
+   - `hasSveltePlugin(plugins)`: a plugin named `vite-plugin-svelte` (plugin-svelte's marker) is there.
    - `SVELTE_PLUGIN_MISSING = 'the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins'`.
    - `composeSveltePlugin(config)`, called from `configResolved` (after plugin-svelte's own, which sets up its
      compile, and before its compile plugin's): wraps the `vite-plugin-svelte:compile` plugin's `transform.handler` so
      that for our ids its context's `getCombinedSourcemap` returns `null`. The compiler then maps to our built code and
      Vite applies our `load` map once. Guarded against a second `configResolved` on the same instance.
-   - `svelteCompiledPlugin(): Plugin`, `multifront:svelte-compiled`, `enforce: 'post'`, transform filter id
-     `/\.ucf\.svelte\.svelte$/`: code with no `from 'svelte/internal/(client|server)'` import →
-     `this.error(`${id}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options
+   - `svelteCompiledPlugin(hasPlugin): Plugin`, `multifront:svelte-compiled`, `enforce: 'post'`, transform filter id
+     `/\.ucf\.svelte\.svelte$/`: code with no `from 'svelte/internal/(client|server)'` import → with no plugin-svelte
+     (a dev URL of the id skips the import's check) `${id}: ${SVELTE_PLUGIN_MISSING}`, else `this.error(`${id}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options
      must let ids ending in .ucf.svelte.svelte through`)`.
 2. `index.ts`:
-   - `configResolved` stores `sveltePlugin = hasSveltePlugin(resolved.plugins)` (the plugin-name check) and calls
-     `composeSveltePlugin(resolved)`.
-   - `resolveId`, after the missing-block check: target svelte and no `sveltePlugin` →
+   - `configResolved` calls `composeSveltePlugin(resolved)`.
+   - `resolveId`, after the missing-block check: target svelte and no `hasSveltePlugin(config.plugins)` (asked there,
+     as the Vue check is) →
      `this.error(importErrorMessage(path, from?.fileName, `${SVELTE_PLUGIN_MISSING} (it compiles ${id})`))`, naming
      the import, its importer and the `.svelte.svelte` id. The scan path is unchanged (it sets svelte picks aside first).
-   - Returned array: `[pre, vueHmr, vueImporters, svelteCompiledPlugin(), attributesPlugin(options)]`. The check runs
+   - Returned array: `[pre, vueHmr, vueImporters, svelteCompiledPlugin(() => hasSveltePlugin(config.plugins)), attributesPlugin(options)]`. The check runs
      before the attribute rewrite, which would otherwise read raw markup first.
    - `load` unchanged: the test proves it serves the id and watches the `.ucf` file.
 3. `packages/vite/package.json`: optional peers `"svelte": "^5.55.6"`, `"@sveltejs/vite-plugin-svelte": "^7.0.0"`;
@@ -110,7 +110,8 @@ Orchestrator's answers to the plan questions:
     `$state(untrack(() => start))`, `class={$style.button}`, `onclick`), `imports/Icon.ucf`
     (`aria-label="icon-svelte-marker"`), `imports/UsesIcon.ucf` (imports `./Icon.ucf`, `uses-icon-svelte-marker`).
     `vue/CounterCrlf.ucf` (Counter's CRLF twin) gets the same block. `build/hmr.spec.ts`'s "a new `<svelte>` block"
-    row becomes "`<svelte>` text (its module never loaded)", as Counter now has one.
+    row becomes "`<svelte>` text (its module never loaded)", as Counter now has one, and a new row removes the whole
+    block ("a removed `<svelte>` block"), so a target block present on one side of an edit stays covered.
     Core's "builds every other `<svelte>` block, and Svelte compiles it" test (`core/test/blocks/svelte.spec.ts:148`)
     picks them all up.
 12. New app `fixtures/apps/svelte-vite/`: `vite.config.ts` (`plugins: [svelte(), multifront()]`), `index.html`,
@@ -134,7 +135,6 @@ All on this host and CI `check` (real Vite 8.2.2, plugin-svelte 7.3.0, svelte 5.
     carries `data-v-<ctx.scopeId>` (production id).
   - CSS: one asset; each `ctx.styles` selector of Panel, PanelItem and Counter exactly once; every class-map value in
     the JS; no `svelte-<hash>` class in the CSS.
-  - Either Panel or Counter can fail first without plugin-svelte (they resolve in parallel): the test reads which.
   - No `panel-item-vue-marker` or `panel-item-react-marker` in JS or CSS (Panel's own Vue and React blocks carry no
     marker, and stay unchanged).
   - Source map: segments with source `components/Panel.ucf` exist, all on lines of Panel's `<svelte>` block, one on
@@ -142,9 +142,15 @@ All on this host and CI `check` (real Vite 8.2.2, plugin-svelte 7.3.0, svelte 5.
   - Dev server (`withDevServer`, cache in a temp dir: plugin-svelte pre-bundles svelte): `main.ts` imports Panel's
     `.svelte.svelte` URL; transforming it gives compiled code (`svelte/internal/client`) whose map points into Panel's
     `<svelte>` block; its module node imports the real `Panel.ucf` (the `addWatchFile` edge).
-  - `{configFile: false, plugins: [multifront()]}`: fails with `../../../components/Panel.ucf (imported by <main.ts>):
-    the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles
-    <abs>/Panel.ucf.svelte.svelte)`.
+  - The same dev server's SSR environment serves Panel compiled for the server (`svelte/internal/server`), mapped the
+    same way.
+  - A restart with the same plugin instances keeps one wrapper around plugin-svelte's compile handler.
+  - A dev request for the Svelte id with no plugin-svelte fails with `<id>: the svelte framework needs
+    @sveltejs/vite-plugin-svelte in your Vite plugins` (`multifront:svelte-compiled` asks for the plugin before
+    blaming its include and exclude options).
+  - `{configFile: false, plugins: [multifront()]}`: fails with `../../../components/<Panel|Counter>.ucf (imported by
+    <main.ts>): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles
+    <abs>/<Panel|Counter>.ucf.svelte.svelte)`. Both resolve in parallel, so either fails first: the test reads which.
   - `svelte({exclude: [/\.ucf\.svelte\.svelte$/]})`: fails with `<abs>/Panel.ucf.svelte.svelte:
     @sveltejs/vite-plugin-svelte did not compile this module…`.
 - `react-target.spec.ts`: "fails a svelte pick without plugin-svelte" expects our message with the importer and the

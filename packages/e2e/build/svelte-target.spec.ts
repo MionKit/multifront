@@ -1,14 +1,12 @@
 import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
-import {TraceMap, eachMapping} from '@jridgewell/trace-mapping';
+import {TraceMap, eachMapping, type SourceMapInput} from '@jridgewell/trace-mapping';
 import {svelte} from '@sveltejs/vite-plugin-svelte';
-import {createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
-import type {BuildContext} from '@multifront/core';
 import {multifront} from '@multifront/vite';
-import type {InlineConfig, Rolldown} from 'vite';
+import type {InlineConfig, Rolldown, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, TMP_DIR, componentPath, readComponent} from '../fixtures/index.ts';
-import {buildApp, rejection, withDevServer} from './lib/build.ts';
+import {buildApp, componentContext, rejection, withDevServer} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'svelte-vite');
 const MAIN = join(ROOT, 'src', 'main.ts');
@@ -18,13 +16,10 @@ const SVELTE_MARKERS = ['panel-svelte-marker', 'panel-item-svelte-marker'];
 const OTHER_MARKERS = ['panel-item-vue-marker', 'panel-item-react-marker'];
 const SVELTE_ID = (name: string) => `${componentPath(name)}.svelte.svelte`;
 
-async function contextOf(name: string, production = true): Promise<BuildContext> {
-  const {filename, source} = readComponent(name);
-  return createBuildContext(splitBlocks(source, filename), {root: ROOT, compiler: loadVueCompiler(ROOT), production});
-}
+const contextOf = (name: string) => componentContext(ROOT, name);
 
 /** The lines of Panel.ucf that `map` points at, checked to lie in its <svelte> block, one of them `{heading}`'s. */
-function expectPanelMappings(map: ConstructorParameters<typeof TraceMap>[0]): void {
+function expectPanelMappings(map: SourceMapInput): void {
   const {source} = readComponent('Panel.ucf');
   const lineOf = (offset: number) => source.slice(0, offset).split('\n').length;
   const lines: number[] = [];
@@ -90,23 +85,66 @@ describe('vite build of svelte-vite', () => {
   });
 });
 
+/** A dev server of the app; plugin-svelte pre-bundles svelte, so its cache stays out of the fixture app. */
+async function withSvelteDevServer(config: InlineConfig, run: (server: ViteDevServer) => Promise<void>): Promise<void> {
+  await mkdir(TMP_DIR, {recursive: true});
+  const cacheDir = await mkdtemp(join(TMP_DIR, 'svelte-vite-cache-'));
+  try {
+    await withDevServer(ROOT, {...config, cacheDir}, run);
+  } finally {
+    await rm(cacheDir, {recursive: true, force: true});
+  }
+}
+
+/** The URL `main.ts` imports Panel's Svelte module by, and that module as `environment` serves it. */
+async function panelModule(server: ViteDevServer, environment: 'client' | 'ssr') {
+  const main = await server.environments[environment].transformRequest('/src/main.ts');
+  // Client code imports it `from "<url>"`, SSR code through `__vite_ssr_import__("<url>")`.
+  const url = /"([^"]+Panel\.ucf\.svelte\.svelte)"/.exec(main!.code)?.[1];
+  expect(url).toBeDefined();
+  return {url: url!, result: (await server.environments[environment].transformRequest(url!))!};
+}
+
 describe('dev server of svelte-vite', () => {
   it('serves the compiled Panel module at the URL main.ts imports, mapped into Panel.ucf and watching it', async () => {
-    // plugin-svelte pre-bundles svelte: its cache must stay out of the fixture app.
-    await mkdir(TMP_DIR, {recursive: true});
-    const cacheDir = await mkdtemp(join(TMP_DIR, 'svelte-vite-cache-'));
-    await withDevServer(ROOT, {cacheDir}, async (server) => {
-      const client = server.environments.client;
-      const main = await client.transformRequest('/src/main.ts');
-      const url = /from "([^"]+Panel\.ucf\.svelte\.svelte)"/.exec(main!.code)?.[1];
-      expect(url).toBeDefined();
-      const result = await client.transformRequest(url!);
-      expect(result?.code).toMatch(/from "[^"]*svelte[/_]internal[/_]client/);
-      expectPanelMappings(result!.map as ConstructorParameters<typeof TraceMap>[0]);
-      const module = await client.moduleGraph.getModuleByUrl(url!);
+    await withSvelteDevServer({}, async (server) => {
+      const {url, result} = await panelModule(server, 'client');
+      expect(result.code).toMatch(/from "[^"]*svelte[/_]internal[/_]client/);
+      expectPanelMappings(result.map as SourceMapInput);
+      const module = await server.environments.client.moduleGraph.getModuleByUrl(url);
       expect(module?.id).toBe(SVELTE_ID('Panel.ucf'));
       expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('Panel.ucf'));
-    }).finally(() => rm(cacheDir, {recursive: true, force: true}));
+    });
+  });
+
+  it('serves the server-compiled Panel module to SSR, mapped into Panel.ucf', async () => {
+    await withSvelteDevServer({}, async (server) => {
+      const {result} = await panelModule(server, 'ssr');
+      // Pre-bundled: `svelte/internal/server` is served as `svelte_internal_server.js`.
+      expect(result.code).toMatch(/svelte[/_]internal[/_]server/);
+      expectPanelMappings(result.map as SourceMapInput);
+    });
+  });
+
+  it('wraps plugin-svelte once across a restart with the same plugins', async () => {
+    const plugins = [svelte(), multifront()];
+    const compile = plugins.flat().find((plugin) => plugin.name === 'vite-plugin-svelte:compile')!;
+    const handlerOf = () => (compile.transform as {handler: unknown}).handler;
+    await withSvelteDevServer({configFile: false, plugins}, async (server) => {
+      const wrapped = handlerOf();
+      await server.restart();
+      expect(handlerOf()).toBe(wrapped);
+      expectPanelMappings((await panelModule(server, 'client')).result.map as SourceMapInput);
+    });
+  });
+
+  it('answers a request for the Svelte id, with no plugin-svelte in the app, with the plugin-svelte error', async () => {
+    await withSvelteDevServer({configFile: false, plugins: [multifront()]}, async (server) => {
+      const id = SVELTE_ID('Panel.ucf');
+      await expect(server.environments.client.transformRequest(id)).rejects.toThrow(
+        `${id}: the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins`
+      );
+    });
   });
 });
 
