@@ -51,7 +51,7 @@ Today CI is one `check` job (`pnpm devx check`), a `windows` job (Windows-only b
 | Editor: real VS Code | M2 (2.11) | the harness starts its own Xvfb on Linux with no display; CI caches the `.vscode-test/` download |
 | Fixture configs from source | M3 (3.6) | fixture apps' `vite.config.ts` load through `configLoader: 'native'` (`buildApp`), in an e2e worker run with `--conditions=source`, so `@multifront/vite` comes from `src/`, never a stale `dist/` |
 | Browser | M3 (3.9) | `pnpm exec playwright install --with-deps chromium` in CI, the browser folder cached by Playwright version |
-| Oldest supported framework | M3 (3.9) | `pnpm devx peer-floor <framework>` and one CI job per framework (`react-floor` first, `vue-floor` in M4 4.7) running `pnpm devx test` on the bottom of the peer range |
+| Oldest supported framework | M3 (3.9) | `pnpm devx peer-floor <framework>` and one CI job per framework (`react-floor` first, `vue-floor` in M4 4.7, `svelte-floor` in M5 5.3) running `pnpm devx test` on the bottom of the peer range |
 | Consumer | M6 | a job that builds and packs once and hands the tarballs to the consumer jobs, a shared pnpm store; later a local registry for packed packages that depend on each other |
 
 The reference for all of it is [MionKit/mion](https://github.com/MionKit/mion)'s `.github/workflows/`: the same tooling, already solving most of this (packed tarballs through a local verdaccio registry, fuzz soak runs with a printed seed, jobs that pass artifacts). Copy its pattern before inventing one. Neither repo runs a browser or VS Code in CI yet: those two are new.

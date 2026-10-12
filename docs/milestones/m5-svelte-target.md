@@ -53,17 +53,19 @@ From milestone 4:
 
 - Build:
   - `packages/core/src/blocks/svelte.ts`: the `svelte` row (`role: 'target'`, grammar scope `source.svelte`) with `check(block)`. Add it to the registry after the shared kinds.
-  - `loadSvelteCompiler(root)` in core: resolves `svelte/compiler` from the project root (the same copy plugin-svelte uses). `svelte` becomes an optional peer of core; the root pins `svelte` 5.57.0 as a devDependency.
-  - `check` stays compiler free, like every core check (M1, M4): it keeps M1's `style-inside-target` scan, taught that a `<style>` inside `<svelte:head>` is plain markup and allowed.
-  - The compiler-based rules run in `build()` (5.2), which has the project root through `ctx`. They parse with `parse(content, { modern: true })` and report, with `.ucf` line and column:
-    - `svelte-parse-error`: Svelte's own parse error, position shifted by `contentStart`.
-    - `missing-style-module`: `$style` (or `$name`) used with no matching `<style module>`.
-- Deliverable: `splitBlocks` plus the registry reports every `<svelte>` rule with exact positions.
-- Test: core's own test, `packages/core/test/blocks/svelte.spec.ts`, over real files in `packages/e2e/fixtures/components/svelte/errors/` (style at top level, style in `<svelte:head>`, broken `{`, `$style` without a module, `$classes` with `module="classes"`). Checks each code, line and column; the valid files give no diagnostic.
+  - `loadSvelteCompiler(root)` in core (`SvelteCompiler` type): resolves `svelte/compiler` from the project root (the same copy plugin-svelte uses). `svelte` becomes an optional peer of core (`^5.0.0`); the root and core pin `svelte` 5.57.0 as a devDependency.
+  - `check` stays compiler free, like every core check (M1, M4): it keeps M1's `style-inside-target` scan, where a `<style>` inside `<svelte:head>` is plain markup and allowed.
+  - The compiler-based rules run in `build()`, which has the project root through `ctx.root` (new `BuildContext` field). They parse with `parse(content, { modern: true })` and report, with `.ucf` line and column:
+    - `svelte-parse-error`: Svelte's own parse error (first line of its message), position shifted by `contentStart`.
+    - `missing-style-module`: `$style` used with no `<style module>`, or `$name` with no `<style module="name">`, one per use. `$style` is always a class map, even beside a `style` prop; any other `$name` whose `name` is declared at the top level of a script is a Svelte store and is left alone. Runes (`$state`, `$props`, …) and property names (`{$x: 1}`, `o.$x`) are not uses.
+  - Until 5.2 writes the file, a block that passes the rules still ends in `target-not-built` (the `targetNotBuilt` helper in `diagnostics.ts`).
+- Deliverable: `splitBlocks` plus the registry reports every `<svelte>` rule with exact positions: `checkBlocks` the compiler-free one, `buildTarget(split, ctx, 'svelte')` (Vite's path) all of them.
+- Test: core's own tests. `packages/core/test/blocks/svelte.spec.ts`, over real files in `packages/e2e/fixtures/components/svelte/errors/`: `TopLevelStyle.ucf`, `StyleInHead.ucf`, `UnclosedBrace.ucf` (broken `{`), `StyleWithoutModule.ucf`, `WrongModuleName.ucf` (`$style` and `$theme` beside `module="classes"`), `NamedModule.ucf` (`$classes` with `module="classes"`, a store, runes, a `style` prop). Checks each code, line, column and span; the valid files and every other fixture's `<svelte>` block give no diagnostic. `packages/core/test/svelteCompiler.spec.ts` pins the lookup, the "could not find svelte" error and a broken compiler's own error.
+- Status: done
 
 ### 5.2 The `<svelte>` kind: `build`
 
-- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts` returns a `VirtualFile` with `ext: '.svelte'`, all edits through MagicString, map back to the `.ucf` file:
+- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`, after 5.1's rules, returns a `VirtualFile` with `ext: '.svelte'` in place of 5.1's `target-not-built`, all edits through MagicString, map back to the `.ucf` file:
   - In the instance `<script>` (one is added if the block has none, keeping `lang="ts"` when present): `import __ucfStyle from '<class map id>'` per module name (`$classes` gets `__ucfClasses`), and `import '<style id>'` per style block.
   - Every `$style` / `$name` identifier, in the script and in markup expressions, becomes `__ucfStyle` / `__ucfName`. Svelte forbids user names starting with `$`, so every hit is ours.
   - When any style is `scoped`: `data-v-<id>=""` right after the tag name of every host element (`RegularElement`, `<svelte:element>`) and every component element (`Component`, `<svelte:component>`, `<svelte:self>`), inside `{#if}`, `{#each}`, `{#await}`, `{#key}`, `{#snippet}` and `<svelte:boundary>`. Not on `<svelte:head>` and its children, `<svelte:window>`, `<svelte:body>`, `<svelte:document>`, `<svelte:options>`, `<svelte:fragment>`, `<slot>`.
@@ -87,6 +89,7 @@ From milestone 4:
   - `load` for `/abs/Card.ucf.svelte.svelte` returns `build()`'s code and map (the split is cached, as for the other targets), and adds the `.ucf` file with `this.addWatchFile`.
   - A clear build error when the Svelte target is needed but plugin-svelte is missing (checked in `configResolved`, by plugin name `vite-plugin-svelte`), or did not compile our id (checked in our post plugin: the code still holds raw Svelte markup, as when the user's `exclude` matches it). The message names the id.
   - Peers: `svelte` ^5 and `@sveltejs/vite-plugin-svelte` ^7, both optional. The package carries the pinned devDependencies that satisfy them, as it does for plugin-vue.
+  - A `svelte-floor` CI job (`pnpm devx peer-floor svelte`, as `react-floor` and `vue-floor`) runs every test on the bottom of those ranges.
 - Deliverable: a Vite app with `multifront()` and `svelte()` builds a `.ucf` file as a Svelte component.
 - Test: build area, `packages/e2e/build/svelte-target.spec.ts`, fixture app `packages/e2e/fixtures/apps/svelte-vite` (real Vite, real plugin-svelte, the shared `fixtures/components/Panel.ucf` from M1, which gains its `<svelte>` block and a `<style module lang="scss">`, and a new `PanelItem.ucf` with all three target blocks. The other shared fixtures gain their `<svelte>` block in this step too: `Counter.ucf`, `imports/Icon.ucf`, `imports/UsesIcon.ucf`). Checks: the output JS is compiled Svelte (no raw markup); the CSS file holds the shared scoped CSS and no Svelte-made CSS; no marker string from the `<vue>` or `<react>` block is in the bundle; the source map points back into `Panel.ucf`. The same app without plugin-svelte fails with our message.
 
