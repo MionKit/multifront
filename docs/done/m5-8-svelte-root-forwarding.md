@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.8
@@ -50,6 +50,18 @@ Checked on this host (svelte 5.57.0):
 - **Spread right after the stamp**, after the tag name, as React writes `data-v-x="" {...__ucfScopeAttrs(props)}`.
 - **Dev-only warning**, as React: in production a non-forwarding component gets no edit at all, and the helper module
   exports only `__ucfScopeAttrs` (`scopeHelperCode(false)`).
+- **Svelte's double escape is worked around here** (found by the fuzz, own commit): beside a spread, Svelte 5.57.0's
+  server render escapes a plain-text attribute value twice (`<div {...p} data-html="<div>">` renders
+  `data-html="&amp;lt;div>"`; the client is right). Every root we forward gains a spread, so a forwarded
+  `RegularElement` / `SvelteElement` root's plain-text attribute holding `&`, `<` or `"` becomes an expression of its
+  decoded text (`data-html={"<div>"}`), which Svelte escapes once. Mixed values (`"a {b}"`) and component props are not
+  affected.
+- **The fuzz's `same-html` ignores Svelte's load replay** (found by seeds 1 and 7 at 2000 runs): Svelte's server render
+  adds ` onload="this.__e=event" onerror="this.__e=event"` to an `<img>` (any load-event element) with a spread, so a
+  forwarded `<img>` root differs from its plain twin there. Svelte's own behavior for any spread, so both HTMLs drop
+  those two attributes before comparing (milestone Risks names the CSP side of it).
+- **Instance lines go after the last statement** of the instance script (not at `content.end`), so the generated code
+  keeps its closing-tag indent and 5.2's "only inserts" check stays a line strip.
 - **Warning text** (orchestrator, Q1 = b): `__ucfWarnFragment` takes optional `problem` and `fix`; React's call and
   text stay as they are; Svelte passes "renders more than one root", "renders an {#each} block as its root", or "is a
   legacy-mode Svelte component" with "Use $props() to make it a runes-mode component."
@@ -80,7 +92,8 @@ shared by both.
   `let {} = $props()` → `{...__ucfRest}`. No `$props()` → `let __ucfRest = $props();` added to the instance script
   (an added `<script>` when the block has none). `__ucfRest` = `freshName(used, '__ucfRest')`.
 - **Forward**: ` {...__ucfScopeAttrs(<props>)}` `appendLeft` at the end of each element root's name (the stamp's
-  offset, so after it), mapped like the stamp.
+  offset, so after it), mapped like the stamp; then `escapeOnce` turns the root's plain-text attribute values holding
+  `&`, `<` or `"` into expressions (Decisions).
 - **Warn** (dev): runes → the props source as above, then `;(() => __ucfWarnFragment(<props>, "<Name>", …))();` as
   the instance script's last line; legacy → `;__ucfWarnFragment($$props, "<Name>", …);`. `<Name>` =
   `basename(ctx.filename, '.ucf')`, as React.
@@ -92,7 +105,7 @@ shared by both.
 
 - Imports gain `import {…} from "virtual:multifront/scope-attrs";` (`SCOPE_HELPER_ID`) when `forwardScope` returns
   helpers, placed where the class map imports go (module script, else instance, else added `<script>`).
-- Instance lines (`let __ucfRest = $props();`, the warning call) go at the end of the instance script (`content.end`);
+- Instance lines (`let __ucfRest = $props();`, the warning call) go after the instance script's last statement;
   with no instance script into an added `<script>`, which also takes the imports when there is no module script either
   (one added script, not two).
 
@@ -109,7 +122,8 @@ shared by both.
   from `./SvelteElementRoot.ucf`), `SvelteElementRoot.ucf` (`<svelte:element this={tag}>`), `NestedRoot.ucf` (`{#key}`
   → `<svelte:boundary>` with a `{#snippet failed}` root → `{#await}` pending / then / catch roots,
   `let props = $props()`), `RestRoot.ucf` (`let { label, ...rest } = $props()` reading `rest`), `NoPropsRoot.ucf`
-  (`$state`, no `$props()`), `EachRoot.ucf` and `MultiRoot.ucf` (runes, warn), `LegacyRoot.ucf` (`export let`, warns).
+  (`$state`, no `$props()`), `EscapedRoot.ucf` (plain-text attribute values Svelte escapes, and a mixed one),
+  `EachRoot.ucf` and `MultiRoot.ucf` (runes, warn), `LegacyRoot.ucf` (`export let`, warns).
 - `packages/e2e/fixtures/apps/all-targets/Roots.ucf` (a Svelte parent, as M3's `react-scope/Parent.ucf`): scoped
   `.shape { color: rgb(200, 40, 80) }`, each fixture (each `IfElseRoot` branch) in a `<div data-case="Name:branch">`.
   `src/main.tsx`: `?page=roots` mounts only `Roots` into `#svelte` (the default page stays free of warnings for 5.5's
@@ -128,13 +142,15 @@ there since M3 3.9). No new infra.
   for every fixture): dev and production builds compile with no warning (server, client); dev code snapshot; forwarded
   rows: each element root carries `{...__ucfScopeAttrs(<props>)}` once (`props` / `rest` / `__ucfRest` by row) and
   nothing else does; warning rows: `__ucfWarnFragment(` with the file name and the row's problem, no `__ucfScopeAttrs`,
-  in production no helper import and no `$props()` edit. Render: server render (helper module written from
+  in production no helper import and no `$props()` edit. `EscapedRoot`'s render holds each attribute escaped once.
+  Render: server render (helper module written from
   `scopeHelperCode`, as 5.2 points class map imports at files) with the scope prop a stamped parent passes puts it once
   on the rendered root of each forwarded branch and on no inner element; warning rows put it nowhere.
   5.2's shape tests take the new edits: `undoBuild` also strips the spread, the `, ...__ucfRest`, the added
   `let __ucfRest = $props();`, the warning line and the helper import ("only inserts" still holds); the `added` script
-  count includes them; `svelte/NoStyle.ucf` builds as written in production and gains only the warning in dev;
-  `.svelte.snap` snapshots updated, the `.html` snapshots must not change.
+  count includes them; the mapping test reads the text after the stamp and its spread; `svelte/NoStyle.ucf` builds as
+  written in production and gains only the warning in dev; `.svelte.snap` snapshots updated, the `.html` snapshots did
+  not change. Panel's own snapshots (split, styles, React scope, editor virtual code) follow its new lines.
 - **Browser**, `packages/e2e/browser/svelte-scope-forward.spec.ts`, dev (`startDev`) and preview (`buildAndPreview`)
   of `apps/all-targets`:
   - main page: `#vue .item`, `#react .item`, `#svelte .item` each carry Panel's `data-v-*` (`scopeAttribute`) and
@@ -155,8 +171,10 @@ there since M3 3.9). No new infra.
     tags do not nest).
   - Rule `forwards`: runes `single` → each top-level element carries the parent's attribute exactly once; every case →
     no deeper element carries it; legacy, `many`, `each` → no element carries it.
-  - `stamps` allows the parent's attribute beside the own one (`forwards` judges it); `same-html` strips it too.
-  - Coverage facts gain `root:single`, `root:many`, `root:each`, required on a default run.
+  - `stamps` allows the parent's attribute beside the own one (`forwards` judges it); `same-html` strips it too, and
+    Svelte's ` onload` / ` onerror="this.__e=event"` load replay from both HTMLs (Decisions).
+  - Coverage facts gain `root:single`, `root:many`, `root:each` and `forwards:root`, `forwards:none` (the expectation
+    each usable case got), required on a default run.
   - Two new negative controls for `forwards` (pre): the first ` {...__ucfScopeAttrs(…)}` removed; the spread copied onto
     the last stamped element (an inner one).
   - Seed 2026, 300 runs, unchanged.
@@ -175,7 +193,23 @@ there since M3 3.9). No new infra.
 ## Fuzzing
 
 Covered by the step: the `forwards` rule above, proven by its two negative controls; also run on seeds 1, 7, 99 at
-2000 runs on this host, results quoted here once shipped.
+2000 runs on this host (Results).
+
+## Results
+
+Run on this host (2026-10-12), each a `pnpm devx test packages/e2e/build/svelte-scope.fuzz.spec.ts` line, as Vitest
+printed it:
+
+- Default (seed 2026, 300 runs), `--reporter=verbose`: `✓ … holds every rule over 300 generated files (seed 2026)
+  9233ms`, the eight controls passing, among them `a dropped forward fails rule forwards 2229ms` and
+  `a forward on an inner element fails rule forwards 2314ms`; `Tests 9 passed (9)`, `Duration 45.49s`.
+- On the first pass, the default run found Svelte's double escape beside a spread (`data-html="&amp;lt;div>"`, run 144;
+  fixed in core, `EscapedRoot.ucf`), and seeds 1, 7 and 99 at 2000 runs each found the `<img>` load replay (runs 69,
+  583, 1816; Decisions).
+- After both: `MULTIFRONT_FUZZ_SEED=1 MULTIFRONT_FUZZ_RUNS=2000`, `-t "holds every rule"`: `Tests 1 passed | 8 skipped
+  (9)`, `Duration 73.62s`; seed 7: `Duration 76.14s`; seed 99: `Duration 73.44s`, each `1 passed`.
+- `svelte-scope-forward.spec.ts` fails all four tests with the spread line of `forwardScope` removed, and the core
+  forwarding tests fail 21 of 58; without `escapeOnce`, `EscapedRoot`'s render and snapshot tests fail.
 
 ## Out of scope
 

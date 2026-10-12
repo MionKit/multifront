@@ -143,7 +143,9 @@ Svelte does the same through its props rest (3.6). It is pinned by browser tests
 - Parse the block with the project's own `svelte/compiler` first and report, at `.ucf` positions, Svelte's parse error (`svelte-parse-error`) and a `$style` or `$name` with no matching `<style module>` (`missing-style-module`; a `$name` whose `name` is a declared store is Svelte's).
 - Apply the same scope-attribute stamping to the markup (host elements and component elements, `<svelte:element>`, `<svelte:component>`, `<svelte:self>`, inside every block and `<svelte:boundary>`; never what `<svelte:head>` holds) using `svelte/compiler`'s `parse` for locations.
 - Do not emit a Svelte `<style>`. Svelte's own scoping is unused, so CSS behaves identically across targets.
-- Root forwarding (3.5.1) through the props rest: `let { title, ...__ucfRest } = $props()` and `{...__ucfScopeAttrs(__ucfRest)}` on the root. Required, not a stretch goal. A component with several roots warns, like a React fragment root.
+- Root forwarding (3.5.1) through the props rest: `let { title, ...__ucfRest } = $props()` and `{...__ucfScopeAttrs(__ucfRest)}` on the root, right after its stamp. Required, not a stretch goal.
+  - A runes-mode component (Svelte's rule, read from the block) forwards when every branch of `{#if}`, `{#key}`, `{#await}` and `<svelte:boundary>` has at most one root: every element and component root gets the spread. An existing rest or `let props = $props()` is reused; with no `$props()`, one is added. Text, `{@render}`, `{@html}` and `<slot>` roots get nothing.
+  - Several roots, an `{#each}` root or a legacy-mode component: no forwarding, and a dev warning like a React fragment root, with its own fix for legacy mode ("Use $props() to make it a runes-mode component.").
 
 ### 3.7 `$style` typing
 
