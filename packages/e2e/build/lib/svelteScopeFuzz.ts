@@ -317,7 +317,7 @@ const CLOSES_P = new Set(
     ' '
   )
 );
-const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
+export const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
 const NO_SLOTS = new Set(['svg', 'title', 'textarea', 'script', 'style']);
 const HEADINGS = /^h[1-6]$/;
 
@@ -693,7 +693,7 @@ function branchesOf(node: Node): Node[][] | undefined {
  * `single`: every branch has at most one root, each an element or a component; `other`: the same, but some root is
  * text, a tag or a slot; `many`: a branch with more roots; `each`: an `{#each}` root; `none`: no root at all.
  */
-export type RootKind = 'single' | 'other' | 'many' | 'each' | 'none';
+type RootKind = 'single' | 'other' | 'many' | 'each' | 'none';
 
 export function rootKind(block: string): RootKind {
   const found = {many: false, each: false, element: false, other: false};
