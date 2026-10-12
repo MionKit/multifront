@@ -79,6 +79,20 @@ export function startSsrServer(root: string) {
   return {...server, url};
 }
 
+/** `vite` dev server of `root` on a free port; `url` resolves once it listens. */
+export function startViteDev(root: string) {
+  const server = startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'});
+  const url = server.waitForOutput(/Local:\s+\S+/).then((output) => /Local:\s+(\S+)/.exec(output)![1]!);
+  return {...server, url};
+}
+
+/** A built adapter-node server (`entry`, e.g. `build/index.js`) on a free port; `url` resolves once it listens. */
+export function startNodeServer(root: string, entry: string) {
+  const server = startNode(root, [entry], {NODE_ENV: 'production', PORT: '0', HOST: '127.0.0.1'});
+  const url = server.waitForOutput(/Listening on \S+/).then((output) => /Listening on (\S+)/.exec(output)![1]!);
+  return {...server, url};
+}
+
 /** Runs `steps` on one dev server of `root`, watcher off, in a fresh process; one code per request step. */
 export async function runFreshDevServer(...args: Parameters<typeof runSteps>): Promise<string[]> {
   // Killed before Vitest's 60 s test timeout gives up on it.
