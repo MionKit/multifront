@@ -1,7 +1,7 @@
 import {startLanguageServer as forkLanguageServer} from '@volar/test-utils';
 import type {LanguageServerHandle} from '@volar/test-utils';
 import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
+import {basename, dirname, join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import type {Tsserver} from './tsserver.ts';
 
@@ -27,19 +27,24 @@ export const TSDK = dirname(createRequire(import.meta.url).resolve('typescript')
 
 interface LanguageServerOptions {
   server?: string; // a bundled server file, run as is; default: the bin, from source
+  source?: boolean; // `--conditions=source`; default: only for the bin
   initializationOptions?: {typescript: {tsdk: string}};
 }
 
-/** Pulls diagnostics as VS Code does. */
-export async function startLanguageServer(workspace: string, options: LanguageServerOptions = {}): Promise<LanguageServer> {
+/** Pulls diagnostics as VS Code does; several workspace folders make a multi-root workspace. */
+export async function startLanguageServer(
+  workspace: string | string[],
+  options: LanguageServerOptions = {}
+): Promise<LanguageServer> {
+  const folders = [workspace].flat();
   // test-utils forks with `process.env` and replaces execArgv: the env is the only way in.
   const saved = {NODE_OPTIONS: process.env.NODE_OPTIONS, NODE_PATH: process.env.NODE_PATH};
   // pnpm's bin shim sets NODE_PATH into the repo's packages: a bundle missing a dependency would still find it.
   delete process.env.NODE_PATH;
-  if (!options.server) process.env.NODE_OPTIONS = `${saved.NODE_OPTIONS ?? ''} --conditions=source`.trim();
+  if (options.source ?? !options.server) process.env.NODE_OPTIONS = `${saved.NODE_OPTIONS ?? ''} --conditions=source`.trim();
   let handle: LanguageServerHandle;
   try {
-    handle = forkLanguageServer(options.server ?? SERVER_BIN, workspace);
+    handle = forkLanguageServer(options.server ?? SERVER_BIN, folders[0]!);
   } finally {
     for (const [name, value] of Object.entries(saved)) {
       if (value === undefined) delete process.env[name];
@@ -54,7 +59,8 @@ export async function startLanguageServer(workspace: string, options: LanguageSe
     handle.process.kill();
   };
   try {
-    await handle.initialize(pathToFileURL(workspace).href, options.initializationOptions ?? {}, {
+    const uris = folders.map((folder) => ({uri: pathToFileURL(folder).href, name: basename(folder)}));
+    await handle.initialize(Array.isArray(workspace) ? uris : uris[0]!.uri, options.initializationOptions ?? {}, {
       // VS Code's: Vue's template completions are snippets.
       textDocument: {diagnostic: {}, completion: {completionItem: {snippetSupport: true}}},
       workspace: {diagnostics: {}},

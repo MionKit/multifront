@@ -5,21 +5,24 @@ import ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
 import {APP_DIR, CARD, edit, expectSvelteComponent, onLine, PLUGIN, readApp} from './lib/cases.ts';
+import {SVELTE_PLUGIN} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver, tsLocation, VUE_PLUGIN, VUE_PLUGIN_DIR} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// A .svelte importer reaches tsserver only via Svelte's own TS plugin (5.11); mixed.ts is tested in tsserver.spec.ts.
-const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
+// mixed.ts is tested in tsserver.spec.ts.
+const ROWS = EXPECTED_IMPORTS.filter((row) => row.file !== 'src/mixed.ts');
 // What each svelte row's import binds: its quick info shows the framework tsserver picked.
 const SVELTE_BINDINGS: Record<string, string> = {
   'src/lazy.ts': 'SvelteCard.default',
   'src/attribute-over-importer.tsx': 'SvelteCard',
   'custom-importers/widget.ts': 'Card',
+  'src/Gallery.svelte': 'Card',
 };
-// Alone as React-only projects run it; beside Vue's as Vue - Official reads `.vue` importers, on one shared Volar copy.
+// Alone as React-only projects run it; beside Vue's or Svelte's as their extensions read `.vue` or `.svelte` importers.
 const SETUPS = [
-  {name: 'our plugin alone', plugins: [PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.vue'))},
-  {name: "our plugin beside Vue's", plugins: [PLUGIN, VUE_PLUGIN], rows: ROWS},
+  {name: 'our plugin alone', plugins: [PLUGIN], rows: ROWS.filter(({file}) => !/\.(vue|svelte)$/.test(file))},
+  {name: "our plugin beside Vue's", plugins: [PLUGIN, VUE_PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.svelte'))},
+  {name: "our plugin beside Svelte's", plugins: [PLUGIN, SVELTE_PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.vue'))},
 ];
 const NON_LITERAL = readApp('no-default/non-literal.ts');
 
