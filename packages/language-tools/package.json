@@ -45,6 +45,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@jridgewell/sourcemap-codec": "1.6.0",
     "@multifront/core": "workspace:*",
     "@volar/language-core": "2.4.28",
     "@volar/language-server": "2.4.28",

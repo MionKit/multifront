@@ -2,26 +2,54 @@ import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {renameSvelteStyles} from '@multifront/core';
 import type {Block} from '@multifront/core';
-import type {CodeMapping, VirtualCode} from '@volar/language-core';
+import type {CodeInformation, CodeMapping, VirtualCode} from '@volar/language-core';
 import {svelte2tsx} from 'svelte2tsx';
 import type * as ts from 'typescript';
 import {stringSnapshot} from '../mappings.ts';
 import {declareModule} from '../moduleTypes.ts';
+import {composeMappings, exactMappings, sourceMapMappings} from '../sourceMaps.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
 // svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
 const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 
+// TypeScript features only: `mf-fmt` formats the block, and generated wrappers have no outline of the user's.
+const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
+
 let installedTypesRoot: string | undefined;
 
 type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof renameSvelteStyles>, 'lang'>;
+
+// A renamed use is the gap between two mapped runs: its local in the renamed code, its `$name` in the `.ucf` file.
+function renamedUses(mappings: CodeMapping[], source: string, renamed: string, locals: Set<string>): CodeMapping[] {
+  const sorted = mappings.toSorted((one, other) => one.generatedOffsets[0]! - other.generatedOffsets[0]!);
+  const uses: CodeMapping[] = [];
+  for (const [index, before] of sorted.entries()) {
+    const after = sorted[index + 1];
+    if (!after) break;
+    const generated = before.generatedOffsets[0]! + before.lengths[0]!;
+    const from = before.sourceOffsets[0]! + before.lengths[0]!;
+    const local = renamed.slice(generated, after.generatedOffsets[0]);
+    const name = source.slice(from, after.sourceOffsets[0]);
+    if (!locals.has(local) || !/^\$[\w$]+$/.test(name)) continue;
+    uses.push({
+      sourceOffsets: [from],
+      generatedOffsets: [generated],
+      lengths: [name.length],
+      generatedLengths: [local.length],
+      data: SVELTE_FEATURES,
+    });
+  }
+  return uses;
+}
 
 // svelte2tsx's script, then `declare const __ucfStyle: {readonly card: string};` per class map the block uses.
 function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
   if (!compiler) return undefined;
-  const {code: svelte, locals, lang} = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
-  let script: string;
+  const rename = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
+  const {code: svelte, locals, lang} = rename;
+  let script: ReturnType<typeof svelte2tsx>;
   try {
     script = svelte2tsx(svelte, {
       filename: `${ctx.split.filename}.svelte.svelte`, // the build's id (spec 4.3)
@@ -30,7 +58,7 @@ function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined 
       parse: compiler.parse,
       version: compiler.VERSION,
       emitOnTemplateError: true,
-    }).code;
+    });
   } catch (err) {
     // Markup even Svelte's loose parser cannot read (a CompileError): no script until it parses. Else a crash.
     const {code, position} = (err ?? {}) as {code?: unknown; position?: unknown};
@@ -40,8 +68,17 @@ function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined 
   // Resolved only when needed: the VS Code bundle passes its copy and ships no svelte2tsx folder.
   const root =
     ctx.svelteTypesRoot ?? (installedTypesRoot ??= dirname(createRequire(import.meta.url).resolve('svelte2tsx/package.json')));
-  const mappings: CodeMapping[] = [];
-  let code = SHIMS.map((name) => `/// <reference path="${join(root, name).replaceAll('\\', '/')}" />\n`).join('') + script;
+  const prefix = SHIMS.map((name) => `/// <reference path="${join(root, name).replaceAll('\\', '/')}" />\n`).join('');
+  // svelte2tsx reads the renamed block: its map ends there, the rename's goes on into the `.ucf` file.
+  const outer = sourceMapMappings(script.map, svelte, script.code, SVELTE_FEATURES).map((mapping) => ({
+    ...mapping,
+    generatedOffsets: [prefix.length + mapping.generatedOffsets[0]!],
+  }));
+  // The rename's only mismatches are the renamed uses, mapped whole below.
+  const inner = exactMappings(sourceMapMappings(rename.map, ctx.split.source, svelte, SVELTE_FEATURES));
+  inner.push(...renamedUses(inner, ctx.split.source, svelte, new Set(locals.values())));
+  const mappings = composeMappings(outer, inner);
+  let code = prefix + script.code;
   for (const [module, local] of locals) code = declareModule(code, local, module.classes, mappings);
   return {code, mappings, lang};
 }

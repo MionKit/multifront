@@ -153,6 +153,9 @@ importers:
 
   packages/language-tools:
     dependencies:
+      '@jridgewell/sourcemap-codec':
+        specifier: 1.6.0
+        version: 1.6.0
       '@multifront/core':
         specifier: workspace:*
         version: link:../core
