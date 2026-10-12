@@ -209,7 +209,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         if (own.target === 'vue') return (await cache.splitUcf(own.file)).source;
         const entry = await cache.loadUcf(own.file);
         const result = built(this, entry, own.target);
-        // Only a library build reads it, to put `"use client"` atop the output file: the dev server skips the parse.
+        // Only a library build reads it: the dev server skips the parse.
         if (own.target !== 'react' || config!.command !== 'build') return result;
         const meta: UcfModuleMeta = {useClient: needsUseClient(entry.split.targets.react!.content, own.file)};
         return {...result, meta: {multifront: meta}};
