@@ -4,6 +4,7 @@ import {dirname, join} from 'node:path';
 import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
+import type {ParseResult} from 'oxc-parser';
 import {LIBRARY_DIR, TMP_DIR, copyLibrary, removeLibrary} from '../../fixtures/index.ts';
 
 export interface BuiltLibrary {
@@ -53,9 +54,17 @@ export function readOutput(result: LibraryResult, file: string): string {
   return readFileSync(join(result.outDir, file), 'utf8');
 }
 
+// The React components whose output starts with `"use client"`: hooks, event handlers or the directive itself.
+export const LIBRARY_CLIENT = ['Button', 'Counter', 'Tooltip'];
+
+export function parseOutput(file: string, code: string): ParseResult {
+  const parsed = parseSync(file, code, {sourceType: 'module'});
+  if (parsed.errors.length > 0) throw new Error(`${file} does not parse: ${parsed.errors[0]!.message}`);
+  return parsed;
+}
+
 export function specifiersOf(file: string, code: string): string[] {
-  const {module, errors} = parseSync(file, code, {sourceType: 'module'});
-  if (errors.length > 0) throw new Error(`${file} does not parse: ${errors[0]!.message}`);
+  const {module} = parseOutput(file, code);
   return [
     ...module.staticImports.map((entry) => entry.moduleRequest.value),
     ...module.staticExports.flatMap((entry) => entry.entries.flatMap((exported) => exported.moduleRequest?.value ?? [])),

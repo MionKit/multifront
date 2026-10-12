@@ -4,7 +4,7 @@ import {scopeId} from '@multifront/core';
 import type {LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
-import {buildFixtureLibrary, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
+import {LIBRARY_CLIENT, buildFixtureLibrary, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
 type Framework = 'react' | 'vue';
@@ -15,8 +15,6 @@ const CSS_ORDER: Record<Framework, string[]> = {
   vue: ['Badge', 'Button', 'Icon', 'Card', 'Counter', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field'],
 };
 const FRAMEWORKS = ['react', 'vue'] as const;
-// The React components whose output starts with `"use client"`.
-const USE_CLIENT = ['Button', 'Counter', 'Tooltip'];
 
 let library: BuiltLibrary;
 
@@ -45,7 +43,7 @@ describe('buildLibrary(): CSS as real files', () => {
       const result = resultOf(library.results, target);
       for (const name of CSS_ORDER[target]) {
         const file = `${name}.js`;
-        const directive = target === 'react' && USE_CLIENT.includes(name) ? '"use client";\n' : '';
+        const directive = target === 'react' && LIBRARY_CLIENT.includes(name) ? '"use client";\n' : '';
         const start = `${directive}import "./${name.split('/').pop()}.css";\n`;
         expect(readOutput(result, file).startsWith(start), `${target}/${file}`).toBe(true);
         expect(cssImports(result, file), `${target}/${file}`).toEqual([`./${name.split('/').pop()}.css`]);

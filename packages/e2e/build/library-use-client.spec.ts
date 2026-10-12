@@ -1,17 +1,21 @@
 import {readFileSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
-import {parseSync} from 'oxc-parser';
 import type {Statement} from 'oxc-parser';
 import {SourceMapConsumer} from 'source-map-js';
 import type {RawSourceMap} from 'source-map-js';
 import {createLogger} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
-import {buildFixtureLibrary, readOutput, resultOf, withEditedLibrary} from './lib/library.ts';
+import {
+  LIBRARY_CLIENT,
+  buildFixtureLibrary,
+  parseOutput,
+  readOutput,
+  resultOf,
+  specifiersOf,
+  withEditedLibrary,
+} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
-
-// The React components whose block uses hooks, event handlers or the directive itself.
-const CLIENT = ['Button', 'Counter', 'Tooltip'];
 
 let library: BuiltLibrary;
 const warnings: string[] = [];
@@ -28,9 +32,7 @@ afterAll(async () => {
 });
 
 function statementsOf(file: string, code: string): Statement[] {
-  const {program, errors} = parseSync(file, code, {sourceType: 'module'});
-  if (errors.length > 0) throw new Error(`${file} does not parse: ${errors[0]!.message}`);
-  return program.body;
+  return parseOutput(file, code).program.body;
 }
 
 // Directive or not, so a second one below an import counts too.
@@ -48,14 +50,10 @@ function startsWithUseClient(statements: Statement[]): boolean {
   return first?.type === 'ExpressionStatement' && first.directive === 'use client';
 }
 
-function jsFiles(target: 'react' | 'vue', files = resultOf(library.results, target).files): string[] {
-  return files.filter((file) => file.endsWith('.js'));
-}
-
 describe('buildLibrary(): "use client" per output file', () => {
   it('starts each client component with the directive, once, then its CSS import', () => {
     const result = resultOf(library.results, 'react');
-    for (const name of CLIENT) {
+    for (const name of LIBRARY_CLIENT) {
       const file = `${name}.js`;
       const statements = statementsOf(file, readOutput(result, file));
       expect(startsWithUseClient(statements), file).toBe(true);
@@ -67,13 +65,16 @@ describe('buildLibrary(): "use client" per output file', () => {
 
   it('leaves every other output file without it, in React and Vue', () => {
     const result = resultOf(library.results, 'react');
-    const others = jsFiles('react').filter((file) => !CLIENT.includes(file.slice(0, -'.js'.length)));
+    const others = result.files
+      .filter((file) => file.endsWith('.js'))
+      .filter((file) => !LIBRARY_CLIENT.includes(file.slice(0, -'.js'.length)));
     for (const expected of ['Card.js', 'Panel.js', 'hooks/useToggle.js', 'index.js', 'utils/cx.js'])
       expect(others).toContain(expected);
     expect(others.some((file) => file.startsWith('_virtual/'))).toBe(true);
     for (const file of others) expect(useClientCount(statementsOf(file, readOutput(result, file))), `react/${file}`).toBe(0);
     const vue = resultOf(library.results, 'vue');
-    for (const file of jsFiles('vue')) expect(useClientCount(statementsOf(file, readOutput(vue, file))), `vue/${file}`).toBe(0);
+    for (const file of vue.files.filter((name) => name.endsWith('.js')))
+      expect(useClientCount(statementsOf(file, readOutput(vue, file))), `vue/${file}`).toBe(0);
   });
 
   it('maps the code of react/Counter.js to its lines in Counter.ucf after the shift', () => {
@@ -111,6 +112,9 @@ describe('buildLibrary(): "use client" per output file', () => {
           expect(useClientCount(statements), file).toBe(1);
         }
         expect(result.files).not.toContain('Clicker.css');
+        expect(
+          specifiersOf('Clicker.js', readOutput(result, 'Clicker.js')).filter((specifier) => specifier.endsWith('.css'))
+        ).toEqual([]);
       } finally {
         await built.remove();
       }
