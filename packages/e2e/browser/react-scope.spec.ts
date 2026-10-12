@@ -178,7 +178,10 @@ describe.each([
       const reported = messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
       // Dev warns once for FragmentRoot, however often it renders; a build never does.
       expect(reported.map(({type}) => type)).toEqual(production ? [] : ['warning']);
-      if (!production) expect(reported[0]!.text).toContain('<FragmentRoot> renders a fragment root');
+      if (!production)
+        expect(reported[0]!.text).toBe(
+          `[multifront] <FragmentRoot> renders a fragment root, so no element receives ${parent} and its parent's scoped styles miss it. Render one root element instead.`
+        );
     } finally {
       await page.close();
     }

@@ -19,6 +19,7 @@ import {
   PARENT_FILE,
   PARENT_SOURCE,
   SCRIPT_LAYOUTS,
+  VOID,
   buildCase,
   caseAt,
   rootKind,
@@ -153,9 +154,7 @@ async function checkAlone(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
 
 // --- the rules ---------------------------------------------------------------------------------------------------
 
-const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
-
-function startTags(html: string): {name: string; attributes: string[]; top: boolean}[] {
+function startTags(html: string) {
   const tags: {name: string; attributes: string[]; top: boolean}[] = [];
   let depth = 0;
   // Not parse5, which drops a repeated attribute; XML mode reads the tags as written, with no `<p>` the HTML rules imply.
