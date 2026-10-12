@@ -157,14 +157,18 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 6.4 React root props: `className`, `style`, `ref`
 
-- Build: in core's scope transform, on every returned root of the default-exported component (same roots as the scope forward of M3):
-  - `className={own}` becomes `className={__ucfClass(own, __props.className)}`; no `className` gets `className={__props.className}`.
+- Build: in core's scope transform (`packages/core/src/react/rootProps.ts`, called by `transformScope`), on every returned root of the default-exported component (same roots as the scope forward of M3):
+  - `className={own}` (or `className="own"`) becomes `className={__ucfClass(own, __props.className)}`; no `className` gets `className={__props.className}`, added right after the forwarding spread, before every author attribute.
   - `style` the same with `__ucfStyle(own, __props.style)` (props win).
-  - `ref`: no own ref gets `ref={__props.ref}`; an own ref gets `ref={__ucfRef(own, __props.ref)}`.
-  - Skipped when the component handles that prop itself: the author wins. The detection rule (destructuring, `props.className`, a spread on the root, or something smarter, plus any `mf-lint` rule) is designed in this step's todo. Fragment roots get nothing, like the scope forward.
-  - `__ucfClass`, `__ucfStyle`, `__ucfRef` go in the same virtual helper module as `__ucfScopeAttrs`, so they ship once per package under `_virtual/`.
-- Deliverable: `<Button className="extra" style={{color: 'red'}} ref={buttonRef} />` renders one `<button>` with both classes, the merged style, and `buttonRef.current` set to it. Same in apps and in the library.
-- Test: browser area, `packages/e2e/browser/react-root-props.spec.ts`, with a new fixture app `packages/e2e/fixtures/apps/react-root-props/` that imports `Button.ucf` and `Badge.ucf` from the library fixture. Real Vite build, served, Playwright: class list, computed `color`, `ref` element tag name written into the page by the app. Plus `react-dom/server` `renderToString` of the same App, hydrated in the page with no console warning. `Badge` shows its `className` once (author wins).
+  - `ref`: no own ref gets `ref={__props.ref}`; an own ref gets `ref={__ucfRef(own, __props.ref)}` (one callback ref per pair, setting both, with React 19 cleanups).
+  - Skipped when the component handles that prop itself: the author wins. It does when the destructured first parameter has the key, when it reads `props.className` / `props['className']`, when it destructures `props` with the key anywhere, and for `ref` inside `forwardRef`. A root spreading `props` or such a pattern's rest gets none of the three. An own prop with no value is left alone. No `mf-lint` rule: the rule is syntactic and stated in spec 3.5, item 5. Fragment roots get nothing, like the scope forward.
+  - `__ucfClass`, `__ucfStyle`, `__ucfRef` go in the same virtual helper module as `__ucfScopeAttrs`, in dev and production, so they ship once per package under `_virtual/`.
+- Deliverable: `<Button className="extra" style={{color: 'red'}} ref={buttonRef} />` renders one `<button>` with both classes, the merged style (its own `font-weight: 600`, added to the fixture's three blocks, plus the parent's color), and `buttonRef.current` set to it. Same in apps and in the library.
+- Test:
+  - Core, `packages/core/test/react/scope.spec.ts`: a table over `packages/e2e/fixtures/components/react/root-props/` (one detection rule per fixture: `Own`, `Destructures`, `ReadsProps`, `BodyDestructure`, `SpreadsProps`, `OtherSpread`, `Valueless`), what each root's `className` / `style` / `ref` becomes, dev and production; no `ref` on `forwardRef` roots; the merge helpers loaded as real modules.
+  - Build area: `library.spec.ts` checks `react/Button.js` imports the merges from `_virtual/multifront/scope-attrs.js`, the only file defining them; the scope fuzz's "only adds" rule knows the new inserts.
+  - Browser area, `packages/e2e/browser/react-root-props.spec.ts`, with a new fixture app `packages/e2e/fixtures/apps/react-root-props/` that imports `Button.ucf` and `Badge.ucf` from the library fixture and `react/root-props/Own.ucf` (own className, style and ref). Real Vite build, served, Playwright: class list, computed `color` and `font-weight`, `ref` element tag names written into the page by the app, both refs set on `Own`. Plus `react-dom/server` `renderToString` of the same App through the dev server's SSR runner, hydrated in the dev page (React checks attribute mismatches only in dev) with no node replaced and no console warning. `Badge` shows its `className` once (author wins).
+- Status: done
 
 ### 6.5 Root props in the React types
 
@@ -267,7 +271,7 @@ It passes only if JS per component, the uncompiled Svelte files, CSS files, `"us
 - **Rolldown and `preserveModules`.** Ids with a query (`?ucf&type=style&…`), ids with a double extension (`Card.ucf.react.tsx`) and `\0` virtual ids must map to clean file names, and the CSS of a style id must land in the component's CSS file. 6.1 and 6.2 prove it early; the fallback is our own CSS emit (6.2).
 - **Directives.** Rolldown may keep or drop `"use client"`; we add it only when missing. Turbopack (Next's default bundler) and webpack must both accept CSS imported from a `"use client"` file in `node_modules`. 6.12 covers the default; a webpack run (`next build --webpack`) is cheap to add if it breaks.
 - **`"use client"` detection is a heuristic.** A hook reached in an unusual way (`React['useState']`) is missed. The author adds `'use client'` in the block; it is always kept.
-- **Automatic `className` / `style` / `ref` merge** (decided: automatic, spec 8). It changes what a React root gets, in apps too. How the compiler sees that a component handles a prop itself (destructuring, `props.className`, a spread, something smarter), and whether an `mf-lint` rule helps, is designed in this step's todo.
+- **Automatic `className` / `style` / `ref` merge** (decided: automatic, spec 8). It changes what a React root gets, in apps too. Decided in 6.4: a syntactic rule (destructured key, `props.x` read, destructuring of `props`, a root spread of `props` or its rest, `ref` in `forwardRef`), no `mf-lint` rule. `props` passed on whole is not detected; the root still gets the props.
 - **React 18.** Root `ref` forwarding needs React 19 (`ref` as a prop), so the peer range is `^19.0.0` (decided). A `forwardRef` wrapper for React 18 can be added later if users ask.
 - **`vue-tsc` and TypeScript 6.** The repo pins TypeScript 6.0.3. If no `vue-tsc` release older than 30 days supports it, 6.6 pins the newest TypeScript `vue-tsc` supports for the Vue types step only.
 - **The staged types tree** mirrors `src/`. Path aliases in the library's `tsconfig.json` still work (we extend it). Aliases defined only in Vite config do not reach `tsc`.
