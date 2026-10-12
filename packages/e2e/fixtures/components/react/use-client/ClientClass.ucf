@@ -1,0 +1,9 @@
+<react>
+  import * as React from 'react'
+
+  export default class ClientClass extends React.Component<{ label: string }> {
+    render() {
+      return <p>{this.props.label}</p>
+    }
+  }
+</react>

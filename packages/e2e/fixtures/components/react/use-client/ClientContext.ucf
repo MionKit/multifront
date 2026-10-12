@@ -1,0 +1,9 @@
+<react>
+  import { createContext } from 'react'
+
+  export const Theme = createContext('light')
+
+  export default function ClientContext() {
+    return <Theme.Provider value="dark"><p>Themed</p></Theme.Provider>
+  }
+</react>

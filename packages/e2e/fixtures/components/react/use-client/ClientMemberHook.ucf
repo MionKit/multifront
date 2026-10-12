@@ -1,0 +1,8 @@
+<react>
+  import * as React from 'react'
+
+  export default function ClientMemberHook() {
+    const [count] = React.useState(0)
+    return <p>Count {count}</p>
+  }
+</react>

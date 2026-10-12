@@ -1,0 +1,10 @@
+<react>
+  function useToggle(): boolean {
+    return true
+  }
+
+  export default function ClientHook() {
+    const render = () => <p>{useToggle() ? 'on' : 'off'}</p>
+    return render()
+  }
+</react>
