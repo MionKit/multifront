@@ -29,6 +29,18 @@ if (parserVersion !== bindingVersion) {
   throw new Error(`oxc-parser ${parserVersion} needs @oxc-parser/binding-wasm32-wasi ${parserVersion}, found ${bindingVersion}`);
 }
 
+// svelte2tsx imports TypeScript and Svelte's compiler at load: neither ships in the .vsix.
+const SVELTE2TSX_IMPORTS = {
+  typescript: join(EXTENSION_DIR, 'src', 'bundle', 'hostTypeScript.ts'),
+  'svelte/compiler': join(EXTENSION_DIR, 'src', 'bundle', 'noSvelteCompiler.ts'),
+};
+const fromSvelte2tsx = (importer) => importer?.split(/[\\/]/).includes('svelte2tsx') ?? false;
+const svelte2tsxImports = {
+  name: 'multifront:svelte2tsx-imports',
+  enforce: 'pre',
+  resolveId: (source, importer) => (fromSvelte2tsx(importer) ? SVELTE2TSX_IMPORTS[source] : undefined),
+};
+
 const ENTRIES = {
   extension: {entry: 'src/extension.ts', external: ['vscode']},
   // The bin other editors start, so the extension runs the same server.
@@ -41,6 +53,7 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
     root: EXTENSION_DIR,
     configFile: false,
     logLevel: 'warn',
+    plugins: [svelte2tsxImports],
     resolve: {
       conditions: ['source'],
       alias: [
@@ -58,7 +71,8 @@ for (const [name, {entry, external}] of Object.entries(ENTRIES)) {
       lib: {entry: resolve(EXTENSION_DIR, entry), formats: ['cjs']},
       rolldownOptions: {
         // Host provides `vscode`; tsserver hands the plugin TypeScript; only @volar/vscode's web path requires it.
-        external: [...external, 'typescript', /^typescript\//],
+        external: (id, importer) =>
+          external.includes(id) || ((id === 'typescript' || id.startsWith('typescript/')) && !fromSvelte2tsx(importer)),
         // Volar's server loads a tsdk with `eval('require')`.
         checks: {eval: false},
         output: {entryFileNames: `${name}.cjs`, exports: name === 'typescript-plugin' ? 'default' : 'auto'},
@@ -78,6 +92,13 @@ mkdirSync(VUE_TYPES, {recursive: true});
 for (const name of readdirSync(vueTypes).filter((file) => file.endsWith('.d.ts'))) {
   copyFileSync(join(vueTypes, name), join(VUE_TYPES, name));
 }
+
+// Every Svelte script references svelte2tsx's shims; the plugin's `svelteTypesRoot` points here.
+const svelte2tsxDir = dirname(fromLanguageTools.resolve('svelte2tsx/package.json'));
+const SVELTE_TYPES = join(DIST, 'svelte-types');
+rmSync(SVELTE_TYPES, {recursive: true, force: true});
+mkdirSync(SVELTE_TYPES, {recursive: true});
+for (const name of ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts']) copyFileSync(join(svelte2tsxDir, name), join(SVELTE_TYPES, name));
 
 rmSync(PACK, {recursive: true, force: true});
 mkdirSync(PACK, {recursive: true});

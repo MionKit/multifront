@@ -220,8 +220,14 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
     return fallback ? {...span, fileName: parsed.ucf, textSpan: {start: 0, length: 0}, contextSpan: undefined} : undefined;
   };
   // An unmapped definition in the requested file's own script is generated code, dropped.
-  const spansIntoUcf = <Span extends ts.DocumentSpan>(spans: readonly Span[], method: Navigation, from: string): Span[] =>
-    spans.flatMap((span) => intoUcfSpan(span, method, DEFINITIONS.includes(method) && ucfOf(span.fileName) !== from) ?? []);
+  // svelte2tsx declares its component as a value and a type: both fall back to the same start of the file.
+  const spansIntoUcf = <Span extends ts.DocumentSpan>(spans: readonly Span[], method: Navigation, from: string): Span[] => {
+    const mapped = spans.flatMap(
+      (span) => intoUcfSpan(span, method, DEFINITIONS.includes(method) && ucfOf(span.fileName) !== from) ?? []
+    );
+    const keyOf = ({fileName, textSpan}: Span) => `${fileName}:${textSpan.start}:${textSpan.length}`;
+    return mapped.filter((span, index) => mapped.findIndex((other) => keyOf(other) === keyOf(span)) === index);
+  };
   const intoUcf = (result: unknown, method: Navigation, from: string): unknown => {
     if (!result) return result;
     // Only a `.ucf` request searches a target script; Volar mapped the spans and kept the group's name.

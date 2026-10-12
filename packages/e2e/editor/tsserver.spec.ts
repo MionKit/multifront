@@ -1,4 +1,4 @@
-import {copyFile, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {copyFile, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import type * as ts from 'typescript';
@@ -158,7 +158,7 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
   });
 });
 
-describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-sfc, svelte by default', () => {
+describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-sfc, no svelte, svelte by default', () => {
   // Outside the repo on purpose: inside it, the root node_modules has the compiler.
   let dir: string;
   let server: Tsserver;
@@ -184,7 +184,7 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
     const nodePath = process.env.NODE_PATH;
     process.env.NODE_PATH = join(E2E_DIR, '..', '..', 'node_modules', '.pnpm', 'node_modules');
     try {
-      server = startTsserver({cwd: dir, plugins: [PLUGIN]});
+      server = startTsserver({cwd: dir, plugins: [PLUGIN], logFile: join(dir, 'tsserver.log')});
     } finally {
       if (nodePath === undefined) delete process.env.NODE_PATH;
       else process.env.NODE_PATH = nodePath;
@@ -211,11 +211,12 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
     expect(completions.entries.map(({name}) => name)).not.toContain('card');
   });
 
-  it('a bare import picked by the default framework names that rule', async () => {
+  it("a bare import picked by the default framework is TypeScript's own cannot-find, the log says why", async () => {
     const diagnostics = await server.diagnostics(importer.filename);
-    expect(diagnostics).toMatchObject([{code: 'target-not-built', start: locate(importer.source, "'./Card.ucf'")}]);
-    expect(diagnostics[0]!.text).toBe(
-      './Card.ucf is imported as svelte (by the default framework); multifront has no svelte types yet'
-    );
+    expect(diagnostics.map(({code, start}) => ({code, start}))).toEqual([
+      {code: 2307, start: locate(importer.source, "'./Card.ucf'")},
+    ]);
+    const log = await readFile(join(dir, 'tsserver.log'), 'utf8');
+    expect(log).toContain('multifront: no Svelte compiler, svelte picks have no types (multifront: could not find svelte.');
   });
 });

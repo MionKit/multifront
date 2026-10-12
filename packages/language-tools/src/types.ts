@@ -5,6 +5,7 @@ import type {
   ResolveTargetOptions,
   SplitResult,
   StyleModule,
+  SvelteCompiler,
   Target,
   VirtualFile,
   VueCompiler,
@@ -37,6 +38,8 @@ export interface EditorOptions {
   ts?: TypeScript; // without it, no `<vue>` code
   compilerOptions?: ts.CompilerOptions;
   vueTypesRoot?: string; // folder of language-core's `types/*.d.ts`; default: the installed `@vue/language-core`'s
+  svelteCompiler?: SvelteCompiler; // without it, no `<svelte>` code
+  svelteTypesRoot?: string; // folder of svelte2tsx's shims; default: the installed `svelte2tsx`
 }
 
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */

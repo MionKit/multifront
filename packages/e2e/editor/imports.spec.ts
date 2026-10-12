@@ -1,27 +1,33 @@
 import {dirname} from 'node:path';
 import {rewriteImportAttributes} from '@multifront/core';
-import type {Diagnostic, TargetRule} from '@multifront/core';
+import type {Diagnostic} from '@multifront/core';
 import ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
-import {APP_DIR, CARD, edit, onLine, PLUGIN, readApp} from './lib/cases.ts';
+import {APP_DIR, CARD, edit, expectSvelteComponent, onLine, PLUGIN, readApp} from './lib/cases.ts';
 import {E2E_DIR, locate, open, startTsserver, tsLocation, VUE_PLUGIN, VUE_PLUGIN_DIR} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// tsserver serves no .svelte importer before M5; mixed.ts has its own cases in tsserver.spec.ts.
+// tsserver reads a .svelte importer only through Svelte's own TypeScript plugin (5.11); mixed.ts has its own cases in
+// tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
+// What each svelte row's import binds: its quick info shows the framework tsserver picked.
+const SVELTE_BINDINGS: Record<string, string> = {
+  'src/lazy.ts': 'SvelteCard.default',
+  'src/attribute-over-importer.tsx': 'SvelteCard',
+  'custom-importers/widget.ts': 'Card',
+};
 // Alone as React-only projects run it; beside Vue's as Vue - Official reads `.vue` importers, on one shared Volar copy.
 const SETUPS = [
   {name: 'our plugin alone', plugins: [PLUGIN], rows: ROWS.filter(({file}) => !file.endsWith('.vue'))},
   {name: "our plugin beside Vue's", plugins: [PLUGIN, VUE_PLUGIN], rows: ROWS},
 ];
-const RULE_REASON: Record<TargetRule, string> = {
-  block: 'the block it sits in',
-  attribute: 'its framework attribute',
-  importer: "the importer's extension",
-  default: 'the default framework',
-};
 const NON_LITERAL = readApp('no-default/non-literal.ts');
+
+it('every svelte row tsserver runs has its binding', () => {
+  const svelteRows = ROWS.filter((row) => row.expect === 'svelte').map(({file}) => file);
+  expect(Object.keys(SVELTE_BINDINGS).sort()).toEqual(svelteRows.sort());
+});
 
 // The build's one error for the file, as tsserver must report it.
 function rewriteError({filename, source}: Component) {
@@ -59,7 +65,7 @@ describe.each(SETUPS)('$name, on every row of the imports app, as the build reso
       expect(diagnostics).toMatchObject([{code: row.expect, source: 'multifront', category: 'error', ...expected}]);
     } else if (!('rule' in row)) {
       expect(diagnostics).toMatchObject([{code: row.expect, source: 'multifront', category: 'error', start: at}]);
-    } else if (row.expect === 'react' || row.expect === 'vue') {
+    } else {
       expect(diagnostics).toEqual([]);
       const definitions = await server.request<TsDefinitions>('definition', {
         file: component.filename,
@@ -67,9 +73,7 @@ describe.each(SETUPS)('$name, on every row of the imports app, as the build reso
         offset: at.offset + 1,
       });
       expect(definitions.map(({file}) => file)).toEqual([CARD.filename]);
-    } else {
-      expect(diagnostics).toMatchObject([{code: 'target-not-built', source: 'multifront', category: 'error', start: at}]);
-      expect(diagnostics[0]!.text).toContain(`imported as ${row.expect} (by ${RULE_REASON[row.rule]})`);
+      if (row.expect === 'svelte') await expectSvelteComponent(server, component, SVELTE_BINDINGS[row.file]!);
     }
   });
 

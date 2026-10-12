@@ -1,4 +1,4 @@
-import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, readFileSync, realpathSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {rewriteImportAttributes} from '@multifront/core';
@@ -12,6 +12,7 @@ import {
   CARD,
   codesOnLine,
   edit,
+  expectSvelteComponent,
   languageServerCases,
   MIXED,
   MIXED_LINES,
@@ -23,12 +24,14 @@ import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {TsQuickInfo, Tsserver} from './lib/tsserver.ts';
-import {packVsix} from './lib/vsix.ts';
+import {packVsix, REPO_ROOT} from './lib/vsix.ts';
 
 const PACK = 'multifront-typescript-plugin-pack';
 const NON_LITERAL = readApp('no-default/non-literal.ts');
 const VUE_PICK = readApp('no-default/attribute-over-importer.tsx');
+const SVELTE_PICK = readApp('src/lazy.ts');
 const GLOBAL_TYPES = ['template-helpers.d.ts', 'props-fallback.d.ts'];
+const SVELTE_SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
 
 // Every check runs on what the .vsix ships, not on packages/vscode/dist.
@@ -69,7 +72,7 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
     logFile = join(temp, 'pack-alone.log');
     // Isolated hides the project's own entry: the pack is the only plugin.
     server = startTsserver({cwd: APP_DIR, plugins: [PACK], probeLocations: [extension], isolated: true, logFile});
-    await open(server, [APP, CARD, NON_LITERAL, VUE_PICK]);
+    await open(server, [APP, CARD, NON_LITERAL, VUE_PICK, SVELTE_PICK]);
   });
 
   afterAll(async () => {
@@ -106,6 +109,28 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
     });
     for (const name of GLOBAL_TYPES) expect(fileNames).toContain(join(extension, 'dist', 'vue-types', name));
     expect(fileNames.filter((name) => name.includes('@vue/language-core'))).toEqual([]);
+  });
+
+  it("a svelte pick gets a Component, with the shims copied beside the bundle and the project's svelte", async () => {
+    await expectSvelteComponent(server, SVELTE_PICK, 'SvelteCard.default');
+    const {fileNames = []} = await server.request<ts.server.protocol.ProjectInfo>('projectInfo', {
+      file: SVELTE_PICK.filename,
+      needFileNameList: true,
+    });
+    for (const name of SVELTE_SHIMS) expect(fileNames).toContain(join(extension, 'dist', 'svelte-types', name));
+    // The shims' `import('svelte')` reads the project's Svelte: beside the bundle there is none.
+    const svelteTypes = fileNames.filter((name) => name.endsWith('/svelte/types/index.d.ts')).map((name) => realpathSync(name));
+    expect(svelteTypes).toEqual([realpathSync(join(REPO_ROOT, 'node_modules', 'svelte', 'types', 'index.d.ts'))]);
+    expect(fileNames.filter((name) => name.includes('svelte2tsx'))).toEqual([]);
+  });
+
+  it("bundles svelte2tsx with tsserver's TypeScript and no Svelte compiler: neither is in the pack", () => {
+    const regions = [
+      ...readFileSync(join(extension, 'dist', 'typescript-plugin.cjs'), 'utf8').matchAll(/^\/\/#region (.*)$/gm),
+    ].map(([, path]) => path!);
+    expect(regions).toEqual(expect.arrayContaining([expect.stringMatching(/\/svelte2tsx\/index\.mjs$/)]));
+    expect(regions).toEqual(expect.arrayContaining(['packages/vscode/src/bundle/hostTypeScript.ts']));
+    expect(regions.filter((path) => /\/node_modules\/(typescript|svelte)\//.test(path))).toEqual([]);
   });
 
   it("runs the build's attribute rewrite through oxc-parser's wasm binding: a non-literal attribute is its error", async () => {

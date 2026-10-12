@@ -76,7 +76,6 @@ export type DiagnosticCode =
   | 'svelte-parse-error'
   | 'missing-style-module'
   | 'missing-target-block'
-  | 'target-not-built'
   | 'mixed-frameworks'
   | 'framework-attribute-not-literal'
   | TargetErrorCode;
