@@ -4,7 +4,7 @@ import {scopeId} from '@multifront/core';
 import type {LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
-import {buildFixtureLibrary, specifiersOf, withEditedLibrary} from './lib/library.ts';
+import {buildFixtureLibrary, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
 type Framework = 'react' | 'vue';
@@ -26,18 +26,8 @@ afterAll(async () => {
   await library?.remove();
 });
 
-function resultOf(results: LibraryResult[], target: Framework): LibraryResult {
-  const result = results.find((entry) => entry.target === target);
-  if (!result) throw new Error(`no ${target} build`);
-  return result;
-}
-
-function read(result: LibraryResult, file: string): string {
-  return readFileSync(join(result.outDir, file), 'utf8');
-}
-
 function cssImports(result: LibraryResult, file: string): string[] {
-  return specifiersOf(file, read(result, file)).filter((specifier) => specifier.endsWith('.css'));
+  return specifiersOf(file, readOutput(result, file)).filter((specifier) => specifier.endsWith('.css'));
 }
 
 describe('buildLibrary(): CSS as real files', () => {
@@ -53,7 +43,7 @@ describe('buildLibrary(): CSS as real files', () => {
       const result = resultOf(library.results, target);
       for (const name of CSS_ORDER[target]) {
         const file = `${name}.js`;
-        expect(read(result, file).startsWith(`import "./${name.split('/').pop()}.css";\n`), `${target}/${file}`).toBe(true);
+        expect(readOutput(result, file).startsWith(`import "./${name.split('/').pop()}.css";\n`), `${target}/${file}`).toBe(true);
         expect(cssImports(result, file), `${target}/${file}`).toEqual([`./${name.split('/').pop()}.css`]);
       }
     }
@@ -88,7 +78,7 @@ describe('buildLibrary(): CSS as real files', () => {
   it("holds the component's compiled CSS, scoped with core's scope id, module rules first", () => {
     const attribute = `[data-v-${scopeId('src/Card.ucf', readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8'), true)}]`;
     for (const target of FRAMEWORKS) {
-      const css = read(resultOf(library.results, target), 'Card.css');
+      const css = readOutput(resultOf(library.results, target), 'Card.css');
       expect(css, target).toContain(`.card${attribute}:hover {`);
       expect(css, target).not.toContain('&');
       expect(css.indexOf('--card-padding: 16px'), target).toBeGreaterThan(-1);
@@ -101,11 +91,11 @@ describe('buildLibrary(): CSS as real files', () => {
     try {
       for (const target of FRAMEWORKS) {
         const result = resultOf(library.results, target);
-        const joined = CSS_ORDER[target].map((name) => read(result, `${name}.css`)).join('');
-        expect(read(result, 'styles.css'), target).toBe(joined);
+        const joined = CSS_ORDER[target].map((name) => readOutput(result, `${name}.css`)).join('');
+        expect(readOutput(result, 'styles.css'), target).toBe(joined);
         const second = resultOf(again.results, target);
         for (const file of result.files.filter((name) => name.endsWith('.css'))) {
-          expect(read(second, file), `${target}/${file}`).toBe(read(result, file));
+          expect(readOutput(second, file), `${target}/${file}`).toBe(readOutput(result, file));
         }
       }
     } finally {
@@ -117,7 +107,7 @@ describe('buildLibrary(): CSS as real files', () => {
     for (const target of FRAMEWORKS) {
       const result = resultOf(library.results, target);
       for (const file of result.files.filter((name) => name.endsWith('.js'))) {
-        const code = read(result, file);
+        const code = readOutput(result, file);
         for (const injection of ["createElement('style')", 'createElement("style")', '__vite_style__', '__vite__updateStyle']) {
           expect(code, `${target}/${file}`).not.toContain(injection);
         }

@@ -7,7 +7,7 @@ import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
-import {buildFixtureLibrary, specifiersOf, withEditedLibrary} from './lib/library.ts';
+import {buildFixtureLibrary, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
 // Components with that block and plain modules; sub-modules and virtual modules under `_virtual/`.
@@ -44,18 +44,16 @@ afterAll(async () => {
   await library?.remove();
 });
 
-function resultOf(target: 'react' | 'vue') {
-  const result = library.results.find((entry) => entry.target === target);
-  if (!result) throw new Error(`no ${target} build`);
-  return result;
+function output(target: 'react' | 'vue'): LibraryResult {
+  return resultOf(library.results, target);
 }
 
 function read(target: 'react' | 'vue', file: string): string {
-  return readFileSync(join(resultOf(target).outDir, file), 'utf8');
+  return readOutput(output(target), file);
 }
 
 function jsFiles(target: 'react' | 'vue'): string[] {
-  return resultOf(target).files.filter((file) => file.endsWith('.js'));
+  return output(target).files.filter((file) => file.endsWith('.js'));
 }
 
 describe('buildLibrary(): one JS file per component, per target', () => {
@@ -65,16 +63,16 @@ describe('buildLibrary(): one JS file per component, per target', () => {
       ['react', '@mf-fixture/ui-react'],
     ]);
     for (const target of ['vue', 'react'] as const) {
-      expect(resultOf(target).outDir).toBe(join(library.outDir, target).replaceAll('\\', '/'));
+      expect(output(target).outDir).toBe(join(library.outDir, target).replaceAll('\\', '/'));
       expect(jsFiles(target), target).toEqual(EXPECTED_JS[target].map((name) => `${name}.js`).sort());
     }
-    expect(resultOf('react').skipped).toEqual(['VueOnly.ucf']);
-    expect(resultOf('vue').skipped).toEqual([]);
+    expect(output('react').skipped).toEqual(['VueOnly.ucf']);
+    expect(output('vue').skipped).toEqual([]);
   });
 
   it('leaves no .ucf in a file name or an import specifier', () => {
     for (const target of ['vue', 'react'] as const) {
-      for (const file of resultOf(target).files) {
+      for (const file of output(target).files) {
         expect(file).not.toContain('.ucf');
         if (!file.endsWith('.js')) continue;
         for (const specifier of specifiersOf(file, read(target, file)))
@@ -100,7 +98,7 @@ describe('buildLibrary(): one JS file per component, per target', () => {
     expect(specifiersOf('Card.js', read('react', 'Card.js'))).toContain('react/jsx-runtime');
     expect(specifiersOf('Card.js', read('vue', '_virtual/Card.script.js'))).toContain('vue');
     for (const target of ['vue', 'react'] as const) {
-      for (const file of resultOf(target).files.filter((name) => name.endsWith('.map'))) {
+      for (const file of output(target).files.filter((name) => name.endsWith('.map'))) {
         const {sources} = JSON.parse(read(target, file)) as RawSourceMap;
         for (const source of sources) expect(source, `${target}/${file}`).not.toContain('node_modules');
       }
@@ -115,7 +113,7 @@ describe('buildLibrary(): one JS file per component, per target', () => {
     const before = code.slice(0, offset).split('\n');
     const original = consumer.originalPositionFor({line: before.length, column: before.at(-1)!.length});
     const ucfFile = join(LIBRARY_DIR, 'src', 'Card.ucf');
-    expect(resolve(dirname(join(resultOf('react').outDir, 'Card.js.map')), original.source)).toBe(ucfFile);
+    expect(resolve(dirname(join(output('react').outDir, 'Card.js.map')), original.source)).toBe(ucfFile);
     const ucf = readFileSync(ucfFile, 'utf8');
     expect(original.line).toBe(ucf.slice(0, ucf.indexOf('return (', ucf.indexOf('<react>'))).split('\n').length);
   });

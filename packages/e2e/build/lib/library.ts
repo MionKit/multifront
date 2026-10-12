@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import {mkdir, mkdtemp, writeFile} from 'node:fs/promises';
 import {dirname, join} from 'node:path';
 import {buildLibrary} from '@multifront/vite';
@@ -40,6 +41,17 @@ export async function withEditedLibrary(
   } finally {
     await removeLibrary(root);
   }
+}
+
+export function resultOf(results: LibraryResult[], target: LibraryResult['target']): LibraryResult {
+  const result = results.find((entry) => entry.target === target);
+  if (!result) throw new Error(`no ${target} build`);
+  return result;
+}
+
+/** A file the build wrote, by its path in the target's folder. */
+export function readOutput(result: LibraryResult, file: string): string {
+  return readFileSync(join(result.outDir, file), 'utf8');
 }
 
 export function specifiersOf(file: string, code: string): string[] {
