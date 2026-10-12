@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.10
@@ -30,8 +30,8 @@ Checked while planning (svelte2tsx 0.7.61, svelte 5.57.0):
 
 ### Converter: `packages/language-tools/src/sourceMaps.ts` (new; M7's hand-off)
 
-- `sourceMapMappings(map, source, generated, data): CodeMapping[]`: decodes `map.mappings` (`@jridgewell/sourcemap-codec`); each segment runs to the next segment on its generated line (else to the next line start); its length is the run where `source` and `generated` match from the two offsets; length 0 dropped; neighbours contiguous on both sides merged.
-- `composeMappings(outer, inner)`: `outer` generated ↔ intermediate, `inner` intermediate ↔ source → generated ↔ source. 1:1 mappings by interval intersection. An `inner` mapping with `generatedLengths` (a rename) comes through whole, only when one `outer` mapping covers all of its intermediate range. `data` from `outer`.
+- `sourceMapMappings(map, source, generated, data): CodeMapping[]`: decodes `map.mappings` (`@jridgewell/sourcemap-codec`); each segment runs to the next segment on its generated line (else to the next line start). The part where `source` and `generated` match from the two offsets maps 1:1 with `data`; neighbours contiguous on both sides merge. As built: the rest of the run maps to the point the match ended (`lengths: [0]`, `generatedLengths: [rest]`), `verification` only. svelte2tsx writes a prop `label` as `"label"` (its `"` maps to `l`), and TypeScript's error spans the quotes: Volar keeps a diagnostic only when both its ends map, so without the points the wrong-prop test got nothing. `exactMappings()` drops the points (the rename's inner mappings use it: its only mismatches are the renames).
+- `composeMappings(outer, inner)`: `outer` generated ↔ intermediate, `inner` intermediate ↔ source → generated ↔ source. 1:1 mappings by interval intersection. An `outer` point goes through the `inner` mapping that holds it (a rename's start inside a rename). An `inner` mapping with `generatedLengths` (a rename) comes through whole, only when one `outer` mapping covers all of its intermediate range. `data` from `outer`.
 - New dependency `@jridgewell/sourcemap-codec` 1.6.0 (core's exact pin).
 
 ### Editor half: `packages/language-tools/src/blocks/svelte.ts`
@@ -54,12 +54,12 @@ All on this host and in CI (`check` job, `pnpm devx test`; `svelte-floor` reruns
 - `Counter.ucf` and `vue/CounterCrlf.ucf`: hover on `{count}` shows `count: number` (CRLF, and the astral `𝄞` earlier on that line).
 - `Card.ucf`: no diagnostic as written; an unsaved `$style.cardd` is exactly one diagnostic, code 2551, start and end the `.ucf` range of `cardd`; completion right after `$style.` lists `card`; hover on `$style` shows `__ucfStyle`; definition on `card` lands on `.card` in `<style module>`.
 - Mid-typing: unsaved `class={$style.}`, and a script line `const x = $style.`: completion after each dot lists `card`.
-- Type errors in markup expressions: in Panel, `{heading.toFixed(2)}` is one 2339 at `toFixed`; `<PanelItem label={1} />` is one 2322 inside `label={1}`.
+- Type errors in markup expressions: in Panel, `{heading.toFixed(2)}` is one 2551 (TypeScript suggests a name) at `toFixed`; `<PanelItem label={1} />` is one 2322 inside `label={1}`.
 - Definition on `<PanelItem` in Panel's block lands in `PanelItem.ucf`.
 - The shared fixtures with a `<svelte>` block (`Card`, `Panel`, `PanelItem`, `Counter`, `vue/CounterCrlf`, `imports/Icon`, `imports/UsesIcon`, `svelte/NoStyle`) have no tsserver diagnostic as written. A real error this finds in a fixture is fixed in its own commit.
-- `svelte/imports/AttrInSvelte.ucf`: tsserver reports `framework-in-block` at its three specifiers (the spans `checkBlocks` gives); the language server none of them.
+- `svelte/imports/AttrInSvelte.ucf`: tsserver reports `framework-in-block` at its three specifiers (as for `<vue>`; `checkBlocks` reports the attribute instead); the language server none of them.
 - `svelte/errors/TopLevelStyle.ucf`: the language server reports `style-inside-target` with exactly `checkBlocks`' code and range; tsserver reports nothing there.
-- Mapping soundness, through public functions: for every `.ucf` under `fixtures/components` with a `<svelte>` block that builds a script, `createUcfLanguagePlugin({svelteCompiler})`'s `svelte` code: every mapping lies inside the block's content; its source text equals its generated text, except the class map renames (`$name` ↔ local); `getTypesScript`'s mappings equal the code's.
+- Mapping soundness, through `getTypesScript` (5.9 pins that it equals the served code): for every `.ucf` under `fixtures/components` with a `<svelte>` block, every mapping lies inside the block's content and its source text equals its generated text, except the class map renames (`$name` ↔ local) and the diagnostics-only points. Two files get no script: `svelte/errors/UnclosedBrace.ucf`, and `invalid/StyleInSvelte.ucf`, whose `'<style>'` script string svelte2tsx reads as a tag (since 5.9).
 
 Existing tests stay green, including `svelte-types.spec.ts`, `imports.spec.ts`, `bundle.spec.ts` (the converter's dependency is bundled) and core's `svelte.spec.ts` (`build()` output unchanged).
 
@@ -78,6 +78,8 @@ From the orchestrator:
 - Q1: the lexical rename inside unreadable spans (editor path only), both typing cases tested. The step's Test reads as the typing case, and `$style.` completes while typing in `<vue>` and `<react>` (rule 2: do what Vue does).
 - Q2: `svelte-parse-error` and `missing-style-module` in the editor are out of scope, nothing filed: M7 owns them (rule 1, "Hands to later milestones").
 - Q3: no fuzz test (rule 3: the step does not ask for one).
+
+While building: the diagnostics-only points of the converter (see Plan), needed by the wrong-prop test.
 
 ## Fuzzing
 
