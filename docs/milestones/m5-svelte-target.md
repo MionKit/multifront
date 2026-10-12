@@ -113,13 +113,16 @@ From milestone 4:
 
 ### 5.5 Browser render and HMR
 
-- Build: whatever the tests need in the HMR hook. Known trap: plugin-svelte's own `hotUpdate` calls `transformRequest` on the bare file name, `/abs/Panel.ucf`, after a Svelte edit. In an app without the Vue target that id must not throw.
-- Add `packages/e2e/fixtures/apps/all-targets`: one Vite app with plugin-vue, plugin-react, plugin-svelte and `multifront()`, rendering `Panel.ucf` three times through `with { framework }`.
+- Build:
+  - plugin-svelte's own `hotUpdate` calls `transformRequest` on the bare file name, `/abs/Panel.ucf`, after a Svelte edit. That is the Vue id: without plugin-vue it throws (error overlay, no update), with it every Svelte edit compiles the Vue target. `composeSveltePlugin(config)` (`packages/vite/src/svelteTarget.ts`) also wraps the handler of `vite-plugin-svelte:hot-update`: for a `.ucf` file, its `transformRequest` of that one bare file resolves `null` untransformed. The request only refreshes plugin-svelte's Svelte CSS, which our ids never emit. Every other URL, our `.ucf.svelte.svelte` module included, is transformed as before.
+  - `trackHmrPayloads()` in `browser/lib/requests.ts` gains `errors()`, the messages of Vite's `error` payloads.
+- Add `packages/e2e/fixtures/apps/all-targets`: one Vite app with plugin-react, plugin-vue, plugin-svelte and `multifront()`. `src/main.tsx` renders `Panel.ucf` three times through `with { framework }` (into `#vue`, `#react`, `#svelte`), plus the React `Counter.ucf` (`start={2}`) in `#react`.
 - Deliverable: Svelte HMR through our plugin, in a Svelte-only app and in a mixed app.
 - Test: browser area, `packages/e2e/browser/svelte-hmr.spec.ts`, Playwright against the dev servers of `apps/svelte-vite` and `apps/all-targets`, editing real copies of the fixtures in a temp folder:
   - Edit the `<svelte>` block: the new text shows, the page does not reload (a value set on `window` survives), no error in the server log or the overlay.
-  - Edit a `<style>` block: only the CSS module is fetched again; the Svelte element is the same DOM node.
+  - Edit a `<style>` block: only the CSS module is fetched again (in `all-targets` also plugin-vue's style sub-module of that block, for the Vue panel); the Svelte element is the same DOM node.
   - In `all-targets`, edit the `<react>` block: the Svelte module is not fetched again; edit the `<svelte>` block: the React counter keeps its state.
+- Status: done
 
 ### 5.6 SSR and a SvelteKit app built from `.ucf` sources
 
@@ -210,7 +213,7 @@ For milestone 7 (full editor support):
 ## Risks and open questions
 
 - **`$style` is renamed under the hood.** Hover shows `__ucfStyle`. The other way was a store: `import style from …` and the class map wrapped as `{ subscribe }`, so `$style` works natively. Rejected because it takes the name `style`, which many Svelte components use for a prop.
-- **plugin-svelte's `hotUpdate` transforms the bare file id.** See 5.5. If the bare id cannot be made safe, our HMR hook drops the Svelte module from the list it hands on, and Vite's default update (the compiled module accepts itself) still applies.
+- **plugin-svelte's `hotUpdate` transforms the bare file id.** Solved in 5.5 by wrapping that handler, like its compile `transform` in 5.3: both rely on plugin-svelte's plugin names (`vite-plugin-svelte:compile`, `vite-plugin-svelte:hot-update`) and on its hot update transforming the changed file first, unchanged from 7.0.0 to 7.3.0. The `svelte-floor` job runs the HMR test on 7.0.0.
 - **Svelte names the component `Card_ucf_svelte`** (from the id's file name, `Card.ucf.svelte.svelte`). Only dev messages show it.
 - **Svelte 5 HMR resets local state** on a block edit. The tests check "no reload", not "state kept".
 - **The fallback declarations need `rootDirs`.** That setting also changes plain `tsc` for `.ts` importers in that project; our plugin and `mf-tsc` override it. Open: write them from the Vite dev server too, so CI without the editor has them?
