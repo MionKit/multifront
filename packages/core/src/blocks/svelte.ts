@@ -14,15 +14,19 @@ import type {
   BuildContext,
   Diagnostic,
   SplitResult,
-  StyleModule,
+  SvelteCompiler,
   SvelteMode,
   SvelteNode,
+  SvelteStyleRename,
   VirtualFile,
 } from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
   'area base br col embed hr img input link meta param source track wbr'.split(' ')
 );
+
+// Svelte compiles only a root `<style>`; one inside an element (`<svelte:head>`) is valid markup.
+const nests = (name: string): boolean => !VOID_ELEMENTS.has(name);
 
 const RUNES: ReadonlySet<string> = new Set(['state', 'derived', 'effect', 'props', 'bindable', 'inspect', 'host']);
 
@@ -77,33 +81,34 @@ function legacyScript(instance: AST.Script | null): boolean {
   );
 }
 
-// `ctx.modules` is a plain object: `$constructor` would otherwise read Object.prototype.
-function ownModule(ctx: BuildContext, name: string): StyleModule | undefined {
-  return Object.hasOwn(ctx.modules, name) ? ctx.modules[name] : undefined;
+// `modules` is a plain object: `$constructor` would otherwise read Object.prototype.
+function ownModule<Module>(modules: Record<string, Module>, name: string): Module | undefined {
+  return Object.hasOwn(modules, name) ? modules[name] : undefined;
 }
 
 // `$style` also reads a `module="style"` block, as `$name` reads `module="name"`.
-function classMap(bare: string, ctx: BuildContext): StyleModule | undefined {
-  return bare === 'style' ? (ownModule(ctx, '$style') ?? ownModule(ctx, 'style')) : ownModule(ctx, bare);
+function classMap<Module>(bare: string, modules: Record<string, Module>): Module | undefined {
+  return bare === 'style' ? (ownModule(modules, '$style') ?? ownModule(modules, 'style')) : ownModule(modules, bare);
 }
 
 // `shorthand`: the span of a `{$x}` key or prop, which must keep the name `$x`.
-interface StyleUse {
+interface StyleUse<Module> {
   node: SvelteNode;
-  module: StyleModule;
+  module: Module;
   shorthand?: {start: number; end: number; attribute: boolean};
 }
 
 // `names`: every identifier the block uses, so a local we add shadows none.
-function styleUses(
+function styleUses<Module>(
   root: AST.Root,
   block: Block,
-  ctx: BuildContext
-): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>; mode: SvelteMode} {
+  split: SplitResult,
+  modules: Record<string, Module>
+): {missing: Diagnostic[]; uses: StyleUse<Module>[]; names: Set<string>; mode: SvelteMode} {
   const stores = topLevelNames([root.module, root.instance]);
   const runeNames = runeDeclared([root.module, root.instance]);
   const missing: Diagnostic[] = [];
-  const uses: StyleUse[] = [];
+  const uses: StyleUse<Module>[] = [];
   const names = new Set<string>();
   // Svelte's own switch: `<svelte:options runes>`, else any rune reference; legacy on `$$props` or `$$restProps`.
   let runes = false;
@@ -129,7 +134,7 @@ function styleUses(
       runes ||= !stores.has(bare) || runeNames.has(bare);
       return;
     }
-    const module = classMap(bare, ctx);
+    const module = classMap(bare, modules);
     if (module) {
       const attribute = shorthandAttributes.get(node);
       const shorthand = attribute
@@ -146,7 +151,7 @@ function styleUses(
         ? '<svelte> uses $style, but no <style module> exists; add one'
         : `<svelte> uses ${name}, but no <style module="${bare}"> or store named ${bare} exists`;
     const start = block.contentStart + node.start;
-    missing.push(createDiagnostic(ctx.split, 'missing-style-module', start, block.contentStart + node.end, message));
+    missing.push(createDiagnostic(split, 'missing-style-module', start, block.contentStart + node.end, message));
   };
   for (const part of [root.module, root.instance, root.fragment]) walk(part, visit);
   const runesOption = root.options?.runes;
@@ -155,8 +160,8 @@ function styleUses(
 }
 
 // `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
-function localNames(uses: StyleUse[], used: Set<string>): Map<StyleModule, string> {
-  const locals = new Map<StyleModule, string>();
+function localNames<Module>(uses: StyleUse<Module>[], used: Set<string>): Map<Module, string> {
+  const locals = new Map<Module, string>();
   for (const {node, module} of uses) {
     if (locals.has(module)) continue;
     const bare = (node.name as string).slice(1);
@@ -178,32 +183,36 @@ function stampScope(text: MagicString, root: AST.Root, block: Block, ctx: BuildC
   });
 }
 
+// Only Svelte's CompileError has both; anything else is a crash, not the user's syntax.
+function isCompileError(err: unknown): err is CompileError {
+  const {code, position} = (err ?? {}) as Partial<CompileError>;
+  return typeof code === 'string' && !!position;
+}
+
 function parseBlock(block: Block, ctx: BuildContext): AST.Root {
   try {
     return loadSvelteCompiler(ctx.root).parse(block.content, {modern: true});
   } catch (err) {
-    const {code, position, message} = (err ?? {}) as Partial<CompileError>;
-    // Only Svelte's CompileError has both; anything else is a crash, not the user's syntax.
-    if (typeof code !== 'string' || !position) throw err;
+    if (!isCompileError(err)) throw err;
     // Svelte's second line is a docs URL.
-    const text = `<svelte> does not parse: ${message!.split('\n')[0]}`;
-    const [start, end] = position;
+    const text = `<svelte> does not parse: ${err.message.split('\n')[0]}`;
+    const [start, end] = err.position!;
     throw new DiagnosticsError([
       createDiagnostic(ctx.split, 'svelte-parse-error', block.contentStart + start, block.contentStart + end, text),
     ]);
   }
 }
 
-// The compiler rules run here, not in `check`: core checks never load a compiler.
-function build(block: Block, ctx: BuildContext): VirtualFile {
-  const root = parseBlock(block, ctx);
-  const {missing, uses, names: used, mode} = styleUses(root, block, ctx);
-  if (missing.length > 0) throw new DiagnosticsError(missing);
-
-  // Over the whole .ucf source, so the map points straight into the .ucf file.
-  const text = new MagicString(ctx.source);
+// Over the whole .ucf source, so the map points straight into the .ucf file.
+function renameUses<Module>(
+  split: SplitResult,
+  block: Block,
+  uses: StyleUse<Module>[],
+  used: Set<string>
+): {text: MagicString; locals: Map<Module, string>} {
+  const text = new MagicString(split.source);
   text.remove(0, block.contentStart);
-  text.remove(block.contentEnd, ctx.source.length);
+  text.remove(block.contentEnd, split.source.length);
   const locals = localNames(uses, used);
   for (const {node, module, shorthand} of uses) {
     const local = locals.get(module)!;
@@ -212,6 +221,16 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     const {start, end} = shorthand ?? node;
     text.overwrite(block.contentStart + start, block.contentStart + end, replacement);
   }
+  return {text, locals};
+}
+
+// The compiler rules run here, not in `check`: core checks never load a compiler.
+function build(block: Block, ctx: BuildContext): VirtualFile {
+  const root = parseBlock(block, ctx);
+  const {missing, uses, names: used, mode} = styleUses(root, block, ctx.split, ctx.modules);
+  if (missing.length > 0) throw new DiagnosticsError(missing);
+
+  const {text, locals} = renameUses(ctx.split, block, uses, used);
   if (ctx.hasScoped) stampScope(text, root, block, ctx);
   const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode);
 
@@ -240,8 +259,26 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }
 
-// Svelte compiles only a root `<style>`; one inside an element (`<svelte:head>`) is valid markup.
-const nests = (name: string): boolean => !VOID_ELEMENTS.has(name);
+/** `build()`'s class map rename alone, for the editor's types: no stamps, imports or forwarding; never throws. */
+export function renameSvelteStyles<Module>(
+  block: Block,
+  split: SplitResult,
+  compiler: SvelteCompiler,
+  modules: Record<string, Module>
+): SvelteStyleRename<Module> {
+  let root: AST.Root | undefined;
+  try {
+    // Loose, as Svelte's own editor parses a block mid-edit.
+    root = compiler.parse(block.content, {modern: true, loose: true});
+  } catch (err) {
+    if (!isCompileError(err)) throw err;
+  }
+  const {uses, names} = root ? styleUses(root, block, split, modules) : {uses: [], names: new Set<string>()};
+  const {text, locals} = renameUses(split, block, uses, names);
+  // Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
+  const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
+  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js'};
+}
 
 // An `import()` in markup is left to the post rewrite of the compiled module.
 function check(block: Block, split: SplitResult): Diagnostic[] {
