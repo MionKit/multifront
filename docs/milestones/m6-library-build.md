@@ -132,17 +132,19 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 6.2 CSS as real files, plus `styles.css`
 
-- Build: in `packages/vite/src/library/css.ts`, a plugin added only to library builds.
-  - `build.cssCodeSplit: true` and asset names so each component's CSS is `Card.css` next to `Card.js`.
-  - In a late `renderChunk` (after Vite's CSS step filled `chunk.viteMetadata.importedCss`), prepend `import "./Card.css";` to the chunk with MagicString, so the source map stays right.
+- Build: in `packages/vite/src/library/css.ts`, a plugin (`libraryCss`) added only to library builds.
+  - Its `config` hook sets `build.cssCodeSplit: true`. Vite's per-chunk CSS naming does not hold up under `preserveModules` (one CSS file per `<style>` block, named after its chunk), so the plugin takes the fallback: it groups Vite's per-block CSS by `.ucf` file and emits one `Card.css` next to `Card.js`, blocks in source order, deleting Vite's per-block files. `build.lib.cssFileName` is gone.
+  - In a late `renderChunk`, it prepends `import "./Card.css";` to the component chunk with MagicString, so the source map stays right. Which components have CSS comes from the module graph (a `.ucf` style id Vite's CSS step compiles), since `chunk.viteMetadata.importedCss` of the component chunk is only filled in `generateBundle`.
   - In `generateBundle`, emit `styles.css`: every component CSS file, ordered dependencies first (`Icon.css` before `Card.css`), the same order every run.
-  - If Vite's per-chunk CSS naming does not hold up under `preserveModules`, the plugin collects the compiled CSS of the style ids itself and emits one file per component. The test is the same either way.
+  - Build errors: a component written as `styles.css` (`src/styles.ucf`), and a plain `.css` file imported from code (a library package ships CSS from `.ucf` `<style>` blocks only).
 - Deliverable: every component with styles ships `Name.css`, imported by its own JS; `styles.css` holds all of them.
 - Test: build area, `packages/e2e/build/library-css.spec.ts`, on the fixture library:
   - `react/Card.js` and `vue/Card.js` import `./Card.css`; components without styles import no CSS.
   - `Card.css` has the `[data-v-<scopeId>]` selector, with the id from core's `scopeId()` for `src/Card.ucf`, and the compiled SCSS (no `&` left).
   - `styles.css` equals the component CSS files joined in dependency order. Two builds give byte-identical CSS.
   - no JS file injects CSS at runtime (no `document.createElement('style')`, no `__vite__updateStyle`).
+  - the source map of `react/Card.js` still points into `Card.ucf` after the added line; each build error on its own fixture copy.
+- Status: done
 
 ### 6.3 `"use client"` per output file
 
