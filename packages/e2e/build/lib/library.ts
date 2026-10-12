@@ -77,8 +77,7 @@ export function specifiersOf(file: string, code: string): string[] {
 
 /** Every string-literal specifier of a declaration file: imports, re-exports and `import()` types. */
 export function typeSpecifiersOf(file: string, code: string): string[] {
-  const parsed = parseSync(file, code, {lang: 'dts', sourceType: 'module'});
-  if (parsed.errors.length > 0) throw new Error(`${file} does not parse: ${parsed.errors[0]!.message}`);
+  const {program} = parseOutput(file, code);
   const found: string[] = [];
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) return value.forEach(visit);
@@ -88,7 +87,7 @@ export function typeSpecifiersOf(file: string, code: string): string[] {
       found.push(node.source.value);
     for (const child of Object.values(node)) visit(child);
   };
-  visit(parsed.program);
+  visit(program);
   return found;
 }
 
@@ -117,5 +116,35 @@ export async function typeCheck(checker: keyof typeof TYPE_CHECKERS, dir: string
   } catch (err) {
     const {stdout = '', stderr = ''} = err as {stdout?: string; stderr?: string};
     return `${stdout}${stderr}`.trim() || String(err);
+  }
+}
+
+// Node strips the types of `@multifront/vite`'s `src/`, which `source` picks.
+const BUILD_SCRIPT = `
+const {buildLibrary} = await import('@multifront/vite');
+await buildLibrary(JSON.parse(process.argv[1])).catch((err) => {
+  process.stderr.write(err.message);
+  process.exitCode = 1;
+});
+`;
+
+/**
+ * `buildLibrary()` in its own Node process, without the `NODE_PATH` pnpm's bin shim sets into the repo's packages:
+ * a library outside the workspace finds only what it installed. Resolves with the build's error, empty when it passed.
+ */
+export async function buildInFreshNode(root: string, options: LibraryOptions): Promise<string> {
+  await mkdir(TMP_DIR, {recursive: true});
+  const outDir = await mkdtemp(join(TMP_DIR, 'library-dist-'));
+  const args = ['--conditions=source', '--input-type=module', '-e', BUILD_SCRIPT, JSON.stringify({...options, root, outDir})];
+  try {
+    await promisify(execFile)(process.execPath, args, {
+      cwd: join(FIXTURES_DIR, '..'),
+      env: {...process.env, NODE_PATH: undefined},
+    });
+    return '';
+  } catch (err) {
+    return (err as {stderr?: string}).stderr?.trim() || String(err);
+  } finally {
+    await removeLibrary(outDir);
   }
 }

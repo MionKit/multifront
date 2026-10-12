@@ -1,15 +1,16 @@
 import {spawn} from 'node:child_process';
 import {existsSync, readFileSync} from 'node:fs';
-import {copyFile, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
+import {copyFile, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {dirname, join, posix, relative} from 'node:path';
+import {dirname, isAbsolute, join, posix} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import MagicString from 'magic-string';
 import {buildTarget, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {LibraryTypesJob} from '../types.ts';
-import {shownFile} from './names.ts';
+import {filesIn, shownFile} from './names.ts';
 
 type Lang = 'js' | 'jsx' | 'ts' | 'tsx' | 'dts';
 
@@ -23,20 +24,6 @@ interface TypesTool {
   stageUcf(file: string, source: string, root: string, compiler: VueCompiler): Promise<string>;
 }
 
-const require = createRequire(import.meta.url);
-const LANGS: [string, Lang][] = [
-  ['.d.ts', 'dts'],
-  ['.d.mts', 'dts'],
-  ['.d.cts', 'dts'],
-  ['.ts', 'ts'],
-  ['.mts', 'ts'],
-  ['.cts', 'ts'],
-  ['.tsx', 'tsx'],
-  ['.js', 'js'],
-  ['.mjs', 'js'],
-  ['.cjs', 'js'],
-  ['.jsx', 'jsx'],
-];
 const SOURCE_NODES = new Set([
   'ImportDeclaration',
   'ExportNamedDeclaration',
@@ -44,11 +31,12 @@ const SOURCE_NODES = new Set([
   'ImportExpression',
   'TSImportType',
 ]);
-const ROOT_EXT = /\.(?:[cm]?tsx?|vue)$/;
 const DECLARATION = /\.d\.[cm]?ts$/;
+const SCRIPT = /\.[cm]?([jt]sx?)$/;
 // Used only when the library has no tsconfig.json of its own.
 const DEFAULT_OPTIONS = {target: 'es2022', module: 'esnext', moduleResolution: 'bundler', strict: true, skipLibCheck: true};
 const EMIT_OPTIONS = {
+  allowJs: true,
   declaration: true,
   emitDeclarationOnly: true,
   declarationMap: false,
@@ -60,61 +48,26 @@ const EMIT_OPTIONS = {
 };
 
 function langOf(file: string): Lang | undefined {
-  return LANGS.find(([ext]) => file.endsWith(ext))?.[1];
+  if (DECLARATION.test(file)) return 'dts';
+  return SCRIPT.exec(file)?.[1] as Lang | undefined;
 }
 
-function missingPeer(target: Target, peer: string): Error {
-  return new Error(`buildLibrary: the ${target} types need ${peer}; install it, or set dts: false`);
-}
-
-function toolBin(target: Target, {peer, bin}: TypesTool): string {
-  let manifest: string;
+/** From the library root, like its compilers: the library's own versions run. */
+function resolvePeer(job: LibraryTypesJob, peer: string, request = peer): string {
   try {
-    manifest = require.resolve(`${peer}/package.json`);
+    return createRequire(join(job.root, 'package.json')).resolve(request);
   } catch {
-    throw missingPeer(target, peer);
+    throw new Error(`buildLibrary: the ${job.target} types need ${peer}; install it, or set dts: false`);
   }
+}
+
+function toolBin(job: LibraryTypesJob, {peer, bin}: TypesTool): string {
+  const manifest = resolvePeer(job, peer, `${peer}/package.json`);
   const bins = (JSON.parse(readFileSync(manifest, 'utf8')) as {bin: Record<string, string>}).bin;
   return join(dirname(manifest), bins[bin]!);
 }
 
-async function languageTools(): Promise<typeof LanguageTools> {
-  try {
-    return await import('@multifront/language-tools');
-  } catch (err) {
-    const {code, message} = err as NodeJS.ErrnoException;
-    if (code === 'ERR_MODULE_NOT_FOUND' && message.includes("'@multifront/language-tools'"))
-      throw missingPeer('react', '@multifront/language-tools');
-    throw err;
-  }
-}
-
-/** Every string-literal module specifier: imports, re-exports, `import()` and `import()` types. */
-function specifiersOf(code: string, lang: Lang, filename: string): {value: string; start: number; end: number}[] {
-  let program: unknown;
-  try {
-    program = parseAst(code, {lang}, filename);
-  } catch {
-    // tsc reports the syntax error with its own position.
-    return [];
-  }
-  const found: {value: string; start: number; end: number}[] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as {type?: unknown; source?: {type: string; value: unknown; raw?: string; start: number; end: number}};
-    const {source} = node;
-    if (typeof node.type === 'string' && SOURCE_NODES.has(node.type) && source?.type === 'Literal') {
-      // An escaped specifier's value is not its text: left alone.
-      if (typeof source.value === 'string' && source.raw?.slice(1, -1) === source.value)
-        found.push({value: source.value, start: source.start + 1, end: source.end - 1});
-    }
-    for (const child of Object.values(node)) visit(child);
-  };
-  visit(program);
-  return found;
-}
-
+/** Every string-literal module specifier `renamed` maps: imports, re-exports, `import()` and `import()` types. */
 function rewriteSpecifiers(
   text: MagicString,
   code: string,
@@ -123,10 +76,31 @@ function rewriteSpecifiers(
   filename: string,
   renamed: (specifier: string) => string | undefined
 ): void {
-  for (const {value, start, end} of specifiersOf(code, lang, filename)) {
-    const next = renamed(value);
-    if (next !== undefined) text.overwrite(offset + start, offset + end, next);
+  let program: unknown;
+  try {
+    program = parseAst(code, {lang}, filename);
+  } catch {
+    // tsc reports the syntax error with its own position.
+    return;
   }
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== 'object') return;
+    const node = value as {type?: unknown; source?: {type: string; value: unknown; start: number; end: number}};
+    const {source} = node;
+    if (
+      typeof node.type === 'string' &&
+      SOURCE_NODES.has(node.type) &&
+      source?.type === 'Literal' &&
+      typeof source.value === 'string'
+    ) {
+      const next = renamed(source.value);
+      // The whole literal: an escaped specifier's text is not its value.
+      if (next !== undefined) text.overwrite(offset + source.start, offset + source.end, JSON.stringify(next));
+    }
+    for (const child of Object.values(node)) visit(child);
+  };
+  visit(program);
 }
 
 function ucfRenamer(ext: string): (specifier: string) => string | undefined {
@@ -143,18 +117,22 @@ function rewriteScript(code: string, lang: Lang, filename: string, ext: string):
   return text.toString();
 }
 
-const reactTool: TypesTool = {
-  peer: 'typescript',
-  bin: 'tsc',
-  ucfExt: '.tsx',
-  specifierExt: '.js',
-  compilerOptions: {jsx: 'react-jsx'},
-  async stageUcf(file, source, _root, compiler) {
-    const script = (await languageTools()).getTypesScript(file, source, 'react', {compiler});
-    if (!script) throw new Error(`buildLibrary: ${file} has no <react> block`);
-    return rewriteScript(script.code, 'tsx', `${file}.tsx`, '.js');
-  },
-};
+function reactTool(job: LibraryTypesJob): TypesTool {
+  let languageTools: Promise<typeof LanguageTools> | undefined;
+  return {
+    peer: 'typescript',
+    bin: 'tsc',
+    ucfExt: '.tsx',
+    specifierExt: '.js',
+    compilerOptions: {jsx: 'react-jsx'},
+    async stageUcf(file, source, _root, compiler) {
+      languageTools ??= import(pathToFileURL(resolvePeer(job, '@multifront/language-tools')).href);
+      const script = (await languageTools).getTypesScript(file, source, 'react', {compiler});
+      if (!script) throw new Error(`buildLibrary: ${file} has no <react> block`);
+      return rewriteScript(script.code, 'tsx', `${file}.tsx`, '.js');
+    },
+  };
+}
 
 const vueTool: TypesTool = {
   peer: 'vue-tsc',
@@ -177,35 +155,32 @@ const vueTool: TypesTool = {
   },
 };
 
-async function filesIn(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, {recursive: true, withFileTypes: true});
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => normalizePath(relative(dir, join(entry.parentPath, entry.name))))
-    .sort();
+interface Staged {
+  shown: Map<string, string>; // staged path → the source path errors show
+  roots: string[]; // the staged JS build modules and `.d.ts` files of `src`
+  components: string[]; // the staged `.ucf` files
 }
 
-/** Copies `src` into `stage`; returns each staged path → the source path shown in errors. */
-async function stageSources(job: LibraryTypesJob, tool: TypesTool, stage: string): Promise<Map<string, string>> {
+async function stageSources(job: LibraryTypesJob, tool: TypesTool, stage: string): Promise<Staged> {
   const compiler = loadVueCompiler(job.root);
   const modules = new Set(job.modules);
-  const shown = new Map<string, string>();
+  const staged: Staged = {shown: new Map(), roots: [], components: []};
   for (const name of await filesIn(job.src)) {
     const file = `${job.src}/${name}`;
-    let staged = name;
-    if (name.endsWith('.ucf')) {
-      if (!modules.has(name)) continue;
-      staged = name.slice(0, -'.ucf'.length) + tool.ucfExt;
-    }
-    const target = join(stage, staged);
+    const isUcf = name.endsWith('.ucf');
+    if (isUcf && !modules.has(name)) continue;
+    const path = isUcf ? name.slice(0, -'.ucf'.length) + tool.ucfExt : name;
+    const target = join(stage, path);
     await mkdir(dirname(target), {recursive: true});
     const lang = langOf(name);
-    if (staged !== name) await writeFile(target, await tool.stageUcf(file, await readFile(file, 'utf8'), job.root, compiler));
+    if (isUcf) await writeFile(target, await tool.stageUcf(file, await readFile(file, 'utf8'), job.root, compiler));
     else if (lang) await writeFile(target, rewriteScript(await readFile(file, 'utf8'), lang, file, tool.specifierExt));
     else await copyFile(file, target);
-    shown.set(staged, shownFile(job.root, file));
+    staged.shown.set(path, shownFile(job.root, file));
+    if (modules.has(name) || DECLARATION.test(name)) staged.roots.push(path);
+    if (isUcf) staged.components.push(path);
   }
-  return shown;
+  return staged;
 }
 
 async function writeTsconfig(job: LibraryTypesJob, tool: TypesTool, stage: string, files: string[]): Promise<void> {
@@ -238,33 +213,51 @@ function runTool(bin: string, stage: string, args: string[] = []): Promise<{code
 }
 
 /** Staged paths become source paths; a position in a generated `.ucf` script is not one in the `.ucf` file. */
-function shownOutput(output: string, shown: Map<string, string>): string {
-  return output
+function compileError(target: Target, output: string, shown: Map<string, string>): Error {
+  const lines = output
     .trim()
     .split('\n')
+    // The listing run's file list: only its diagnostics count.
+    .filter((line) => !isAbsolute(line.trim()))
     .map((line) => {
       const match = /^(.+?)\((\d+),(\d+)\): /.exec(line);
       const source = match && shown.get(normalizePath(match[1]!));
       if (!match || !source) return line;
       const position = source.endsWith('.ucf') ? '' : `(${match[2]},${match[3]})`;
       return `${source}${position}: ${line.slice(match[0].length)}`;
-    })
-    .join('\n');
+    });
+  return new Error(`buildLibrary: the ${target} types do not compile:\n${lines.join('\n')}`);
 }
 
 /** Every staged file the program reaches: tsc emits nothing for one under `node_modules` unless it is a root. */
-async function reachedRoots(bin: string, stage: string, target: Target): Promise<string[]> {
+async function reachedRoots(bin: string, stage: string, target: Target, shown: Map<string, string>): Promise<string[]> {
   const {code, output} = await runTool(bin, stage, ['--listFilesOnly']);
-  if (code !== 0) throw new Error(`buildLibrary: the ${target} types cannot be listed:\n${output.trim()}`);
-  const stageDir = normalizePath(stage);
+  if (code !== 0) throw compileError(target, output, shown);
+  // tsc prints the real path, past any symlink in the library root.
+  const stageDir = normalizePath(await realpath(stage));
   return output
     .split('\n')
     .map((line) => normalizePath(line.trim()))
-    .flatMap((file) => {
-      const inStage = file.startsWith(`${stageDir}/`) ? file.slice(stageDir.length + 1) : undefined;
-      return inStage && ROOT_EXT.test(inStage) ? [inStage] : [];
-    })
+    .flatMap((file) => (file.startsWith(`${stageDir}/`) ? [file.slice(stageDir.length + 1)] : []))
     .sort();
+}
+
+/** The staged components; `outDir` gets the `.d.ts` files. */
+async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
+  const bin = toolBin(job, tool);
+  const cache = join(job.root, 'node_modules', '.cache', 'multifront');
+  await mkdir(cache, {recursive: true});
+  const stage = await mkdtemp(join(cache, `types-${job.target}-`));
+  try {
+    const {shown, roots, components} = await stageSources(job, tool, stage);
+    await writeTsconfig(job, tool, stage, roots);
+    await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job.target, shown));
+    const {code, output} = await runTool(bin, stage);
+    if (code !== 0) throw compileError(job.target, output, shown);
+    return components;
+  } finally {
+    await rm(stage, {recursive: true, force: true});
+  }
 }
 
 /** `Card.vue.d.ts` → `Card.d.ts`, and `./Card.vue` → `./Card.js` in every declaration. */
@@ -280,47 +273,21 @@ async function finishVueTypes(outDir: string, components: Set<string>): Promise<
     if (!code.includes('.vue')) continue;
     const text = new MagicString(code);
     rewriteSpecifiers(text, code, 0, 'dts', path, (specifier) => {
-      const relativeSpecifier = specifier.startsWith('./') || specifier.startsWith('../');
-      const resolved = posix.join(posix.dirname(file), specifier);
-      return relativeSpecifier && components.has(resolved) ? specifier.slice(0, -'.vue'.length) + '.js' : undefined;
+      const relative = specifier.startsWith('./') || specifier.startsWith('../');
+      return relative && components.has(posix.join(posix.dirname(file), specifier))
+        ? specifier.slice(0, -'.vue'.length) + '.js'
+        : undefined;
     });
     if (text.hasChanged()) await writeFile(path, text.toString());
   }
 }
 
-async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
-  const bin = toolBin(job.target, tool);
-  const cache = join(job.root, 'node_modules', '.cache', 'multifront');
-  await mkdir(cache, {recursive: true});
-  const stage = await mkdtemp(join(cache, `types-${job.target}-`));
-  try {
-    const shown = await stageSources(job, tool, stage);
-    const staged = [...shown.keys()];
-    const modules = new Set(
-      job.modules.map((name) => (name.endsWith('.ucf') ? name.slice(0, -'.ucf'.length) + tool.ucfExt : name))
-    );
-    await writeTsconfig(
-      job,
-      tool,
-      stage,
-      staged.filter((name) => modules.has(name) || DECLARATION.test(name))
-    );
-    await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job.target));
-    const {code, output} = await runTool(bin, stage);
-    if (code !== 0) throw new Error(`buildLibrary: the ${job.target} types do not compile:\n${shownOutput(output, shown)}`);
-    return staged.filter((name) => name.endsWith(tool.ucfExt) && shown.get(name)!.endsWith('.ucf'));
-  } finally {
-    await rm(stage, {recursive: true, force: true});
-  }
-}
-
 /** Real `tsc` over `Card.tsx` files made from each `.ucf` file's React types script. */
 export async function emitReactTypes(job: LibraryTypesJob): Promise<void> {
-  await emitTypes(job, reactTool);
+  await emitTypes(job, reactTool(job));
 }
 
 /** Real `vue-tsc` over `Card.vue` files made from each `.ucf` file's SFC code. */
 export async function emitVueTypes(job: LibraryTypesJob): Promise<void> {
-  const components = await emitTypes(job, vueTool);
-  await finishVueTypes(job.outDir, new Set(components));
+  await finishVueTypes(job.outDir, new Set(await emitTypes(job, vueTool)));
 }

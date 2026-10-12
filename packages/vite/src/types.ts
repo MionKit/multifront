@@ -58,11 +58,9 @@ export interface LibraryTarget {
 }
 
 /** What a row's `emitTypes()` gets; posix paths, `modules` relative to `src`. */
-export interface LibraryTypesJob {
-  target: Target;
+export interface LibraryTypesJob extends Pick<LibraryResult, 'target' | 'outDir'> {
   root: string; // library folder
   src: string;
-  outDir: string; // <outDir>/<target>, where the JS build wrote
   modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
 }
 
