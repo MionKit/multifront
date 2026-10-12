@@ -38,5 +38,15 @@
     "end": 221,
     "line": 8,
     "column": 23
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $constructor, but no <style module=\"constructor\"> or store named constructor exists",
+    "filename": "svelte/errors/WrongModuleName.ucf",
+    "start": 244,
+    "end": 256,
+    "line": 9,
+    "column": 8
   }
 ]
