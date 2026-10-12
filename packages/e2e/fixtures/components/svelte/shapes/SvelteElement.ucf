@@ -1,0 +1,18 @@
+<svelte>
+  <script lang="ts">
+    let {tag = 'section'}: {tag?: string} = $props()
+  </script>
+  <svelte:element this={tag} class={$style.box}>
+    <svelte:element this={'h3'} class={$style.title}>Title</svelte:element>
+    <p class={$style.title}>Body</p>
+  </svelte:element>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.title {
+  margin: 0;
+}
+</style>

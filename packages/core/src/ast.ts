@@ -17,3 +17,10 @@ export function walk(root: Node, enter: (node: Node) => void): void {
   enter(root);
   for (const child of children(root)) walk(child, enter);
 }
+
+/** `base`, or `base1`, `base2`…: the first not in `used`, so it neither shadows nor is shadowed. */
+export function freshName(used: Set<string>, base: string): string {
+  let name = base;
+  for (let index = 1; used.has(name); index++) name = `${base}${index}`;
+  return name;
+}

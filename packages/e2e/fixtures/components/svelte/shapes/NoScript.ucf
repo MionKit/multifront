@@ -1,0 +1,12 @@
+<svelte>
+  <div class={$style.box}><p class={$style.text}>No script</p></div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.text {
+  margin: 0;
+}
+</style>

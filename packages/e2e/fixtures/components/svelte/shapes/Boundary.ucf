@@ -1,0 +1,20 @@
+<svelte>
+  <svelte:boundary>
+    <p class={$style.text}>Inside the boundary</p>
+    {#snippet failed(error, reset)}
+      <div class={$style.error}>
+        <p class={$style.text}>{String(error)}</p>
+        <button class={$style.text} onclick={reset}>Retry</button>
+      </div>
+    {/snippet}
+  </svelte:boundary>
+</svelte>
+
+<style module scoped>
+.text {
+  margin: 0;
+}
+.error {
+  color: rgb(180, 30, 30);
+}
+</style>

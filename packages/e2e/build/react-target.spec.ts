@@ -141,9 +141,10 @@ describe('vite build of the react-basic error entries', () => {
     expect(expected).toContainEqual(err.errors?.[0]?.loc);
   });
 
-  it('fails a svelte pick with target-not-built', async () => {
+  // No plugin compiles the Svelte code our build hands on.
+  it('fails a svelte pick without plugin-svelte on its .svelte id', async () => {
     const err = await buildError('src/errors/svelte-pick.ts');
-    expect(err.message).toContain('multifront does not build <svelte> blocks yet (target-not-built)');
+    expect(err.message).toContain('components/react/AllBlocks.ucf.svelte.svelte');
   });
 
   it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {

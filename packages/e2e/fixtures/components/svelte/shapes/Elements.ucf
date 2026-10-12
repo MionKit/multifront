@@ -1,0 +1,35 @@
+<svelte>
+  <script lang="ts">
+    let {label = 'Hello'}: {label?: string} = $props()
+    const classes = {$style}
+    const titleClass: string = $style.title
+  </script>
+  <article class={$style.card}>
+    <h2 class={titleClass}>{label}</h2>
+    <p class={classes.$style.text}>Text <strong class={$style.text}>bold</strong><br />after</p>
+    <input class={$style.field} value={label} aria-label="Label" />
+    <img class={$style.image} src="/card.png" alt="Card">
+    <svg class={$style.icon} viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" /></svg>
+  </article>
+</svelte>
+
+<style module scoped>
+.card {
+  padding: 8px;
+}
+.title {
+  margin: 0;
+}
+.text {
+  color: rgb(90, 90, 90);
+}
+.field {
+  width: 100%;
+}
+.image {
+  display: block;
+}
+.icon {
+  width: 10px;
+}
+</style>

@@ -1,0 +1,15 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/Elements.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/Elements.ucf?ucf&type=style&index=0&module&lang.js";
+    let {label = 'Hello'}: {label?: string} = $props()
+    const classes = {$style: __ucfStyle}
+    const titleClass: string = __ucfStyle.title
+  </script>
+  <article data-v-0360e34e="" class={__ucfStyle.card}>
+    <h2 data-v-0360e34e="" class={titleClass}>{label}</h2>
+    <p data-v-0360e34e="" class={classes.$style.text}>Text <strong data-v-0360e34e="" class={__ucfStyle.text}>bold</strong><br data-v-0360e34e="" />after</p>
+    <input data-v-0360e34e="" class={__ucfStyle.field} value={label} aria-label="Label" />
+    <img data-v-0360e34e="" class={__ucfStyle.image} src="/card.png" alt="Card">
+    <svg data-v-0360e34e="" class={__ucfStyle.icon} viewBox="0 0 10 10"><circle data-v-0360e34e="" cx="5" cy="5" r="4" /></svg>
+  </article>

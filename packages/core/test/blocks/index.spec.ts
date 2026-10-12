@@ -85,12 +85,11 @@ describe('buildTarget', () => {
     expect(await buildErrors('imports/VueOnly.ucf', 'react')).toEqual([{code: 'missing-target-block', line: 1, column: 0}]);
   });
 
-  it('throws target-not-built for svelte on its opening tag', async () => {
-    const {source} = readComponent('react/AllBlocks.ucf');
-    const before = source.slice(0, source.indexOf('<svelte>')).split('\n');
-    expect(await buildErrors('react/AllBlocks.ucf', 'svelte')).toEqual([
-      {code: 'target-not-built', line: before.length, column: before.at(-1)!.length},
-    ]);
+  it('builds the svelte row as a .svelte file', async () => {
+    const {split, ctx} = await load('react/AllBlocks.ucf');
+    const file = buildTarget(split, ctx, 'svelte');
+    expect(file.ext).toBe('.svelte');
+    expect(file).toEqual(getBlockKind('svelte').build(split.targets.svelte!, ctx));
   });
 
   it('builds the vue row as the same-length SFC code, mapped to the .ucf file', async () => {

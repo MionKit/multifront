@@ -1,0 +1,30 @@
+<svelte>
+  <script lang="ts">
+    let {count = 2}: {count?: number} = $props()
+  </script>
+  <div class={$style.box}>
+    {#if count > 5}
+      <p class={$style.big}>Big</p>
+    {:else if count > 1}
+      <p class={$style.mid}>Mid <b class={$style.mid}>nested</b></p>
+    {:else}
+      <p class={$style.small}>Small</p>
+    {/if}
+    {#if count}<span class={$style.small}>{count}</span>{/if}
+  </div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.big {
+  font-size: 2em;
+}
+.mid {
+  font-size: 1.5em;
+}
+.small {
+  font-size: 1em;
+}
+</style>

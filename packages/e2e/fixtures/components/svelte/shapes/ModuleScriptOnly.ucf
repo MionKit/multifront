@@ -1,0 +1,13 @@
+<svelte>
+  <script module lang="ts">
+    export const greeting: string = 'Hi'
+    const moduleClass: string = $style.text
+  </script>
+  <p class={moduleClass}><b class={$style.text}>{greeting}</b></p>
+</svelte>
+
+<style module scoped>
+.text {
+  margin: 0;
+}
+</style>

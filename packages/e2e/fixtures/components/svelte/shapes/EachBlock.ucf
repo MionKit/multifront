@@ -1,0 +1,29 @@
+<svelte>
+  <script lang="ts">
+    let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = []}: {
+      rows?: {id: number; cells: string[]}[]
+      empty?: string[]
+    } = $props()
+  </script>
+  <ul class={$style.list}>
+    {#each rows as row, index (row.id)}
+      <li class={$style.row}>
+        {index}
+        {#each row.cells as cell}<span class={$style.cell}>{cell}</span>{:else}<em class={$style.cell}>No cells</em>{/each}
+      </li>
+    {/each}
+    {#each empty as item}<li class={$style.row}>{item}</li>{:else}<li class={$style.row}>Empty</li>{/each}
+  </ul>
+</svelte>
+
+<style module scoped>
+.list {
+  margin: 0;
+}
+.row {
+  padding: 2px;
+}
+.cell {
+  margin: 1px;
+}
+</style>

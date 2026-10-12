@@ -1,0 +1,16 @@
+<svelte>
+  <!-- <div> -->
+  <div class={$style.box}>
+    <!-- <p class="hidden">not an element</p> -->
+    <p class={$style.text}>Real</p>
+  </div>
+</svelte>
+
+<style module scoped>
+.box {
+  padding: 8px;
+}
+.text {
+  margin: 0;
+}
+</style>

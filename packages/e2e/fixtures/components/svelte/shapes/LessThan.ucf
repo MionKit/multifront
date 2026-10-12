@@ -1,0 +1,13 @@
+<svelte>
+  <script lang="ts">
+    let {a = 1, b = 2}: {a?: number; b?: number} = $props()
+  </script>
+  <p class={$style.text} title={a < b ? 'less' : 'more'}>{a < b} {a<b}</p>
+  <div class={$style.text}>{a <b}<span class={$style.text}>After</span></div>
+</svelte>
+
+<style module scoped>
+.text {
+  margin: 0;
+}
+</style>

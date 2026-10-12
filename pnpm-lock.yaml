@@ -53,6 +53,9 @@ importers:
       '@vue/typescript-plugin':
         specifier: 3.3.11
         version: 3.3.11(typescript@6.0.3)
+      htmlparser2:
+        specifier: 10.1.0
+        version: 10.1.0
       husky:
         specifier: 9.1.7
         version: 9.1.7

@@ -1,0 +1,28 @@
+<svelte>
+  <svelte:options runes />
+  <script lang="ts">
+    let {title = 'Page'}: {title?: string} = $props()
+    let width = $state(0)
+    let visible = $state(true)
+  </script>
+  <svelte:head>
+    <title>{title}</title>
+    <meta name="description" content={title} />
+    <style>
+      body { margin: 0; }
+    </style>
+  </svelte:head>
+  <svelte:window bind:innerWidth={width} />
+  <svelte:body onmouseenter={() => (visible = true)} />
+  <svelte:document onvisibilitychange={() => (visible = !visible)} />
+  <main class={$style.main}><h1 class={$style.title}>{title} {width} {visible}</h1></main>
+</svelte>
+
+<style module scoped>
+.main {
+  padding: 8px;
+}
+.title {
+  margin: 0;
+}
+</style>

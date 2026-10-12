@@ -1,0 +1,15 @@
+
+  <script>
+import "<fixtures>/components/svelte/shapes/Slots.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/Slots.ucf?ucf&type=style&index=0&module&lang.js";
+    export let depth = 0
+    export let Child
+  </script>
+  <div data-v-9c614837="" class={__ucfStyle.box}>
+    <slot><p data-v-9c614837="" class={__ucfStyle.note}>Fallback</p></slot>
+    <slot name="named" />
+    {#if depth === 0}
+      <svelte:self data-v-9c614837="" depth={1} {Child}><span data-v-9c614837="" class={__ucfStyle.note}>Default</span></svelte:self>
+    {/if}
+    <Child data-v-9c614837=""><svelte:fragment slot="named"><em data-v-9c614837="" class={__ucfStyle.note}>Named</em></svelte:fragment></Child>
+  </div>
