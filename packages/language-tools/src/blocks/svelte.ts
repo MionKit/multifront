@@ -9,8 +9,7 @@ import {stringSnapshot} from '../mappings.ts';
 import {declareModule} from '../moduleTypes.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
-// svelte2tsx's global types every Svelte script references. Their `import('svelte')` needs no install beside them:
-// Svelte's types declare `module 'svelte'` globally.
+// svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
 const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 
 let installedTypesRoot: string | undefined;

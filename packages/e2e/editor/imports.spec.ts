@@ -8,8 +8,7 @@ import {APP_DIR, CARD, edit, expectSvelteComponent, onLine, PLUGIN, readApp} fro
 import {E2E_DIR, locate, open, startTsserver, tsLocation, VUE_PLUGIN, VUE_PLUGIN_DIR} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, Tsserver} from './lib/tsserver.ts';
 
-// tsserver reads a .svelte importer only through Svelte's own TypeScript plugin (5.11); mixed.ts has its own cases in
-// tsserver.spec.ts.
+// A .svelte importer reaches tsserver only via Svelte's own TS plugin (5.11); mixed.ts is tested in tsserver.spec.ts.
 const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte') && row.file !== 'src/mixed.ts');
 // What each svelte row's import binds: its quick info shows the framework tsserver picked.
 const SVELTE_BINDINGS: Record<string, string> = {
