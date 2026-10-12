@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.4
@@ -52,22 +52,38 @@ absolute path (`e2e/build/vue-imports.spec.ts:237`, green): `multifront:vue-impo
 - Orchestrator, Q2: first check the `.vue` importer; it gets an absolute `loc.file`, so gap 2 is ours: fixed in this
   PR, own commit, own test, not mapped twice.
 
+- Review (automatic triage): fixed the per-script language (vite and core), the untested sort, parse-error and catch
+  branches, the preprocess order, the restated context type, the copied test helpers and assertion blocks, the parallel
+  importer plugins (one `multifront:importers`), the dead `langOf` export, the `ROWS` alias, the filter reaching our
+  own target ids, and split the helper extraction into its own commit. The plugin-svelte gate is gone rather than
+  tested: a `.svelte` importer needs svelte whatever plugin compiles it.
+
 ## Plan
 
 1. **Core: `framework-in-block` from `svelteKind.check`**:
    - Move `attributesInScripts` out of `blocks/vue.ts:15-30` into `imports/rewrite.ts` as
-     `frameworkInBlock(block, split, tags): Diagnostic[]` (beside `frameworkAttributes`; message
-     `frameworkInBlockMessage(block.type)`; core-internal). `vueKind.check` calls it, no behaviour change.
-   - `svelteKind.check`: `styleInsideTarget(...)` plus `frameworkInBlock(block, split, topLevelTags(block.content, nests))`
-     with the same `nests` (every non-void element): only the block's top-level `<script>` / `<script module>`.
+     `frameworkInBlock(block, split, tags, target): Diagnostic[]` (beside `frameworkAttributes`; message
+     `frameworkInBlockMessage(target)`; core-internal; `langOf` stops being exported). `vueKind.check` calls it with
+     `'vue'`, no behaviour change.
+   - Every script of the block parses in one language, the first script's `lang` (Svelte reads a lang-less
+     `<script module>` as TypeScript when `<script lang="ts">` follows; compiler-sfc refuses two languages).
+   - `svelteKind.check`: `styleInsideTarget(...)` plus
+     `frameworkInBlock(block, split, topLevelTags(block.content, nests), 'svelte')` with the same `nests` (every
+     non-void element): only the block's top-level `<script>` / `<script module>`.
    - `buildTarget` runs `check`, so `load` fails at the attribute, every one listed, before plugin-svelte. An `import()`
      in markup still falls to the post rewrite (error at the specifier).
-2. **Vite: `multifront:svelte-importers`** (`packages/vite/src/attributes.ts`, beside `multifront:vue-importers`): pre
-   transform, filter `{id: /\.svelte$/, code: /\.ucf/}`, only with plugin-svelte in the plugins. Parses the raw file
-   with the project's `svelte/compiler` (`loadSvelteCompiler(root)`; a parse error is left to plugin-svelte), runs the
-   checks `multifront:attributes` runs on its `<script module>` and `<script>` in source order, and fails at
-   `script content start + offset` in the raw file, the way `multifront:vue-importers` does. `multifront()` returns it
-   before `multifront:attributes`. Markup `import()` stays with the post rewrite.
+2. **Vite: `multifront:importers`** (`packages/vite/src/attributes.ts`), M4's `multifront:vue-importers` renamed and
+   given `.svelte` files too: pre, transform `order: 'pre'` (before plugin-svelte's preprocess, whose map names the file
+   relatively too), filter `/(?:\.vue|(?<!\.ucf\.svelte)\.svelte)$/` and `.ucf` in the code (our own
+   `X.ucf.svelte.svelte` targets are checked in `load`). Two script readers:
+   - `vueScripts`: the borrowed compiler's descriptor, as before (only with plugin-vue).
+   - `svelteScripts`: the project's `svelte/compiler` (`loadSvelteCompiler(root)`, no plugin-svelte check: a `.svelte`
+     importer needs svelte anyway) parses the file with every `<style>` body blanked (a preprocessor's SCSS is no CSS;
+     offsets stay); a parse error is left to plugin-svelte. `<script module>` and `<script>` in source order, all in the
+     language of the first `lang`.
+   - Both feed `scriptsError` (the first import error of a file's own scripts) and `failAtImport` (dev hands Vite the
+     offset; a build maps it through `getCombinedSourcemap()`, else locates it in the code as is), which
+     `multifront:attributes` uses too. Markup `import()` stays with the post rewrite.
 3. **Fixtures** (`fixtures/components/svelte/imports/`):
    - `AttrInSvelte.ucf`: `<script module>` (no `lang`) re-exporting `../../imports/Icon.ucf` with
      `{ framework: 'svelte' }`; `<script lang="ts">` with `import Icon … with { framework: 'react' }` and
@@ -83,6 +99,9 @@ absolute path (`e2e/build/vue-imports.spec.ts:237`, green): `multifront:vue-impo
    - `src/entry-server.ts`: `render()` through `svelte/server` inside Vite (the test process would load a second Svelte
      runtime).
 5. **`e2e/build/imports.spec.ts`**: drop the `.svelte` filter and its comment; the importer list regex gains `svelte`.
+6. Shipped: `resolutionRecorder()` and `ucfPaths()` moved from `vue-imports.spec.ts` into `build/lib/references.ts`,
+   and `withEditedApp()` (a copied app with text added after anchors) and `expectImportError()` (build plus dev
+   environments fail with a code at a loc) are new in `build/lib/build.ts`, as both import specs use them.
 
 ## Tests
 
@@ -108,8 +127,13 @@ All under `pnpm devx test`, on this host and in CI `check`, `react-floor`, `vue-
       messages above.
     - `unknown-framework` (static, `App.svelte`, `lang="ts"`), the same in a written lang-less `LangLess.svelte`, and
       `framework-attribute-not-literal` (dynamic, written `NonLiteral.svelte`, in `<script module>`): build (no
-      sourcemap) and dev client fail with `loc` equal to the absolute file and the import's line and column.
-- `packages/core/test/blocks/svelte.spec.ts`: `svelte.check` on `svelte/imports/AttrInSvelte.ucf` gives exactly three
+      sourcemap), dev client and dev SSR fail with `loc` equal to the absolute file and the import's line and column.
+      Without the `.svelte` check the dev `loc.file` was `LangLess.svelte`. More rows: `ScriptFirst.svelte` (an error in
+      each script, `<script>` first: the first in the file wins), `ModuleTs.svelte` (TypeScript in a lang-less
+      `<script module>`), `Preprocessed.svelte` (`svelte({preprocess: vitePreprocess()})`, a `<style lang="scss">`).
+    - A `.svelte` importer that does not parse fails with plugin-svelte's own error (`vite-plugin-svelte:compile`).
+- `packages/core/test/blocks/svelte.spec.ts`: `svelte/errors/ImportParseError.ucf` (a `.ucf` import in a script that
+  does not parse) gives only `svelte-parse-error`. `svelte.check` on `svelte/imports/AttrInSvelte.ucf` gives exactly three
   `framework-in-block` at hand-written line, column and span; `checkBlocks()` the same; `AttrInSvelteMarkup.ucf`,
   `UsesReactOnly.ucf`, `Panel.ucf`, `imports/UsesIcon.ucf` none. `OTHERS` leaves out `AttrInSvelte.ucf`.
 - `packages/core/test/blocks/vue.spec.ts`: unchanged, green (the move kept Vue's behaviour).
@@ -118,7 +142,7 @@ All under `pnpm devx test`, on this host and in CI `check`, `react-floor`, `vue-
 ## Docs
 
 - `docs/milestones/m5-svelte-target.md`: 5.4 Build names the `svelteKind.check` rule, the markup fallback and
-  `multifront:svelte-importers`; 5.4 Test the fixtures and app files; `- Status: done`; "Hands" milestone 7:
+  `multifront:importers`; `m4-vue-target.md` names `multifront:importers` where it named `multifront:vue-importers`; 5.4 Test the fixtures and app files; `- Status: done`; "Hands" milestone 7:
   `svelteKind.check` also reports `framework-in-block`.
 - `publicdocs/07-errors.md` (`framework-in-block` row) and `publicdocs/04-imports.md` ("Imports Inside a Component"):
   an import in `<svelte>` gets svelte.

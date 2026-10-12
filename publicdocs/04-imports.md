@@ -4,7 +4,7 @@ A `.ucf` file holds several frameworks, so each import of it picks one.
 
 ## Imports Inside a Component
 
-An import in `<react>` always gets the React component, and one in `<vue>` the Vue component. So the imported file needs a block for that framework, and the import takes no `framework` attribute.
+An import in `<react>` always gets the React component, one in `<vue>` the Vue component, and one in `<svelte>` the Svelte component. So the imported file needs a block for that framework, and the import takes no `framework` attribute.
 
 `Profile.ucf`
 
