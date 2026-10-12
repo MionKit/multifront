@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'escaped' }: { label?: string } = $props()
+  </script>
+  <!-- Plain-text values Svelte escapes, beside the forwarding spread. -->
+  <p class="shape" title="a &amp; b" data-html="<div>" data-quote='"quoted"' data-mixed="&amp; {label}"><span class="inner">{label}</span></p>
+</svelte>
