@@ -43,7 +43,7 @@ const EDITS: [string, string, string, string[]][] = [
   // The module style moves to index 0; index 1 is gone, so neither css1 nor map1 comes back.
   ['a removed <style>', SCOPED_STYLE, '', ['css0', 'react']],
   ['the module name', '<style module>', '<style module="classes">', ['css1', 'react']],
-  ['a new <svelte> block (its module never loaded)', '</react>\n', '</react>\n\n<svelte>\n<p>hi</p>\n</svelte>\n', []],
+  ['<svelte> text (its module never loaded)', 'onclick={() => count++}', 'onclick={() => (count += 2)}', []],
   ['a splitter error (unclosed module style)', ...UNCLOSED_MODULE, ['css0', 'react']],
 ];
 

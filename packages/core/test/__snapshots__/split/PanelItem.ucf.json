@@ -1,0 +1,40 @@
+[
+  {
+    "type": "vue",
+    "attrs": {},
+    "start": 0,
+    "end": 185,
+    "contentStart": 5,
+    "contentEnd": 179,
+    "index": 0
+  },
+  {
+    "type": "react",
+    "attrs": {},
+    "start": 187,
+    "end": 356,
+    "contentStart": 194,
+    "contentEnd": 348,
+    "index": 0
+  },
+  {
+    "type": "svelte",
+    "attrs": {},
+    "start": 358,
+    "end": 525,
+    "contentStart": 366,
+    "contentEnd": 516,
+    "index": 0
+  },
+  {
+    "type": "style",
+    "attrs": {
+      "scoped": true
+    },
+    "start": 527,
+    "end": 599,
+    "contentStart": 541,
+    "contentEnd": 591,
+    "index": 0
+  }
+]

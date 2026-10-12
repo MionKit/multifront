@@ -4,3 +4,4 @@
   export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
     return <section className="panel"><h3 className="heading">{heading}</h3>{children}</section>
   }
+declare const $style: {readonly title: string};

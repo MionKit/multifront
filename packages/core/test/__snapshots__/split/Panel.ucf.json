@@ -37,5 +37,26 @@
     "contentStart": 593,
     "contentEnd": 628,
     "index": 1
+  },
+  {
+    "type": "style",
+    "attrs": {
+      "module": true,
+      "lang": "scss"
+    },
+    "start": 638,
+    "end": 730,
+    "contentStart": 664,
+    "contentEnd": 722,
+    "index": 2
+  },
+  {
+    "type": "svelte",
+    "attrs": {},
+    "start": 732,
+    "end": 1138,
+    "contentStart": 740,
+    "contentEnd": 1129,
+    "index": 0
   }
 ]

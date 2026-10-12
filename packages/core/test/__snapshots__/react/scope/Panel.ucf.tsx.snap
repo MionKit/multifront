@@ -1,5 +1,7 @@
 import "<fixtures>/components/Panel.ucf?ucf&type=style&index=0&lang.css";
 import "<fixtures>/components/Panel.ucf?ucf&type=style&index=1&lang.css";
+import "<fixtures>/components/Panel.ucf?ucf&type=style&index=2&lang.css";
+import $style from "<fixtures>/components/Panel.ucf?ucf&type=style&index=2&module&lang.js";
 import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
 
   import type { ReactNode } from 'react'

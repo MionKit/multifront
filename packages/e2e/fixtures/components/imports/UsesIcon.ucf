@@ -20,6 +20,14 @@
   }
 </react>
 
+<svelte>
+  <script lang="ts">
+  import Icon from './Icon.ucf'
+  </script>
+
+  <span class="uses-icon"><Icon /> uses-icon-svelte-marker</span>
+</svelte>
+
 <style>
 .uses-icon {
   display: inline-flex;

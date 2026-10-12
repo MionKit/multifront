@@ -27,6 +27,8 @@ const REACT_FLOOR = {
 
 const VUE_FLOOR = {'@vitejs/plugin-vue': '6.0.3', '@vue/compiler-sfc': '3.5.15', vue: '3.5.15'};
 
+const SVELTE_FLOOR = {svelte: '5.46.4', '@sveltejs/vite-plugin-svelte': '7.0.0'};
+
 // A floor CI job has already added its overrides to the working copy.
 const COMMITTED_WORKSPACE = spawnSync('git', ['show', 'HEAD:pnpm-workspace.yaml'], {cwd: REPO_ROOT, encoding: 'utf8'}).stdout;
 
@@ -44,6 +46,10 @@ describe('peer-floor', () => {
 
   it('reads the bottom of the vue peer ranges of @multifront/vite, with vue at the compiler-sfc floor', () => {
     expect(floorOverrides('vue')).toEqual(VUE_FLOOR);
+  });
+
+  it('reads the bottom of the svelte peer ranges of @multifront/vite', () => {
+    expect(floorOverrides('svelte')).toEqual(SVELTE_FLOOR);
   });
 
   it('reads only ranges that name their lowest version', () => {
@@ -78,9 +84,14 @@ describe('peer-floor', () => {
       ['react'],
       'devx: peer-floor rewrites pnpm-workspace.yaml and the lockfile, so it runs only in CI (CI set), on a throwaway checkout',
     ],
-    ['for an unknown framework', {...process.env, CI: '1'}, ['angular'], 'devx: peer-floor knows react, vue; got angular'],
-    ['for an inherited key', {...process.env, CI: '1'}, ['toString'], 'devx: peer-floor knows react, vue; got toString'],
-    ['with no framework', {...process.env, CI: '1'}, [], 'devx: peer-floor knows react, vue; got nothing'],
+    [
+      'for an unknown framework',
+      {...process.env, CI: '1'},
+      ['angular'],
+      'devx: peer-floor knows react, vue, svelte; got angular',
+    ],
+    ['for an inherited key', {...process.env, CI: '1'}, ['toString'], 'devx: peer-floor knows react, vue, svelte; got toString'],
+    ['with no framework', {...process.env, CI: '1'}, [], 'devx: peer-floor knows react, vue, svelte; got nothing'],
   ])('refuses to run %s and changes nothing', (_case, env, args, message) => {
     const before = readFileSync(WORKSPACE, 'utf8');
     const result = devx(env, 'peer-floor', ...args);

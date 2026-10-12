@@ -28,6 +28,20 @@
   }
 </react>
 
+<svelte>
+  <script lang="ts">
+  import { untrack } from 'svelte'
+
+  let { start = 0 }: { start?: number } = $props()
+  let count = $state(untrack(() => start))
+  </script>
+
+  <div class="counter">
+    <span class="label">Clicks</span>
+    <button class={$style.button} title="Zähler 𝄞" onclick={() => count++}>{count}</button>
+  </div>
+</svelte>
+
 <style scoped>
 .counter {
   color: rgb(120, 40, 160);

@@ -35,7 +35,9 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
   'Panel.ucf': [
     {scoped: true, module: undefined},
     {scoped: false, module: undefined},
+    {scoped: false, module: '$style'},
   ],
+  'PanelItem.ucf': [{scoped: true, module: undefined}],
   'ReactDefaultSpecifier.ucf': [{scoped: false, module: '$style'}],
   'ScopedModuleScss.ucf': [{scoped: true, module: '$style'}],
   'TsxEdges.ucf': [{scoped: true, module: undefined}],
