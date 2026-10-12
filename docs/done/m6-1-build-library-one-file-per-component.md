@@ -31,9 +31,13 @@ A dry run (Vite 8.2.2, `preserveModules`, a small copy of the planned fixture) s
 
 - Our class maps and plugin-vue's `?vue&type=…` sub-modules go under `_virtual/` (orchestrator, rule 1: milestone 6.1
   "Virtual modules go under `_virtual/`"; they name no file on disk). Recorded in the step text.
-- Three errors beyond the step's Build line stay ("outside src", "no file has that framework's block", a missing
-  `index` path), each with its own test case (orchestrator, rule 3 for the errors, rule 1 "New/changed behaviour has
-  Vitest coverage" for the tests).
+- Errors beyond the step's Build line stay ("outside src", "no file has that framework's block", a missing `index`
+  path, no package name), each with its own test case (orchestrator, rule 3 for the errors, rule 1 "New/changed
+  behaviour has Vitest coverage" for the tests). The review added four more, each tested: nothing to build, a
+  `package.json` that does not parse, two modules with one output name, and a framework named twice building once.
+- `LibraryTarget` lives in `packages/vite/src/types.ts`, not `targets.ts` (review, AGENTS.md "Shared types live in
+  the package's `types.ts`"): `build.ts` and `targets.ts` both use it. The milestone's step text and "Hands to later
+  milestones" say so.
 
 ## Plan
 
@@ -55,7 +59,7 @@ interface LibraryOptions {
 interface LibraryResult {target: Target; outDir: string; packageName: string; files: string[]; skipped: string[]}
 ```
 
-### Target table (`packages/vite/src/library/targets.ts`)
+### Target table (`packages/vite/src/library/targets.ts`, `LibraryTarget` in `types.ts`)
 
 ```ts
 export interface LibraryTarget {
@@ -79,23 +83,25 @@ from `index.ts` to `plugin.ts` (`index.ts` only re-exports): `build.ts` calls it
 forbids `build.ts` importing `index.ts`.
 
 - `defineLibrary(options)` returns its argument, typed.
-- Options: `root` resolved from cwd; `src`, `outDir`, `index` against root. `index` defaults to `src/index.ts` only when
-  it exists; a given path that does not exist → error.
+- Options: `root` resolved from cwd; `src`, `outDir`, `index` against root. `index` defaults to `index.ts` in `src`
+  only when it exists; a given path that does not exist → error.
+- `package.json`: a missing one gives no name; one that does not parse → `cannot read <file>: <reason>`.
 - Scan: every `.ucf` under `src`, recursive, split once with `splitBlocks(source, filename)`. Per target, files with
   `split.targets[target]` are entries; the rest go in `skipped`, relative to `src`, posix (`VueOnly.ucf`).
 - Frameworks: default is `TARGETS` (core's order: vue, react, svelte) filtered to those with a row and at least one
-  block. An explicit framework with no row → error naming it. An explicit one no file has a block for → error naming
-  the target and `src`.
+  block; an explicit list is deduplicated. An explicit framework with no row → error naming it. An explicit one no file
+  has a block for → error naming the target and `src`. No framework left → `nothing to build`.
 - `packageName`: `packages[target].name`, else `<library package.json name>-<target>`; neither → error.
 - Peers: `{...row.peers, ...packages[target]?.peers}`; their keys are the externals.
-- One real `vite build` per target, always production: `process.env.NODE_ENV = 'production'` for the duration,
-  restored after. Config, merged with `options.vite` through `mergeConfig`:
+- One real `vite build` per target, always production: `process.env.NODE_ENV = 'production'` for the duration.
+  Overlapping calls share one swap (a counter): the first in saves the caller's value, the last out puts it back. Config, merged with `options.vite` through `mergeConfig`:
   - `configFile: false`, `root`, `mode: 'production'`, `publicDir: false` (a library's `public/` is not copied),
     `logLevel: 'warn'`.
   - `plugins: [await row.plugin(), multifront({framework: target, frameworks: [target]}), libraryPlugin(…)]`.
   - `build`: `outDir: <outDir>/<target>`, `emptyOutDir: true`, `minify: false`, `sourcemap: true`,
     `lib: {entry, formats: ['es'], cssFileName: 'styles'}`, `rolldownOptions.output: {preserveModules: true,
-    preserveModulesRoot: src, entryFileNames, chunkFileNames}` from the naming function.
+    preserveModulesRoot: src, entryFileNames, chunkFileNames}` from the naming function. A second module given a name
+    already taken → `<a> and <b> would both be written as <name>` (Rolldown would rename it `Card2.js` silently).
 - `files`: every file written under the target's outDir, relative, posix, sorted, read from disk after the build.
 
 ### Naming (`packages/vite/src/library/names.ts`)
@@ -106,9 +112,9 @@ forbids `build.ts` importing `index.ts`.
 | --- | --- |
 | `X.ucf`, `X.ucf.react.tsx`, `X.ucf.svelte.svelte` | relative to `src`, no `.ucf` or target suffix: `Card`, `forms/Field` |
 | plain module `.ts` / `.tsx` / `.js` / `.mts` … | relative path minus its extension: `utils/cx`, `index` |
-| a `.ucf` path with a query (our class map, plugin-vue's sub-modules) | `_virtual/<rel>.<type>[-<index>]`, a class map (ours flags `module`, plugin-vue's `lang.module.css`) as `module`: `_virtual/Card.module-0`, `_virtual/Card.script`; a CSS-only style module is `style-0`, a chunk Rolldown never writes |
-| `\0` ids | `_virtual/` + the id without `\0` and a leading `virtual:`, `:` → `/`, unsafe characters → `_`: `_virtual/multifront/scope-attrs` |
-| a real file outside `src` | build error naming the file: its output path would leave the target folder |
+| a `.ucf` path with a query (our class map, plugin-vue's sub-modules) | `_virtual/<rel>.<type>[-<index>]`, a class map (ours flags `module`, plugin-vue's `lang.module.css`) as `module`: `_virtual/Card.module-0`, `_virtual/Card.script`; a CSS-only style module is `style-0`, a chunk Rolldown never writes; a query with no `type` is named by the query, unsafe characters → `_` |
+| `\0` ids | `_virtual/` + the id without `\0` and a leading `virtual:`, `:` → `/`, unsafe characters → `_`, a trailing script extension dropped: `_virtual/multifront/scope-attrs` |
+| a real file outside `src` | throws; never reached, as the guard's `load` hook fails first (below) |
 
 ### Peer-only guard (`libraryPlugin`, in `build.ts`)
 
@@ -119,6 +125,8 @@ A pre `resolveId` filtered to bare specifiers (not `.`, `/`, `\0`):
   (an alias) passes. Anything else (unresolved, `node_modules`, outside `src`) → `this.error`: `"left-pad" is imported
   by src/utils/cx.ts, but it is not a peer dependency of @mf-fixture/ui-vue: a library package has peer dependencies
   only. Add it to packages.vue.peers to keep it external.` A target id importer is named by its `.ucf` file.
+- A `load` hook on every real id: a file outside `src` → `this.error`: `shared/tokens.ts is outside src: a library
+  package ships only the files of its src folder` (paths relative to the root).
 
 ### Fixture: `packages/e2e/fixtures/library/`
 
@@ -165,25 +173,48 @@ resolve up the tree.
 
 Build area, `packages/e2e/build/library.spec.ts`. Runs inside `pnpm devx test`: this host, CI's `check` job and the
 react / vue / svelte floor jobs. Needs only real `vite.build()`: no new infra. One `beforeAll` builds the fixture into
-its own fresh temp outDir; every error case uses its own `copyLibrary()` copy and outDir, so files run in parallel.
+its own fresh temp outDir; every other case uses its own `copyLibrary()` copy and outDir, so files run in parallel.
 
-1. Layout: results in order vue, react. `react/Card.js`, `react/forms/Field.js`, `vue/VueOnly.js` exist;
-   `react/VueOnly.js` does not; React `skipped` is `['VueOnly.ucf']`, Vue `skipped` is `[]`. The `.js` files outside
-   `_virtual/` equal the exact expected list per target (one per component with that block, `index.js`,
-   `utils/cx.js`, React also `hooks/useToggle.js`).
+Built fixture (`beforeAll`):
+
+1. Layout: results in order vue, react, named `@mf-fixture/ui-vue` and `@mf-fixture/ui-react`. React `skipped` is
+   `['VueOnly.ucf']`, Vue `skipped` is `[]`. The `.js` files equal the exact list per target: one per component with
+   that block, `index.js`, `utils/cx.js`, React also `hooks/useToggle.js`, and the `_virtual/` ones
+   (`Card.module-0`, `Card.script`, `plugin-vue/export-helper`, `multifront/scope-attrs` …). So `react/Card.js`,
+   `react/forms/Field.js`, `vue/VueOnly.js` exist and `react/VueOnly.js` does not.
 2. No `.ucf`: in no file name; in no import / export-from / dynamic import specifier (oxc-parser). `react/Card.js`
    imports `./Icon.js`.
 3. No cross-framework code: React output names no `vue` or `svelte` specifier (or subpath); Vue output no `react`,
    `react-dom` or `svelte`.
 4. Peers external: `react/Counter.js` imports `react`; `react/Card.js` imports `react/jsx-runtime` (the production
-   runtime, pinning the forced production build); no `.map` source under `node_modules`. A copy with
-   `import leftPad from 'left-pad'` in `utils/cx.ts` rejects with the peer-only message naming `left-pad`.
+   runtime, pinning the forced production build); no `.map` source under `node_modules`.
 5. Source map: real `source-map-js` `SourceMapConsumer` on `react/Card.js.map`; the generated `"h2"` JSX call maps to
    the fixture's `src/Card.ucf` (resolved against the map's folder), on the line of `<h2` in the `<react>` block.
-6. `frameworks: ['svelte']` rejects naming `svelte` (no row; 6.8 turns this into a success).
-7. A copy whose `Card.ucf` imports a real file outside `src` rejects with the "outside src" error naming that file.
-8. A copy keeping only `VueOnly.ucf`, built with `frameworks: ['react']`, rejects naming `react` and `src`.
-9. A copy with `index: 'src/missing.ts'` rejects naming that path.
+
+Defaults and options, each on its own `copyLibrary()` copy:
+
+6. A copy with only `lib/VueOnly.ucf` and `lib/index.ts`, built with `src: 'lib'`: one result, vue, with `index.js`.
+7. A copy whose `package.json` has no name: `packages.vue.name` names the package; without it the build rejects with
+   `package.json has no name; set packages.vue.name`.
+8. A copy whose `Button.ucf` imports `~/utils/cx.js`, built with `frameworks: ['react', 'react']`, `index: false` and
+   `vite: {resolve: {alias: {'~': src}}, build: {sourcemap: false}}`: one result, no `.map`, no `index.js`,
+   `Button.js` imports `./utils/cx.js`; a stale file put in the folder is gone after a second build.
+9. Two overlapping builds (`Promise.all`, the short one ending inside the long one) both import `react/jsx-runtime`,
+   and `NODE_ENV` is `test` again after.
+
+Errors, each on its own `copyLibrary()` copy:
+
+10. `import leftPad from 'left-pad'` in `utils/cx.ts` rejects with the peer-only message naming `left-pad`, and
+    leaves `NODE_ENV` as it was; with `left-pad` in both frameworks' `packages[…].peers` it builds and `utils/cx.js`
+    imports `left-pad`.
+11. `Card.ucf`'s `<react>` block imports `../shared/tokens.js`: rejects with `shared/tokens.ts is outside src`.
+12. A copy with a new `vue-only/VueOnly.ucf`, built with `src: 'vue-only'`, `index: false`, `frameworks: ['react']`:
+    rejects with `no .ucf file in …/vue-only has a <react> block`.
+13. A copy with only a `<svelte>` file in `svelte-only/`: rejects with `nothing to build`.
+14. A `package.json` that does not parse: rejects with `cannot read …package.json: …`.
+15. `src/Badge.ts` beside `Badge.ucf`, exported from `index.ts`: rejects with `… would both be written as Badge.js`.
+16. `index: 'src/missing.ts'`: rejects naming that path.
+17. `frameworks: ['svelte']`: rejects naming `svelte` (no row; 6.8 turns this into a success).
 
 ## Docs
 
@@ -198,10 +229,16 @@ its own fresh temp outDir; every error case uses its own `copyLibrary()` copy an
 
 ## Results
 
-- Shipped as planned. One naming change: a first build gave `_virtual/Card2.style-0.js`, as our CSS style module and
-  class map both named `style-0`; a class map is now `module-<index>`, the same in React and Vue.
-- `library.spec.ts`: 10 cases, all green. Dropping the forced `NODE_ENV` fails the production check
-  (`react/jsx-runtime` missing).
+- Shipped the plan with these changes:
+  - Naming: a first build gave `_virtual/Card2.style-0.js`, as our CSS style module and class map both named
+    `style-0`; a class map is now `module-<index>`, the same in React and Vue.
+  - The "outside src" error comes from the guard's `load` hook, not from the naming function.
+  - Test 12 builds a new `vue-only/` folder rather than deleting files from the copy.
+  - The review's fixes: the default index sits in `src`, overlapping builds share one `NODE_ENV` swap, an empty build,
+    an unparsable `package.json` and two modules with one name are errors, a framework named twice builds once,
+    `LibraryTarget` moved to `types.ts`.
+- `library.spec.ts`: 17 cases, all green; each review fix's case failed without its fix. Dropping the forced
+  `NODE_ENV` fails the production check (`react/jsx-runtime` missing).
 - The fixture's Svelte blocks compile with plugin-svelte (checked by hand, not committed).
 
 ## Fuzzing
@@ -220,7 +257,7 @@ module ids, checked on a fixed real fixture; no cheap oracle beyond test 2.
 - `buildLibrary({root, outDir})` writes `dist/react/` and `dist/vue/`, one JS file per component and per plain module,
   named without `.ucf`. Peers external; any other bare import fails with the peer-only error.
 - `buildLibrary`, `defineLibrary`, `LibraryOptions`, `LibraryResult` exported from `@multifront/vite`;
-  `libraryTargets` and `LibraryTarget` in `targets.ts`.
+  `libraryTargets` in `targets.ts`, `LibraryTarget` in `types.ts`.
 - `packages/e2e/build/library.spec.ts` passes, every case; `pnpm devx check` passes.
 - `docs/architecture.md` and the milestone doc updated; todo moved to `docs/done/`.
 - The simplify-comments pass ran on every touched source file, committed on its own.
