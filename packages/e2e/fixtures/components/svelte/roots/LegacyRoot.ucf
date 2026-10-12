@@ -1,0 +1,6 @@
+<svelte>
+  <script lang="ts">
+    export let label = 'legacy'
+  </script>
+  <p class="shape"><span class="inner">{label}</span></p>
+</svelte>

@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let count = $state(1)
+let __ucfRest = $props();
+  </script>
+  <button {...__ucfScopeAttrs(__ucfRest)} class="shape" onclick={() => count++}><span class="inner">{count}</span></button>

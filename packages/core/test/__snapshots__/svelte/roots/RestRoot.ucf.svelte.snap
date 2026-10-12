@@ -1,0 +1,6 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let { label = 'rest', ...rest }: { label?: string; note?: string } = $props()
+  </script>
+  <p {...__ucfScopeAttrs(rest)} class="shape"><span class="inner">{label} / {rest.note ?? 'no note'}</span></p>

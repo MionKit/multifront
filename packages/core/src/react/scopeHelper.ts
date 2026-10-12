@@ -13,15 +13,15 @@ const SCOPE_ATTRS_CODE = `export function ${SCOPE_ATTRS}(props) {
 }
 `;
 
-// Mirrors Vue's multi-root warning.
+// Mirrors Vue's multi-root warning; Svelte passes its own `problem` and `fix`.
 const WARN_FRAGMENT_CODE = `const warned = new Set();
-export function ${WARN_FRAGMENT}(props, name) {
+export function ${WARN_FRAGMENT}(props, name, problem = 'renders a fragment root', fix = 'Render one root element instead.') {
   if (warned.has(name)) return;
   const keys = Object.keys(${SCOPE_ATTRS}(props));
   if (keys.length === 0) return;
   warned.add(name);
   console.warn(
-    \`[multifront] <\${name}> renders a fragment root, so no element receives \${keys.join(', ')} and its parent's scoped styles miss it. Render one root element instead.\`
+    \`[multifront] <\${name}> \${problem}, so no element receives \${keys.join(', ')} and its parent's scoped styles miss it. \${fix}\`
   );
 }
 `;

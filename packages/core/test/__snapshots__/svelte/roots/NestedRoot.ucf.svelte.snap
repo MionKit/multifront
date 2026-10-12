@@ -1,0 +1,20 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let props = $props()
+    const value = $derived(Promise.resolve(String(props.value ?? 'then')))
+  </script>
+  {#key props.value}
+    <svelte:boundary>
+      {#await value}
+        <p {...__ucfScopeAttrs(props)} class="shape"><span class="inner">pending</span></p>
+      {:then text}
+        <div {...__ucfScopeAttrs(props)} class="shape"><span class="inner">{text}</span></div>
+      {:catch}
+        <section {...__ucfScopeAttrs(props)} class="shape"><span class="inner">catch</span></section>
+      {/await}
+      {#snippet failed()}
+        <section {...__ucfScopeAttrs(props)} class="shape"><span class="inner">failed</span></section>
+      {/snippet}
+    </svelte:boundary>
+  {/key}

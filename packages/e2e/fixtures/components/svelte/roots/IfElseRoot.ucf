@@ -1,0 +1,18 @@
+<svelte>
+  <script lang="ts">
+    let { branch, }: { branch: string } = $props()
+  </script>
+  {#if branch === 'a'}
+    <div class="shape"><span class="inner">a</span></div>
+  {:else if branch === 'b'}
+    <p class="shape"><span class="inner">b</span></p>
+  {:else}
+    <section class="shape"><span class="inner">c</span></section>
+  {/if}
+</svelte>
+
+<style scoped>
+.inner {
+  font-style: italic;
+}
+</style>

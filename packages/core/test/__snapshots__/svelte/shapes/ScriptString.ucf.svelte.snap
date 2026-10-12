@@ -2,8 +2,10 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/ScriptString.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/ScriptString.ucf?ucf&type=style&index=0&module&lang.js";
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
     const html = '<div>'
     const other = "<p class='x'>"
     const template = `<span>${html}</span>`
+;__ucfWarnFragment($$props, "ScriptString", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
   </script>
   <p data-v-dbf8d2d7="" class={__ucfStyle.text}>{html} {other} {template}</p>

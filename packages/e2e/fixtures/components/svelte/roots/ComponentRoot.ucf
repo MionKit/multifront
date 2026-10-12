@@ -1,0 +1,9 @@
+<svelte>
+  <script lang="ts">
+    import SvelteElementRoot from './SvelteElementRoot.ucf'
+
+    let { label = 'component' }: { label?: string } = $props()
+  </script>
+  <!-- The child's root gets this file's scope and its parent's. -->
+  <SvelteElementRoot tag="article" {label} />
+</svelte>

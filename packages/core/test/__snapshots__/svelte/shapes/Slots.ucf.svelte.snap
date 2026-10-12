@@ -2,8 +2,10 @@
   <script>
 import "<fixtures>/components/svelte/shapes/Slots.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/Slots.ucf?ucf&type=style&index=0&module&lang.js";
+import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
     export let depth = 0
     export let Child
+;__ucfWarnFragment($$props, "Slots", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
   </script>
   <div data-v-9c614837="" class={__ucfStyle.box}>
     <slot><p data-v-9c614837="" class={__ucfStyle.note}>Fallback</p></slot>

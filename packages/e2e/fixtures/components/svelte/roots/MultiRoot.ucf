@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'first' }: { label?: string } = $props()
+  </script>
+  <p class="shape"><span class="inner">{label}</span></p>
+  <p>second</p>
+</svelte>

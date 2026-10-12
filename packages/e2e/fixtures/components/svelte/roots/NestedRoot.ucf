@@ -1,0 +1,20 @@
+<svelte>
+  <script lang="ts">
+    let props = $props()
+    const value = $derived(Promise.resolve(String(props.value ?? 'then')))
+  </script>
+  {#key props.value}
+    <svelte:boundary>
+      {#await value}
+        <p class="shape"><span class="inner">pending</span></p>
+      {:then text}
+        <div class="shape"><span class="inner">{text}</span></div>
+      {:catch}
+        <section class="shape"><span class="inner">catch</span></section>
+      {/await}
+      {#snippet failed()}
+        <section class="shape"><span class="inner">failed</span></section>
+      {/snippet}
+    </svelte:boundary>
+  {/key}
+</svelte>

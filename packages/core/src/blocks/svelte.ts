@@ -4,7 +4,11 @@ import {freshName} from '../ast.ts';
 import {DiagnosticsError, createDiagnostic, styleInsideTarget} from '../diagnostics.ts';
 import {loadSvelteCompiler} from '../compilers.ts';
 import {frameworkInBlock} from '../imports/rewrite.ts';
+import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import {topLevelTags} from '../scan.ts';
+import {isNode, walk} from '../svelte/ast.ts';
+import type {Node} from '../svelte/ast.ts';
+import {ELEMENTS, forwardScope} from '../svelte/forward.ts';
 import type {Block, BlockKind, BuildContext, Diagnostic, SplitResult, StyleModule, VirtualFile} from '../types.ts';
 
 const VOID_ELEMENTS: ReadonlySet<string> = new Set(
@@ -16,27 +20,8 @@ const RUNES: ReadonlySet<string> = new Set(['state', 'derived', 'effect', 'props
 // Not references: a property key, an import or export name.
 const NAME_KEYS: ReadonlySet<string> = new Set(['key', 'imported', 'exported', 'local']);
 
-type Node = AST.BaseNode & Record<string, unknown>;
 type Statement = AST.Script['content']['body'][number];
 type Pattern = Extract<Statement, {type: 'VariableDeclaration'}>['declarations'][number]['id'];
-
-const isNode = (value: unknown): value is Node =>
-  typeof value === 'object' && value !== null && typeof (value as Node).type === 'string';
-
-// `visit` returning false skips the node's children.
-type Visit = (node: Node, parent: Node | undefined, key: string) => false | void;
-
-function walk(value: unknown, visit: Visit, parent?: Node, key = ''): void {
-  if (Array.isArray(value)) {
-    for (const item of value) walk(item, visit, parent, key);
-    return;
-  }
-  if (!isNode(value)) return;
-  if (visit(value, parent, key) === false) return;
-  for (const [childKey, child] of Object.entries(value)) {
-    if (typeof child === 'object' && child !== null) walk(child, visit, value, childKey);
-  }
-}
 
 function patternNames(pattern: Pattern | null, names: Set<string>): void {
   if (pattern?.type === 'Identifier') names.add(pattern.name);
@@ -57,6 +42,22 @@ function topLevelNames(scripts: (AST.Script | null)[]): Set<string> {
       if (node.type === 'ImportDeclaration') for (const {local} of node.specifiers) names.add(local.name);
       else if (node.type === 'VariableDeclaration') for (const {id} of node.declarations) patternNames(id, names);
       else if (node.type === 'FunctionDeclaration' || node.type === 'ClassDeclaration') patternNames(node.id, names);
+    }
+  }
+  return names;
+}
+
+// `const state = $state(0)`: a top-level name whose value is a rune call keeps `$state` a rune.
+function runeDeclared(scripts: (AST.Script | null)[]): Set<string> {
+  const names = new Set<string>();
+  for (const script of scripts) {
+    for (const node of (script?.content.body ?? []) as unknown as Node[]) {
+      if (node.type !== 'VariableDeclaration') continue;
+      for (const {id, init} of node.declarations as {id: Pattern; init: unknown}[]) {
+        const callee = isNode(init) && init.type === 'CallExpression' ? (init.callee as Node) : undefined;
+        const rune = callee?.type === 'MemberExpression' ? (callee.object as Node) : callee;
+        if (rune?.type === 'Identifier' && RUNES.has((rune.name as string).slice(1))) patternNames(id, names);
+      }
     }
   }
   return names;
@@ -84,11 +85,14 @@ function styleUses(
   root: AST.Root,
   block: Block,
   ctx: BuildContext
-): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>} {
+): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>; runes: boolean} {
   const stores = topLevelNames([root.module, root.instance]);
+  const runeNames = runeDeclared([root.module, root.instance]);
   const missing: Diagnostic[] = [];
   const uses: StyleUse[] = [];
   const names = new Set<string>();
+  // Svelte's own switch: `<svelte:options runes>`, else any rune reference.
+  let runes = false;
   // `<Child {$style} />`: the attribute is passed on as a prop named `$style`.
   const shorthandAttributes = new Map<Node, Node>();
   const visit = (node: Node, parent: Node | undefined, key: string): void => {
@@ -100,10 +104,14 @@ function styleUses(
     const name = node.name as string;
     names.add(name);
     const bare = name.slice(1);
-    if (!name.startsWith('$') || bare === '' || bare.startsWith('$') || RUNES.has(bare)) return;
+    if (!name.startsWith('$') || bare === '' || bare.startsWith('$')) return;
     // `($style as X)` is a use; a TS type name or `{$x: 1}`, `o.$x` is not.
     const property = NAME_KEYS.has(key) || (key === 'property' && parent?.type === 'MemberExpression');
     if ((property && !parent?.computed) || (parent?.type.startsWith('TS') && key !== 'expression')) return;
+    if (RUNES.has(bare)) {
+      runes ||= !stores.has(bare) || runeNames.has(bare);
+      return;
+    }
     const module = classMap(bare, ctx);
     if (module) {
       const attribute = shorthandAttributes.get(node);
@@ -124,7 +132,8 @@ function styleUses(
     missing.push(createDiagnostic(ctx.split, 'missing-style-module', start, block.contentStart + node.end, message));
   };
   for (const part of [root.module, root.instance, root.fragment]) walk(part, visit);
-  return {missing: missing.sort((first, second) => first.start - second.start), uses, names};
+  runes = root.options?.runes ?? runes;
+  return {missing: missing.sort((first, second) => first.start - second.start), uses, names, runes};
 }
 
 // `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
@@ -140,15 +149,13 @@ function localNames(uses: StyleUse[], used: Set<string>): Map<StyleModule, strin
   return locals;
 }
 
-// Elements and components; `<svelte:head>` content is the document's, not the component's.
-const STAMPED: ReadonlySet<string> = new Set(['RegularElement', 'SvelteElement', 'Component', 'SvelteComponent', 'SvelteSelf']);
-
 function stampScope(text: MagicString, root: AST.Root, block: Block, ctx: BuildContext): void {
   const stamp = ` data-v-${ctx.scopeId}=""`;
   walk(root.fragment, (node) => {
+    // `<svelte:head>` content is the document's, not the component's.
     if (node.type === 'SvelteHead') return false;
     // Svelte allows no space after `<`: the name ends `name.length` after it.
-    if (STAMPED.has(node.type)) text.appendLeft(block.contentStart + node.start + 1 + (node.name as string).length, stamp);
+    if (ELEMENTS.has(node.type)) text.appendLeft(block.contentStart + node.start + 1 + (node.name as string).length, stamp);
     return undefined;
   });
 }
@@ -172,7 +179,7 @@ function parseBlock(block: Block, ctx: BuildContext): AST.Root {
 // The compiler rules run here, not in `check`: core checks never load a compiler.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const root = parseBlock(block, ctx);
-  const {missing, uses, names: used} = styleUses(root, block, ctx);
+  const {missing, uses, names: used, runes} = styleUses(root, block, ctx);
   if (missing.length > 0) throw new DiagnosticsError(missing);
 
   // Over the whole .ucf source, so the map points straight into the .ucf file.
@@ -188,19 +195,29 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     text.overwrite(block.contentStart + start, block.contentStart + end, replacement);
   }
   if (ctx.hasScoped) stampScope(text, root, block, ctx);
+  const {helpers, lines} = forwardScope(text, root, block, ctx, used, runes);
 
   // JSON quoting keeps any path a valid string.
   const imports = [
     ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
     ...[...locals].map(([{id}, local]) => `import ${local} from ${JSON.stringify(id)};`),
+    ...(helpers.length > 0 ? [`import {${helpers.join(', ')}} from ${JSON.stringify(SCOPE_HELPER_ID)};`] : []),
   ];
   // Module script imports also reach the instance script and markup; not the reverse.
   const script = root.module ?? root.instance;
+  const added: string[] = [];
   if (script) {
     // Svelte sets `start` on the script's Program (right after the opening tag); its estree type leaves it out.
     const {start} = script.content as unknown as AST.BaseNode;
     text.appendLeft(block.contentStart + start, imports.map((line) => `\n${line}`).join(''));
-  } else if (imports.length > 0) text.prependRight(block.contentStart, `<script>\n${imports.join('\n')}\n</script>`);
+  } else added.push(...imports);
+  if (lines.length > 0 && root.instance) {
+    // After the last statement, so `$props()` is declared before the warning reads it.
+    const content = root.instance.content as unknown as AST.BaseNode & {body: AST.BaseNode[]};
+    const end = content.body.at(-1)?.end ?? content.start;
+    text.appendLeft(block.contentStart + end, lines.map((line) => `\n${line}`).join(''));
+  } else added.push(...lines);
+  if (added.length > 0) text.prependRight(block.contentStart, `<script>\n${added.join('\n')}\n</script>`);
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }
