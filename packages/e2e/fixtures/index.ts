@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
-import {readdirSync, readFileSync} from 'node:fs';
-import {cp, mkdir, mkdtemp, rename, rm, writeFile} from 'node:fs/promises';
+import {existsSync, readdirSync, readFileSync} from 'node:fs';
+import {cp, mkdir, mkdtemp, rename, rm, symlink, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -35,9 +36,45 @@ export async function copyLibrary(): Promise<string> {
   return root;
 }
 
-/** A `copyLibrary()` copy or a temp out dir beside it. */
+const OUTSIDE_PREFIX = 'mf-library-';
+// The repo's installed packages, then the e2e package's own (the workspace packages).
+const INSTALLED = [join(FIXTURES_DIR, '..', '..', '..', 'node_modules'), join(FIXTURES_DIR, '..', 'node_modules')];
+
+function packagesIn(dir: string): string[] {
+  return readdirSync(dir)
+    .filter((name) => !name.startsWith('.'))
+    .flatMap((name) => (name.startsWith('@') ? readdirSync(join(dir, name)).map((scoped) => `${name}/${scoped}`) : [name]));
+}
+
+/**
+ * A copy in the OS temp dir, outside the workspace, so nothing resolves from above it. Its `node_modules` links the
+ * packages the repo installed, except `without`: a library that never installed them.
+ */
+export async function copyLibraryOutside(without: string[]): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), OUTSIDE_PREFIX));
+  try {
+    await cp(LIBRARY_DIR, root, {recursive: true, filter: (source) => basename(source) !== 'node_modules'});
+    const modules = join(root, 'node_modules');
+    for (const dir of INSTALLED) {
+      for (const name of packagesIn(dir)) {
+        const link = join(modules, name);
+        if (without.includes(name) || existsSync(link)) continue;
+        await mkdir(dirname(link), {recursive: true});
+        // A junction needs no rights on Windows; elsewhere the type is ignored.
+        await symlink(join(dir, name), link, 'junction');
+      }
+    }
+  } catch (err) {
+    await rm(root, {recursive: true, force: true});
+    throw err;
+  }
+  return root;
+}
+
+/** A `copyLibrary()` or `copyLibraryOutside()` copy, or a temp out dir beside the first. */
 export async function removeLibrary(root: string): Promise<void> {
-  if (dirname(root) !== TMP_DIR) throw new Error(`not a temp library folder: ${root}`);
+  const outside = dirname(root) === tmpdir() && basename(root).startsWith(OUTSIDE_PREFIX);
+  if (dirname(root) !== TMP_DIR && !outside) throw new Error(`not a temp library folder: ${root}`);
   await rm(root, {recursive: true, force: true});
 }
 

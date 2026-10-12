@@ -8,7 +8,7 @@ import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {multifront} from '../plugin.ts';
 import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
-import {fileOf, insideDir, outputName, shownFile} from './names.ts';
+import {fileOf, filesIn, insideDir, outputName, shownFile} from './names.ts';
 import {libraryTargets} from './targets.ts';
 import {libraryUseClient} from './useClient.ts';
 
@@ -79,14 +79,6 @@ async function libraryName(root: string): Promise<string | undefined> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw new Error(`buildLibrary: cannot read ${file}: ${(err as Error).message}`, {cause: err});
   }
-}
-
-async function writtenFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, {recursive: true, withFileTypes: true});
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => normalizePath(relative(dir, join(entry.parentPath, entry.name))))
-    .sort();
 }
 
 /** Peers stay external; any other package or file outside `src` fails. */
@@ -185,7 +177,7 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   };
   await build(options.vite ? mergeConfig(config, options.vite) : config);
   if (options.dts !== false) await row.emitTypes({target, root, src, outDir, modules: [...modules].sort()});
-  return {target, outDir, packageName: job.packageName, files: await writtenFiles(outDir), skipped: job.skipped};
+  return {target, outDir, packageName: job.packageName, files: await filesIn(outDir), skipped: job.skipped};
 }
 
 /** One real `vite build` per framework: `<outDir>/<framework>/` gets one ES module per component and plain module. */

@@ -1,4 +1,5 @@
-import {posix, relative} from 'node:path';
+import {readdir} from 'node:fs/promises';
+import {join, posix, relative} from 'node:path';
 import {normalizePath} from 'vite';
 import {splitId, virtualTarget} from '../ids.ts';
 
@@ -49,4 +50,13 @@ export function outputName(id: string, src: string): string {
   if (relative === undefined) throw new Error(`${file} is outside the library's src folder ${src}`);
   const base = relative.endsWith('.ucf') ? relative.slice(0, -'.ucf'.length) : relative.replace(SCRIPT_EXT, '');
   return query.size === 0 ? base : `${VIRTUAL_DIR}/${base}.${subModuleName(query)}`;
+}
+
+/** Every file below `dir`, relative and posix, sorted. */
+export async function filesIn(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, {recursive: true, withFileTypes: true});
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => normalizePath(relative(dir, join(entry.parentPath, entry.name))))
+    .sort();
 }
