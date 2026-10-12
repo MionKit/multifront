@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.1
@@ -74,7 +74,9 @@ export const libraryTargets = {
 
 ### `buildLibrary` and `defineLibrary` (`packages/vite/src/library/build.ts`)
 
-Both exported from `packages/vite/src/index.ts`, plus `export type {LibraryOptions, LibraryResult}`.
+Both exported from `packages/vite/src/index.ts`, plus `export type {LibraryOptions, LibraryResult}`. `multifront()` moves
+from `index.ts` to `plugin.ts` (`index.ts` only re-exports): `build.ts` calls it, and oxlint's `import/no-cycle`
+forbids `build.ts` importing `index.ts`.
 
 - `defineLibrary(options)` returns its argument, typed.
 - Options: `root` resolved from cwd; `src`, `outDir`, `index` against root. `index` defaults to `src/index.ts` only when
@@ -104,7 +106,7 @@ Both exported from `packages/vite/src/index.ts`, plus `export type {LibraryOptio
 | --- | --- |
 | `X.ucf`, `X.ucf.react.tsx`, `X.ucf.svelte.svelte` | relative to `src`, no `.ucf` or target suffix: `Card`, `forms/Field` |
 | plain module `.ts` / `.tsx` / `.js` / `.mts` … | relative path minus its extension: `utils/cx`, `index` |
-| a `.ucf` path with a query (our class map, plugin-vue's sub-modules) | `_virtual/<rel>.<type>[-<index>]`: `_virtual/Card.style-0`, `_virtual/Card.script` |
+| a `.ucf` path with a query (our class map, plugin-vue's sub-modules) | `_virtual/<rel>.<type>[-<index>]`, a class map (ours flags `module`, plugin-vue's `lang.module.css`) as `module`: `_virtual/Card.module-0`, `_virtual/Card.script`; a CSS-only style module is `style-0`, a chunk Rolldown never writes |
 | `\0` ids | `_virtual/` + the id without `\0` and a leading `virtual:`, `:` → `/`, unsafe characters → `_`: `_virtual/multifront/scope-attrs` |
 | a real file outside `src` | build error naming the file: its output path would leave the target folder |
 
@@ -149,7 +151,9 @@ resolve up the tree.
 
 - `packages/e2e/fixtures/index.ts`: `LIBRARY_DIR`, `copyLibrary(): Promise<string>` (fresh copy under `TMP_DIR`),
   `removeLibrary(root)` (checks the folder sits in `TMP_DIR`).
-- `packages/e2e/build/lib/library.ts`: builds a library into a fresh `TMP_DIR/library-dist-*` outDir.
+- `packages/e2e/build/lib/library.ts`: `buildFixtureLibrary(root?, options?)` builds into a fresh
+  `TMP_DIR/library-dist-*` outDir (Vite's logger silent, as the other build helpers), `withEditedLibrary(edits, run)`
+  runs on an edited copy, `specifiersOf(file, code)` lists a module's specifiers through oxc-parser.
 
 ### Dependencies
 
@@ -192,6 +196,14 @@ its own fresh temp outDir; every error case uses its own `copyLibrary()` copy an
 - Milestone doc: `- Status: done` on 6.1; step text names `names.ts`, the `_virtual/<file>.<type>-<index>` rule and
   `cssFileName: 'styles'` (6.2 replaces the CSS layout).
 
+## Results
+
+- Shipped as planned. One naming change: a first build gave `_virtual/Card2.style-0.js`, as our CSS style module and
+  class map both named `style-0`; a class map is now `module-<index>`, the same in React and Vue.
+- `library.spec.ts`: 10 cases, all green. Dropping the forced `NODE_ENV` fails the production check
+  (`react/jsx-runtime` missing).
+- The fixture's Svelte blocks compile with plugin-svelte (checked by hand, not committed).
+
 ## Fuzzing
 
 Not a candidate: the step rewrites no text and keeps no offsets. The naming function is a small total mapping over
@@ -209,6 +221,6 @@ module ids, checked on a fixed real fixture; no cheap oracle beyond test 2.
   named without `.ucf`. Peers external; any other bare import fails with the peer-only error.
 - `buildLibrary`, `defineLibrary`, `LibraryOptions`, `LibraryResult` exported from `@multifront/vite`;
   `libraryTargets` and `LibraryTarget` in `targets.ts`.
-- `packages/e2e/build/library.spec.ts` passes with all nine cases; `pnpm devx check` passes.
+- `packages/e2e/build/library.spec.ts` passes, every case; `pnpm devx check` passes.
 - `docs/architecture.md` and the milestone doc updated; todo moved to `docs/done/`.
 - The simplify-comments pass ran on every touched source file, committed on its own.
