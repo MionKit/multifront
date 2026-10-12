@@ -97,7 +97,7 @@ function types(block: Block, ctx: EditorContext): EditorFile | undefined {
 function editor(block: Block, ctx: EditorContext): VirtualCode[] {
   const script = svelteTypes(block, ctx);
   if (!script) {
-    // Markup Svelte cannot parse yet: importers keep the last script's types. Its offsets are stale, so nothing maps.
+    // Unparsable markup: importers keep the last script's types; its offsets are stale, so nothing maps.
     const last = ctx.previous?.embeddedCodes?.find(({id}) => id === 'svelte');
     return last ? [{...last, mappings: []}] : [];
   }
