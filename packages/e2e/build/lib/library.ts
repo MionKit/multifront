@@ -104,7 +104,7 @@ export async function copyLibraryChecks(outDir: string): Promise<string> {
   return checks;
 }
 
-/** A real `tsc` / `vue-tsc --noEmit`; resolves with its output, empty when it passed. */
+/** Resolves with the checker's output, empty when it passed. */
 export async function typeCheck(checker: keyof typeof TYPE_CHECKERS, dir: string, project: string): Promise<string> {
   try {
     const {stdout, stderr} = await promisify(execFile)(
@@ -128,10 +128,7 @@ await buildLibrary(JSON.parse(process.argv[1])).catch((err) => {
 });
 `;
 
-/**
- * `buildLibrary()` in its own Node process, without the `NODE_PATH` pnpm's bin shim sets into the repo's packages:
- * a library outside the workspace finds only what it installed. Resolves with the build's error, empty when it passed.
- */
+/** Without pnpm's `NODE_PATH`: an outside library finds only what it installed. Resolves with the error, or ''. */
 export async function buildInFreshNode(root: string, options: LibraryOptions): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
   const outDir = await mkdtemp(join(TMP_DIR, 'library-dist-'));
