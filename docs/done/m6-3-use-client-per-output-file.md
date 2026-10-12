@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.3
@@ -51,9 +51,10 @@ survives; a plain `.ts` module's own directive is kept by Rolldown; Rolldown log
 
 ### Vite: the React target's `load` records it
 
-- `packages/vite/src/plugin.ts`, `load`, the React target branch (`return built(...)`): the result also carries
+- `packages/vite/src/plugin.ts`, `load`, the React target branch: the result also carries
   `meta: {multifront: {useClient: needsUseClient(block.content, file)}}`, from the split's `<react>` block.
-- The meta shape is one type in `packages/vite/src/types.ts`; reading it is one helper beside the library plugin.
+- The meta shape is `UcfModuleMeta` in `packages/vite/src/types.ts`; the library plugin reads it with
+  `this.getModuleInfo(facade).meta.multifront`.
 
 ### Vite: `packages/vite/src/library/useClient.ts`, `libraryUseClient(): Plugin`
 
@@ -65,7 +66,6 @@ survives; a plain `.ts` module's own directive is kept by Rolldown; Rolldown log
   that had it) or the facade module's meta says `useClient`. Not needed, or already exactly one as the first
   statement → `null`. Else MagicString: remove each `existing` statement plus its trailing newline, prepend
   `"use client";\n`, return `{code, map: generateMap({hires: 'boundary'})}`.
-- `componentFile()` moves from `packages/vite/src/library/css.ts` to `names.ts` if both plugins need it.
 
 ### Wiring
 
@@ -97,6 +97,18 @@ No new test infrastructure: all run inside `pnpm devx test` (this host; CI's `ch
      (an `onClick`, no `<style>`) gets it first, once, and imports no CSS.
 3. `packages/e2e/build/library-css.spec.ts`, "starts each component's JS with an import of its own CSS file": for the
    three React client files it expects `"use client";\n` before the CSS import line.
+
+## Results
+
+- Shipped the plan, with these changes:
+  - The library plugin reads the module meta of the chunk's facade directly, so it does not need `componentFile()`;
+    that helper stays in `css.ts`.
+  - The statement type comes from Rolldown's `this.parse` (`@multifront/vite` has no `oxc-parser` dependency).
+  - Rolldown 1.2.8 itself drops a `"use client"` that a `renderChunk` left below an import (checked with plain
+    Rolldown, no Vite). The plugin still removes it, so "never twice" does not lean on that; no test can tell the two
+    apart.
+- `useClient.spec.ts`: 18 cases, `library-use-client.spec.ts`: 5 cases, all green. The plugin's prepend, its source map
+  and the `load` meta each make a case fail when removed (checked). `pnpm devx check` passes.
 
 ## Docs
 
