@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.6
@@ -45,6 +45,13 @@ So no `@multifront/vite` or core change is needed: this step adds the app, the t
 - Orchestrator: the `/items` route is in scope. Hydration keeps the server's attributes, so only a client-rendered
   element can show a client id that differs.
 - Orchestrator: no fuzz test (5.7 is the Svelte fuzz).
+- Found while building (automatic): SvelteKit's client build calls `vite.build({configFile})`, which loads
+  `vite.config.ts` with Vite's bundling loader. That loader resolves `@multifront/vite` without the `source`
+  condition, to `packages/vite/dist/`: here a stale copy (our `load` never ran for the client), in CI's `check` job
+  (Test before Build) a missing one. Fixed in the fixture: `vite.config.ts` imports `@multifront/vite` through a
+  computed specifier, which the bundler leaves to Node (`--conditions=source`). Measured: the spec passes with
+  `packages/vite/dist/` removed; `docs/milestones/README.md`'s "Fixture configs from source" row says so.
+- Found while building: a build splits the CSS per route chunk, so the test reads every `<link rel="stylesheet">`.
 
 ## Plan
 
@@ -55,7 +62,8 @@ So no `@multifront/vite` or core change is needed: this step adds the app, the t
    - `package.json`: `{"name": "sveltekit-src", "private": true, "type": "module"}`. adapter-node reads it from the cwd
      at build time; Vite's dep cache stays inside the copy. Outside the `packages/*` workspace glob.
    - `svelte.config.js`: `kit: {adapter: adapter()}` from `@sveltejs/adapter-node`.
-   - `vite.config.ts`: `plugins: [multifront(), sveltekit()]`.
+   - `vite.config.ts`: `plugins: [multifront(), sveltekit()]`, `multifront` from
+     `await import(['@multifront', 'vite'].join('/'))` (see Decisions).
    - `src/app.html`: the standard shell (`%sveltekit.head%`, `<div id="svelte">%sveltekit.body%</div>`,
      `<link rel="icon" href="data:,">` so no favicon 404 reaches the console).
    - `src/routes/+page.svelte`: `../../../../components/Panel.ucf` bare (the `.svelte` importer rule), `Counter.ucf`
@@ -80,10 +88,11 @@ are there. Each describe uses its own `copyApp('sveltekit-src')`, removed after;
 
 `checkPage(url, production)`, shared by every load:
 
-- A `page.addInitScript` MutationObserver keeps the first `section.panel` node the parser inserts.
+- A `page.addInitScript` MutationObserver (a plain JS string: the e2e package has no DOM types) keeps the first
+  `section.panel` node the parser inserts.
 - The navigation response body (server HTML) holds `<section data-v-<panel>="" class="panel"`,
   `<p data-v-<item>="" class="item"`, `<div data-v-<counter>="" class="counter">`, the button with `2`; and the CSS:
-  in dev the inline `<style data-sveltekit>`, after a build the `<link rel="stylesheet">` file (fetched). Both contain
+  in dev the inline `<style data-sveltekit>`, after a build every `<link rel="stylesheet">` file (fetched). Both contain
   `.panel[data-v-<panel>]`, `.item[data-v-<item>]`, `.counter[data-v-<counter>]` and the button's `$style` class from
   the HTML (`hasClass()`).
 - Wait for `body[data-hydrated]`. The kept node is still `document.querySelector('section.panel')` (hydrated, not
@@ -100,14 +109,17 @@ Cases:
 - **Build**: `startViteCli(copy, ['build'], {NODE_ENV: 'production'}).finished()`, then
   `startNodeServer(copy, 'build/index.js')`, `checkPage(url, true)`.
 
-Measured before committing, on a throwaway copy: a `+page.svelte` that renders other markup on the server than on the
-client fails the test.
+Measured before committing: a throwaway edit to our `load` that changes `data-v-` only for the client environment
+fails all three cases (on the `/items` client render). A server/client `{#if}` branch mismatch was no probe: Svelte
+repairs it with no warning.
 
 ## Docs
 
-- `docs/milestones/m5-svelte-target.md` 5.6: `- Status: done`; the Test line says dev checks the inline
-  `<style data-sveltekit>`, a build the CSS link, and "restart" is a new dev server process; names the two routes and
-  the helpers.
+- `docs/milestones/m5-svelte-target.md` 5.6: `- Status: done`; the text says dev checks the inline
+  `<style data-sveltekit>`, a build the CSS links, and "restart" is a new dev server process; names the two routes,
+  the computed config import and the helpers. "Hands to later milestones" gives M6 the kit pins and
+  `startNodeServer()`.
+- `docs/milestones/README.md`: the "Fixture configs from source" row notes SvelteKit's bundling reload.
 - `spec.md`, `plan.md`, `architecture.md`: none (no plugin change, no new decision, no structure change).
   `publicdocs/`: none (the milestone's docs writer covers SvelteKit setup).
 
