@@ -108,7 +108,7 @@ describe('buildLibrary(): one JS file per component, per target', () => {
   it('maps the JSX in react/Card.js back to its line in Card.ucf', () => {
     const code = read('react', 'Card.js');
     const consumer = new SourceMapConsumer(JSON.parse(read('react', 'Card.js.map')) as RawSourceMap);
-    // Several output lines of one JSX element map to one source line: `return` is alone on its own.
+    // One JSX element's output lines all map to one source line; `return` maps to a line of its own.
     const offset = code.indexOf('return /* @__PURE__ */ jsxs("article"');
     const before = code.slice(0, offset).split('\n');
     const original = consumer.originalPositionFor({line: before.length, column: before.at(-1)!.length});

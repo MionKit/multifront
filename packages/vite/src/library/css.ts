@@ -12,7 +12,7 @@ function isStyleId(id: string): boolean {
   return path.endsWith('.ucf') && query.get('type') === 'style';
 }
 
-// `Card.js` for `/abs/Card.ucf` or `/abs/Card.ucf.react.tsx`, not a sub-module.
+// The `.ucf` file of a component's own chunk (`/abs/Card.ucf` or `/abs/Card.ucf.react.tsx`), not a sub-module's.
 function componentFile(id: string | null): string | undefined {
   if (!id || splitId(id).query.size > 0) return undefined;
   const file = fileOf(id);
@@ -23,11 +23,11 @@ function cssName(file: string, src: string): string {
   return `${outputName(file, src)}.css`;
 }
 
-/** One `Card.css` per component, imported by `Card.js`, plus every one of them in `styles.css`, dependencies first. */
+/** A `Card.css` per component, imported by `Card.js`; `styles.css` joins them all, dependencies first. */
 export function libraryCss(root: string, src: string): Plugin {
   // `.ucf` files with a style block Vite's CSS step compiles (not our class map, a JS module).
   const styled = new Set<string>();
-  // Vite's CSS file of one `<style>` block → the `.ucf` file it belongs to and the block's index.
+  // Keyed by Vite's CSS file of one `<style>` block.
   const blocks = new Map<string, {file: string; index: number}>();
   const shown = (file: string) => shownFile(root, file);
   return {
