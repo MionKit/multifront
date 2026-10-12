@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.6
@@ -141,7 +141,15 @@ Build area, `packages/e2e/build/library-types.spec.ts`. `beforeAll`: `buildFixtu
 New fixture `packages/e2e/fixtures/library-checks/`: `react.tsx`, `Check.vue`, `tsconfig.react.json`,
 `tsconfig.vue.json` (options written out in full, each including only its check file).
 
-The other library specs keep the default `dts: true`, so their builds also prove the types compile.
+The other library specs keep the default `dts: true`, so their builds also prove the types compile. What that took:
+
+- `copyLibrary()` (`fixtures/index.ts`) no longer copies the fixture's `node_modules`: the stages of library builds running
+  in parallel live there, and a copy taken mid-build carried them along.
+- `library.spec.ts`, the `vite` option case: its alias `~` exists only in Vite config, which never reaches tsc (milestone
+  risk), so that build sets `dts: false`. What it checks is unchanged.
+- `library.spec.ts`, the `left-pad` peer case: the copy also gets `src/left-pad.d.ts` (`declare module 'left-pad'`), as a
+  library with an untyped peer would, and its `cx` takes `(string | undefined)[]` as Badge passes an optional
+  `className`. That also covers an ambient `.d.ts` of `src` as a root.
 
 ## Docs
 
@@ -151,6 +159,9 @@ The other library specs keep the default `dts: true`, so their builds also prove
   milestones": `LibraryTypesJob`, `emitTypes`.
 - `docs/architecture.md:100`: one sentence on the types step.
 - `docs/plan.md:164` and spec 8 already say it. No `publicdocs/` change.
+
+Shipped cost: the listing run adds about one tool start per target (the whole types step is about 2 s for React and 3 s
+for Vue on the fixture).
 
 ## Fuzzing
 
@@ -162,7 +173,7 @@ None: each run spawns tsc or vue-tsc, and the checks over the fixture are the or
 - `.d.ts` maps.
 - Svelte types (6.8).
 - `package.json` `types` / `exports` (6.7).
-- A test for the missing-peer message (tracked by its own todo).
+- A test for the missing-peer message (tracked by a guidelines todo filed in this PR).
 
 ## Done when
 
