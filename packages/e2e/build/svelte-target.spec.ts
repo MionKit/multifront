@@ -118,8 +118,8 @@ describe('dev server of svelte-vite', () => {
   it('serves the server-compiled Panel module to SSR, mapped into Panel.ucf', async () => {
     await withSvelteDevServer({}, async (server) => {
       const {result} = await panelModule(server, 'ssr');
-      // Pre-bundled: `svelte/internal/server` is served as `svelte_internal_server.js`.
-      expect(result.code).toMatch(/svelte[/_]internal[/_]server/);
+      // `svelte/internal/server` comes pre-bundled (`svelte_internal_server.js`) or, on plugin-svelte 7.0, as its source.
+      expect(result.code).toMatch(/svelte(?:\/src)?[/_]internal[/_]server/);
       expectPanelMappings(result.map as SourceMapInput);
     });
   });
