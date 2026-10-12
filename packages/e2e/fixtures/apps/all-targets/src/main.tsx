@@ -5,6 +5,9 @@ import Counter from '../../../components/Counter.ucf' with {framework: 'react'};
 import ReactPanel from '../../../components/Panel.ucf' with {framework: 'react'};
 import SveltePanel from '../../../components/Panel.ucf' with {framework: 'svelte'};
 import VuePanel from '../../../components/Panel.ucf' with {framework: 'vue'};
+// No <vue> block: a Svelte edit must never build the Vue target.
+import NoStyle from '../../../components/svelte/NoStyle.ucf' with {framework: 'svelte'};
+import Plain from './Plain.svelte';
 
 createApp(VuePanel, {heading: 'Vue panel'}).mount('#vue');
 createRoot(document.getElementById('react')!).render(
@@ -14,3 +17,5 @@ createRoot(document.getElementById('react')!).render(
   </>
 );
 mount(SveltePanel, {target: document.getElementById('svelte')!, props: {heading: 'Svelte panel'}});
+mount(NoStyle, {target: document.getElementById('no-style')!});
+mount(Plain, {target: document.getElementById('plain')!});

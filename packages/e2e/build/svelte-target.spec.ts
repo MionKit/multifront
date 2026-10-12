@@ -124,14 +124,16 @@ describe('dev server of svelte-vite', () => {
     });
   });
 
-  it('wraps plugin-svelte once across a restart with the same plugins', async () => {
+  it("wraps plugin-svelte's compile and hot update once across a restart with the same plugins", async () => {
     const plugins = [svelte(), multifront()];
-    const compile = plugins.flat().find((plugin) => plugin.name === 'vite-plugin-svelte:compile')!;
-    const handlerOf = () => (compile.transform as {handler: unknown}).handler;
+    const pluginNamed = (name: string) => plugins.flat().find((plugin) => plugin.name === name)!;
+    const compile = pluginNamed('vite-plugin-svelte:compile');
+    const hotUpdate = pluginNamed('vite-plugin-svelte:hot-update');
+    const handlersOf = () => [compile.transform, hotUpdate.hotUpdate].map((hook) => (hook as {handler: unknown}).handler);
     await withSvelteDevServer({configFile: false, plugins}, async (server) => {
-      const wrapped = handlerOf();
+      const wrapped = handlersOf();
       await server.restart();
-      expect(handlerOf()).toBe(wrapped);
+      expect(handlersOf()).toEqual(wrapped);
       expectPanelMappings((await panelModule(server, 'client')).result.map as SourceMapInput);
     });
   });
