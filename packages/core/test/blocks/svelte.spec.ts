@@ -323,8 +323,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
     for (const local of locals) {
       const original = originalPositionFor(map, locate(file!.code, local.index));
       const at = source.slice(offsetOf(source, original.line!, original.column!));
-      // A shorthand `{$style}` is overwritten as a whole: its local maps to the `{`.
-      expect(at).toMatch(/^\{?\$style\b/);
+      expect(at).toMatch(/^\$style\b/);
     }
   });
 
