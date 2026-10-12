@@ -48,12 +48,21 @@ async function expectRootProps(page: Page): Promise<void> {
   // Badge reads className itself: the author wins, so `extra` shows once.
   expect(await classes(page, '[data-case="badge"] > span')).toEqual(['badge', 'extra']);
 
-  // Own's own ref still gets the element, beside the parent's.
+  // Own's own ref still gets the element, beside the parent's; the parent's padding wins over Own's.
   const own = page.locator('[data-case="own"] > section');
   expect(await classes(page, '[data-case="own"] > section')).toEqual(['own', 'extra']);
-  expect(await computed(own, 'padding')).toBe('4px');
+  expect(await computed(own, 'padding')).toBe('8px');
   expect(await computed(own, 'color')).toBe(RED);
   expect(await own.getAttribute('data-own-ref')).toBe('SECTION');
+}
+
+// The parent's callback ref: attached once over two renders (the merged ref is the same one), its own cleanup run on unmount.
+async function expectRefCleanup(page: Page): Promise<void> {
+  const counts = page.locator('output[data-ref="counts"]');
+  await expect.poll(() => counts.getAttribute('data-counts')).toBe('1/0');
+  await page.locator('[data-action="hide-own"]').click();
+  await expect.poll(() => counts.getAttribute('data-counts')).toBe('1/1');
+  expect(await page.locator('[data-case="own"] > *').count()).toBe(0);
 }
 
 describe('vite build and preview', () => {
@@ -73,6 +82,7 @@ describe('vite build and preview', () => {
       const messages = collectConsole(page);
       await page.goto(preview!.url);
       await expectRootProps(page);
+      await expectRefCleanup(page);
       expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
@@ -111,6 +121,7 @@ describe('renderToString, hydrated', () => {
       await page.goto(app!.url);
       await expectRootProps(page);
       expect(await page.evaluate('window.removed')).toEqual([]);
+      await expectRefCleanup(page);
       expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
