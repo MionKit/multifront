@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, componentPath} from '../fixtures/index.ts';
-import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
+import {collectConsole, consoleProblems, computed, launchChromium} from './lib/chromium.ts';
 import {expectSameComputedStyles} from './lib/parity.ts';
 import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
@@ -67,9 +67,6 @@ const ESCAPED: [string, string, string][] = [
   ['SvelteElementRoot:only', 'title', 'a & b'],
 ];
 
-const problems = (messages: ReturnType<typeof collectConsole>) =>
-  messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
-
 let browser: Browser | undefined;
 
 beforeAll(async () => {
@@ -123,7 +120,7 @@ describe.each([
       for (const other of others) await expectSameComputedStyles(vue!, other, properties);
 
       await page.waitForLoadState('networkidle');
-      expect(problems(messages)).toEqual([]);
+      expect(consoleProblems(messages)).toEqual([]);
     });
   });
 
@@ -158,7 +155,7 @@ describe.each([
       }
 
       await page.waitForLoadState('networkidle');
-      const reported = problems(messages);
+      const reported = consoleProblems(messages);
       // Dev warns once per component, however often it renders; a build never does.
       expect(reported.map(({type}) => type)).toEqual(production ? [] : WARNED.map(() => 'warning'));
       if (production) return;

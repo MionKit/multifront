@@ -12,7 +12,7 @@ import {execNode, startViteCli} from '../build/lib/freshProcess.ts';
 import {edit as editOpen, PLUGIN} from '../editor/lib/cases.ts';
 import {E2E_DIR, locate, open, startTsserver, VUE_PLUGIN, VUE_PLUGIN_DIR} from '../editor/lib/tsserver.ts';
 import type {Component} from '../editor/lib/tsserver.ts';
-import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
+import {collectConsole, consoleProblems, computed, launchChromium} from './lib/chromium.ts';
 import {expectSameComputedStyles} from './lib/parity.ts';
 import {editFile, trackHmrPayloads, trackRequests} from './lib/requests.ts';
 import {scopeAttribute} from './lib/scope.ts';
@@ -24,9 +24,6 @@ const PROPERTIES = ['padding', 'color', 'font-size', 'border'];
 // Counter's root, label and button.
 const PARTS = ['', ' .label', ' button'];
 const POLL = {timeout: 10_000};
-
-const problems = (messages: ReturnType<typeof collectConsole>) =>
-  messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
 
 /** Throws on a missing needle, so no test runs against the file unchanged. */
 async function replaceIn(file: string, pairs: [needle: string, text: string][]): Promise<void> {
@@ -80,7 +77,7 @@ describe('milestone 4 exit test', () => {
         await expectSameComputedStyles(page.locator(COUNTERS.react + part), page.locator(COUNTERS.vue + part), PROPERTIES);
       }
       await page.waitForLoadState('networkidle');
-      expect(problems(messages)).toEqual([]);
+      expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
       await app.close();
@@ -139,7 +136,7 @@ describe('milestone 4 exit test', () => {
       await button.click();
       await expect.poll(() => button.textContent()).toBe('3');
       // A mismatch is a `[Vue warn]` warning plus a console error.
-      expect(problems(messages)).toEqual([]);
+      expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
       await server?.close();
@@ -182,7 +179,7 @@ describe('milestone 4 exit test', () => {
       expect(payloads.updatedPaths().map((path) => path.replace(/^\/@fs/, ''))).toEqual([counter]);
       expect(payloads.fullReloads()).toBe(0);
       expect(loads).toBe(1);
-      expect(problems(messages)).toEqual([]);
+      expect(consoleProblems(messages)).toEqual([]);
       // Its `hmr update` line holds the copy's path, which may itself spell "error".
       expect(vite.output().replaceAll(resolve(root, '..', '..'), '')).not.toMatch(/error/i);
     } finally {
