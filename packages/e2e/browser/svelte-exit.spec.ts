@@ -1,9 +1,10 @@
 // Milestone 5 exit test: Panel.ucf as Vue, React and Svelte in one real Vite app, in Chromium.
 import {join, resolve} from 'node:path';
-import type {Browser, Locator, Page} from 'playwright';
+import type {Browser, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, componentPath, copyApp, removeApp} from '../fixtures/index.ts';
-import {collectConsole, computed, launchChromium} from './lib/chromium.ts';
+import {collectConsole, consoleProblems, computed, launchChromium} from './lib/chromium.ts';
+import {styles} from './lib/parity.ts';
 import {editFile, trackHmrPayloads, trackRequests} from './lib/requests.ts';
 import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
@@ -26,9 +27,6 @@ const PROPERTIES = [
 ];
 const POLL = {timeout: 10_000};
 
-const problems = (messages: ReturnType<typeof collectConsole>) =>
-  messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror');
-
 // Every `data-v-*` attribute name an element carries.
 const scopesOf = (page: Page, selector: string) =>
   page.locator(selector).evaluate((element) =>
@@ -37,12 +35,6 @@ const scopesOf = (page: Page, selector: string) =>
       .filter((name: string) => name.startsWith('data-v-'))
       .sort()
   );
-
-async function stylesOf(locator: Locator): Promise<Record<string, string>> {
-  const values: Record<string, string> = {};
-  for (const property of PROPERTIES) values[property] = await computed(locator, property);
-  return values;
-}
 
 let browser: Browser | undefined;
 
@@ -58,7 +50,7 @@ describe.each([
   ['dev', startDev, false],
   ['build', buildAndPreview, true],
 ] as const)('milestone 5 exit test, all-targets %s', (_mode, serve, production) => {
-  let app: {url: string; close(): Promise<void>} | undefined;
+  let app: Awaited<ReturnType<typeof serve>> | undefined;
   let page: Page | undefined;
   let messages: ReturnType<typeof collectConsole> = [];
 
@@ -93,11 +85,12 @@ describe.each([
     // Literal values: parity alone also passes when every target is unstyled.
     expect(await computed(page!.locator('#vue .panel'), 'padding-top')).toBe('16px');
     expect(await computed(page!.locator('#vue .panel .heading'), 'margin-bottom')).toBe('8px');
+    expect(await computed(page!.locator('#vue .panel .heading'), 'color')).toBe('rgb(40, 90, 160)');
     for (const selector of KEY_ELEMENTS) {
-      const vue = await stylesOf(page!.locator(`#vue ${selector}`));
+      const vue = await styles(page!.locator(`#vue ${selector}`), PROPERTIES);
       for (const framework of FRAMEWORKS.slice(1)) {
-        const styles = await stylesOf(page!.locator(`#${framework} ${selector}`));
-        expect({framework, selector, styles}).toEqual({framework, selector, styles: vue});
+        const other = await styles(page!.locator(`#${framework} ${selector}`), PROPERTIES);
+        expect({framework, selector, styles: other}).toEqual({framework, selector, styles: vue});
       }
     }
   });
@@ -119,7 +112,7 @@ describe.each([
 
   it('logged no warning or error', async () => {
     await page!.waitForLoadState('networkidle');
-    expect(problems(messages)).toEqual([]);
+    expect(consoleProblems(messages)).toEqual([]);
   });
 });
 
@@ -155,7 +148,7 @@ describe('milestone 5 exit test, all-targets HMR', () => {
       expect(await count()).toBe('3');
       expect(await page.locator('#vue .panel .heading').textContent()).toBe('Vue panel');
       expect(await page.locator('#react .panel .heading').textContent()).toBe('React panel');
-      expect(problems(messages)).toEqual([]);
+      expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
       await app?.close();

@@ -2,7 +2,7 @@ import type {Locator} from 'playwright';
 import {expect} from 'vitest';
 import {computed} from './chromium.ts';
 
-async function styles(locator: Locator, properties: string[]): Promise<Record<string, string>> {
+export async function styles(locator: Locator, properties: string[]): Promise<Record<string, string>> {
   const values: Record<string, string> = {};
   for (const property of properties) values[property] = await computed(locator, property);
   return values;
