@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.2
@@ -51,7 +51,7 @@ Added to `buildOne()`'s `plugins` (`packages/vite/src/library/build.ts:155`) aft
   query has `type=style`, and for which `isCSSRequest(id)` (from `vite`) is true marks its `.ucf` file as styled. That
   covers `?ucf&type=style&index=0&lang.css` and plugin-vue's `lang.module.css` / `lang.scss`, not our class map
   `…&module&lang.js`.
-- **Prepend the import** (`renderChunk`, `order: 'post'`): a component chunk (facade id with no query,
+- **Prepend the import** (`renderChunk`, after `vite:css-post` through `enforce: 'post'`): a component chunk (facade id with no query,
   `fileOf(facade)` a styled `.ucf` file) gets `import "./Card.css";\n` at offset 0 with MagicString, returned as
   `{code, map: s.generateMap({hires: 'boundary'})}`. The specifier is the CSS file's basename: it sits in the chunk's
   folder (`forms/Field.js` → `./Field.css`). 6.3 later puts `"use client"` above it.
@@ -61,7 +61,7 @@ Added to `buildOne()`'s `plugins` (`packages/vite/src/library/build.ts:155`) aft
   `buildLibrary: src/theme.css is imported by src/utils/theme.ts: a library package ships CSS from .ucf <style> blocks
   only`.
 - **Write the files** (`generateBundle`):
-  - per styled `.ucf` file, its CSS files in `index` order, each trimmed at the end plus one `\n`, emitted as
+  - per styled `.ucf` file, its CSS files in `index` order, each trimmed plus one `\n`, emitted as
     `this.emitFile({type: 'asset', fileName: outputName(file, src) + '.css', source})`. A styled file with no CSS
     asset gets an empty file, so its import always resolves.
   - Vite's per-block CSS assets are deleted from the bundle.
@@ -107,9 +107,12 @@ uses its own copy or `outDir`.
 8. Plain CSS: a copy where `utils/cx.ts` imports `./cx.css` rejects naming `src/utils/cx.css` and
    `src/utils/cx.ts`.
 
-The source map after the one-line shift is pinned by 6.1's `library.spec.ts` case "maps a line of the JSX in
-react/Card.js back into Card.ucf": it runs on this output and would be one line off without the returned map (checked
-by dropping the map while building). The other `library.spec.ts` cases list only `.js` files and stay as they are.
+9. Source map: in `react/Card.js`, the `return` of the JSX maps to the `return (` line of the `<react>` block. Without
+   the map `renderChunk` returns it reads one line too far (checked).
+
+6.1's `library.spec.ts` source map case ("maps a line of the JSX in react/Card.js back into Card.ucf") turned out
+not to catch a dropped map: several output lines of the `<h2>` call map to one source line. Hence case 9. The other
+`library.spec.ts` cases list only `.js` files and stay as they are.
 
 ## Docs
 
@@ -119,6 +122,18 @@ by dropping the map while building). The other `library.spec.ts` cases list only
 - `docs/spec.md` 8 and `docs/plan.md` 6 already say this: no change. `publicdocs/`: none (milestone docs writer).
 - Milestone doc, step 6.2: Build lines changed to what shipped (the fallback, `cssCodeSplit` set by the plugin,
   `cssFileName` gone, the two new errors), `- Status: done`. "Hands to later milestones" stays (`css.ts`).
+
+## Results
+
+- Shipped the plan, with these changes:
+  - `fileOf()` and `shownFile()` moved from `build.ts` to `names.ts`, as `css.ts` needs them and `build.ts` imports
+    `css.ts`.
+  - Each block's CSS is trimmed at both ends: Vue's class-map CSS starts with a blank line.
+  - Test case 9 added (above).
+  - `pnpm add` deduped vitest's transitive `magic-string` 1.2.3 to the 1.3.1 already in the lockfile (pnpm's
+    `resolutionMode: highest`); no new package downloaded.
+- `library-css.spec.ts`: 9 cases, all green; without the plugin, the 6 cases that check what it adds fail.
+  `library.spec.ts` still passes; `pnpm devx check` passes.
 
 ## Fuzzing
 
