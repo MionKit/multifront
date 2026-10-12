@@ -127,7 +127,7 @@ From milestone 4:
 
 ### 5.6 SSR and a SvelteKit app built from `.ucf` sources
 
-- Build: whatever SSR needs (the scope id must be the same on server and client): no plugin change was needed. Add `packages/e2e/fixtures/apps/sveltekit-src`: SvelteKit 2.70.3 with adapter-node 5.5.7 (root devDependencies), `multifront()` before `sveltekit()`. Routes: `/` imports `Panel.ucf` and `Counter.ucf` and links to `/items`, which imports `PanelItem.ucf`. SvelteKit's client build reloads `vite.config.ts` with Vite's bundling loader, which ignores the `source` condition, so the config imports `@multifront/vite` through a computed specifier. Helpers in `build/lib/freshProcess.ts`: `startViteDev(root)` (`vite` on a free port) and `startNodeServer(root, entry)` (the adapter-node server).
+- Build: whatever SSR needs (the scope id must be the same on server and client): no plugin change was needed. Add `packages/e2e/fixtures/apps/sveltekit-src`: SvelteKit 2.70.3 with adapter-node 5.5.7 (root devDependencies), `multifront()` before `sveltekit()`. Routes: `/` imports `Panel.ucf` and `Counter.ucf` and links to `/items`, which imports `PanelItem.ucf`. SvelteKit's client build reloads `vite.config.ts` with Vite's bundling loader, which ignores the `source` condition, so the config imports `@multifront/vite` through a computed specifier. Helpers in `build/lib/freshProcess.ts`: `startViteDev(root)` (`vite` on a free port) and `startNodeServer(root)` (the adapter-node server).
 - Deliverable: `.ucf` sources render on the server and hydrate in SvelteKit.
 - Test: browser area, `packages/e2e/browser/svelte-ssr.spec.ts`. In dev and after `vite build` plus the node server: the SSR HTML has the stamped elements and their scoped CSS (in dev SvelteKit inlines it as `<style data-sveltekit>`, a build links its files); hydration logs no warning and keeps the server-rendered node; the `data-v-*` value is the same in the HTML, after hydration and on `/items` rendered by the client after a link click; a button click works. Then a new dev server process on the same copy (cache miss): still renders and hydrates.
 - Status: done
@@ -192,7 +192,7 @@ For milestone 6 (library build), which builds the Svelte package from these:
 - `loadSvelteCompiler(root)` in core, and `svelte` plus `@sveltejs/vite-plugin-svelte` as optional peers of `@multifront/vite`.
 - `svelte2tsx` 0.7.61 as a pinned dependency of language-tools (its `emitDts` writes the package's `.d.ts`).
 - The `<svelte>` blocks of the shared fixtures (`Counter.ucf`, `Panel.ucf`, `PanelItem.ucf`, `imports/Icon.ucf`), the model for the library fixture's Svelte blocks.
-- `@sveltejs/kit` 2.70.3 and `@sveltejs/adapter-node` 5.5.7 as root devDependencies, and `startNodeServer(root, entry)` in `packages/e2e/build/lib/freshProcess.ts`, for 6.13's SvelteKit node server.
+- `@sveltejs/kit` 2.70.3 and `@sveltejs/adapter-node` 5.5.7 as root devDependencies, and `startNodeServer(root)` (`build/index.js`) in `packages/e2e/build/lib/freshProcess.ts`, for 6.13's SvelteKit node server.
 
 For milestone 7 (full editor support):
 
