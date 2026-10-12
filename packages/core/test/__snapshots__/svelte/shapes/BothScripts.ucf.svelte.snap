@@ -1,0 +1,10 @@
+
+  <script module lang="ts">
+import "<fixtures>/components/svelte/shapes/BothScripts.ucf?ucf&type=style&index=0&lang.css";
+import __ucfStyle from "<fixtures>/components/svelte/shapes/BothScripts.ucf?ucf&type=style&index=0&module&lang.js";
+    export const moduleClass: string = __ucfStyle.text
+  </script>
+  <script lang="ts">
+    let {label = 'Both'}: {label?: string} = $props()
+  </script>
+  <p data-v-77aa89a0="" class={moduleClass}><b data-v-77aa89a0="" class={__ucfStyle.text}>{label}</b></p>

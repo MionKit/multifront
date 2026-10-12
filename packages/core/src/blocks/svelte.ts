@@ -22,7 +22,7 @@ const isNode = (value: unknown): value is Node =>
   typeof value === 'object' && value !== null && typeof (value as Node).type === 'string';
 
 // `visit` returning false skips the node's children.
-type Visit = (node: Node, parent: Node | undefined, key: string) => boolean | void;
+type Visit = (node: Node, parent: Node | undefined, key: string) => false | void;
 
 function walk(value: unknown, visit: Visit, parent?: Node, key = ''): void {
   if (Array.isArray(value)) {
@@ -77,12 +77,18 @@ interface StyleUse {
   shorthand?: {start: number; end: number; attribute: boolean};
 }
 
-function styleUses(root: AST.Root, block: Block, ctx: BuildContext): {missing: Diagnostic[]; uses: StyleUse[]} {
+// `names`: every identifier the block uses, so a local we add shadows none.
+function styleUses(
+  root: AST.Root,
+  block: Block,
+  ctx: BuildContext
+): {missing: Diagnostic[]; uses: StyleUse[]; names: Set<string>} {
   const stores = topLevelNames([root.module, root.instance]);
   const missing: Diagnostic[] = [];
   const uses: StyleUse[] = [];
+  const names = new Set<string>();
   // `<Child {$style} />`: the attribute is passed on as a prop named `$style`.
-  const shorthandAttributes = new Map<unknown, Node>();
+  const shorthandAttributes = new Map<Node, Node>();
   const visit = (node: Node, parent: Node | undefined, key: string): void => {
     if (node.type === 'Attribute' && isNode(node.value) && node.value.type === 'ExpressionTag') {
       const expression = node.value.expression as Node;
@@ -90,6 +96,7 @@ function styleUses(root: AST.Root, block: Block, ctx: BuildContext): {missing: D
     }
     if (node.type !== 'Identifier') return;
     const name = node.name as string;
+    names.add(name);
     const bare = name.slice(1);
     if (!name.startsWith('$') || bare === '' || bare.startsWith('$') || RUNES.has(bare)) return;
     // `($style as X)` is a use; a TS type name or `{$x: 1}`, `o.$x` is not.
@@ -115,22 +122,11 @@ function styleUses(root: AST.Root, block: Block, ctx: BuildContext): {missing: D
     missing.push(createDiagnostic(ctx.split, 'missing-style-module', start, block.contentStart + node.end, message));
   };
   for (const part of [root.module, root.instance, root.fragment]) walk(part, visit);
-  return {missing: missing.sort((first, second) => first.start - second.start), uses};
-}
-
-function identifierNames(root: AST.Root): Set<string> {
-  const names = new Set<string>();
-  for (const part of [root.module, root.instance, root.fragment]) {
-    walk(part, (node) => {
-      if (node.type === 'Identifier') names.add(node.name as string);
-    });
-  }
-  return names;
+  return {missing: missing.sort((first, second) => first.start - second.start), uses, names};
 }
 
 // `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
-function localNames(uses: StyleUse[], root: AST.Root): Map<StyleModule, string> {
-  const used = identifierNames(root);
+function localNames(uses: StyleUse[], used: Set<string>): Map<StyleModule, string> {
   const locals = new Map<StyleModule, string>();
   for (const {node, module} of uses) {
     if (locals.has(module)) continue;
@@ -174,14 +170,14 @@ function parseBlock(block: Block, ctx: BuildContext): AST.Root {
 // The compiler rules run here, not in `check`: core checks never load a compiler.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const root = parseBlock(block, ctx);
-  const {missing, uses} = styleUses(root, block, ctx);
+  const {missing, uses, names: used} = styleUses(root, block, ctx);
   if (missing.length > 0) throw new DiagnosticsError(missing);
 
   // MagicString over the whole .ucf source, so the map points straight into the .ucf file.
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
-  const locals = localNames(uses, root);
+  const locals = localNames(uses, used);
   for (const {node, module, shorthand} of uses) {
     const local = locals.get(module)!;
     const name = node.name as string;
@@ -198,13 +194,11 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   ];
   // The module script's imports reach the instance script and the markup too; the reverse does not hold.
   const script = root.module ?? root.instance;
-  if (imports.length > 0 && script) {
+  if (script) {
     // Svelte sets `start` on the script's Program (right after the opening tag); its estree type leaves it out.
     const {start} = script.content as unknown as AST.BaseNode;
     text.appendLeft(block.contentStart + start, imports.map((line) => `\n${line}`).join(''));
-  } else if (imports.length > 0) {
-    text.prependRight(block.contentStart, `<script>\n${imports.join('\n')}\n</script>`);
-  }
+  } else if (imports.length > 0) text.prependRight(block.contentStart, `<script>\n${imports.join('\n')}\n</script>`);
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }

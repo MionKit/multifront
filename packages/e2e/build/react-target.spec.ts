@@ -144,6 +144,7 @@ describe('vite build of the react-basic error entries', () => {
   // No plugin compiles the Svelte code our build hands on.
   it('fails a svelte pick without plugin-svelte on its .svelte id', async () => {
     const err = await buildError('src/errors/svelte-pick.ts');
+    expect(err.message).toContain('[PARSE_ERROR]');
     expect(err.message).toContain('components/react/AllBlocks.ucf.svelte.svelte');
   });
 
