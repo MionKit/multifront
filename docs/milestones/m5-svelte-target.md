@@ -98,13 +98,18 @@ From milestone 4:
 
 ### 5.4 Imports from and into Svelte
 
-- Build: no new rule, only the Svelte cases of milestone 3's resolve and rewrite. Fix whatever the tests find.
+- Build: no new rule, only the Svelte cases of milestone 3's resolve and rewrite, plus what the tests found:
+  - `svelteKind.check` reports `framework-in-block` on every framework attribute in the block's top-level `<script>` and `<script module>`, at its `.ucf` span, through the helper `vueKind.check` uses (`frameworkInBlock` in `packages/core/src/imports/rewrite.ts`, oxc only, every script in the block's first `lang`). An `import()` in markup is left to the post rewrite of the compiled module, which fails at its specifier.
+  - `multifront:importers` in `@multifront/vite` (pre, M4's `.vue` check, now also for `.svelte` files): checks a `.svelte` file's own scripts (in the language of the first `lang`, as Svelte does; a preprocessed `<style>` blanked first) before plugin-svelte and its preprocessors run, so an import error carries the importer's absolute path in dev too (plugin-svelte's map names the file relatively, and Vite's dev errors pass that name on).
 - Deliverable: spec 4.1 and 4.2 hold when Svelte is the importer or the imported block.
-- Test: build area, `packages/e2e/build/svelte-imports.spec.ts`, with `apps/svelte-vite` and error fixtures in `fixtures/components/svelte/imports/`:
+- Test: build area, `packages/e2e/build/svelte-imports.spec.ts`, with `apps/svelte-vite` (`src/App.svelte`, mounted by `src/app.ts`, rendered by `src/entry-server.ts`) and error fixtures in `fixtures/components/svelte/imports/` (`AttrInSvelte.ucf`, `AttrInSvelteMarkup.ucf`, `UsesReactOnly.ucf`; `svelte/errors/ImportParseError.ucf` for core):
   - A `.svelte` importer with a bare `import Panel from './Panel.ucf'` gets the Svelte target (importer rule).
   - In a `.svelte` file: a static import, a re-export in `<script module>` and a dynamic `import()` with `with { framework: 'svelte' }` all resolve, and no `with {` is left in dev, build or SSR output (the Svelte compiler keeps the attribute; our post plugin removes it).
   - `Panel.ucf`'s `<svelte>` block importing `./PanelItem.ucf` gets PanelItem's Svelte target.
   - A `framework` attribute inside a `<svelte>` block is a build error; importing a file with no `<svelte>` block is a build error naming both files.
+  - A `.svelte` importer's `unknown-framework` and `framework-attribute-not-literal` fail at the import, with its absolute path, in a build with no source maps and in dev: first in the file whichever script holds it, a lang-less `<script module>` read as TypeScript, and with `vitePreprocess()`.
+  - The `imports` app's `src/Gallery.svelte` row runs in `build/imports.spec.ts`.
+- Status: done
 
 ### 5.5 Browser render and HMR
 
@@ -191,6 +196,7 @@ For milestone 7 (full editor support):
 - `packages/core/src/blocks/svelte.ts` `build()`: the `.svelte` file `mf-lint` hands to oxlint; `mf-fmt` leaves `<svelte>` as written (spec 6.1).
 - `loadSvelteCompiler(root)` in core.
 - Diagnostic codes `svelte-parse-error` and `missing-style-module`.
+- `svelteKind.check` reports `framework-in-block` (top-level scripts), as `vueKind.check` does.
 - Fixtures: `components/Panel.ucf`, `components/PanelItem.ucf`, `components/svelte/{errors,shapes,imports,roots}/`, apps `svelte-vite`, `sveltekit-src`, `all-targets`.
 
 ## Exit test
