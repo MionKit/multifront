@@ -19,7 +19,7 @@ export function hasSveltePlugin(plugins: readonly Plugin[]): boolean {
 }
 
 /** `target` with `key` read as `value`; its other methods stay bound to `target`. */
-function withMember<Target extends object>(target: Target, key: PropertyKey, value: unknown): Target {
+function withMember<Target extends object>(target: Target, key: keyof Target, value: unknown): Target {
   return new Proxy(target, {
     get(object, name) {
       if (name === key) return value;
@@ -37,12 +37,8 @@ function wrapCompile(config: ResolvedConfig): void {
   const handler = transform.handler;
   transform.handler = function (code, id, ...rest) {
     if (!SVELTE_ID.test(id)) return handler.call(this, code, id, ...rest);
-    return handler.call(
-      withMember(this, 'getCombinedSourcemap', () => null),
-      code,
-      id,
-      ...rest
-    );
+    const context = withMember(this, 'getCombinedSourcemap', () => null);
+    return handler.call(context, code, id, ...rest);
   };
   wrappedHandlers.add(transform.handler);
 }
