@@ -4,6 +4,7 @@ export type {
   EditorFile,
   EditorOptions,
   EditorStyleModule,
+  EmitSvelteTypesOptions,
   StyleClass,
   UcfImportOptions,
   UcfResolution,
@@ -11,5 +12,6 @@ export type {
 export {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
 export {createUcfLanguagePlugin} from './languagePlugin.ts';
 export {readMultifrontOptions, resolveUcfImport} from './resolve.ts';
+export {emitSvelteTypes} from './svelteDeclarations.ts';
 export {TSSERVER_CODES} from './tsserverCodes.ts';
 export {getTypesScript} from './typesScript.ts';
