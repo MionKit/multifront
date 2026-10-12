@@ -70,11 +70,13 @@ function indexEntry(root: string, src: string, index: string | false | undefined
 }
 
 async function libraryName(root: string): Promise<string | undefined> {
+  const file = join(root, 'package.json');
   try {
-    const {name} = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as {name?: unknown};
+    const {name} = JSON.parse(await readFile(file, 'utf8')) as {name?: unknown};
     return typeof name === 'string' ? name : undefined;
-  } catch {
-    return undefined;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw new Error(`buildLibrary: cannot read ${file}: ${(err as Error).message}`, {cause: err});
   }
 }
 

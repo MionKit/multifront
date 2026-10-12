@@ -140,6 +140,18 @@ describe('buildLibrary() defaults', () => {
       }
     });
   });
+
+  it('names a package after packages[framework].name, which a library with no package name needs', async () => {
+    await withEditedLibrary([{file: 'package.json', content: '{"type": "module"}\n'}], async (root) => {
+      const built = await buildFixtureLibrary(root, {frameworks: ['vue'], packages: {vue: {name: '@acme/ui-vue'}}});
+      try {
+        expect(built.results.map(({packageName}) => packageName)).toEqual(['@acme/ui-vue']);
+      } finally {
+        await built.remove();
+      }
+      await expect(buildFixtureLibrary(root)).rejects.toThrow('package.json has no name; set packages.vue.name');
+    });
+  });
 });
 
 describe('buildLibrary() and NODE_ENV', () => {
@@ -196,6 +208,12 @@ describe('buildLibrary() errors', () => {
       await expect(buildFixtureLibrary(root, {src: 'svelte-only', index: false})).rejects.toThrow(
         /nothing to build, no \.ucf file in .*\/svelte-only has a block for a framework with a library build/
       );
+    });
+  });
+
+  it('fails on a package.json that does not parse, not on a missing name', async () => {
+    await withEditedLibrary([{file: 'package.json', content: '{"name": \n'}], async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(/cannot read .*package\.json: /);
     });
   });
 
