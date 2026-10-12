@@ -27,8 +27,8 @@ export function isCallTo(node: Expression, name: string): boolean {
 type Edit = [start: number, end: number, replacement: string];
 
 const PROPS = /^__props\d*$/;
-const MERGES = ['__ucfClass', '__ucfStyle', '__ucfRef'];
-const ROOT_PROPS = ['className', 'style', 'ref'];
+/** Each root prop and the helper that merges it into the root's own value. */
+export const MERGES = {className: '__ucfClass', style: '__ucfStyle', ref: '__ucfRef'};
 const REF = /^__ref\d*$/;
 
 // `{const <pattern> = <props>;` opening the body, as the build writes it for a destructured first parameter.
@@ -52,10 +52,10 @@ function destructured(node: Function | ArrowFunctionExpression, code: string): E
 }
 
 // ` className={X.className}`: the build adds these right after the forwarding spread, nowhere else.
-function isAdded(item: JSXAttributeItem): boolean {
-  if (item.type !== 'JSXAttribute' || item.name.type !== 'JSXIdentifier' || item.value?.type !== 'JSXExpressionContainer')
+export function isAdded(item: JSXAttributeItem | undefined): boolean {
+  if (item?.type !== 'JSXAttribute' || item.name.type !== 'JSXIdentifier' || item.value?.type !== 'JSXExpressionContainer')
     return false;
-  if (!ROOT_PROPS.includes(item.name.name)) return false;
+  if (!(item.name.name in MERGES)) return false;
   const {expression} = item.value;
   return (
     expression.type === 'MemberExpression' &&
@@ -81,7 +81,7 @@ function rootPropEdits(node: JSXOpeningElement): Edit[] {
     if (item.type !== 'JSXAttribute' || item.value?.type !== 'JSXExpressionContainer') continue;
     const container = item.value;
     const call = container.expression;
-    if (call.type !== 'CallExpression' || !MERGES.some((name) => isCallTo(call, name))) continue;
+    if (call.type !== 'CallExpression' || !Object.values(MERGES).some((name) => isCallTo(call, name))) continue;
     const own = call.arguments[0]!;
     // A string literal's own value was written without braces.
     const literal = own.type === 'Literal' && typeof own.value === 'string';
