@@ -36,8 +36,12 @@ Checked on this host before planning, with throwaway copies outside the repo:
   real run takes all of them as roots. No `.gitignore` line.
 - Orchestrator: `_virtual/` JS files get no `.d.ts`: internal helpers no `.d.ts` imports and no export reaches. The 6.6
   Deliverable line says so.
-- Orchestrator: no test now for the missing optional-peer error. A guidelines todo in this PR tracks it, to test it from a
-  packed `@multifront/vite` install once packed workspace packages can be installed together.
+- Orchestrator, reversed after review: the missing optional-peer error is tested in this PR, not deferred to a todo.
+  The first answer (no test now, a guidelines todo) broke "the step whose test first needs a piece builds it" (milestones
+  README, Test infrastructure) and AGENTS.md "Missing test infra is built, never skipped around". The smaller route
+  worked, so nothing is packed: the three tools resolve from the library root (like `loadVueCompiler(root)`, and plan.md
+  "the user's versions are always the ones in use"), and a fixture copy outside the workspace without one reaches the
+  error. The todo is deleted.
 - Orchestrator: specifiers are parsed with oxc through Vite's `parseAst` (the parser Rolldown ships): no new dependency.
   The step text says "oxc (Vite's `parseAst`)".
 
@@ -48,11 +52,9 @@ Checked on this host before planning, with throwaway copies outside the repo:
 - New `LibraryTypesJob`:
   ```ts
   /** What a row's `emitTypes()` gets: paths are posix, `modules` relative to `src`. */
-  export interface LibraryTypesJob {
-    target: Target;
+  export interface LibraryTypesJob extends Pick<LibraryResult, 'target' | 'outDir'> {
     root: string; // library folder
     src: string;
-    outDir: string; // <outDir>/<target>, where the JS build wrote
     modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
   }
   ```
@@ -63,16 +65,19 @@ Checked on this host before planning, with throwaway copies outside the repo:
 
 - `buildOne` (`:128`) adds a small plugin that collects, in `generateBundle`, every chunk's real module ids inside `src`
   (through `fileOf`, so `Card.ucf?…&type=style` and `Card.ucf.react.tsx` count as `Card.ucf`) into a sorted `modules`.
-- After `await build(…)` (`:168`), before `writtenFiles` (`:169`): when `options.dts !== false`,
+- After `await build(…)` (`:168`), before listing the written files (`:169`; `writtenFiles` moved to `names.ts` as
+  `filesIn`, shared with the types step): when `options.dts !== false`,
   `row.emitTypes({target, root, src, outDir, modules})`. So `LibraryResult.files` lists the `.d.ts` files too.
 
-### The types step (`packages/vite/src/library/types.ts`, new)
+### The types step (`packages/vite/src/library/dts.ts`, new)
 
-Exports `emitReactTypes(job)` and `emitVueTypes(job)`; `targets.ts` imports them lazily for the react and vue rows.
+Exports `emitReactTypes(job)` and `emitVueTypes(job)`; `targets.ts` imports them statically (the optional peers are
+loaded lazily inside) and sets them as the react and vue rows' `emitTypes`.
 
-1. **Optional peers, loaded only here.** `typescript` (React) or `vue-tsc` (Vue) resolved with
-   `createRequire(import.meta.url).resolve('<name>/package.json')`, the bin from its `bin` field.
-   `@multifront/language-tools` through a dynamic `import()` (React). A missing one throws
+1. **Optional peers, loaded only here, from the library root**: `createRequire(<root>/package.json).resolve(…)`, like
+   `loadVueCompiler(root)`. `typescript` (React) or `vue-tsc` (Vue) through `'<name>/package.json'`, the bin from its
+   `bin` field; `@multifront/language-tools` (React) resolved the same way, then a dynamic `import()` of its file URL.
+   A missing one throws
    `buildLibrary: the <target> types need <name>; install it, or set dts: false`.
 2. **Stage**: `mkdtemp(<root>/node_modules/.cache/multifront/types-<target>-)`. Copy every file of `src` there, same
    layout, except `.ucf` files. Each `.ucf` file in `job.modules` becomes:
@@ -83,23 +88,26 @@ Exports `emitReactTypes(job)` and `emitVueTypes(job)`; `targets.ts` imports them
    Removed in `finally`, whatever happens.
 3. **Specifier rewrite**, oxc (Vite's `parseAst`) and MagicString, never a regex. A walk over the AST finds the string
    literal source of `ImportDeclaration`, `ExportNamedDeclaration`, `ExportAllDeclaration`, `ImportExpression` and
-   `TSImportType`. Only relative specifiers ending in `.ucf` change, and only that ending.
+   `TSImportType`. Only relative specifiers ending in `.ucf` change, matched by value: the whole literal is overwritten
+   with `JSON.stringify(next)`, so an escaped specifier is rewritten too.
    - React: `.ucf` → `.js` in every staged script file.
    - Vue: `.ucf` → `.vue` in plain script files, and in a staged `.vue` file's `<script>` / `<script setup>` contents
      found with `compiler.parse` (offset by `loc.start.offset`, language from `lang`).
    - A file that does not parse stays as is: tsc reports it.
 4. **Generated `tsconfig.json`** in the stage: `extends` `<root>/tsconfig.json` when it exists. With none, the defaults
    `target: es2022`, `module: esnext`, `moduleResolution: bundler`, `strict: true`, `skipLibCheck: true`. Always forced:
-   `declaration`, `emitDeclarationOnly`, `declarationMap: false`, `sourceMap: false`, `noEmit: false`,
+   `allowJs` (a plain `.js` module gets its `.d.ts`), `declaration`, `emitDeclarationOnly`, `declarationMap: false`, `sourceMap: false`, `noEmit: false`,
    `composite: false`, `incremental: false`, `rootDir: "."`, `outDir` and `declarationDir` set to `job.outDir`; React also
    `jsx: react-jsx`. `include: []` so a parent `include` is not inherited.
 5. **Listing pass**: `files` = the staged `job.modules` plus every staged `.d.ts`; run the tool with `--listFilesOnly`.
-   Every listed file inside the stage becomes a root.
+   Every listed file inside the stage becomes a root, compared against the stage's real path (tsc prints it past any
+   symlink in the library root). A failing listing run throws the same mapped error as the real run, its file list
+   dropped.
 6. **Real run**: `files` = those roots. `spawn(process.execPath, [bin, '-p', 'tsconfig.json', '--pretty', 'false'],
    {cwd: stage})`. A non-zero exit throws `buildLibrary: the <target> types do not compile:` and the output, each
    `Card.tsx(9,14): error …` line as `src/Card.ucf: error …` (a position in the generated script is not one in the `.ucf`
    file); a plain file keeps its position, with its `src/` path. No stage path is left in the message.
-7. **Vue, afterwards**: rename every `X.vue.d.ts` in `outDir` to `X.d.ts`; in every `.d.ts`, each relative `.vue`
+7. **Vue, afterwards**: rename every converted component's `X.vue.d.ts` in `outDir` to `X.d.ts`; in every `.d.ts`, each relative `.vue`
    specifier that points at a converted component becomes `.js` (same walk, `lang: 'dts'`).
 
 ### Packages and repo
@@ -137,6 +145,15 @@ Build area, `packages/e2e/build/library-types.spec.ts`. `beforeAll`: `buildFixtu
   `{"compilerOptions": {"noEmit": true, "declarationMap": true, "noUnusedLocals": true}}` builds, writes `.d.ts`, no
   `.d.ts.map`; with an unused local in Card's `<react>` block it fails with `TS6133` and `src/Card.ucf`.
 - `dts: false` (React only) writes no `.d.ts`.
+- Added after review: an error in a plain module (`src/utils/cx.ts`) keeps its position; a syntax error in a type-only
+  module (only the listing run sees it) is named `src/types.ts(1,24)` with no stage or `node_modules` path; a plain
+  `src/utils/upper.js` gets `utils/upper.d.ts`; an escaped `'./Ic\u006fn.ucf'` builds; a nested Vue component
+  (`forms/Field.ucf` typing a prop with `typeof Icon`) gets `../Icon.js` in `vue/forms/Field.d.ts`.
+- The missing peers, each in turn (`typescript` and `@multifront/language-tools` for React, `vue-tsc` for Vue): a copy of
+  the fixture library in the OS temp dir (`copyLibraryOutside(without)` in `fixtures/index.ts`), its `node_modules`
+  linking the repo's installed packages minus that one, built by `buildInFreshNode()` (`build/lib/library.ts`) in a
+  fresh Node process without the `NODE_PATH` pnpm's bin shim sets. The message names the package, no stage is left.
+  With all three missing and `dts: false`, and with all three present, the build passes.
 
 New fixture `packages/e2e/fixtures/library-checks/`: `react.tsx`, `Check.vue`, `tsconfig.react.json`,
 `tsconfig.vue.json` (options written out in full, each including only its check file).
@@ -173,7 +190,6 @@ None: each run spawns tsc or vue-tsc, and the checks over the fixture are the or
 - `.d.ts` maps.
 - Svelte types (6.8).
 - `package.json` `types` / `exports` (6.7).
-- A test for the missing-peer message (tracked by a guidelines todo filed in this PR).
 
 ## Done when
 
