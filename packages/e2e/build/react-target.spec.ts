@@ -152,7 +152,7 @@ describe('vite build of the react-basic error entries', () => {
     const err = await buildError('src/errors/vue-pick.ts');
     const importer = join(ROOT, 'src/errors/vue-pick.ts');
     expect(err.message).toContain(
-      `AllBlocks.ucf (imported by ${importer}): the vue target needs @vitejs/plugin-vue in your Vite plugins`
+      `AllBlocks.ucf (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 
@@ -263,7 +263,7 @@ describe('dev server of react-basic', () => {
     const client = server!.environments.client;
     const file = componentPath('react/AllBlocks.ucf');
     await expect(client.transformRequest(`/@fs${file}`)).rejects.toThrow(
-      `${file}: the vue target needs @vitejs/plugin-vue in your Vite plugins`
+      `${file}: the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 });
