@@ -1,9 +1,20 @@
-import {posix} from 'node:path';
+import {posix, relative} from 'node:path';
+import {normalizePath} from 'vite';
 import {splitId, virtualTarget} from '../ids.ts';
 
 const VIRTUAL_DIR = '_virtual';
 const SCRIPT_EXT = /\.[cm]?[jt]sx?$/;
 const UNSAFE = /[^\w./-]/g;
+
+// `/abs/Card.ucf.react.tsx` or a style id → `/abs/Card.ucf`.
+export function fileOf(id: string): string {
+  const {path} = splitId(id);
+  return virtualTarget(path)?.file ?? path;
+}
+
+export function shownFile(root: string, file: string): string {
+  return normalizePath(relative(root, file));
+}
 
 /** `child` relative to `dir`, or undefined unless below it; both are Vite's posix ids. */
 export function insideDir(dir: string, child: string): string | undefined {
