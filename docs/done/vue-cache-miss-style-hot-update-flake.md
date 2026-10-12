@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-12
 ---
 
@@ -38,3 +38,18 @@ None: test-only, no behaviour a doc describes.
 
 - The cause is named, fixed, and the test passes in a loop of runs under load (say 50) with no failure.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: atomic saves in the e2e tests (decided 2026-10-12, automatic mode, delegated session)
+
+- Cause: `writeFile` empties the file, then writes it. The watcher reports the emptying; Vite's `read()` of an empty
+  file waits about 100 ms for a newer mtime, then returns `''`. Under load the write lands later, so that first hot
+  update hands plugin-vue an empty `Counter.ucf`. `hot.next()` settles on it, the test asks for the style URL before
+  the second hot update lands, our record holds `''`, so the warm-up runs and transforms the file a second time.
+- Seen: a write split by a 400 ms pause gave a first hot update that read 0 bytes.
+- Fix: `saveFile(file, source)` in `packages/e2e/fixtures/index.ts` writes a temp file in the fixtures `.tmp` dir and
+  renames it over the target. The file goes from old to new text in one step: one hot update, full text.
+- Same race wherever a test edits a file a watcher sees, so every such edit uses it: the dev server hot update tests
+  (`vue-cache-miss`, `vue-sourcemaps`, `vue-hmr`, `hmr`), the `build --watch` edits (`vue-cache-miss`,
+  `vue-sourcemaps`, `vue-scope-id`) and the browser tests' `editFile`. Edits with no watcher keep `writeFile`.
+- No test check changed. Checked: the test 50 times beside a full `pnpm devx test` and 3 busy-loop processes, no
+  failure; every touched file green, browser tests included.

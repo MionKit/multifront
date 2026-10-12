@@ -5,7 +5,7 @@ import type {EncodedSourceMap} from '@jridgewell/trace-mapping';
 import {locate, splitBlocks} from '@multifront/core';
 import {build, mergeConfig, type Rolldown} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {copyApp, readComponent, removeApp, saveFile} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildApp, hotUpdatesOf, withDevServer, withNodeEnv} from './lib/build.ts';
 
 type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
@@ -110,7 +110,7 @@ function devStyleCss(copy: string, edit?: (source: string) => string): Promise<s
     await server.environments.client.transformRequest(url);
     if (edit) {
       const updated = hot.next();
-      await writeFile(file, edit(counter));
+      await saveFile(file, edit(counter));
       await updated;
     }
     const style = await server.environments.client.transformRequest(url);
@@ -172,7 +172,7 @@ describe('a watch build with build.sourcemap', () => {
               builds.push(
                 map.sources.flatMap((source, index) => (source?.endsWith('/Counter.ucf') ? [map.sourcesContent?.[index]] : []))
               );
-              if (builds.length === 1) await writeFile(join(copy, COUNTER_PATH), edited);
+              if (builds.length === 1) await saveFile(join(copy, COUNTER_PATH), edited);
               else resolve();
             });
           });

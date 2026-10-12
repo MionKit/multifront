@@ -1,7 +1,8 @@
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {expect} from 'vitest';
 import type {Page} from 'playwright';
 import type {HotPayload} from 'vite';
+import {saveFile} from '../../fixtures/index.ts';
 
 export function trackRequests(page: Page) {
   const urls: string[] = [];
@@ -41,7 +42,7 @@ export async function editFile(requests: ReturnType<typeof trackRequests>, file:
   const source = await readFile(file, 'utf8');
   expect(source).toContain(from);
   requests.clear();
-  await writeFile(file, source.replace(from, to));
+  await saveFile(file, source.replace(from, to));
 }
 
 export function trackHmrPayloads(page: Page) {

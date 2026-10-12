@@ -1,10 +1,9 @@
-import {writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import vue from '@vitejs/plugin-vue';
 import {multifront} from '@multifront/vite';
 import {mergeConfig, type InlineConfig} from 'vite';
 import {beforeEach, describe, expect, it} from 'vitest';
-import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
+import {copyApp, readComponent, removeApp, saveFile} from '../fixtures/index.ts';
 import {hotUpdatesOf, withDevServer} from './lib/build.ts';
 
 const RERENDER = 'export const _rerender_only';
@@ -34,7 +33,7 @@ function mainAfterSaves(file: string, sources: string[], config: InlineConfig = 
     for (const source of sources) {
       await new Promise((done) => setTimeout(done, WATCHER_THROTTLE_MS));
       const updated = hot.next();
-      await writeFile(file, source);
+      await saveFile(file, source);
       await updated;
       results.push(
         await environment.transformRequest(url).then(
