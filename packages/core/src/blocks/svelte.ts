@@ -279,7 +279,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }
 
-/** `build()`'s class map rename alone, for the editor's types: no stamps, imports or forwarding; a syntax error never throws. */
+/** `build()`'s class map rename alone, for editor types: no stamps, imports or forwarding; syntax errors never throw. */
 export function renameSvelteStyles<Module>(
   block: Block,
   split: SplitResult,

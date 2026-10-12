@@ -77,7 +77,7 @@ export function sourceMapMappings(
   return mappings;
 }
 
-/** `outer` (generated ↔ middle) through `inner` (middle ↔ source); a rename in `inner` comes through whole or not at all. */
+/** `outer` (generated ↔ middle) through `inner` (middle ↔ source); an `inner` rename passes whole or not at all. */
 export function composeMappings(outer: CodeMapping[], inner: CodeMapping[]): CodeMapping[] {
   const composed: CodeMapping[] = [];
   for (const {generatedOffsets, sourceOffsets, lengths, generatedLengths, data} of outer) {
