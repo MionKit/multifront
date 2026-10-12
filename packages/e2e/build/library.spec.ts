@@ -217,6 +217,19 @@ describe('buildLibrary() errors', () => {
     });
   });
 
+  it('fails on two modules that would be written to one file', async () => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: 'src/Badge.ts', content: "export const tone = 'info';\n"},
+      {file: 'src/index.ts', content: `${index}export {tone} from './Badge.js';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(
+        /src\/Badge\.(ucf|ts) and src\/Badge\.(ucf|ts) would both be written as Badge\.js/
+      );
+    });
+  });
+
   it('fails on an index that does not exist', async () => {
     await withEditedLibrary([], async (root) => {
       await expect(buildFixtureLibrary(root, {index: 'src/missing.ts'})).rejects.toThrow(
