@@ -13,6 +13,8 @@ import {emitSvelteTypes} from './svelteDeclarations.ts';
 import type {ServerOptions, TypeScript} from './types.ts';
 import {VUE_REQUESTS, vueRequestCommand} from './blocks/vue.ts';
 
+export type {ServerOptions} from './types.ts';
+
 type VueClient = NonNullable<Parameters<typeof createVueLanguageServicePlugins>[1]>;
 
 /** What an editor sends: VS Code's extension passes the TypeScript it runs. */
