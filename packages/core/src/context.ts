@@ -8,6 +8,7 @@ export async function createBuildContext(split: SplitResult, options: BuildConte
   const {filename, source} = split;
   const relativePath = rootRelativePath(root, filename);
   const ctx: BuildContext = {
+    root,
     filename,
     split,
     relativePath,

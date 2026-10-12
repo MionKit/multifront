@@ -1,0 +1,12 @@
+<svelte>
+  <div class={$classes.title}>
+    <p class={$style.card}>Wrong module</p>
+    <p class={$theme.accent}>Wrong module</p>
+  </div>
+</svelte>
+
+<style module="classes">
+.title {
+  color: rgb(20, 90, 160);
+}
+</style>

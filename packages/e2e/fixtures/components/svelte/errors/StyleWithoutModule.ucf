@@ -1,0 +1,14 @@
+<svelte>
+  <script lang="ts">
+    const cardClass = $style.card
+  </script>
+  <div class={cardClass}>
+    <p class={$style.text}>No module</p>
+  </div>
+</svelte>
+
+<style scoped>
+.card {
+  padding: 8px;
+}
+</style>

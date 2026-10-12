@@ -1,0 +1,28 @@
+<svelte>
+  <script lang="ts">
+    import {writable} from 'svelte/store'
+
+    let {style}: {style: string} = $props()
+    const count = writable(0)
+    let clicks = $state(0)
+    const doubled = $derived(clicks * 2)
+    const options = {$theme: 'dark'}
+    const mode = options.$theme
+  </script>
+  <div class={$style.card} {style}>
+    <p class={$classes.title}>{$count} {doubled} {mode}</p>
+    <button onclick={() => clicks++}>More</button>
+  </div>
+</svelte>
+
+<style module>
+.card {
+  padding: 8px;
+}
+</style>
+
+<style module="classes">
+.title {
+  color: rgb(20, 90, 160);
+}
+</style>

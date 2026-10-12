@@ -1,4 +1,5 @@
 import type * as CompilerSfc from '@vue/compiler-sfc';
+import type * as SvelteCompilerModule from 'svelte/compiler';
 
 /** The frameworks a component file can hold one implementation for. */
 export type Target = 'vue' | 'react' | 'svelte';
@@ -46,7 +47,7 @@ export interface BlockKind {
   grammar: BlockGrammar;
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
   fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
-  build?(block: Block, ctx: BuildContext): VirtualFile; // style, react and vue; svelte in M5
+  build?(block: Block, ctx: BuildContext): VirtualFile; // style, react, vue and svelte
 }
 
 /** One file a block becomes, for the bundler or an editor service. */
@@ -72,6 +73,8 @@ export type DiagnosticCode =
   | 'duplicate-style-module'
   | 'style-compile-error'
   | 'vue-empty-block'
+  | 'svelte-parse-error'
+  | 'missing-style-module'
   | 'missing-target-block'
   | 'target-not-built'
   | 'mixed-frameworks'
@@ -97,6 +100,9 @@ export type VueCompiler = Pick<
   typeof CompilerSfc,
   'compileScript' | 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'
 >;
+
+/** The svelte/compiler parts multifront calls, from the project's own Svelte. */
+export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse'>;
 
 export interface SourceMap {
   version: 3;
@@ -127,6 +133,7 @@ export interface BuildContextOptions {
 
 /** What the shared kinds fill for the target builds; one per `.ucf` file. */
 export interface BuildContext {
+  root: string; // the Vite root: target builds load the project's compilers from it
   filename: string; // absolute .ucf path
   split: SplitResult; // every block; the vue build (M4) needs all of them
   relativePath: string; // from options.root, '/' separators: the scopeId input

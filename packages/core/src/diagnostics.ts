@@ -37,6 +37,12 @@ export function styleInsideTarget(
     );
 }
 
+/** On the block's opening tag. */
+export function targetNotBuilt(split: SplitResult, block: Block): Diagnostic {
+  const message = `multifront does not build <${block.type}> blocks yet`;
+  return createDiagnostic(split, 'target-not-built', block.start, block.contentStart, message);
+}
+
 /** A file's errors, thrown by host functions such as `buildTarget`. */
 export class DiagnosticsError extends Error {
   readonly diagnostics: Diagnostic[];
