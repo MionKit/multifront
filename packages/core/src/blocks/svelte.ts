@@ -9,7 +9,7 @@ const VOID_ELEMENTS: ReadonlySet<string> = new Set(
 
 const RUNES: ReadonlySet<string> = new Set(['state', 'derived', 'effect', 'props', 'bindable', 'inspect', 'host']);
 
-// Names that are not references: a property, an import or export name, a type.
+// Not references: a property key, an import or export name.
 const NAME_KEYS: ReadonlySet<string> = new Set(['key', 'imported', 'exported', 'local']);
 
 type Node = AST.BaseNode & Record<string, unknown>;
