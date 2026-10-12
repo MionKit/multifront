@@ -1,10 +1,10 @@
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {checkBlocks, locate, splitBlocks} from '@multifront/core';
 import {mergeConfig, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
-import {buildApp, rejection, withDevServer} from './lib/build.ts';
+import {buildApp, expectImportError, rejection, withDevServer, withEditedApp} from './lib/build.ts';
 import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
 
 const COMPONENTS = '../../../components';
@@ -30,29 +30,18 @@ const APP_IMPORTS = [
 ];
 const APP_TARGETS = ['Card', 'Counter', 'Panel', 'imports/UsesIcon'].map((name) => `/components/${name}.ucf.svelte.svelte`);
 
-const SCRIPT = '<script lang="ts">\n  import Panel from \'../../../components/Panel.ucf\';\n';
-const MARKUP = '<Counter start={2} />\n';
-
 /** A client build of `app.ts`, which mounts App.svelte (`main.ts` mounts the 5.3 components). */
 function buildImporter(root: string, config: InlineConfig = {}) {
   return buildApp(root, mergeConfig({build: {rolldownOptions: {input: join(root, 'src', 'app.ts')}}}, config));
 }
 
 /** A copy of its own whose `App.svelte` also imports `specifier` as `name` and renders it. */
-async function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {
-  const root = await copyApp('svelte-vite');
-  try {
-    const app = join(root, 'src', 'App.svelte');
-    const source = await readFile(app, 'utf8');
-    if (!source.includes(SCRIPT) || !source.includes(MARKUP)) throw new Error(`App.svelte changed:\n${source}`);
-    const edited = source
-      .replace(SCRIPT, `${SCRIPT}  import ${name} from ${specifier};\n`)
-      .replace(MARKUP, `${MARKUP}<${name} />\n`);
-    await writeFile(app, edited);
-    await run(root);
-  } finally {
-    await removeApp(root);
-  }
+function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {
+  const edits: [string, string][] = [
+    ["  import Panel from '../../../components/Panel.ucf';\n", `  import ${name} from ${specifier};\n`],
+    ['<Counter start={2} />\n', `<${name} />\n`],
+  ];
+  return withEditedApp('svelte-vite', join('src', 'App.svelte'), edits, run);
 }
 
 describe('imports through plugin-svelte in svelte-vite', () => {
@@ -149,55 +138,32 @@ describe('imports through plugin-svelte in svelte-vite', () => {
 describe('import errors through plugin-svelte', () => {
   const componentFile = (root: string, name: string) => resolve(root, '..', '..', 'components', name);
 
-  it('fails each framework attribute in a top-level script of a <svelte> block at its place, in build and dev', async () => {
-    await withImport('AttrInSvelte', `'${COMPONENTS}/svelte/imports/AttrInSvelte.ucf'`, async (root) => {
-      const file = componentFile(root, 'svelte/imports/AttrInSvelte.ucf');
-      const diagnostics = checkBlocks(splitBlocks(await readFile(file, 'utf8'), file));
-      expect(diagnostics.map(({code}) => code)).toEqual(['framework-in-block', 'framework-in-block', 'framework-in-block']);
-      const [first, ...rest] = diagnostics;
-      const loc = {file, line: first!.line, column: first!.column};
-
-      const built = await rejection<Rolldown.BundleError>(buildImporter(root));
-      expect(built.message).toContain('(framework-in-block)');
-      for (const other of rest) expect(built.message).toContain(`\n${file}:${other.line}:${other.column} `);
-      expect(built.errors?.[0]?.loc).toEqual(loc);
-
-      await withDevServer(root, {}, async (server) => {
-        const client = await rejection<Rolldown.RollupError>(
-          server.environments.client.transformRequest(`${file}.svelte.svelte`)
-        );
-        expect(client.message).toContain('(framework-in-block)');
-        expect(client.loc).toEqual(loc);
-        const ssr = await rejection<Rolldown.RollupError>(server.ssrLoadModule('/src/entry-server.ts'));
-        expect(ssr.message).toContain('(framework-in-block)');
-        expect(ssr.loc).toEqual(loc);
+  // An `import()` in markup falls to the post rewrite of the compiled module, at its specifier.
+  it.each([
+    {name: 'AttrInSvelte', count: 3, at: undefined},
+    {name: 'AttrInSvelteMarkup', count: 0, at: "'../../imports/Icon.ucf'"},
+  ])(
+    'fails each framework attribute in the <svelte> block of $name.ucf at its place, in build and dev',
+    async ({name, count, at}) => {
+      const path = `svelte/imports/${name}.ucf`;
+      await withImport(name, `'${COMPONENTS}/${path}'`, async (root) => {
+        const file = componentFile(root, path);
+        const source = await readFile(file, 'utf8');
+        const diagnostics = checkBlocks(splitBlocks(source, file));
+        expect(diagnostics.map(({code}) => code)).toEqual(Array<string>(count).fill('framework-in-block'));
+        const [first, ...rest] = diagnostics;
+        const loc = at ? {file, ...locate(source, source.indexOf(at))} : {file, line: first!.line, column: first!.column};
+        const built = await expectImportError(root, {
+          build: () => buildImporter(root),
+          url: `${file}.svelte.svelte`,
+          environments: ['client', 'ssr'],
+          code: 'framework-in-block',
+          loc,
+        });
+        for (const other of rest) expect(built.message).toContain(`\n${file}:${other.line}:${other.column} `);
       });
-    });
-  });
-
-  it('fails a framework attribute of an import() in <svelte> markup at its import, in build and dev', async () => {
-    await withImport('AttrInSvelteMarkup', `'${COMPONENTS}/svelte/imports/AttrInSvelteMarkup.ucf'`, async (root) => {
-      const file = componentFile(root, 'svelte/imports/AttrInSvelteMarkup.ucf');
-      const source = await readFile(file, 'utf8');
-      expect(checkBlocks(splitBlocks(source, file))).toEqual([]);
-      const loc = {file, ...locate(source, source.indexOf("'../../imports/Icon.ucf'"))};
-
-      const built = await rejection<Rolldown.BundleError>(buildImporter(root));
-      expect(built.message).toContain('(framework-in-block)');
-      expect(built.errors?.[0]?.loc).toEqual(loc);
-
-      await withDevServer(root, {}, async (server) => {
-        const client = await rejection<Rolldown.RollupError>(
-          server.environments.client.transformRequest(`${file}.svelte.svelte`)
-        );
-        expect(client.message).toContain('(framework-in-block)');
-        expect(client.loc).toEqual(loc);
-        const ssr = await rejection<Rolldown.RollupError>(server.ssrLoadModule('/src/entry-server.ts'));
-        expect(ssr.message).toContain('(framework-in-block)');
-        expect(ssr.loc).toEqual(loc);
-      });
-    });
-  });
+    }
+  );
 
   it.each([
     {
