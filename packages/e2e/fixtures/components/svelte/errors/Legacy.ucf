@@ -1,0 +1,13 @@
+<svelte>
+  <script>
+    export let count = 0
+    $: doubled = count * 2
+  </script>
+  <p title={$$props.title} {...$$restProps}>{doubled}</p>
+</svelte>
+
+<style>
+p {
+  margin: 0;
+}
+</style>

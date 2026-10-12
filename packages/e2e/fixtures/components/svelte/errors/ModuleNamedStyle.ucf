@@ -1,0 +1,9 @@
+<svelte>
+  <p class={$style.card}>A module named style</p>
+</svelte>
+
+<style module="style">
+.card {
+  padding: 8px;
+}
+</style>

@@ -1,9 +1,11 @@
 <svelte>
   <script lang="ts">
     const cardClass = $style.card
+    const boxClass = ($style as Record<string, string>).box
   </script>
   <div class={cardClass}>
     <p class={$style.text}>No module</p>
+    <p class={boxClass}>No module</p>
   </div>
 </svelte>
 

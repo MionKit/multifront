@@ -1,0 +1,20 @@
+<svelte>
+  <svelte:options customElement="x-runes" />
+  <script lang="ts">
+    let {value = $bindable(0)}: {value?: number} = $props()
+    const id = $props.id()
+    let items = $state.raw([1, 2])
+    const total = $derived.by(() => items.length + value)
+    $effect(() => {})
+    $effect.pre(() => {})
+    $inspect(total)
+    const element = $host()
+  </script>
+  <p {id} title={String(element)}>{$state.snapshot(items)} {total}</p>
+</svelte>
+
+<style>
+p {
+  margin: 0;
+}
+</style>

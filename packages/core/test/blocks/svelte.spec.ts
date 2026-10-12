@@ -29,23 +29,34 @@ const NO_STYLE = '<svelte> uses $style, but no <style module> exists; add one';
 
 // Written by hand from the fixture files.
 const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' | 'column'> & {text: string})[]}[] = [
+  // `$:` and `$$props` are Svelte's own.
+  {fixture: `${ERRORS_DIR}/Legacy.ucf`, errors: []},
+  // `$style` reads `module="style"` as `$name` reads `module="name"`.
+  {fixture: `${ERRORS_DIR}/ModuleNamedStyle.ucf`, errors: []},
+  // Every kind of top-level store, `$`-named imports and types, property names, a `style` prop.
   {fixture: `${ERRORS_DIR}/NamedModule.ucf`, errors: []},
+  {fixture: `${ERRORS_DIR}/Runes.ucf`, errors: []},
   {fixture: `${ERRORS_DIR}/StyleInHead.ucf`, errors: []},
+  // `($style as …)` is a use.
   {
     fixture: `${ERRORS_DIR}/StyleWithoutModule.ucf`,
     errors: [
       {code: 'missing-style-module', line: 3, column: 22, text: '$style'},
-      {code: 'missing-style-module', line: 6, column: 14, text: '$style'},
+      {code: 'missing-style-module', line: 4, column: 22, text: '$style'},
+      {code: 'missing-style-module', line: 7, column: 14, text: '$style'},
     ],
   },
   {fixture: `${ERRORS_DIR}/TopLevelStyle.ucf`, errors: [{code: 'style-inside-target', line: 9, column: 2, text: '<style>'}]},
   // Svelte reads `title</h2>` as `title < /h2>…`, a regular expression that never ends.
   {fixture: `${ERRORS_DIR}/UnclosedBrace.ucf`, errors: [{code: 'svelte-parse-error', line: 5, column: 28, text: ''}]},
+  // A computed key or member is a use.
   {
     fixture: `${ERRORS_DIR}/WrongModuleName.ucf`,
     errors: [
-      {code: 'missing-style-module', line: 3, column: 14, text: '$style'},
-      {code: 'missing-style-module', line: 4, column: 14, text: '$theme'},
+      {code: 'missing-style-module', line: 3, column: 20, text: '$theme'},
+      {code: 'missing-style-module', line: 6, column: 14, text: '$style'},
+      {code: 'missing-style-module', line: 7, column: 14, text: '$theme'},
+      {code: 'missing-style-module', line: 8, column: 23, text: '$theme'},
     ],
   },
 ];
@@ -95,11 +106,15 @@ describe('the <svelte> rules', () => {
   });
 
   it('names the module, or the store, a $name lacks', async () => {
+    const noTheme = '<svelte> uses $theme, but no <style module="theme"> or store named theme exists';
     expect((await svelteBuild(`${ERRORS_DIR}/WrongModuleName.ucf`)).thrown.map(({message}) => message)).toEqual([
+      noTheme,
       NO_STYLE,
-      '<svelte> uses $theme, but no <style module="theme"> or store named theme exists',
+      noTheme,
+      noTheme,
     ]);
     expect((await svelteBuild(`${ERRORS_DIR}/StyleWithoutModule.ucf`)).thrown.map(({message}) => message)).toEqual([
+      NO_STYLE,
       NO_STYLE,
       NO_STYLE,
     ]);
