@@ -48,6 +48,11 @@ export interface EmitSvelteTypesOptions extends Pick<EditorOptions, 'ts' | 'svel
   outDir?: string; // default `<root>/.ucf/svelte`; `ts` defaults to the project's own, resolved from `root`
 }
 
+/** What a host bundling the language server sets. */
+export interface ServerOptions extends Pick<EditorOptions, 'svelteTypesRoot'> {
+  onTypeScript?(ts: TypeScript): void; // called with the tsdk's TypeScript once it is loaded
+}
+
 /** One per `.ucf` file; shared rows fill it before the target rows read it. */
 export interface EditorContext extends EditorOptions {
   split: SplitResult;
