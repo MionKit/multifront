@@ -36,6 +36,15 @@ plugin-svelte 7.3.0, svelte 5.57.0, plugin-vue 6.0.8, plugin-react 6.1.1, Chromi
 - Orchestrator, Q1: skip plugin-svelte's `transformRequest` of the bare `.ucf` file by wrapping its `hotUpdate` in
   `composeSveltePlugin()` (not a loadable bare id, not dropping the Svelte module from our hook's list).
 - Orchestrator, Q2: no fuzz test.
+- Review (automatic triage), all fixed:
+  - a `<svelte>` edit to a `.ucf` file with no `<vue>` block, in the mixed app: `svelte/NoStyle.ucf` mounted in
+    `all-targets` and edited (also the proof that a Svelte edit no longer builds the Vue target there);
+  - the hand-through for any other file: a plain `src/Plain.svelte` with a `<style>` in `all-targets`, its markup and
+    style edited. Not in `svelte-vite` as the review proposed: its build test (5.3) checks the bundle holds no
+    Svelte-made CSS;
+  - the restart guard of the new wrap: `build/svelte-target.spec.ts`'s restart case checks both handlers;
+  - the logger checked wired at setup; `withMember`'s key typed `keyof Target`; the compile wrap's context in a
+    local; `scopedStyleEdit` checks the same DOM node itself.
 
 ## Plan
 
@@ -62,11 +71,14 @@ plugin-svelte 7.3.0, svelte 5.57.0, plugin-vue 6.0.8, plugin-react 6.1.1, Chromi
 - `vite.config.ts`: `plugins: [react(), vue(), svelte(), multifront()]`.
 - `index.html`: `<link rel="icon" href="data:," />`, `<div id="vue">`, `<div id="react">`, `<div id="svelte">`,
   `<script type="module" src="/src/main.tsx">`.
-- `src/main.tsx`: imports `Panel.ucf` three times, `with {framework: 'vue'}` / `'react'` / `'svelte'`, and
-  `Counter.ucf` `with {framework: 'react'}`:
+- `index.html` also holds `<div id="no-style">` and `<div id="plain">`.
+- `src/main.tsx`: imports `Panel.ucf` three times, `with {framework: 'vue'}` / `'react'` / `'svelte'`,
+  `Counter.ucf` `with {framework: 'react'}`, `svelte/NoStyle.ucf` `with {framework: 'svelte'}` (no `<vue>` block) and
+  `./Plain.svelte` (a plain component with a `<style>`):
   - `createApp(VuePanel, {heading: 'Vue panel'}).mount('#vue')`;
   - `createRoot(#react).render(<><ReactPanel heading="React panel" /><Counter start={2} /></>)`;
-  - `mount(SveltePanel, {target: #svelte, props: {heading: 'Svelte panel'}})`.
+  - `mount(SveltePanel, {target: #svelte, props: {heading: 'Svelte panel'}})`;
+  - `mount(NoStyle, {target: #no-style})`, `mount(Plain, {target: #plain})`.
 - No tsconfig, as `apps/svelte-vite`. 5.8 and the exit test build on this app.
 
 ### 3. Test helper (`packages/e2e/browser/lib/requests.ts`)
@@ -83,7 +95,7 @@ plugin-svelte 7.0.0 in `svelte-floor`). No new infra.
 Per app, in `beforeAll`:
 
 - a `createLogger('silent')` with `warn`, `warnOnce` and `error` recorded, passed to `startDev()`; checked wired
-  (`app.server.config.logger`);
+  (`app.server.config.logger`) right after;
 - `collectConsole`, `trackRequests`, `trackHmrPayloads`, `load` events counted;
 - `page.goto`, wait for `[data-marker="panel-svelte-marker"]`, then `globalThis.ucfMarker = 'kept'` in the page.
 
@@ -102,7 +114,8 @@ apps. URLs: our Svelte module is served at `${panelFile}.svelte.svelte`, style m
 2. Scoped `<style>` edit, `$pad: 1rem;` → `$pad: 2rem;`:
    - the Svelte `.panel` `padding-top` goes from `16px` to `32px`;
    - requests exactly `[/@fs${panelFile}?ucf&type=style&index=0&lang.css]`, updated paths the same;
-   - the Svelte `section` is the same DOM node (an `evaluateHandle` taken before the edit equals the one after);
+   - the Svelte `section` is the same DOM node (an `elementHandle()` taken before the edit equals `querySelector`
+     after it);
    - marker kept, no error.
 3. One page load, no `warning`, `error` or `pageerror` in the console.
 
@@ -122,11 +135,20 @@ counter is clicked from 2 to 3.
    - every request and updated path is a `Panel.ucf` style module of index 0: ours `?ucf&type=style&index=0` and
      plugin-vue's `?vue&type=style&index=0` for the Vue panel; none is a `.svelte.svelte` or `.react.tsx` module;
    - count `3`.
-4. One page load, no console warning or error, no server log line.
+4. `<svelte>` edit to `svelte/NoStyle.ucf` (no `<vue>` block): its text changes; requests and updated paths exactly
+   `[NoStyle.ucf.svelte.svelte]`; no `full-reload`, marker kept, no error.
+5. `src/Plain.svelte` markup edit, then its style edit: the text and the computed `color` change; no `full-reload`,
+   marker kept, no error.
+6. One page load, no console warning or error, no server log line.
+
+`packages/e2e/build/svelte-target.spec.ts`: the restart case checks plugin-svelte's compile and hot update handlers
+are both the same after `server.restart()`.
 
 Checked failing without the wrap of plan 1: svelte-vite case 1 (the heading never changes), case 2 (the page
 reloaded, marker lost) and its last case (two page loads). With the wrap skipping every URL, both `<svelte>` edit
-cases fail (plugin-svelte sees unchanged output and drops the update).
+cases fail (plugin-svelte sees unchanged output and drops the update). Without the wrap, the all-targets `NoStyle`
+case fails; with the wrap dropping other files' updates, the `Plain.svelte` case fails; without the restart guard,
+the restart case fails.
 
 ## Docs
 
