@@ -1,8 +1,9 @@
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import type {SourceMapInput} from '@jridgewell/trace-mapping';
 import type {Plugin, Rolldown} from 'vite';
+import type {AST} from 'svelte/compiler';
 import {importerFromId, locate, resolveTarget, rewriteImportAttributes} from '@multifront/core';
-import type {Importer, VueCompiler} from '@multifront/core';
+import type {Importer, SvelteCompiler, VueCompiler} from '@multifront/core';
 import {describeDiagnostic, importErrorMessage} from './diagnostics.ts';
 import {JS_LIKE} from './ids.ts';
 import type {MultifrontOptions} from './types.ts';
@@ -61,20 +62,58 @@ function vueScripts(compiler: VueCompiler, code: string, id: string): RawScript[
   );
 }
 
-interface Compilers {
-  vue: () => VueCompiler | undefined;
+// Undefined when the file does not parse: plugin-svelte reports that.
+function svelteScripts(compiler: SvelteCompiler, code: string): RawScript[] | undefined {
+  // A preprocessor's style (`lang="scss"`) is no CSS Svelte parses; blanked, every offset stays.
+  const unstyled = code.replace(
+    /(<style\b[^>]*>)([^]*?)(?=<\/style>)/g,
+    (_, tag: string, body: string) => tag + body.replace(/\S/g, ' ')
+  );
+  let root: AST.Root;
+  try {
+    root = compiler.parse(unstyled, {modern: true});
+  } catch {
+    return undefined;
+  }
+  const scripts = [root.module, root.instance]
+    .flatMap((script) => (script ? [script] : []))
+    .sort((first, second) => first.start - second.start);
+  // Svelte reads every script in the language of the first `lang`.
+  const lang = scripts.flatMap(({attributes}) => attributes).find(({name}) => name === 'lang')?.value;
+  const text = Array.isArray(lang) && lang[0]?.type === 'Text' ? lang[0].data : undefined;
+  return scripts.map(({content}) => {
+    // Svelte sets `start` and `end` on the script's Program; its estree type leaves them out.
+    const {start, end} = content as unknown as AST.BaseNode;
+    return {start, content: code.slice(start, end), lang: text};
+  });
 }
 
-/** Spec 4.4 on the raw `.vue` file: without `build.sourcemap` plugin-vue's script sub-module maps nowhere back. */
+// `X.ucf.svelte.svelte` is a target module, not an importer: `load` checks its block.
+const IMPORTER = /(?:\.vue|(?<!\.ucf\.svelte)\.svelte)$/;
+
+interface Compilers {
+  vue: () => VueCompiler | undefined;
+  svelte: () => SvelteCompiler;
+}
+
+/** Spec 4.4 on the raw file: plugin-vue's script sub-module maps nowhere back without `build.sourcemap`, plugin-svelte's map names the file relatively. */
 export function importersPlugin(options: MultifrontOptions, compilers: Compilers): Plugin {
   return {
     name: 'multifront:importers',
     enforce: 'pre',
     transform: {
-      filter: {id: /\.vue$/, code: /\.ucf/},
+      // Before plugin-svelte's preprocess, whose map would name the file relatively too.
+      order: 'pre',
+      filter: {id: IMPORTER, code: /\.ucf/},
       handler(code, id) {
-        const compiler = compilers.vue();
-        const error = compiler && scriptsError(vueScripts(compiler, code, id), id, options);
+        let scripts: RawScript[] | undefined;
+        if (id.endsWith('.svelte')) scripts = svelteScripts(compilers.svelte(), code);
+        else {
+          const compiler = compilers.vue();
+          scripts = compiler && vueScripts(compiler, code, id);
+        }
+        // A `.ucf` import in Svelte markup is left to the post rewrite.
+        const error = scripts && scriptsError(scripts, id, options);
         if (error) failAtImport(this, code, id, error);
       },
     },
