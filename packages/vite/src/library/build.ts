@@ -88,15 +88,21 @@ async function writtenFiles(dir: string): Promise<string[]> {
     .sort();
 }
 
+// The file behind a module id: `/abs/Card.ucf` for `/abs/Card.ucf.react.tsx` or a style id.
+function fileOf(id: string): string {
+  const {path} = splitId(id);
+  return virtualTarget(path)?.file ?? path;
+}
+
+function shownFile(root: string, file: string): string {
+  return normalizePath(relative(root, file));
+}
+
 /** Keeps the peers external, and fails on any other package or on a file outside `src`. */
 function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plugin {
   const names = Object.keys(peers);
   const isPeer = (id: string) => names.some((peer) => id === peer || id.startsWith(`${peer}/`));
-  const fileOf = (id: string) => {
-    const {path} = splitId(id);
-    return virtualTarget(path)?.file ?? path;
-  };
-  const shown = (file: string) => normalizePath(relative(root, file));
+  const shown = (file: string) => shownFile(root, file);
   return {
     name: 'multifront:library',
     enforce: 'pre',
@@ -130,7 +136,19 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
 
 async function buildOne(job: TargetJob, vite: InlineConfig | undefined): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
-  const fileName = (chunk: Rolldown.PreRenderedChunk) => `${outputName(chunk.facadeModuleId ?? chunk.moduleIds[0]!, src)}.js`;
+  const owners = new Map<string, string>();
+  // Rolldown would rename a second module of the same name (`Card2.js`) without a word.
+  const fileName = (chunk: Rolldown.PreRenderedChunk) => {
+    const id = chunk.facadeModuleId ?? chunk.moduleIds[0]!;
+    const name = `${outputName(id, src)}.js`;
+    const owner = owners.get(name) ?? id;
+    owners.set(name, owner);
+    if (owner !== id) {
+      const [first, second] = [owner, id].map((other) => shownFile(root, fileOf(other)));
+      throw new Error(`buildLibrary: ${first} and ${second} would both be written as ${name}`);
+    }
+    return name;
+  };
   const config: InlineConfig = {
     configFile: false,
     root,
