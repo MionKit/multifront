@@ -1,8 +1,10 @@
-import {readFile} from 'node:fs/promises';
+import {readFile, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {checkBlocks, locate, splitBlocks} from '@multifront/core';
 import {mergeConfig, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
+import {svelte, vitePreprocess} from '@sveltejs/vite-plugin-svelte';
+import {multifront} from '@multifront/vite';
 import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, expectImportError, rejection, withDevServer, withEditedApp} from './lib/build.ts';
 import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
@@ -197,4 +199,84 @@ describe('import errors through plugin-svelte', () => {
       });
     }
   );
+});
+
+const PREPROCESSED: InlineConfig = {configFile: false, plugins: [svelte({preprocess: vitePreprocess()}), multifront()]};
+const BAD_IMPORT = `import Bad from '${COMPONENTS}/Card.ucf' with { framework: 'nope' };`;
+
+// `at` starts where the error points, in the importer's own file, as for a `.vue` importer.
+describe('.svelte importer errors', () => {
+  it.each([
+    // Its own `<script module>` re-exports Card.ucf too.
+    {importer: 'App.svelte', code: 'unknown-framework', at: BAD_IMPORT.slice(BAD_IMPORT.indexOf("'"))},
+    {
+      importer: 'LangLess.svelte',
+      code: 'unknown-framework',
+      at: `'${COMPONENTS}/Card.ucf' with`,
+      source: `<script>\n  ${BAD_IMPORT}\n</script>\n\n<Bad title="a" />\n`,
+    },
+    {
+      importer: 'NonLiteral.svelte',
+      code: 'framework-attribute-not-literal',
+      at: 'pick } })',
+      source:
+        `<script module lang="ts">\n  const pick = 'svelte';\n` +
+        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: pick } });\n</script>\n\n<p>lazy</p>\n`,
+    },
+    // The first in the file, whichever script it is.
+    {
+      importer: 'ScriptFirst.svelte',
+      code: 'unknown-framework',
+      at: `'${COMPONENTS}/Card.ucf' with`,
+      source:
+        `<script lang="ts">\n  ${BAD_IMPORT}\n</script>\n\n<script module>\n` +
+        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: 'worse' } });\n</script>\n\n<Bad title="a" />\n`,
+    },
+    // Svelte reads the lang-less `<script module>` as TypeScript, the language of the first `lang`.
+    {
+      importer: 'ModuleTs.svelte',
+      code: 'unknown-framework',
+      at: `'${COMPONENTS}/Card.ucf', {`,
+      source:
+        `<script module>\n  const size: number = 1;\n` +
+        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: 'nope' } });\n</script>\n\n` +
+        '<script lang="ts">\n  let gap = size;\n</script>\n\n<p>{gap}</p>\n',
+    },
+    // A preprocessor's map names the file relatively.
+    {
+      importer: 'Preprocessed.svelte',
+      code: 'unknown-framework',
+      at: `'${COMPONENTS}/Card.ucf' with`,
+      source: `<script lang="ts">\n  ${BAD_IMPORT}\n</script>\n\n<section><Bad title="a" /></section>\n\n<style lang="scss">\n  $gap: 4px;\n  section {\n    margin: $gap;\n  }\n</style>\n`,
+      config: PREPROCESSED,
+    },
+  ])(
+    'fails $code in $importer at the import in that file, in a build with no source maps and in dev',
+    async ({importer, code, at, source, config}) => {
+      const [name, specifier] = source
+        ? [importer.slice(0, -'.svelte'.length), `'./${importer}'`]
+        : ['Bad', BAD_IMPORT.slice(BAD_IMPORT.indexOf("'"), -1)];
+      await withImport(name, specifier, async (root) => {
+        const file = join(root, 'src', importer);
+        if (source) await writeFile(file, source);
+        const text = await readFile(file, 'utf8');
+        const loc = {file, ...locate(text, text.indexOf(at))};
+        const build = () => buildImporter(root, config);
+        await expectImportError(root, {build, url: `/src/${importer}`, environments: ['client', 'ssr'], code, loc, config});
+      });
+    }
+  );
+
+  it("leaves a .svelte importer that does not parse to plugin-svelte's own error", async () => {
+    const source = `<script>\n  import Card from '${COMPONENTS}/Card.ucf';\n</script>\n\n{#if}\n`;
+    await withImport('Broken', "'./Broken.svelte'", async (root) => {
+      await writeFile(join(root, 'src', 'Broken.svelte'), source);
+      const built = await rejection<Rolldown.BundleError>(buildImporter(root));
+      expect(built.errors?.[0]?.plugin).toBe('vite-plugin-svelte:compile');
+      await withDevServer(root, {}, async (server) => {
+        const err = await rejection<Rolldown.RollupError>(server.environments.client.transformRequest('/src/Broken.svelte'));
+        expect(err.plugin).toBe('vite-plugin-svelte:compile');
+      });
+    });
+  });
 });

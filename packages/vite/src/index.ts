@@ -7,6 +7,7 @@ import {
   buildTarget,
   getBlockKind,
   importerFromId,
+  loadSvelteCompiler,
   missingTargetBlockMessage,
   resolveTarget,
   rewriteImportAttributes,
@@ -231,6 +232,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
   };
   const importers = importersPlugin(options, {
     vue: () => (hasVuePlugin(config!.plugins) ? api.vueCompiler : undefined),
+    svelte: () => loadSvelteCompiler(config!.root),
   });
   return [
     pre,
