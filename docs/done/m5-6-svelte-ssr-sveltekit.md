@@ -52,6 +52,10 @@ So no `@multifront/vite` or core change is needed: this step adds the app, the t
   computed specifier, which the bundler leaves to Node (`--conditions=source`). Measured: the spec passes with
   `packages/vite/dist/` removed; `docs/milestones/README.md`'s "Fixture configs from source" row says so.
 - Found while building: a build splits the CSS per route chunk, so the test reads every `<link rel="stylesheet">`.
+- Review (automatic triage), all fixed: the config fix in its own commit; the build child stopped in `afterAll`; the
+  hydrated panel's attribute check dropped (the same-node check already implies it); one `withUrl()` for the three
+  server helpers; `startNodeServer()` without an `entry`; one-caller `scopes()` and the `Server` alias inlined; the
+  config's unchecked type import and the fixture `package.json`'s unused fields dropped.
 
 ## Plan
 
@@ -59,8 +63,8 @@ So no `@multifront/vite` or core change is needed: this step adds the app, the t
    `@sveltejs/adapter-node` 5.5.7 (2026-06-24), both past the 30 day release age. Kit's peers are met (vite ^8,
    svelte ^5, plugin-svelte ^7, typescript ^6; `@opentelemetry/api` optional). Test tools: root, not `packages/e2e`.
 2. Fixture app `packages/e2e/fixtures/apps/sveltekit-src/`:
-   - `package.json`: `{"name": "sveltekit-src", "private": true, "type": "module"}`. adapter-node reads it from the cwd
-     at build time; Vite's dep cache stays inside the copy. Outside the `packages/*` workspace glob.
+   - `package.json`: `{"type": "module"}`. adapter-node reads it from the cwd at build time; Vite's dep cache stays
+     inside the copy. Outside the `packages/*` workspace glob.
    - `svelte.config.js`: `kit: {adapter: adapter()}` from `@sveltejs/adapter-node`.
    - `vite.config.ts`: `plugins: [multifront(), sveltekit()]`, `multifront` from
      `await import(['@multifront', 'vite'].join('/'))` (see Decisions).
@@ -72,21 +76,20 @@ So no `@multifront/vite` or core change is needed: this step adds the app, the t
      hydration ran).
    - `src/routes/items/+page.svelte`: `PanelItem.ucf`, rendered as `<PanelItem label="client item" />`. The test
      reaches it by client-side navigation, so the client compiles and stamps it.
-3. `packages/e2e/build/lib/freshProcess.ts`, beside `startSsrServer()`:
-   - `startViteDev(root)`: `startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'})`, `url` a promise of the
-     `Local:\s+(\S+)` line;
-   - `startNodeServer(root, entry)`: `startNode(root, [entry], {NODE_ENV: 'production', PORT: '0', HOST: '127.0.0.1'})`,
-     `url` a promise of adapter-node's `Listening on (\S+)` line.
-   - Both returned at once, as `startSsrServer()`, so a hang leaks no child.
+3. `packages/e2e/build/lib/freshProcess.ts`: `withUrl(server, line)` adds `url`, a promise of `line`'s first capture;
+   `startSsrServer()` uses it too. Each helper returns at once, so a hang leaks no child:
+   - `startViteDev(root)`: `startViteCli(root, ['--port', '0'], {NODE_ENV: 'development'})`, `Local:\s+(\S+)`;
+   - `startNodeServer(root)`: `startNode(root, ['build/index.js'], {NODE_ENV: 'production', PORT: '0', HOST:
+     '127.0.0.1'})`, adapter-node's `Listening on (\S+)`.
 
 ## Tests
 
 `packages/e2e/browser/svelte-ssr.spec.ts` (Playwright, `launchChromium()`), under `pnpm devx test`, on this host and in
 CI's `check`, `react-floor`, `vue-floor` and `svelte-floor` jobs. No new infra: child processes (4.7) and Chromium (3.9)
-are there. Each describe uses its own `copyApp('sveltekit-src')`, removed after; children stop in `onTestFinished` /
-`afterAll`. Expected ids: `scopeAttribute(root, file, production)` for `Panel.ucf`, `PanelItem.ucf`, `Counter.ucf`.
+are there. Each describe uses its own `copyApp('sveltekit-src')`, removed after; children (the build
+included, should its hook time out) stop in `afterAll`. Expected ids: `scopeAttribute(root, file, production)` for `Panel.ucf`, `PanelItem.ucf`, `Counter.ucf`.
 
-`checkPage(url, production)`, shared by every load:
+`checkPage(root, url, production)`, shared by every load:
 
 - A `page.addInitScript` MutationObserver (a plain JS string: the e2e package has no DOM types) keeps the first
   `section.panel` node the parser inserts.
@@ -96,7 +99,7 @@ are there. Each describe uses its own `copyApp('sveltekit-src')`, removed after;
   `.panel[data-v-<panel>]`, `.item[data-v-<item>]`, `.counter[data-v-<counter>]` and the button's `$style` class from
   the HTML (`hasClass()`).
 - Wait for `body[data-hydrated]`. The kept node is still `document.querySelector('section.panel')` (hydrated, not
-  re-mounted) and still carries `data-v-<panel>`.
+  re-mounted).
 - Click the button: `expect.poll` sees `3`.
 - Click the `/items` link: `client item` shows, its `<p>` carries `data-v-<item>`, still one `load` event (a client
   render, same id).
@@ -104,10 +107,10 @@ are there. Each describe uses its own `copyApp('sveltekit-src')`, removed after;
 
 Cases:
 
-- **Dev, then a restart (cache miss)**: `startViteDev(copy)`, `checkPage(url, false)`, no `/error/i` in the server
-  output; stop the process, start a new one on the same copy, `checkPage(newUrl, false)` again.
-- **Build**: `startViteCli(copy, ['build'], {NODE_ENV: 'production'}).finished()`, then
-  `startNodeServer(copy, 'build/index.js')`, `checkPage(url, true)`.
+- **Dev, then a restart (cache miss)**: `startViteDev(copy)`, `checkPage(copy, url, false)`, no `/error/i` in the server
+  output; stop the process, start a new one on the same copy, `checkPage(copy, newUrl, false)` again.
+- **Build**: `startViteCli(copy, ['build'], {NODE_ENV: 'production'}).finished()`, then `startNodeServer(copy)`,
+  `checkPage(copy, url, true)`.
 
 Measured before committing: a throwaway edit to our `load` that changes `data-v-` only for the client environment
 fails all three cases (on the `/items` client render). A server/client `{#if}` branch mismatch was no probe: Svelte
