@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 6
 step: 6.4
@@ -91,7 +91,7 @@ render function does not (it gets it as the second parameter).
 ## Tests
 
 - **`packages/core/test/react/scope.spec.ts`** (core project: this host, CI `check` and `react-floor`): a `ROOT_PROPS`
-  table per fixture and root (`author` / `wrapped` / `added` for each prop) with a completeness test; dev and
+  table per fixture and root (`added` / `merged` / `author` / `none` for each prop) with a completeness test; dev and
   production builds parse, snapshot, only insert, and match the table. `forwardRef` rows get no `ref`. Helper imports =
   the `__ucf*` functions called. The helper module test checks the merge helpers' behaviour. 3.10's mapping test reads
   past the added attributes. Snapshots updated and reviewed.
@@ -130,3 +130,13 @@ render function does not (it gets it as the second parameter).
 - `pnpm devx check` passes; snapshot changes reviewed.
 - Spec, architecture and milestone doc updated; this todo moved to `docs/done/` matching what shipped.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## As shipped
+
+- 3.5's token row for `ScopedPanel` in `react.spec.ts` marks `"panel"`: the root's own `className="panel"` is now the
+  first argument of its merge, so the old token text no longer appears whole.
+- `withoutInjected` strips an added attribute only for the three root props, so an author's `branch={props.branch}`
+  right after the spread stays (`ComponentRoot`).
+- `Valueless.ucf` holds a `// @ts-expect-error` on its valueless `className`, the type error it carries on purpose.
+- The hydration test serves the dev page through `page.route` with the SSR HTML in `#app`, and a `MutationObserver`
+  from `addInitScript` sees no element removed under `#app`.

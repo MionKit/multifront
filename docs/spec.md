@@ -117,7 +117,11 @@ The full picture, with graphics: [architecture.md](architecture.md).
      - The pattern text moves as written (defaults, rest, comments) into `const <pattern> = __props;` right after the body's `{` (after its directives, such as `'use no memo'`, which must stay first). An expression-bodied arrow gets `{const <pattern> = __props; return <body>}`. The type annotation and a parameter default stay on `__props`.
      - `__props` (and `__ref`, added in `forwardRef`) takes the first of `__props`, `__props1`, `__props2`, ... that no identifier of the block uses.
      - No forwarding when the body declares a name the pattern binds or reads (its defaults and computed keys; moved into the body, they would meet), when a later parameter reads a name it binds, nor for a rest first parameter (`(...args)`).
-- `__ucfScopeAttrs` is a helper of a few lines, served by the Vite plugin as a virtual module, so it is bundled once and shipped components get no runtime dependency.
+  5. **Root props.** On the same roots (fragments get nothing), the component accepts and merges `className` and `style` and forwards `ref` (React 19, where `ref` is a prop):
+     - An own `className="a"` or `className={a}` becomes `className={__ucfClass(a, props.className)}`; `style` the same with `__ucfStyle` (the parent's keys win); an own `ref={r}` becomes `ref={__ucfRef(r, props.ref)}`, a ref that sets both. With no own one, `className={props.className}` (and `style`, `ref`) is added right after the forwarding spread, before every author attribute, so a later author spread that carries it still wins. An own one with no value, `{}`, or a string `style` / `ref` is left as written.
+     - The author wins: a prop the component handles itself is left alone. It does when the destructured first parameter has that key (`{className}`, `{className: extra}`), when it reads `props.className` or `props['className']` anywhere, when it destructures `props` with that key anywhere (`const {ref} = props`), and for `ref` in a `forwardRef` component (React passes it as the second parameter). A root that spreads `props`, or the rest of such a pattern (`{...rest}`), gets none of the three.
+     - Not detected: `props` passed on whole (`useThing(props)`, `<Inner {...props} />` below the root); the root still gets the props. Destructuring the prop opts out. No lint rule: the rule is syntactic and stated here.
+- `__ucfScopeAttrs` and the root-prop merges `__ucfClass`, `__ucfStyle` and `__ucfRef` are helpers of a few lines, served by the Vite plugin as one virtual module, so they are bundled once and shipped components get no runtime dependency. With no incoming prop, a merge gives back the root's own value.
 - Hand off to `@vitejs/plugin-react` for JSX/TS transform and Fast Refresh. The virtual id must end in `.tsx`.
 - Third-party components don't forward scope attributes; document `className` + CSS modules as the way to style them.
 
@@ -300,7 +304,7 @@ Requirements:
 
 - **CSS as real files**, never runtime injection (SSR + CSP safe). Each component JS imports its CSS; also emit a combined `styles.css` for consumers who prefer one import. `"sideEffects": ["*.css"]`.
 - **React Server Components:** files whose component uses hooks or event handlers get `"use client"` at the top of the output file. The build must preserve the directive per output file (bundlers strip it in library mode).
-- **React conventions:** the compiler makes every component root accept and merge `className` and `style`, and forward `ref`, automatically (React 19 and later, where `ref` is a prop). A component that handles one of these props itself keeps its own handling; how the compiler detects that (or whether a lint rule helps) is designed when that step is built. Theming through CSS variables, identical across targets.
+- **React conventions:** the compiler makes every component root accept and merge `className` and `style`, and forward `ref`, automatically (React 19 and later, where `ref` is a prop), the same in apps and in the library. A component that handles one of these props itself keeps its own handling (3.5, item 5). Theming through CSS variables, identical across targets.
 - **Peer dependencies only:** react/react-dom, vue, or svelte. Zero runtime dependencies otherwise.
 - `exports` map per package with types.
 
