@@ -9,6 +9,13 @@ import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const FIXTURE = join(FIXTURES_DIR, 'apps', 'react-root-props');
 const RED = 'rgb(255, 0, 0)';
+// In the page before any script: a client render instead of a hydration would remove the server's elements.
+const WATCH_REMOVED = `window.removed = [];
+new MutationObserver((records) => {
+  for (const record of records)
+    for (const node of record.removedNodes)
+      if (node instanceof Element && record.target.closest?.('#app')) window.removed.push(node.tagName);
+}).observe(document, {childList: true, subtree: true});`;
 
 let browser: Browser | undefined;
 
@@ -96,22 +103,14 @@ describe('renderToString, hydrated', () => {
     const page = await browser!.newPage();
     try {
       const messages = collectConsole(page);
-      await page.addInitScript(() => {
-        const removed: string[] = [];
-        Object.assign(window, {removed});
-        new MutationObserver((records) => {
-          for (const record of records)
-            for (const node of record.removedNodes)
-              if (node instanceof Element && (record.target as Element).closest?.('#app')) removed.push(node.tagName);
-        }).observe(document, {childList: true, subtree: true});
-      });
+      await page.addInitScript({content: WATCH_REMOVED});
       await page.route(app!.url, async (route) => {
         const response = await route.fetch();
         await route.fulfill({response, body: (await response.text()).replace('<!--ssr-->', html)});
       });
       await page.goto(app!.url);
       await expectRootProps(page);
-      expect(await page.evaluate(() => (window as unknown as {removed: string[]}).removed)).toEqual([]);
+      expect(await page.evaluate('window.removed')).toEqual([]);
       expect(consoleProblems(messages)).toEqual([]);
     } finally {
       await page.close();
