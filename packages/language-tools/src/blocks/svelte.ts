@@ -47,7 +47,7 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
 }
 
 // svelte2tsx's script, then `declare const __ucfStyle: {readonly card: string};` per class map the block uses.
-function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
+export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
   if (!compiler) return undefined;
   const {code: svelte, locals, lang, mappings: renameMappings} = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
