@@ -60,7 +60,7 @@ function topLevelNames(scripts: (AST.Script | null)[]): Set<string> {
   return names;
 }
 
-// Own keys only: `ctx.modules` is a plain object, so `$constructor` would read Object.prototype.
+// `ctx.modules` is a plain object: `$constructor` would otherwise read Object.prototype.
 function ownModule(ctx: BuildContext, name: string): StyleModule | undefined {
   return Object.hasOwn(ctx.modules, name) ? ctx.modules[name] : undefined;
 }
@@ -70,7 +70,7 @@ function classMap(bare: string, ctx: BuildContext): StyleModule | undefined {
   return bare === 'style' ? (ownModule(ctx, '$style') ?? ownModule(ctx, 'style')) : ownModule(ctx, bare);
 }
 
-// A `$x` use of a class map; `shorthand` holds the span that must keep the name `$x` (`{$x}` as a key or a prop).
+// `shorthand`: the span of a `{$x}` key or prop, which must keep the name `$x`.
 interface StyleUse {
   node: Node;
   module: StyleModule;
@@ -138,7 +138,7 @@ function localNames(uses: StyleUse[], used: Set<string>): Map<StyleModule, strin
   return locals;
 }
 
-// Host and component elements; what `<svelte:head>` holds belongs to the document, not to the component.
+// Elements and components; `<svelte:head>` content is the document's, not the component's.
 const STAMPED: ReadonlySet<string> = new Set(['RegularElement', 'SvelteElement', 'Component', 'SvelteComponent', 'SvelteSelf']);
 
 function stampScope(text: MagicString, root: AST.Root, block: Block, ctx: BuildContext): void {
@@ -173,7 +173,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const {missing, uses, names: used} = styleUses(root, block, ctx);
   if (missing.length > 0) throw new DiagnosticsError(missing);
 
-  // MagicString over the whole .ucf source, so the map points straight into the .ucf file.
+  // Over the whole .ucf source, so the map points straight into the .ucf file.
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);
   text.remove(block.contentEnd, ctx.source.length);
@@ -192,7 +192,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
     ...[...locals].map(([{id}, local]) => `import ${local} from ${JSON.stringify(id)};`),
   ];
-  // The module script's imports reach the instance script and the markup too; the reverse does not hold.
+  // Module script imports also reach the instance script and markup; not the reverse.
   const script = root.module ?? root.instance;
   if (script) {
     // Svelte sets `start` on the script's Program (right after the opening tag); its estree type leaves it out.
