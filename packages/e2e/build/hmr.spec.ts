@@ -24,6 +24,8 @@ const WATCHER_THROTTLE_MS = 100;
 
 const SCOPED_STYLE = '<style scoped>\n.counter {\n  color: rgb(120, 40, 160);\n}\n</style>\n';
 const UNCLOSED_MODULE = ['padding: 4px 12px;\n}\n</style>', 'padding: 4px 12px;\n}\n'] as const;
+const SVELTE_BLOCK =
+  '<svelte>\n  <script lang="ts">\n  import { untrack } from \'svelte\'\n\n  let { start = 0 }: { start?: number } = $props()\n  let count = $state(untrack(() => start))\n  </script>\n\n  <div class="counter">\n    <span class="label">Clicks</span>\n    <button class={$style.button} title="Zähler 𝄞" onclick={() => count++}>{count}</button>\n  </div>\n</svelte>\n';
 
 // One edit per row: [what, from, to, our modules returned]; css<N>, map<N> and react name ids of Counter.ucf.
 const EDITS: [string, string, string, string[]][] = [
@@ -44,6 +46,7 @@ const EDITS: [string, string, string, string[]][] = [
   ['a removed <style>', SCOPED_STYLE, '', ['css0', 'react']],
   ['the module name', '<style module>', '<style module="classes">', ['css1', 'react']],
   ['<svelte> text (its module never loaded)', 'onclick={() => count++}', 'onclick={() => (count += 2)}', []],
+  ['a removed <svelte> block (its module never loaded)', SVELTE_BLOCK, '', []],
   ['a splitter error (unclosed module style)', ...UNCLOSED_MODULE, ['css0', 'react']],
 ];
 

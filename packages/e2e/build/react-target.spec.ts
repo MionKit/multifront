@@ -2,14 +2,13 @@ import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import react from '@vitejs/plugin-react';
-import {SCOPE_HELPER_ID, checkBlocks, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
-import type {BuildContext} from '@multifront/core';
+import {SCOPE_HELPER_ID, checkBlocks, splitBlocks} from '@multifront/core';
 import {multifront} from '@multifront/vite';
 import type {MultifrontOptions} from '@multifront/vite';
 import {createLogger, createServer, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, TMP_DIR, componentPath, readComponent} from '../fixtures/index.ts';
-import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
+import {APP_CONFIG_LOADER, buildApp, componentContext} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
 const COMPONENTS = ['react/AllBlocks.ucf', 'imports/Icon.ucf', 'imports/UsesIcon.ucf'];
@@ -49,10 +48,7 @@ function diagnosticsOf(name: string) {
   return {filename, diagnostics: checkBlocks(splitBlocks(source, filename))};
 }
 
-async function contextOf(name: string): Promise<BuildContext> {
-  const {filename, source} = readComponent(name);
-  return createBuildContext(splitBlocks(source, filename), {root: ROOT, compiler: loadVueCompiler(ROOT), production: true});
-}
+const contextOf = (name: string) => componentContext(ROOT, name);
 
 describe('vite build of react-basic', () => {
   let chunk: Rolldown.OutputChunk;

@@ -69,7 +69,6 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
   }
   let config: ResolvedConfig | undefined;
   let vueCompiler: VueCompiler | undefined;
-  let sveltePlugin = false;
   const api = {
     get vueCompiler(): VueCompiler {
       if (!config) throw new Error('multifront: the Vue compiler is only available after Vite resolved its config.');
@@ -116,7 +115,6 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     config: () => ({optimizeDeps: {rolldownOptions: {plugins: [scanPlugin]}}}),
     configResolved(resolved) {
       config = resolved;
-      sveltePlugin = hasSveltePlugin(resolved.plugins);
       composeVuePlugin(resolved, ucfScopeId);
       composeSveltePlugin(resolved);
     },
@@ -167,7 +165,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
           this.error(describeDiagnostic({code: 'missing-target-block', message}));
         }
         if (target === 'vue' && !vuePlugin) this.error(importErrorMessage(path, from?.fileName, VUE_PLUGIN_MISSING));
-        if (target === 'svelte' && !sveltePlugin) {
+        if (target === 'svelte' && !hasSveltePlugin(config!.plugins)) {
           const message = `${SVELTE_PLUGIN_MISSING} (it compiles ${file + TARGET_SUFFIX.svelte})`;
           this.error(importErrorMessage(path, from?.fileName, message));
         }
@@ -232,5 +230,11 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     return vueApi && {compiler: api.vueCompiler, options: vueApi.options};
   };
   const vueImporters = vueImportersPlugin(options, () => (hasVuePlugin(config!.plugins) ? api.vueCompiler : undefined));
-  return [pre, vueHmrPlugin(cache, vueOf), vueImporters, svelteCompiledPlugin(), attributesPlugin(options)];
+  return [
+    pre,
+    vueHmrPlugin(cache, vueOf),
+    vueImporters,
+    svelteCompiledPlugin(() => hasSveltePlugin(config!.plugins)),
+    attributesPlugin(options),
+  ];
 }

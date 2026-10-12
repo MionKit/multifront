@@ -1,6 +1,9 @@
 import {join} from 'node:path';
+import {createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
+import type {BuildContext} from '@multifront/core';
 import {build, createServer, mergeConfig, type ESTree, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 import type {Plugin} from 'vite';
+import {readComponent} from '../../fixtures/index.ts';
 
 /** plugin-vue picks its dev or production scope id from NODE_ENV. */
 export async function withNodeEnv<Result>(mode: string, run: () => Promise<Result>): Promise<Result> {
@@ -24,6 +27,12 @@ export function rejection<Failure>(promise: Promise<unknown>): Promise<Failure> 
     },
     (err: Failure) => err
   );
+}
+
+/** A fixture component's build context, as a production build of the app at `root` makes it. */
+export async function componentContext(root: string, name: string): Promise<BuildContext> {
+  const {filename, source} = readComponent(name);
+  return createBuildContext(splitBlocks(source, filename), {root, compiler: loadVueCompiler(root), production: true});
 }
 
 /** Uses the app's own `vite.config.ts` unless `config` sets `configFile: false`. */
