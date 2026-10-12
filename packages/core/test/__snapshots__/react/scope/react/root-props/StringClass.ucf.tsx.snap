@@ -1,0 +1,11 @@
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+
+  type Props = { branch?: string }
+
+  // A JSX string keeps line breaks and `\` as written and decodes entities; a JS string does neither.
+  export default function StringClass(props: Props) {
+    if (props.branch === 'lines')
+      return <div {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("first\n        second", props.className)}>lines</div>
+    if (props.branch === 'backslash') return <p {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("a\\b", props.className)}>backslash</p>
+    return <span {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className="a&amp;b">entity</span>
+  }

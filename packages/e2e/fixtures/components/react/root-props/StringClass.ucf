@@ -1,0 +1,12 @@
+<react>
+  type Props = { branch?: string }
+
+  // A JSX string keeps line breaks and `\` as written and decodes entities; a JS string does neither.
+  export default function StringClass(props: Props) {
+    if (props.branch === 'lines')
+      return <div className="first
+        second">lines</div>
+    if (props.branch === 'backslash') return <p className="a\b">backslash</p>
+    return <span className="a&amp;b">entity</span>
+  }
+</react>
