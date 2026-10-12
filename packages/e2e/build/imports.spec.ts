@@ -16,8 +16,7 @@ const CARD = componentPath('Card.ucf');
 const TARGET_ID: Record<Target, string> = {react: `${CARD}.react.tsx`, vue: CARD, svelte: `${CARD}.svelte.svelte`};
 // Vite writes `/@fs` only before a file on disk; the react and svelte ids name none.
 const DEV_URL: Record<Target, string> = {react: TARGET_ID.react, vue: `/@fs${CARD}`, svelte: TARGET_ID.svelte};
-// Milestone 5 adds `svelte()` to the configs, and these rows here.
-const ROWS = EXPECTED_IMPORTS.filter((row) => !row.file.endsWith('.svelte'));
+const ROWS = EXPECTED_IMPORTS;
 const FILES = [...new Set(ROWS.map((row) => row.file))];
 const NO_IMPORTS = 'no-default/strings-and-comments.ts';
 const SSR_ENTRY = 'no-default/ssr-entry.tsx';
@@ -81,7 +80,7 @@ const TARGET_FILES = FILES.filter((file) => rowsOf(file).every(isTargetRow));
 const REACT_FILES = TARGET_FILES.filter((file) => rowsOf(file).every((row) => row.expect === 'react'));
 
 it('every importer of the app is a row file, or the one with no import', () => {
-  const importers = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|ucf)$/);
+  const importers = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|ucf)$/);
   expect(importers).toEqual([...FILES, NO_IMPORTS].sort());
   expect([...ERROR_FILES, ...TARGET_FILES].sort()).toEqual([...FILES].sort());
   expect(REACT_FILES).toContain(SSR_ENTRY);
