@@ -173,7 +173,7 @@ function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, prop
 }
 
 // Hand-read from the fixtures: `roots` get the spread, in source order.
-// `signature`: dev build text around the parameters it adds, and the `const <pattern> = <props>;` it moves in.
+// `signature`: dev build text around the parameters it adds, the `const <pattern> = <props>;` it moves in, or the helper import.
 // `forwarding/` holds build-only edges of finding the component and a name for its props.
 // `rootProps`: per root in source order, how the build leaves each root prop (`react/root-props/` rows).
 type RootProps = ({tag: string} & Record<RootProp, RootPropState>)[];
@@ -254,6 +254,12 @@ const SHAPES: {
     props: '__props',
     signature: 'function Destructures(__props: Props) {const { label, className, style: own = {} } = __props;',
     rootProps: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/HelperClash.ucf',
+    roots: ['div'],
+    signature: 'import {__ucfScopeAttrs as __ucfScopeAttrs1, __ucfClass as __ucfClass1} from',
+    rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
   },
   {
     fixture: 'react/root-props/LeftAlone.ucf',
@@ -448,7 +454,17 @@ describe.each(SHAPES)(
     const [dev, production] = builds as [(typeof builds)[0], (typeof builds)[0]];
     const forwarded = ({program}: {program: Program}) => forwardedRoots(program).map(({name}) => nameText(name));
     const helperImport = ({program}: {program: Program}) =>
-      program.body.filter(isHelperImport).flatMap(({specifiers}) => specifiers.map(({local}) => local.name));
+      program.body
+        .filter(isHelperImport)
+        .flatMap(({specifiers}) =>
+          specifiers.map((spec) =>
+            spec.type !== 'ImportSpecifier'
+              ? spec.local.name
+              : spec.imported.type === 'Identifier'
+                ? spec.imported.name
+                : spec.imported.value
+          )
+        );
 
     it('is a valid fixture whose builds parse', () => {
       expect(checkBlocks(split)).toEqual([]);

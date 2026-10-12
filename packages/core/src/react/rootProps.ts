@@ -81,7 +81,8 @@ export function addRootProps(
   opening: JSXOpeningElement,
   at: number,
   props: string,
-  {handled, spreads}: HandledProps
+  {handled, spreads}: HandledProps,
+  local: (helper: string) => string
 ): string[] {
   const spreadsProps = opening.attributes.some(
     (item) => item.type === 'JSXSpreadAttribute' && [...spreads].some((name) => isNamed(item.argument, name))
@@ -100,7 +101,7 @@ export function addRootProps(
       const {expression} = own.value;
       // A string `style` or `ref` is no value React takes: left as written, like the attribute form.
       if (prop !== 'className' && literalValue(expression) !== undefined) continue;
-      text.prependRight(offset + expression.start, `${MERGE[prop]}(`);
+      text.prependRight(offset + expression.start, `${local(MERGE[prop])}(`);
       text.appendLeft(offset + expression.end, `, ${props}.${prop})`);
       helpers.push(MERGE[prop]);
     } else if (own.value?.type === 'Literal' && prop === 'className') {
@@ -109,9 +110,9 @@ export function addRootProps(
       if (raw?.includes('&')) continue;
       // JSX keeps line breaks and `\` as written; a JS string needs them escaped.
       if (/[\n\r\\]/.test(raw ?? ''))
-        text.overwrite(offset + start, offset + end, `{${MERGE_CLASS}(${JSON.stringify(value)}, ${props}.className)}`);
+        text.overwrite(offset + start, offset + end, `{${local(MERGE_CLASS)}(${JSON.stringify(value)}, ${props}.className)}`);
       else {
-        text.prependRight(offset + start, `{${MERGE_CLASS}(`);
+        text.prependRight(offset + start, `{${local(MERGE_CLASS)}(`);
         text.appendLeft(offset + end, `, ${props}.className)}`);
       }
       helpers.push(MERGE_CLASS);

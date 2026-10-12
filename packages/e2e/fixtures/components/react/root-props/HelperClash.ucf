@@ -1,0 +1,9 @@
+<react>
+  // The block's own names: the build imports its helpers under other ones.
+  const __ucfScopeAttrs = 'author'
+  const __ucfClass = (name: string) => `${name}-${__ucfScopeAttrs}`
+
+  export default function HelperClash(props: { tone?: string }) {
+    return <div className={__ucfClass('clash')}>{props.tone}</div>
+  }
+</react>

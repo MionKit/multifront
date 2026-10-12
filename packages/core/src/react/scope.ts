@@ -216,7 +216,10 @@ function inComment(comments: Comment[], at: number): boolean {
   return comments.some(({start, end}) => start <= at && at < end);
 }
 
-/** Stamps all but Fragments when scoped; always forwards `data-v-*` props and the root props on the default export's roots. */
+/**
+ * Stamps all but Fragments when scoped; always forwards `data-v-*` props and the root props on the default export's
+ * roots. Returns the helper import specifiers, `__ucfClass as __ucfClass1` when the block uses the name itself.
+ */
 export function transformScope(
   text: MagicString,
   parsed: Pick<ParseResult, 'program' | 'comments'>,
@@ -242,7 +245,9 @@ export function transformScope(
   const param = first?.type === 'AssignmentPattern' ? first.left : first;
   if (param?.type === 'RestElement') return [];
   const pattern = param?.type === 'ObjectPattern' || param?.type === 'ArrayPattern' ? param : undefined;
-  const used = new Set(param?.type === 'Identifier' ? [] : identifierNames(program));
+  const used = new Set(identifierNames(program));
+  // A helper takes another local name when the block uses its own.
+  const local = (helper: string) => freshName(used, helper);
   const props = param?.type === 'Identifier' ? param.name : freshName(used, '__props');
 
   const {returns, consts, bound} = ownBody(component);
@@ -267,15 +272,15 @@ export function transformScope(
       if (spread.has(root)) continue;
       spread.add(root);
       const at = afterName(root.openingElement);
-      text.appendLeft(offset + at, ` {...${SCOPE_ATTRS}(${props})}`);
+      text.appendLeft(offset + at, ` {...${local(SCOPE_ATTRS)}(${props})}`);
       helpers.add(SCOPE_ATTRS);
-      for (const helper of addRootProps(text, offset, root.openingElement, at, props, rootProps)) helpers.add(helper);
+      for (const helper of addRootProps(text, offset, root.openingElement, at, props, rootProps, local)) helpers.add(helper);
       continue;
     }
     // A const's value runs on every render: warned there, it would fire when another root is returned.
     const at = hop ? (hop.whole ? hop.via : undefined) : root;
     if (!dev || !at) continue;
-    text.prependRight(offset + at.start, `(${WARN_FRAGMENT}(${props}, ${JSON.stringify(name)}), `);
+    text.prependRight(offset + at.start, `(${local(WARN_FRAGMENT)}(${props}, ${JSON.stringify(name)}), `);
     text.appendLeft(offset + at.end, ')');
     helpers.add(WARN_FRAGMENT);
   }
@@ -305,5 +310,7 @@ export function transformScope(
     // React checks a `forwardRef` render function takes zero or two parameters.
     text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }
-  return [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF].filter((helper) => helpers.has(helper));
+  return [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF]
+    .filter((helper) => helpers.has(helper))
+    .map((helper) => (local(helper) === helper ? helper : `${helper} as ${local(helper)}`));
 }
