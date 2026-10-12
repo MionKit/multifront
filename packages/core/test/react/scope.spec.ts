@@ -9,13 +9,12 @@ import {checkBlocks, createBuildContext, getBlockKind, scopeHelperCode, splitBlo
 import type {VueCompiler} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
-import {isCallTo, isHelperImport, withoutInjected} from '../blocks/injected.ts';
+import {MERGES, isAdded, isCallTo, isHelperImport, withoutInjected} from '../blocks/injected.ts';
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
 // The order the build's helper import names them in.
 const HELPERS = ['__ucfScopeAttrs', '__ucfWarnFragment', '__ucfClass', '__ucfStyle', '__ucfRef'];
-const MERGES = {className: '__ucfClass', style: '__ucfStyle', ref: '__ucfRef'};
 type RootProp = keyof typeof MERGES;
 
 // `unstamped`: the names of React's Fragment elements in source order, hand-read from the fixture.
@@ -80,19 +79,6 @@ function isForward(item: JSXAttributeItem | undefined): boolean {
   return item?.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__ucfScopeAttrs');
 }
 
-// ` className={props.className}`, as the build adds it when the root has none of its own.
-function isAddedRootProp(item: JSXAttributeItem | undefined): boolean {
-  if (item?.type !== 'JSXAttribute' || item.name.type !== 'JSXIdentifier' || item.value?.type !== 'JSXExpressionContainer')
-    return false;
-  if (!(item.name.name in MERGES)) return false;
-  const {expression} = item.value;
-  return (
-    expression.type === 'MemberExpression' &&
-    expression.property.type === 'Identifier' &&
-    expression.property.name === item.name.name
-  );
-}
-
 function lineColumn(text: string, offset: number): {line: number; column: number} {
   const before = text.slice(0, offset).split('\n');
   return {line: before.length, column: before.at(-1)!.length};
@@ -144,7 +130,7 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
       expect(isStamp(attributes[0]!)).toBe(true);
       // A root's forwarding spread is inserted right after its stamp, then the root props it adds.
       let inserted = isForward(attributes[1]) ? 2 : 1;
-      while (inserted > 1 && isAddedRootProp(attributes[inserted])) inserted++;
+      while (inserted > 1 && isAdded(attributes[inserted])) inserted++;
       const last = attributes[inserted - 1]!;
       const after = input[index]!.typeArguments ?? input[index]!.name;
       const original = originalPositionFor(map, lineColumn(file.code, last.end));
@@ -153,10 +139,38 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   });
 });
 
+// How the build left a root's `className`, `style` or `ref`.
+type RootPropState = 'added' | 'merged' | 'author' | 'none';
+
+function forwardedRoots(program: Program): JSXOpeningElement[] {
+  return openingElements(program).filter(({attributes}) => attributes.some(isForward));
+}
+
+function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, props: string): RootPropState {
+  const own = opening.attributes.findLast(
+    (item): item is JSXAttribute => item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
+  );
+  if (!own) return 'none';
+  const value = own.value?.type === 'JSXExpressionContainer' ? own.value.expression : undefined;
+  const text = (node: {start: number; end: number}) => code.slice(node.start, node.end);
+  if (value && isAdded(own) && text(value) === `${props}.${prop}`) return 'added';
+  if (value?.type !== 'CallExpression' || !isCallTo(value, MERGES[prop])) return 'author';
+  return value.arguments.length === 2 && text(value.arguments[1]!) === `${props}.${prop}` ? 'merged' : 'author';
+}
+
 // Hand-read from the fixtures: `roots` get the spread, in source order.
 // `signature`: dev build text around the parameters it adds, and the `const <pattern> = <props>;` it moves in.
 // `forwarding/` holds build-only edges of finding the component and a name for its props.
-const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: number; signature?: string}[] = [
+// `rootProps`: per root in source order, how the build leaves each root prop (`react/root-props/` rows).
+type RootProps = ({tag: string} & Record<RootProp, RootPropState>)[];
+const SHAPES: {
+  fixture: string;
+  roots: string[];
+  props?: string;
+  fragments?: number;
+  signature?: string;
+  rootProps?: RootProps;
+}[] = [
   {
     fixture: 'react/forwarding/ArrayPattern.ucf',
     roots: ['div'],
@@ -207,6 +221,53 @@ const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: num
   {fixture: 'react/forwarding/ShadowedProps.ucf', roots: []},
   {fixture: 'react/forwarding/ThisParam.ucf', roots: ['div']},
   {fixture: 'react/forwarding/WrappedExport.ucf', roots: ['div']},
+  {
+    fixture: 'react/root-props/BodyDestructure.ucf',
+    roots: ['div', 'p'],
+    rootProps: [
+      {tag: 'div', className: 'none', style: 'none', ref: 'none'},
+      {tag: 'p', className: 'added', style: 'added', ref: 'author'},
+    ],
+  },
+  {
+    fixture: 'react/root-props/Destructures.ucf',
+    roots: ['span'],
+    props: '__props',
+    signature: 'function Destructures(__props: Props) {const { label, className, style: own = {} } = __props;',
+    rootProps: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/OtherSpread.ucf',
+    roots: ['div'],
+    props: '__props',
+    signature: 'function OtherSpread(__props) {',
+    rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/Own.ucf',
+    roots: ['section', 'p'],
+    rootProps: [
+      {tag: 'section', className: 'merged', style: 'merged', ref: 'merged'},
+      {tag: 'p', className: 'merged', style: 'added', ref: 'added'},
+    ],
+  },
+  {
+    fixture: 'react/root-props/ReadsProps.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/SpreadsProps.ucf',
+    roots: ['div'],
+    rootProps: [{tag: 'div', className: 'author', style: 'none', ref: 'none'}],
+  },
+  {
+    fixture: 'react/root-props/Valueless.ucf',
+    roots: ['div'],
+    props: '__props',
+    signature: 'function Valueless(__props) {',
+    rootProps: [{tag: 'div', className: 'author', style: 'added', ref: 'added'}],
+  },
   {fixture: 'react/shapes/AndRoot.ucf', roots: ['p', 'section', 'div']},
   {fixture: 'react/shapes/ArrowExpression.ucf', roots: ['div']},
   {fixture: 'react/shapes/ComponentRoot.ucf', roots: ['ArrowExpression']},
@@ -255,33 +316,15 @@ const SHAPES: {fixture: string; roots: string[]; props?: string; fragments?: num
   {fixture: 'react/fuzz-found/ConstFragment.ucf', roots: ['div'], fragments: 2},
 ];
 
-it('has a row for every forwarding/, shapes/ and fuzz-found/ fixture', () => {
+it('has a row for every forwarding/, root-props/, shapes/ and fuzz-found/ fixture', () => {
   const listed = [
     ...listComponents('react/forwarding'),
+    ...listComponents('react/root-props'),
     ...listComponents('react/shapes'),
     ...listComponents('react/fuzz-found'),
   ];
   expect(listed).toEqual(SHAPES.map(({fixture}) => fixture));
 });
-
-// How the build left a root's `className`, `style` or `ref`.
-type RootPropState = 'added' | 'merged' | 'author' | 'none';
-
-function forwardedRoots(program: Program): JSXOpeningElement[] {
-  return openingElements(program).filter(({attributes}) => attributes.some(isForward));
-}
-
-function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, props: string): RootPropState {
-  const own = opening.attributes.findLast(
-    (item): item is JSXAttribute => item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
-  );
-  if (!own) return 'none';
-  const value = own.value?.type === 'JSXExpressionContainer' ? own.value.expression : undefined;
-  const text = (node: {start: number; end: number}) => code.slice(node.start, node.end);
-  if (value && isAddedRootProp(own) && text(value) === `${props}.${prop}`) return 'added';
-  if (value?.type !== 'CallExpression' || !isCallTo(value, MERGES[prop])) return 'author';
-  return value.arguments.length === 2 && text(value.arguments[1]!) === `${props}.${prop}` ? 'merged' : 'author';
-}
 
 const loadHelper = (code: string) => import(`data:text/javascript,${encodeURIComponent(code)}`);
 
@@ -343,7 +386,7 @@ function argumentText(code: string, call: CallExpression): string[] {
 
 describe.each(SHAPES)(
   'react.build forwarding of $fixture',
-  async ({fixture, roots, props = 'props', fragments = 0, signature}) => {
+  async ({fixture, roots, props = 'props', fragments = 0, signature, rootProps}) => {
     const pattern = signature?.match(/const ([\s\S]+?) = __props\d*;/)?.[1];
     const {filename, source} = readComponent(fixture);
     const split = splitBlocks(source, filename);
@@ -356,10 +399,7 @@ describe.each(SHAPES)(
       })
     );
     const [dev, production] = builds as [(typeof builds)[0], (typeof builds)[0]];
-    const forwarded = ({program}: {program: Program}) =>
-      openingElements(program)
-        .filter(({attributes}) => attributes.some(isForward))
-        .map(({name}) => nameText(name));
+    const forwarded = ({program}: {program: Program}) => forwardedRoots(program).map(({name}) => nameText(name));
     const helperImport = ({program}: {program: Program}) =>
       program.body.filter(isHelperImport).flatMap(({specifiers}) => specifiers.map(({local}) => local.name));
 
@@ -420,6 +460,19 @@ describe.each(SHAPES)(
       ]);
     });
 
+    it('adds, merges or leaves each root prop as the detection rule says', () => {
+      if (!rootProps) return;
+      for (const {code, program} of builds) {
+        const found = forwardedRoots(program).map((opening) => ({
+          tag: nameText(opening.name),
+          className: rootProp(code, opening, 'className', props),
+          style: rootProp(code, opening, 'style', props),
+          ref: rootProp(code, opening, 'ref', props),
+        }));
+        expect(found).toEqual(rootProps);
+      }
+    });
+
     it("adds or merges no ref on a forwardRef component's roots: React hands it the ref as a parameter", () => {
       if (!block.content.includes('forwardRef')) return;
       for (const build of builds)
@@ -428,91 +481,3 @@ describe.each(SHAPES)(
     });
   }
 );
-
-// Hand-read from the fixtures: per root in source order, how the build leaves each root prop.
-const ROOT_PROPS: {fixture: string; props: string; roots: ({tag: string} & Record<RootProp, RootPropState>)[]}[] = [
-  {
-    fixture: 'react/root-props/BodyDestructure.ucf',
-    props: 'props',
-    roots: [
-      {tag: 'div', className: 'none', style: 'none', ref: 'none'},
-      {tag: 'p', className: 'added', style: 'added', ref: 'author'},
-    ],
-  },
-  {
-    fixture: 'react/root-props/Destructures.ucf',
-    props: '__props',
-    roots: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
-  },
-  {
-    fixture: 'react/root-props/OtherSpread.ucf',
-    props: '__props',
-    roots: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
-  },
-  {
-    fixture: 'react/root-props/Own.ucf',
-    props: 'props',
-    roots: [
-      {tag: 'section', className: 'merged', style: 'merged', ref: 'merged'},
-      {tag: 'p', className: 'merged', style: 'added', ref: 'added'},
-    ],
-  },
-  {
-    fixture: 'react/root-props/ReadsProps.ucf',
-    props: 'props',
-    roots: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
-  },
-  {
-    fixture: 'react/root-props/SpreadsProps.ucf',
-    props: 'props',
-    roots: [{tag: 'div', className: 'author', style: 'none', ref: 'none'}],
-  },
-  {
-    fixture: 'react/root-props/Valueless.ucf',
-    props: '__props',
-    roots: [{tag: 'div', className: 'author', style: 'added', ref: 'added'}],
-  },
-];
-
-it('has a row for every root-props/ fixture', () => {
-  expect(listComponents('react/root-props')).toEqual(ROOT_PROPS.map(({fixture}) => fixture));
-});
-
-describe.each(ROOT_PROPS)('react.build root props of $fixture', async ({fixture, props, roots}) => {
-  const {filename, source} = readComponent(fixture);
-  const split = splitBlocks(source, filename);
-  const block = split.targets.react!;
-  const builds = await Promise.all(
-    [false, true].map(async (production) => {
-      const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
-      const {code} = getBlockKind('react').build(block, ctx);
-      return {code, program: parse(code).program};
-    })
-  );
-
-  it('is a valid fixture whose builds parse', () => {
-    expect(checkBlocks(split)).toEqual([]);
-    for (const {code} of builds) expect(parse(code).errors).toEqual([]);
-  });
-
-  it('matches the code snapshot', async () => {
-    const code = builds[0]!.code.replaceAll(FIXTURES_DIR, '<fixtures>');
-    await expect(code).toMatchFileSnapshot(`../__snapshots__/react/scope/${fixture}.tsx.snap`);
-  });
-
-  it('only inserts: without the forwarding, the root props and the imports, the code is the block content', () => {
-    for (const {code, program} of builds) expect(withoutInjected(code, program)).toBe(block.content);
-  });
-
-  it('adds, merges or leaves each root prop as the detection rule says', () => {
-    for (const {code, program} of builds) {
-      const found = forwardedRoots(program).map((opening) => ({
-        tag: nameText(opening.name),
-        className: rootProp(code, opening, 'className', props),
-        style: rootProp(code, opening, 'style', props),
-        ref: rootProp(code, opening, 'ref', props),
-      }));
-      expect(found).toEqual(roots);
-    }
-  });
-});
