@@ -142,7 +142,13 @@ Vitest printed it:
   `Tests 1 passed | 6 skipped (7)` each, `Duration 61.71s`, `64.75s`, `65.26s`.
 - `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000`, `-t "holds every rule"`: `Tests 1 passed | 7 skipped (8)`,
   `Duration 338.93s` (before the review fixes).
-- CI: the `check` and `svelte-floor` log lines go here once CI has run on the PR.
+- CI on PR #91 (commit `82860f3`), Vitest's verbose lines:
+  - `check`: `✓ e2e build/svelte-scope.fuzz.spec.ts > svelte scope stamping fuzz > holds every rule over 300 generated
+    files (seed 2026) 12966ms`, and the six negative controls (`an unclosed block fails rule builds 23496ms` …
+    `a renamed shorthand key fails rule same-html 615ms`); `Test Files 71 passed (71)`.
+  - `svelte-floor` (`peer-floor: svelte 5.55.6`, `peer-floor: @sveltejs/vite-plugin-svelte 7.0.0`): `✓ … holds every
+    rule over 300 generated files (seed 2026) 7690ms`, the six controls (`an unclosed block fails rule builds 14776ms`
+    … `a renamed shorthand key fails rule same-html 590ms`); `Test Files 71 passed (71)`.
 - The first runs found two harness bugs, fixed before the rules counted: a donor capturing a header snippet's name
   (`{item}`), and HTML-mode parsing adding a `<p>`. No bug in the build itself.
 
