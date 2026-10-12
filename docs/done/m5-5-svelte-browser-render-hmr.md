@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.5
@@ -85,17 +85,18 @@ Per app, in `beforeAll`:
 - a `createLogger('silent')` with `warn`, `warnOnce` and `error` recorded, passed to `startDev()`; checked wired
   (`app.server.config.logger`);
 - `collectConsole`, `trackRequests`, `trackHmrPayloads`, `load` events counted;
-- `page.goto`, wait for `[data-marker="panel-svelte-marker"]`, then `window.__ucfMarker = 'kept'`.
+- `page.goto`, wait for `[data-marker="panel-svelte-marker"]`, then `globalThis.ucfMarker = 'kept'` in the page.
 
 After each edit: `requests.quiet(500)`. The Svelte panel is found by `[data-marker="panel-svelte-marker"]` in both
 apps. URLs: our Svelte module is served at `${panelFile}.svelte.svelte`, style modules at `/@fs${panelFile}?…`.
 
 `describe('Svelte HMR in apps/svelte-vite')`:
 
-1. `<svelte>` edit, `{heading}</h3>` → `{heading}!</h3>` in the `<svelte>` block. Checks:
+1. `<svelte>` edit, `{$style.title}">{heading}</h3>` → `…{heading}!</h3>` (the `<react>` block also has
+   `{heading}</h3>`). Checks:
    - the Svelte heading reads `Svelte panel!`;
-   - `window.__ucfMarker` is `'kept'`, one page load;
-   - updated paths `[Panel.ucf.svelte.svelte]`, no `full-reload`;
+   - the page's `ucfMarker` is `'kept'`, one page load (checked at the end);
+   - requests and updated paths exactly `[Panel.ucf.svelte.svelte]`, no `full-reload`;
    - `errors()` empty, no `vite-error-overlay` element, no server log line.
    - Fails today: the overlay error above.
 2. Scoped `<style>` edit, `$pad: 1rem;` → `$pad: 2rem;`:
@@ -123,8 +124,9 @@ counter is clicked from 2 to 3.
    - count `3`.
 4. One page load, no console warning or error, no server log line.
 
-Checked failing without the wrap of plan 1 (svelte-vite case 1). Once built, also with the wrap matching every URL
-(case 2 still passes: no request) and with it skipping nothing.
+Checked failing without the wrap of plan 1: svelte-vite case 1 (the heading never changes), case 2 (the page
+reloaded, marker lost) and its last case (two page loads). With the wrap skipping every URL, both `<svelte>` edit
+cases fail (plugin-svelte sees unchanged output and drops the update).
 
 ## Docs
 
