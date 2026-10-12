@@ -36,7 +36,7 @@
   },
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.15",
-    "svelte": "^5.46.4"
+    "svelte": "^5.55.6"
   },
   "peerDependenciesMeta": {
     "@vue/compiler-sfc": {
