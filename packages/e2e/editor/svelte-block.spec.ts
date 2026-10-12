@@ -6,19 +6,20 @@ import {getTypesScript, TSSERVER_CODES} from '@multifront/language-tools';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, readComponent} from '../fixtures/index.ts';
-import {edit, multifrontDiagnostics, PLUGIN} from './lib/cases.ts';
+import {CARD, edit, multifrontDiagnostics, PLUGIN} from './lib/cases.ts';
 import {startLanguageServer} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {offsetAt, open, startTsserver, tsLocation} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsLocation, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
-const CARD = readComponent('Card.ucf');
 const PANEL = readComponent('Panel.ucf');
 const PANEL_ITEM = readComponent('PanelItem.ucf');
 const COUNTER = readComponent('Counter.ucf');
 const COUNTER_CRLF = readComponent('vue/CounterCrlf.ucf');
 const ATTR_IN_SVELTE = readComponent('svelte/imports/AttrInSvelte.ucf');
 const TOP_LEVEL_STYLE = readComponent('svelte/errors/TopLevelStyle.ucf');
+const COMPONENTS = readComponent('svelte/shapes/Components.ucf');
+const ELEMENTS = readComponent('svelte/shapes/Elements.ucf');
 const SHARED = [
   CARD,
   PANEL,
@@ -39,7 +40,7 @@ beforeAll(async () => {
   await tsserver.request('compilerOptionsForInferredProjects', {
     options: {strict: true, module: 'preserve', moduleResolution: 'bundler', target: 'es2022', jsx: 'react-jsx'},
   });
-  await open(tsserver, [...SHARED, ATTR_IN_SVELTE, TOP_LEVEL_STYLE]);
+  await open(tsserver, [...SHARED, ATTR_IN_SVELTE, TOP_LEVEL_STYLE, COMPONENTS, ELEMENTS]);
   server = await startLanguageServer(componentPath(''));
 });
 
@@ -136,6 +137,13 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
 
     it('hover on $style shows the class map it is renamed to', async () => {
       expect((await quickInfo(CARD, '$style.card', 1)).displayString).toContain('__ucfStyle: {');
+    });
+
+    it.each([
+      {component: COMPONENTS, needle: '<Child {$style} />', shift: '<Child {'.length},
+      {component: ELEMENTS, needle: 'classes = {$style}', shift: 'classes = {'.length},
+    ])('hover on a shorthand use, $needle, shows its class map too', async ({component, needle, shift}) => {
+      expect((await quickInfo(component, needle, shift + 1)).displayString).toMatch(/__ucfStyle\d*: \{/);
     });
 
     it('definition on card lands on .card in <style module>', async () => {

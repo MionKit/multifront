@@ -13,7 +13,6 @@ import type {
   BlockKind,
   BuildContext,
   Diagnostic,
-  SourceMap,
   SplitResult,
   SvelteCompiler,
   SvelteMode,
@@ -93,16 +92,13 @@ function classMap<Module>(bare: string, modules: Record<string, Module>): Module
 }
 
 // Offsets in the block content.
-interface Span {
-  start: number;
-  end: number;
-}
+type Span = Pick<AST.BaseNode, 'start' | 'end'>;
 
-// `shorthand`: the span of a `{$x}` key or prop, which must keep the name `$x`.
+// `shorthand`: a `{$x}` prop or object key, which must keep the name `$x`.
 interface StyleUse<Module> {
   node: SvelteNode;
   module: Module;
-  shorthand?: Span & {attribute: boolean};
+  shorthand?: 'attribute' | 'property';
 }
 
 // `names`: every identifier the block uses, so a local we add shadows none.
@@ -122,11 +118,11 @@ function styleUses<Module>(
   let runes = false;
   let legacy = legacyScript(root.instance);
   // `<Child {$style} />`: the attribute is passed on as a prop named `$style`.
-  const shorthandAttributes = new Map<SvelteNode, SvelteNode>();
+  const shorthandAttributes = new Set<SvelteNode>();
   const visit = (node: SvelteNode, parent: SvelteNode | undefined, key: string): void => {
     if (node.type === 'Attribute' && isNode(node.value) && node.value.type === 'ExpressionTag') {
       const expression = node.value.expression as SvelteNode;
-      if (expression.type === 'Identifier' && expression.start === node.start + 1) shorthandAttributes.set(expression, node);
+      if (expression.type === 'Identifier' && expression.start === node.start + 1) shorthandAttributes.add(expression);
     }
     if (node.type !== 'Identifier') return;
     const name = node.name as string;
@@ -146,11 +142,10 @@ function styleUses<Module>(
     }
     const module = classMap(bare, modules);
     if (module) {
-      const attribute = shorthandAttributes.get(node);
-      const shorthand = attribute
-        ? {start: attribute.start, end: attribute.end, attribute: true}
+      const shorthand = shorthandAttributes.has(node)
+        ? 'attribute'
         : key === 'value' && parent?.type === 'Property' && parent.shorthand
-          ? {start: node.start, end: node.end, attribute: false}
+          ? 'property'
           : undefined;
       uses.push({node, module, shorthand});
       return;
@@ -238,11 +233,13 @@ function renameUses<Module>(
   text.remove(block.contentEnd, split.source.length);
   const locals = localNames(uses, used);
   for (const {node, module, shorthand} of uses) {
-    const local = locals.get(module)!;
     const name = node.name as string;
-    const replacement = shorthand ? (shorthand.attribute ? `${name}={${local}}` : `${name}: ${local}`) : local;
-    const {start, end} = shorthand ?? node;
-    text.overwrite(block.contentStart + start, block.contentStart + end, replacement);
+    const start = block.contentStart + node.start;
+    // The local alone overwrites `$name`, so the map takes it to `$name`.
+    text.overwrite(start, block.contentStart + node.end, locals.get(module)!);
+    // An attribute shorthand's `{` sits right before `$name`.
+    if (shorthand === 'attribute') text.overwrite(start - 1, start, `${name}={`);
+    else if (shorthand === 'property') text.appendLeft(start, `${name}: `);
   }
   return {text, locals};
 }
@@ -296,17 +293,15 @@ export function renameSvelteStyles<Module>(
   } catch (err) {
     if (!isCompileError(err)) throw err;
   }
-  const whole: Span[] = [{start: 0, end: block.content.length}];
   const {uses, names, unreadable} = root
     ? styleUses(root, block, split, modules)
-    : {uses: [] as StyleUse<Module>[], names: new Set<string>(), unreadable: whole};
+    : {uses: [] as StyleUse<Module>[], names: new Set<string>(), unreadable: [{start: 0, end: block.content.length}]};
   uses.push(...lexicalUses(block, unreadable, modules));
   const {text, locals} = renameUses(split, block, uses, names);
   // Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
   const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
-  const {sources, names: mapNames, mappings} = text.generateMap({source: split.filename, hires: true});
-  const map: SourceMap = {version: 3, sources, names: mapNames, mappings};
-  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js', map};
+  const {mappings} = text.generateMap({source: split.filename, hires: true});
+  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js', mappings};
 }
 
 // An `import()` in markup is left to the post rewrite of the compiled module.

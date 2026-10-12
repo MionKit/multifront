@@ -5,9 +5,8 @@ import type {Block} from '@multifront/core';
 import type {CodeInformation, CodeMapping, VirtualCode} from '@volar/language-core';
 import {svelte2tsx} from 'svelte2tsx';
 import type * as ts from 'typescript';
-import {stringSnapshot} from '../mappings.ts';
 import {declareModule} from '../moduleTypes.ts';
-import {composeMappings, exactMappings, sourceMapMappings} from '../sourceMaps.ts';
+import {composeMappings, sourceMapMappings, stringSnapshot} from '../mappings.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
 // svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
@@ -20,21 +19,25 @@ let installedTypesRoot: string | undefined;
 
 type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof renameSvelteStyles>, 'lang'>;
 
-// A renamed use is the gap between two mapped runs: its local in the renamed code, its `$name` in the `.ucf` file.
+// A renamed use ends the gap between two mapped runs: its local in the renamed code, its `$name` in the `.ucf` file.
 function renamedUses(mappings: CodeMapping[], source: string, renamed: string, locals: Set<string>): CodeMapping[] {
-  const sorted = mappings.toSorted((one, other) => one.generatedOffsets[0]! - other.generatedOffsets[0]!);
   const uses: CodeMapping[] = [];
-  for (const [index, before] of sorted.entries()) {
-    const after = sorted[index + 1];
+  for (const [index, before] of mappings.entries()) {
+    const after = mappings[index + 1];
     if (!after) break;
-    const generated = before.generatedOffsets[0]! + before.lengths[0]!;
-    const from = before.sourceOffsets[0]! + before.lengths[0]!;
-    const local = renamed.slice(generated, after.generatedOffsets[0]);
-    const name = source.slice(from, after.sourceOffsets[0]);
-    if (!locals.has(local) || !/^\$[\w$]+$/.test(name)) continue;
+    const sourceEnd = before.sourceOffsets[0]! + before.lengths[0]!;
+    // An attribute shorthand's gap also holds its added `$name={`.
+    const [local] =
+      /[\w$]+$/.exec(renamed.slice(before.generatedOffsets[0]! + before.lengths[0]!, after.generatedOffsets[0])) ?? [];
+    if (!local || !locals.has(local)) continue;
+    const gap = source.slice(sourceEnd, after.sourceOffsets[0]);
+    // An object shorthand's `$name` stays as its key (`{$style: __ucfStyle}`), mapped 1:1: the value takes it over.
+    const [name] = /\$[\w$]+$/.exec(gap || source.slice(before.sourceOffsets[0], sourceEnd)) ?? [];
+    if (!name) continue;
+    if (!gap) before.lengths[0]! -= name.length;
     uses.push({
-      sourceOffsets: [from],
-      generatedOffsets: [generated],
+      sourceOffsets: [after.sourceOffsets[0]! - name.length],
+      generatedOffsets: [after.generatedOffsets[0]! - local.length],
       lengths: [name.length],
       generatedLengths: [local.length],
       data: SVELTE_FEATURES,
@@ -47,8 +50,7 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
 function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
   if (!compiler) return undefined;
-  const rename = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
-  const {code: svelte, locals, lang} = rename;
+  const {code: svelte, locals, lang, mappings: renameMappings} = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
   let script: ReturnType<typeof svelte2tsx>;
   try {
     script = svelte2tsx(svelte, {
@@ -74,9 +76,13 @@ function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined 
     ...mapping,
     generatedOffsets: [prefix.length + mapping.generatedOffsets[0]!],
   }));
-  // The rename's only mismatches are the renamed uses, mapped whole below.
-  const inner = exactMappings(sourceMapMappings(rename.map, ctx.split.source, svelte, SVELTE_FEATURES));
-  inner.push(...renamedUses(inner, ctx.split.source, svelte, new Set(locals.values())));
+  // The rename's only mismatches are the renamed uses, mapped whole below: its points go.
+  const exact = sourceMapMappings({mappings: renameMappings}, ctx.split.source, svelte, SVELTE_FEATURES).filter(
+    ({lengths}) => lengths[0] !== 0
+  );
+  const uses = renamedUses(exact, ctx.split.source, svelte, new Set(locals.values()));
+  // A run an object shorthand's value took over entirely is gone.
+  const inner = [...exact.filter(({lengths}) => lengths[0] !== 0), ...uses];
   const mappings = composeMappings(outer, inner);
   let code = prefix + script.code;
   for (const [module, local] of locals) code = declareModule(code, local, module.classes, mappings);
