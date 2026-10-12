@@ -114,6 +114,7 @@ export interface SvelteStyleRename<Module> {
   code: string; // the block content only
   locals: Map<Module, string>; // each module used, and the local name its uses got
   lang: 'ts' | 'js'; // of the block's scripts
+  map: SourceMap; // back into the .ucf file
 }
 
 export interface SourceMap {

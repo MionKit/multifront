@@ -13,6 +13,7 @@ import type {
   BlockKind,
   BuildContext,
   Diagnostic,
+  SourceMap,
   SplitResult,
   SvelteCompiler,
   SvelteMode,
@@ -91,11 +92,17 @@ function classMap<Module>(bare: string, modules: Record<string, Module>): Module
   return bare === 'style' ? (ownModule(modules, '$style') ?? ownModule(modules, 'style')) : ownModule(modules, bare);
 }
 
+// Offsets in the block content.
+interface Span {
+  start: number;
+  end: number;
+}
+
 // `shorthand`: the span of a `{$x}` key or prop, which must keep the name `$x`.
 interface StyleUse<Module> {
   node: SvelteNode;
   module: Module;
-  shorthand?: {start: number; end: number; attribute: boolean};
+  shorthand?: Span & {attribute: boolean};
 }
 
 // `names`: every identifier the block uses, so a local we add shadows none.
@@ -104,12 +111,13 @@ function styleUses<Module>(
   block: Block,
   split: SplitResult,
   modules: Record<string, Module>
-): {missing: Diagnostic[]; uses: StyleUse<Module>[]; names: Set<string>; mode: SvelteMode} {
+): {missing: Diagnostic[]; uses: StyleUse<Module>[]; names: Set<string>; mode: SvelteMode; unreadable: Span[]} {
   const stores = topLevelNames([root.module, root.instance]);
   const runeNames = runeDeclared([root.module, root.instance]);
   const missing: Diagnostic[] = [];
   const uses: StyleUse<Module>[] = [];
   const names = new Set<string>();
+  const unreadable: Span[] = [];
   // Svelte's own switch: `<svelte:options runes>`, else any rune reference; legacy on `$$props` or `$$restProps`.
   let runes = false;
   let legacy = legacyScript(root.instance);
@@ -122,6 +130,8 @@ function styleUses<Module>(
     }
     if (node.type !== 'Identifier') return;
     const name = node.name as string;
+    // The loose parser's stand-in for an expression it cannot read spans that whole text.
+    if (name === '') unreadable.push({start: node.start, end: node.end});
     names.add(name);
     const bare = name.slice(1);
     if (!name.startsWith('$') || bare === '') return;
@@ -156,7 +166,20 @@ function styleUses<Module>(
   for (const part of [root.module, root.instance, root.fragment]) walk(part, visit);
   const runesOption = root.options?.runes;
   const mode = (runesOption ?? runes) ? 'runes' : runesOption === false || legacy ? 'legacy' : 'undecided';
-  return {missing: missing.sort((first, second) => first.start - second.start), uses, names, mode};
+  return {missing: missing.sort((first, second) => first.start - second.start), uses, names, mode, unreadable};
+}
+
+// Text Svelte cannot read (`{$style.}` mid-typing): every `$name` token naming a class map, read as a plain use.
+function lexicalUses<Module>(block: Block, spans: Span[], modules: Record<string, Module>): StyleUse<Module>[] {
+  const uses: StyleUse<Module>[] = [];
+  for (const {start, end} of spans) {
+    for (const match of block.content.slice(start, end).matchAll(/(?<![\w$.])\$([A-Za-z_][\w$]*)/g)) {
+      const module = classMap(match[1]!, modules);
+      const at = start + match.index;
+      if (module) uses.push({node: {type: 'Identifier', name: match[0], start: at, end: at + match[0].length}, module});
+    }
+  }
+  return uses;
 }
 
 // `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
@@ -273,11 +296,17 @@ export function renameSvelteStyles<Module>(
   } catch (err) {
     if (!isCompileError(err)) throw err;
   }
-  const {uses, names} = root ? styleUses(root, block, split, modules) : {uses: [], names: new Set<string>()};
+  const whole: Span[] = [{start: 0, end: block.content.length}];
+  const {uses, names, unreadable} = root
+    ? styleUses(root, block, split, modules)
+    : {uses: [] as StyleUse<Module>[], names: new Set<string>(), unreadable: whole};
+  uses.push(...lexicalUses(block, unreadable, modules));
   const {text, locals} = renameUses(split, block, uses, names);
   // Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
   const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
-  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js'};
+  const {sources, names: mapNames, mappings} = text.generateMap({source: split.filename, hires: true});
+  const map: SourceMap = {version: 3, sources, names: mapNames, mappings};
+  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js', map};
 }
 
 // An `import()` in markup is left to the post rewrite of the compiled module.
