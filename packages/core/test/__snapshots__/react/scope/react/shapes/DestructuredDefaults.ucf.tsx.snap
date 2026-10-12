@@ -1,4 +1,4 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   type Props = { branch?: string; label?: string; note?: string }
 
@@ -10,6 +10,6 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
     ...rest
   } = __props;
     return (
-      <section {...__ucfScopeAttrs(__props)} className="shape"><span className="inner">{label} / {branch} / {rest.note ?? 'no note'}</span></section>
+      <section {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("shape", __props.className)}><span className="inner">{label} / {branch} / {rest.note ?? 'no note'}</span></section>
     )
   }

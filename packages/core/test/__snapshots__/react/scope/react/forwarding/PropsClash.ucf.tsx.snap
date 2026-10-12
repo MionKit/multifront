@@ -1,9 +1,9 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   // The block uses `__props` and `__props1`, so the build names the props `__props2`.
   const __props = 'module'
   const __props1 = 'module too'
 
   export default function PropsClash(__props2: { branch?: string }) {const { branch } = __props2;
-    return <div {...__ucfScopeAttrs(__props2)} className="shape">{__props} {__props1} {branch}</div>
+    return <div {...__ucfScopeAttrs(__props2)} style={__props2.style} ref={__props2.ref} className={__ucfClass("shape", __props2.className)}>{__props} {__props1} {branch}</div>
   }

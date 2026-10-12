@@ -1,0 +1,12 @@
+<react>
+  import type { Ref } from 'react'
+
+  type Props = { branch?: string; ref?: Ref<HTMLElement>; title?: string }
+
+  // `rest` holds every other prop: spread on a root, it hands that root all of them.
+  export default function BodyDestructure(props: Props) {
+    const { ref, branch, ...rest } = props
+    if (branch === 'rest') return <div {...rest}>rest</div>
+    return <p ref={ref as Ref<HTMLParagraphElement>}>plain</p>
+  }
+</react>

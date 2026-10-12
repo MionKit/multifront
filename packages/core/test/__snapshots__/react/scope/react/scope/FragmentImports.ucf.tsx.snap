@@ -19,7 +19,7 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
 
   export default function FragmentImports(__props) {
     return (
-      <div data-v-21b437e4="" {...__ucfScopeAttrs(__props)}>
+      <div data-v-21b437e4="" {...__ucfScopeAttrs(__props)} className={__props.className} style={__props.style} ref={__props.ref}>
         <R.Fragment><span data-v-21b437e4="">default as</span></R.Fragment>
         <Quoted><span data-v-21b437e4="">quoted</span></Quoted>
         <SpecFrag data-v-21b437e4="" />

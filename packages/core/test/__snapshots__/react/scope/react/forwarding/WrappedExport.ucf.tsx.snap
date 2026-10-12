@@ -1,9 +1,9 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import { memo } from 'react'
 
   function Inner(props: { branch?: string }) {
-    return <div {...__ucfScopeAttrs(props)} className="shape"><span className="inner">wrapped {props.branch}</span></div>
+    return <div {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span className="inner">wrapped {props.branch}</span></div>
   }
 
   const Wrapped = memo(Inner)!

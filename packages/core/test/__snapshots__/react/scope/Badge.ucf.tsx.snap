@@ -1,6 +1,6 @@
 import "<fixtures>/components/Badge.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   export default function Badge(__props: { label: string }) {const { label } = __props;
-    return <span data-v-b06779ae="" {...__ucfScopeAttrs(__props)} className="badge">{label}</span>
+    return <span data-v-b06779ae="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("badge", __props.className)}>{label}</span>
   }

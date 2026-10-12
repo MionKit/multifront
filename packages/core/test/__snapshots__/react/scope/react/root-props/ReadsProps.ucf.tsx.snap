@@ -1,0 +1,12 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { CSSProperties } from 'react'
+
+  type Props = { className?: string; style?: CSSProperties }
+
+  // A read of `props.className` (in a nested function too) or `props['style']` hands that prop to the author.
+  export default function ReadsProps(props: Props) {
+    const classes = () => `reads ${props.className ?? ''}`
+    const style = props['style']
+    return <div {...__ucfScopeAttrs(props)} ref={props.ref} className={classes()} style={style}>reads</div>
+  }

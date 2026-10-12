@@ -1,5 +1,14 @@
 import {Visitor} from 'oxc-parser';
-import type {ArrowFunctionExpression, Expression, Function, ImportDeclaration, Node, Program} from 'oxc-parser';
+import type {
+  ArrowFunctionExpression,
+  Expression,
+  Function,
+  ImportDeclaration,
+  JSXAttributeItem,
+  JSXOpeningElement,
+  Node,
+  Program,
+} from 'oxc-parser';
 import {SCOPE_HELPER_ID} from '@multifront/core';
 
 // Style and class map ids both carry `?ucf&type=style&`.
@@ -18,6 +27,8 @@ export function isCallTo(node: Expression, name: string): boolean {
 type Edit = [start: number, end: number, replacement: string];
 
 const PROPS = /^__props\d*$/;
+const MERGES = ['__ucfClass', '__ucfStyle', '__ucfRef'];
+const ROOT_PROPS = ['className', 'style', 'ref'];
 const REF = /^__ref\d*$/;
 
 // `{const <pattern> = <props>;` opening the body, as the build writes it for a destructured first parameter.
@@ -40,6 +51,45 @@ function destructured(node: Function | ArrowFunctionExpression, code: string): E
   return [restore, [statement.start, statement.end, '']];
 }
 
+// ` className={X.className}`: the build adds these right after the forwarding spread, nowhere else.
+function isAdded(item: JSXAttributeItem): boolean {
+  if (item.type !== 'JSXAttribute' || item.name.type !== 'JSXIdentifier' || item.value?.type !== 'JSXExpressionContainer')
+    return false;
+  if (!ROOT_PROPS.includes(item.name.name)) return false;
+  const {expression} = item.value;
+  return (
+    expression.type === 'MemberExpression' &&
+    !expression.computed &&
+    expression.object.type === 'Identifier' &&
+    expression.property.type === 'Identifier' &&
+    expression.property.name === item.name.name
+  );
+}
+
+// The added root props after the spread, and each `__ucfX(own, X.prop)` merge put back to `own`.
+function rootPropEdits(node: JSXOpeningElement): Edit[] {
+  const edits: Edit[] = [];
+  const spread = node.attributes.findIndex(
+    (item) => item.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__ucfScopeAttrs')
+  );
+  if (spread >= 0)
+    for (const item of node.attributes.slice(spread + 1)) {
+      if (!isAdded(item)) break;
+      edits.push([item.start - 1, item.end, '']);
+    }
+  for (const item of node.attributes) {
+    if (item.type !== 'JSXAttribute' || item.value?.type !== 'JSXExpressionContainer') continue;
+    const container = item.value;
+    const call = container.expression;
+    if (call.type !== 'CallExpression' || !MERGES.some((name) => isCallTo(call, name))) continue;
+    const own = call.arguments[0]!;
+    // A string literal's own value was written without braces.
+    const literal = own.type === 'Literal' && typeof own.value === 'string';
+    edits.push([literal ? container.start : call.start, own.start, ''], [own.end, literal ? container.end : call.end, '']);
+  }
+  return edits;
+}
+
 function forwardingEdits(program: Program, code: string): Edit[] {
   const edits: Edit[] = [];
   const params = (node: Function | ArrowFunctionExpression) => {
@@ -50,6 +100,7 @@ function forwardingEdits(program: Program, code: string): Edit[] {
       edits.push([node.params[0]!.start, node.params.at(-1)!.end, '']);
   };
   new Visitor({
+    JSXOpeningElement: (node) => void edits.push(...rootPropEdits(node)),
     JSXSpreadAttribute: (node) => {
       if (isCallTo(node.argument, '__ucfScopeAttrs')) edits.push([node.start - 1, node.end, '']);
     },
@@ -65,7 +116,7 @@ function forwardingEdits(program: Program, code: string): Edit[] {
   return edits;
 }
 
-/** `code` without what `react.build` adds, stamps aside, and with a moved props pattern put back. */
+/** `code` without what `react.build` adds, stamps aside, with a moved props pattern and merged root props put back. */
 export function withoutInjected(code: string, program: Program): string {
   const imports = program.body.filter((node) => isInjected(node) || isHelperImport(node));
   const edits: Edit[] = imports.map(({start, end}) => (code[end] === '\n' ? [start, end + 1, ''] : [start - 1, end, '']));

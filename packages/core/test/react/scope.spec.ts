@@ -3,7 +3,7 @@ import {createRequire} from 'node:module';
 import {basename, sep} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import {Visitor, parseSync} from 'oxc-parser';
-import type {CallExpression, JSXAttributeItem, JSXElementName, JSXOpeningElement, Program} from 'oxc-parser';
+import type {CallExpression, JSXAttribute, JSXAttributeItem, JSXElementName, JSXOpeningElement, Program} from 'oxc-parser';
 import {describe, expect, it} from 'vitest';
 import {checkBlocks, createBuildContext, getBlockKind, scopeHelperCode, splitBlocks} from '@multifront/core';
 import type {VueCompiler} from '@multifront/core';
@@ -12,6 +12,11 @@ import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../
 import {isCallTo, isHelperImport, withoutInjected} from '../blocks/injected.ts';
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
+
+// The order the build's helper import names them in.
+const HELPERS = ['__ucfScopeAttrs', '__ucfWarnFragment', '__ucfClass', '__ucfStyle', '__ucfRef'];
+const MERGES = {className: '__ucfClass', style: '__ucfStyle', ref: '__ucfRef'};
+type RootProp = keyof typeof MERGES;
 
 // `unstamped`: the names of React's Fragment elements in source order, hand-read from the fixture.
 const SCOPED: {fixture: string; unstamped?: string[]}[] = [
@@ -75,6 +80,19 @@ function isForward(item: JSXAttributeItem | undefined): boolean {
   return item?.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__ucfScopeAttrs');
 }
 
+// ` className={props.className}`, as the build adds it when the root has none of its own.
+function isAddedRootProp(item: JSXAttributeItem | undefined): boolean {
+  if (item?.type !== 'JSXAttribute' || item.name.type !== 'JSXIdentifier' || item.value?.type !== 'JSXExpressionContainer')
+    return false;
+  if (!(item.name.name in MERGES)) return false;
+  const {expression} = item.value;
+  return (
+    expression.type === 'MemberExpression' &&
+    expression.property.type === 'Identifier' &&
+    expression.property.name === item.name.name
+  );
+}
+
 function lineColumn(text: string, offset: number): {line: number; column: number} {
   const before = text.slice(0, offset).split('\n');
   return {line: before.length, column: before.at(-1)!.length};
@@ -124,8 +142,10 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
     output.forEach(({attributes}, index) => {
       if (!attributes.some(isStamp)) return;
       expect(isStamp(attributes[0]!)).toBe(true);
-      // A root's forwarding spread is inserted right after its stamp.
-      const last = isForward(attributes[1]) ? attributes[1]! : attributes[0]!;
+      // A root's forwarding spread is inserted right after its stamp, then the root props it adds.
+      let inserted = isForward(attributes[1]) ? 2 : 1;
+      while (inserted > 1 && isAddedRootProp(attributes[inserted])) inserted++;
+      const last = attributes[inserted - 1]!;
       const after = input[index]!.typeArguments ?? input[index]!.name;
       const original = originalPositionFor(map, lineColumn(file.code, last.end));
       expect({line: original.line, column: original.column}).toEqual(lineColumn(source, block.contentStart + after.end));
@@ -244,15 +264,67 @@ it('has a row for every forwarding/, shapes/ and fuzz-found/ fixture', () => {
   expect(listed).toEqual(SHAPES.map(({fixture}) => fixture));
 });
 
-it('serves the fragment warning in the dev helper only, and both helpers run', async () => {
-  const load = (code: string) => import(`data:text/javascript,${encodeURIComponent(code)}`);
-  const dev = await load(scopeHelperCode(true));
-  const production = await load(scopeHelperCode(false));
-  expect(Object.keys(dev).sort()).toEqual(['__ucfScopeAttrs', '__ucfWarnFragment']);
-  expect(Object.keys(production)).toEqual(['__ucfScopeAttrs']);
+// How the build left a root's `className`, `style` or `ref`.
+type RootPropState = 'added' | 'merged' | 'author' | 'none';
+
+function forwardedRoots(program: Program): JSXOpeningElement[] {
+  return openingElements(program).filter(({attributes}) => attributes.some(isForward));
+}
+
+function rootProp(code: string, opening: JSXOpeningElement, prop: RootProp, props: string): RootPropState {
+  const own = opening.attributes.findLast(
+    (item): item is JSXAttribute => item.type === 'JSXAttribute' && item.name.type === 'JSXIdentifier' && item.name.name === prop
+  );
+  if (!own) return 'none';
+  const value = own.value?.type === 'JSXExpressionContainer' ? own.value.expression : undefined;
+  const text = (node: {start: number; end: number}) => code.slice(node.start, node.end);
+  if (value && isAddedRootProp(own) && text(value) === `${props}.${prop}`) return 'added';
+  if (value?.type !== 'CallExpression' || !isCallTo(value, MERGES[prop])) return 'author';
+  return value.arguments.length === 2 && text(value.arguments[1]!) === `${props}.${prop}` ? 'merged' : 'author';
+}
+
+const loadHelper = (code: string) => import(`data:text/javascript,${encodeURIComponent(code)}`);
+
+it('serves the fragment warning in the dev helper only, and the other helpers in both', async () => {
+  const dev = await loadHelper(scopeHelperCode(true));
+  const production = await loadHelper(scopeHelperCode(false));
+  const shared = ['__ucfClass', '__ucfRef', '__ucfScopeAttrs', '__ucfStyle'];
+  expect(Object.keys(dev).sort()).toEqual([...shared, '__ucfWarnFragment']);
+  expect(Object.keys(production).sort()).toEqual(shared);
   expect(production.__ucfScopeAttrs({'data-v-12345678': '', className: 'card', 'data-test': 'x'})).toEqual({
     'data-v-12345678': '',
   });
+});
+
+it('merges the root props, the parent winning, and gives back the own value when the parent passes none', async () => {
+  const {__ucfClass, __ucfStyle, __ucfRef} = await loadHelper(scopeHelperCode(false));
+  expect([__ucfClass('own', 'extra'), __ucfClass('own', undefined), __ucfClass(undefined, 'extra')]).toEqual([
+    'own extra',
+    'own',
+    'extra',
+  ]);
+  const own = {padding: 4, color: 'blue'};
+  expect(__ucfStyle(own, {color: 'red'})).toEqual({padding: 4, color: 'red'});
+  expect(__ucfStyle(own, undefined)).toBe(own);
+
+  const objectRef: {current: unknown} = {current: null};
+  const calls: unknown[] = [];
+  const callbackRef = (node: unknown) => void calls.push(node);
+  expect(__ucfRef(objectRef, undefined)).toBe(objectRef);
+  expect(__ucfRef(undefined, callbackRef)).toBe(callbackRef);
+  const merged = __ucfRef(objectRef, callbackRef);
+  expect(__ucfRef(objectRef, callbackRef)).toBe(merged);
+  const node = {tagName: 'BUTTON'};
+  const cleanup = merged(node);
+  expect([objectRef.current, calls]).toEqual([node, [node]]);
+  cleanup();
+  expect([objectRef.current, calls]).toEqual([null, [node, null]]);
+
+  // A callback ref's own cleanup runs instead of a call with null.
+  let cleaned = 0;
+  const withCleanup = () => () => void cleaned++;
+  __ucfRef(objectRef, withCleanup)(node)();
+  expect(cleaned).toBe(1);
 });
 
 function calls(program: Program, name: string): CallExpression[] {
@@ -338,10 +410,109 @@ describe.each(SHAPES)(
       }
     });
 
-    it('imports exactly the helpers it calls', () => {
-      const attrs = roots.length > 0 ? ['__ucfScopeAttrs'] : [];
-      expect(helperImport(dev)).toEqual([...attrs, ...(fragments > 0 ? ['__ucfWarnFragment'] : [])]);
-      expect(helperImport(production)).toEqual(attrs);
+    it('imports exactly the helpers it calls, in a fixed order', () => {
+      for (const build of builds)
+        expect(helperImport(build)).toEqual(HELPERS.filter((name) => calls(build.program, name).length > 0));
+      const forwarding = helperImport(dev).filter((name) => name === '__ucfScopeAttrs' || name === '__ucfWarnFragment');
+      expect(forwarding).toEqual([
+        ...(roots.length > 0 ? ['__ucfScopeAttrs'] : []),
+        ...(fragments > 0 ? ['__ucfWarnFragment'] : []),
+      ]);
+    });
+
+    it("adds or merges no ref on a forwardRef component's roots: React hands it the ref as a parameter", () => {
+      if (!block.content.includes('forwardRef')) return;
+      for (const build of builds)
+        for (const opening of forwardedRoots(build.program))
+          expect(rootProp(build.code, opening, 'ref', props)).not.toMatch(/added|merged/);
     });
   }
 );
+
+// Hand-read from the fixtures: per root in source order, how the build leaves each root prop.
+const ROOT_PROPS: {fixture: string; props: string; roots: ({tag: string} & Record<RootProp, RootPropState>)[]}[] = [
+  {
+    fixture: 'react/root-props/BodyDestructure.ucf',
+    props: 'props',
+    roots: [
+      {tag: 'div', className: 'none', style: 'none', ref: 'none'},
+      {tag: 'p', className: 'added', style: 'added', ref: 'author'},
+    ],
+  },
+  {
+    fixture: 'react/root-props/Destructures.ucf',
+    props: '__props',
+    roots: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/OtherSpread.ucf',
+    props: '__props',
+    roots: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/Own.ucf',
+    props: 'props',
+    roots: [
+      {tag: 'section', className: 'merged', style: 'merged', ref: 'merged'},
+      {tag: 'p', className: 'merged', style: 'added', ref: 'added'},
+    ],
+  },
+  {
+    fixture: 'react/root-props/ReadsProps.ucf',
+    props: 'props',
+    roots: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
+  },
+  {
+    fixture: 'react/root-props/SpreadsProps.ucf',
+    props: 'props',
+    roots: [{tag: 'div', className: 'author', style: 'none', ref: 'none'}],
+  },
+  {
+    fixture: 'react/root-props/Valueless.ucf',
+    props: '__props',
+    roots: [{tag: 'div', className: 'author', style: 'added', ref: 'added'}],
+  },
+];
+
+it('has a row for every root-props/ fixture', () => {
+  expect(listComponents('react/root-props')).toEqual(ROOT_PROPS.map(({fixture}) => fixture));
+});
+
+describe.each(ROOT_PROPS)('react.build root props of $fixture', async ({fixture, props, roots}) => {
+  const {filename, source} = readComponent(fixture);
+  const split = splitBlocks(source, filename);
+  const block = split.targets.react!;
+  const builds = await Promise.all(
+    [false, true].map(async (production) => {
+      const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
+      const {code} = getBlockKind('react').build(block, ctx);
+      return {code, program: parse(code).program};
+    })
+  );
+
+  it('is a valid fixture whose builds parse', () => {
+    expect(checkBlocks(split)).toEqual([]);
+    for (const {code} of builds) expect(parse(code).errors).toEqual([]);
+  });
+
+  it('matches the code snapshot', async () => {
+    const code = builds[0]!.code.replaceAll(FIXTURES_DIR, '<fixtures>');
+    await expect(code).toMatchFileSnapshot(`../__snapshots__/react/scope/${fixture}.tsx.snap`);
+  });
+
+  it('only inserts: without the forwarding, the root props and the imports, the code is the block content', () => {
+    for (const {code, program} of builds) expect(withoutInjected(code, program)).toBe(block.content);
+  });
+
+  it('adds, merges or leaves each root prop as the detection rule says', () => {
+    for (const {code, program} of builds) {
+      const found = forwardedRoots(program).map((opening) => ({
+        tag: nameText(opening.name),
+        className: rootProp(code, opening, 'className', props),
+        style: rootProp(code, opening, 'style', props),
+        ref: rootProp(code, opening, 'ref', props),
+      }));
+      expect(found).toEqual(roots);
+    }
+  });
+});

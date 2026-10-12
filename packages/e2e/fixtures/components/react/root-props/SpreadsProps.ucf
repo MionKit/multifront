@@ -1,0 +1,6 @@
+<react>
+  // Spreading the props object on the root hands it every prop: nothing is added or merged.
+  export default function SpreadsProps(props: { title?: string }) {
+    return <div {...props} className="spreads">spreads</div>
+  }
+</react>

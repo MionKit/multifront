@@ -2,11 +2,11 @@ import "<fixtures>/components/Panel.ucf?ucf&type=style&index=0&lang.css";
 import "<fixtures>/components/Panel.ucf?ucf&type=style&index=1&lang.css";
 import "<fixtures>/components/Panel.ucf?ucf&type=style&index=2&lang.css";
 import $style from "<fixtures>/components/Panel.ucf?ucf&type=style&index=2&module&lang.js";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import type { ReactNode } from 'react'
   import PanelItem from './PanelItem.ucf'
 
   export default function Panel(__props: { heading: string; children?: ReactNode }) {const { heading, children } = __props;
-    return <section data-v-7182b06b="" {...__ucfScopeAttrs(__props)} className="panel"><h3 data-v-7182b06b="" className={`heading ${$style.title}`}>{heading}</h3><PanelItem data-v-7182b06b="" label="first item" />{children}</section>
+    return <section data-v-7182b06b="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("panel", __props.className)}><h3 data-v-7182b06b="" className={`heading ${$style.title}`}>{heading}</h3><PanelItem data-v-7182b06b="" label="first item" />{children}</section>
   }

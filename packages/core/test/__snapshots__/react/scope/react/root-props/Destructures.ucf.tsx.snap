@@ -1,0 +1,10 @@
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { CSSProperties } from 'react'
+
+  type Props = { label: string; className?: string; style?: CSSProperties }
+
+  // The author takes className and style; only ref is left to the build.
+  export default function Destructures(__props: Props) {const { label, className, style: own = {} } = __props;
+    return <span {...__ucfScopeAttrs(__props)} ref={__props.ref} className={className} style={own}>{label}</span>
+  }

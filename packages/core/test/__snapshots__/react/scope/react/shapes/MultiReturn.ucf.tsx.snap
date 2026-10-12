@@ -1,16 +1,16 @@
 import "<fixtures>/components/react/shapes/MultiReturn.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   const ITEMS = ['one', 'two']
 
   export default function MultiReturn(props: { branch?: string }) {
-    if (props.branch === 'early') return (<section data-v-be3e7acb="" {...__ucfScopeAttrs(props)} className="shape"><span data-v-be3e7acb="" className="inner">early</span></section>)!
+    if (props.branch === 'early') return (<section data-v-be3e7acb="" {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span data-v-be3e7acb="" className="inner">early</span></section>)!
     // A nested function's return is not a root of this component.
     const items = ITEMS.map((item) => {
       return <li data-v-be3e7acb="" key={item}>{item}</li>
     })
     return (
-      <div data-v-be3e7acb="" {...__ucfScopeAttrs(props)} className="shape">
+      <div data-v-be3e7acb="" {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}>
         <span data-v-be3e7acb="" className="inner">last</span>
         <ul data-v-be3e7acb="">{items}</ul>
       </div>

@@ -1,11 +1,11 @@
 import "<fixtures>/components/react/ScopedPanel.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import ScopedBadge from './ScopedBadge.ucf'
 
   export default function ScopedPanel(__props) {
     return (
-      <section data-v-0ff6afab="" {...__ucfScopeAttrs(__props)} className="panel">
+      <section data-v-0ff6afab="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("panel", __props.className)}>
         <h2 data-v-0ff6afab="" className="title">Scoped panel</h2>
         <ScopedBadge data-v-0ff6afab="" label="new" className="badge" />
       </section>

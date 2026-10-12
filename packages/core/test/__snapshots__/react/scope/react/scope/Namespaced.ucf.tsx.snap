@@ -1,10 +1,10 @@
 import "<fixtures>/components/react/scope/Namespaced.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   // Build only: React's JSX transform rejects namespace tags, so no app renders this file.
   export default function Namespaced(__props) {
     return (
-      <svg data-v-0bd0353d="" {...__ucfScopeAttrs(__props)} className="icon">
+      <svg data-v-0bd0353d="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("icon", __props.className)}>
         <svg:x data-v-0bd0353d="" className="named" />
         <svg:x data-v-0bd0353d=""></svg:x>
       </svg>

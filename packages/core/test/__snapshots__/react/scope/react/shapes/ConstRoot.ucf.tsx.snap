@@ -1,8 +1,8 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   export default function ConstRoot(props: { branch?: string }) {
     const root = (
-      <article {...__ucfScopeAttrs(props)} className="shape"><span className="inner">const {props.branch}</span></article>
+      <article {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span className="inner">const {props.branch}</span></article>
     )
     // The same const returned twice still gets one spread.
     if (props.branch === 'again') return root

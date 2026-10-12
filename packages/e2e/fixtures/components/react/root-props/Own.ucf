@@ -1,0 +1,15 @@
+<react>
+  import { useEffect, useRef } from 'react'
+
+  type Props = { branch?: string; tone?: string }
+
+  // Branch `a`: the root's own className, style and ref are merged with the parent's.
+  export default function Own(props: Props) {
+    const own = useRef<HTMLElement>(null)
+    useEffect(() => {
+      if (own.current) own.current.dataset.ownRef = own.current.tagName
+    }, [])
+    if (props.branch === 'a') return <section ref={own} className="own" style={{ padding: 4 }}>own</section>
+    return <p className={`own-${props.tone ?? 'plain'}`}>own</p>
+  }
+</react>

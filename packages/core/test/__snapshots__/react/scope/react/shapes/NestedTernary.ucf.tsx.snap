@@ -1,13 +1,13 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import type { ReactNode } from 'react'
 
   export default function NestedTernary(props: { branch?: string }) {
     return props.branch === 'a' ? (
-      <div {...__ucfScopeAttrs(props)} className="shape"><span className="inner">a</span></div>
+      <div {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span className="inner">a</span></div>
     ) : props.branch === 'b' ? (
-      <p {...__ucfScopeAttrs(props)} className="shape"><span className="inner">b</span></p>
+      <p {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span className="inner">b</span></p>
     ) : (
-      <section {...__ucfScopeAttrs(props)} className="shape"><span className="inner">c</span></section> satisfies ReactNode
+      <section {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span className="inner">c</span></section> satisfies ReactNode
     )
   }

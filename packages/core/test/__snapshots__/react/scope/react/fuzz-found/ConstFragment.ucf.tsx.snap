@@ -1,5 +1,5 @@
 import "<fixtures>/components/react/fuzz-found/ConstFragment.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs, __ucfWarnFragment} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfWarnFragment, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import { Fragment } from 'react'
 
@@ -15,5 +15,5 @@ import {__ucfScopeAttrs, __ucfWarnFragment} from "virtual:multifront/scope-attrs
     if (props.branch === 'mixed') return mixed
     if (props.branch === 'content') return (__ucfWarnFragment(props, "ConstFragment"), content)
     if (props.branch === 'again') return (__ucfWarnFragment(props, "ConstFragment"), content)
-    return <div data-v-e12b4d37="" {...__ucfScopeAttrs(props)} className="shape"><span data-v-e12b4d37="" className="inner">element</span></div>
+    return <div data-v-e12b4d37="" {...__ucfScopeAttrs(props)} style={props.style} ref={props.ref} className={__ucfClass("shape", props.className)}><span data-v-e12b4d37="" className="inner">element</span></div>
   }

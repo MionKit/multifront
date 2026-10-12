@@ -1,0 +1,12 @@
+<react>
+  import type { CSSProperties } from 'react'
+
+  type Props = { className?: string; style?: CSSProperties }
+
+  // A read of `props.className` (in a nested function too) or `props['style']` hands that prop to the author.
+  export default function ReadsProps(props: Props) {
+    const classes = () => `reads ${props.className ?? ''}`
+    const style = props['style']
+    return <div className={classes()} style={style}>reads</div>
+  }
+</react>

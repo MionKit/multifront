@@ -8,5 +8,5 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
   export default function RenamedKey(__props: Props) {const { className: extra, onChange } = __props;
     const [value, setValue] = useState('')
     const className = `shape ${extra ?? ''}`
-    return <div {...__ucfScopeAttrs(__props)} className={className} onClick={() => onChange?.(value)} onDoubleClick={() => setValue('x')}>{value}</div>
+    return <div {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={className} onClick={() => onChange?.(value)} onDoubleClick={() => setValue('x')}>{value}</div>
   }
