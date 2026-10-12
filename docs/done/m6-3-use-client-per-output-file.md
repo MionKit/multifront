@@ -51,7 +51,8 @@ survives; a plain `.ts` module's own directive is kept by Rolldown; Rolldown log
 
 ### Vite: the React target's `load` records it
 
-- `packages/vite/src/plugin.ts`, `load`, the React target branch: the result also carries
+- `packages/vite/src/plugin.ts`, `load`, the React target branch, in builds only (`command === 'build'`, so the dev
+  server never parses for it): the result also carries
   `meta: {multifront: {useClient: needsUseClient(block.content, file)}}`, from the split's `<react>` block.
 - The meta shape is `UcfModuleMeta` in `packages/vite/src/types.ts`; the library plugin reads it with
   `this.getModuleInfo(facade).meta.multifront`.
@@ -81,9 +82,10 @@ No new test infrastructure: all run inside `pnpm devx test` (this host; CI's `ch
    - True: `react/UseClient.ucf`, `react/Directives.ucf`, library `Counter.ucf`, `Button.ucf`, `Tooltip.ucf`, and new
      `react/use-client/` files `ClientHook.ucf` (custom hook in a nested arrow), `ClientMemberHook.ucf`
      (`React.useState`), `ClientHandler.ucf` (`onClick={handle}`), `ClientContext.ucf` (`createContext`),
-     `ClientClass.ucf` (`extends React.Component`).
+     `ClientClass.ucf` (`extends React.Component`), `ClientPureClass.ucf` (a class expression extending an imported
+     `PureComponent`).
    - False: library `Card.ucf`, `Panel.ucf`, `Icon.ucf`, `Badge.ucf`, `forms/Field.ucf`; new `ServerUse.ucf`
-     (`use(promise)`, `useless()`), `ServerHandlerString.ucf` (`onToggle="x"`, `onClick={'x'}`, lowercase `onclick`).
+     (`use(promise)`, `useless()`), `ServerHandlerString.ucf` (`onToggle="x"`, `onClick={'x'}`, lowercase `onclick`, a bare `onActive`).
 2. Build area, `packages/e2e/build/library-use-client.spec.ts`: builds the fixture library into a fresh temp `outDir`,
    collecting every warn-level log, and reads each output JS file with oxc-parser:
    - `react/Counter.js`, `Button.js`, `Tooltip.js`: first statement the `'use client'` directive, second
@@ -104,10 +106,15 @@ No new test infrastructure: all run inside `pnpm devx test` (this host; CI's `ch
   - The library plugin reads the module meta of the chunk's facade directly, so it does not need `componentFile()`;
     that helper stays in `css.ts`.
   - The statement type comes from Rolldown's `this.parse` (`@multifront/vite` has no `oxc-parser` dependency).
+  - The review: the `load` meta is computed only in builds; `USE_CLIENT` is core's, re-exported; the string check
+    reuses `literalValue` from `imports/rewrite.ts`; the e2e specs share `LIBRARY_CLIENT` and `parseOutput` from
+    `build/lib/library.ts`. The suggestions to decide from `buildLibrary`'s scan (the step text says `load`), to pass
+    a `Block` to `needsUseClient` (the step and M7 hand-off name `(code, filename)`) and to drop the `useClient` row
+    flag (per-target differences live in the row) were declined.
   - Rolldown 1.2.8 itself drops a `"use client"` that a `renderChunk` left below an import (checked with plain
     Rolldown, no Vite). The plugin still removes it, so "never twice" does not lean on that; no test can tell the two
     apart.
-- `useClient.spec.ts`: 18 cases, `library-use-client.spec.ts`: 5 cases, all green. The plugin's prepend, its source map
+- `useClient.spec.ts`: 19 cases, `library-use-client.spec.ts`: 5 cases, all green. The plugin's prepend, its source map
   and the `load` meta each make a case fail when removed (checked). `pnpm devx check` passes.
 
 ## Docs
