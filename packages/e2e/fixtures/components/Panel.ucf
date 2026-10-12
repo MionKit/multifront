@@ -5,7 +5,7 @@
   defineProps<{ heading: string }>()
   </script>
   <template>
-    <section class="panel"><h3 class="heading">{{ heading }}</h3><PanelItem label="first item" /><slot /></section>
+    <section class="panel"><h3 :class="['heading', $style.title]">{{ heading }}</h3><PanelItem label="first item" /><slot /></section>
   </template>
 </vue>
 
@@ -14,7 +14,7 @@
   import PanelItem from './PanelItem.ucf'
 
   export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
-    return <section className="panel"><h3 className="heading">{heading}</h3><PanelItem label="first item" />{children}</section>
+    return <section className="panel"><h3 className={`heading ${$style.title}`}>{heading}</h3><PanelItem label="first item" />{children}</section>
   }
 </react>
 

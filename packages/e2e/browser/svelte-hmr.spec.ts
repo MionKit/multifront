@@ -167,7 +167,11 @@ describe('Svelte HMR beside Vue and React in apps/all-targets', () => {
 
   it('a <react> edit updates only the React module', async () => {
     const reactModule = `${opened.panelFile}.react.tsx`;
-    await edit(opened, '<h3 className="heading">{heading}</h3>', '<h3 className="heading">{heading}!</h3>');
+    await edit(
+      opened,
+      '<h3 className={`heading ${$style.title}`}>{heading}</h3>',
+      '<h3 className={`heading ${$style.title}`}>{heading}!</h3>'
+    );
     await expect.poll(() => opened.page.locator('#react .heading').textContent(), POLL).toBe('React panel!');
     await opened.requests.quiet(500);
 
