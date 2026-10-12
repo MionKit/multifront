@@ -261,7 +261,7 @@ For milestone 7 (full editor support):
 
 Run from the repo root. Commands that start Vite load `@multifront/vite` from `src/` with `NODE_OPTIONS=--conditions=source` and `--configLoader native`. Marks: **pass**, **fail** (with its issue), **needs a person**.
 
-1. `pnpm devx test packages/e2e/browser/svelte-exit.spec.ts`: 9 tests pass (the exit test, in dev and after a build). **fail** (missing on `main`: EXIT_MISSING; the QA PR adds it. 7 pass, 2 fail: Panel's heading is `rgb(40, 90, 160)` as Svelte, `rgb(0, 0, 0)` as Vue and React: HEADING_PARITY)
+1. `pnpm devx test packages/e2e/browser/svelte-exit.spec.ts`: 9 tests pass (the exit test, in dev and after a build). **fail** (missing on `main`: #98; the QA PR adds it. 7 pass, 2 fail: Panel's heading is `rgb(40, 90, 160)` as Svelte, `rgb(0, 0, 0)` as Vue and React: #99)
 2. `pnpm devx test packages/e2e/editor/svelte-rename-seam.spec.ts`: 64 tests pass; on every `<svelte>` fixture, `renameSvelteStyles` gives the same locals at the same `.ucf` offsets as `build()` (the rename M6 and M7 share with the build). **pass**
 3. `pnpm devx check` on `main`: green, 76 test files and 2994 tests run, none skipped; CI's `check` and `svelte-floor` (svelte 5.55.6, plugin-svelte 7.0.0) run the same 2994. **pass**
 4. `NODE_OPTIONS=--conditions=source pnpm exec vite build packages/e2e/fixtures/apps/svelte-vite --configLoader native --outDir /tmp/mf-svelte --emptyOutDir`, then `grep -cE "with \{|vue-marker|react-marker" /tmp/mf-svelte/assets/*.js`: the build succeeds, grep prints `0`, and the CSS holds `.panel[data-v-ffa4c38e]`. **pass**
