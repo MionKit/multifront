@@ -15,9 +15,8 @@ const PARENT_SCOPE = `data-v-${scopeId(rootRelativePath(FIXTURES_DIR, ROOTS_PARE
 
 const LEGACY = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
-// Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches,
-// `renders` the props of each branch the server render checks, `html` what that render holds. A `problem` row warns
-// instead; `unchanged` builds as written; `svelteError` is Svelte's own compile error, kept.
+// Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches.
+// `renders`: the props of each server render, `html`: what it holds; a `problem` row warns, `svelteError` is Svelte's.
 type RootShape = {
   fixture: string;
   from?: string;

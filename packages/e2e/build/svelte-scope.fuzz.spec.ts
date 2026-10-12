@@ -53,7 +53,7 @@ interface Run {
   onlyRule?: Rule;
 }
 
-// Where the parent's scope must show: on each top-level element, on at most one, or nowhere.
+// The parent's scope on a top-level element: exactly once each, at most once each, or never.
 type Forwarded = 'root' | 'maybe-root' | 'none';
 type Outcome = {usable: false; reason: string} | {usable: true; violations: Violation[]; forwarded?: Forwarded};
 

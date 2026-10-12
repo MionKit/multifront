@@ -45,7 +45,7 @@ function binding(bound: Set<string>, ...patterns: unknown[]): Set<string> {
   return names;
 }
 
-/** Each branch of `{#if}`, `{#key}`, `{#await}` and `<svelte:boundary>` is walked for its own roots. */
+/** Roots are counted per branch, not across branches. */
 function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>()): void {
   const counted = nodes.filter(
     (node) => !NOT_ROOTS.has(node.type) && !(node.type === 'Text' && (node.data as string).trim() === '')
@@ -78,10 +78,7 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
   }
 }
 
-/**
- * The name the props rest is read from: `props` of `let props = $props()`, `rest` of `{a, ...rest}`, or an added
- * `__ucfRest`, in the pattern or in a new `let __ucfRest = $props();` line.
- */
+/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `let __ucfRest = $props();` line. */
 function propsName(text: MagicString, instance: AST.Script | null, block: Block, used: Set<string>, lines: string[]): string {
   const {id} =
     (instance?.content.body ?? [])
@@ -110,10 +107,8 @@ function propsName(text: MagicString, instance: AST.Script | null, block: Block,
   return name;
 }
 
-/**
- * Beside a spread, Svelte's server render escapes a plain-text attribute twice (5.57.0: `data-x="<b>"` renders
- * `&amp;lt;b>`); as an expression it is escaped once. `on…` stays text, for Svelte's own error.
- */
+// Beside a spread, Svelte 5.57.0's SSR escapes a text attribute twice (`<b>` → `&amp;lt;b>`), an expression once.
+// `on…` stays text, for Svelte's own error.
 function escapeOnce(text: MagicString, node: SvelteNode, block: Block): void {
   if (node.type !== 'RegularElement' && node.type !== 'SvelteElement') return;
   for (const attribute of node.attributes as SvelteNode[]) {
@@ -133,10 +128,7 @@ type Problem = [problem: string, fix?: string];
 
 const LEGACY: Problem = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
-/**
- * Spreads the parent's `data-v-*` props on every root, or warns in dev when the component cannot forward. Returns
- * the helpers to import and the lines for the end of the instance script.
- */
+/** Spreads the parent's `data-v-*` props on every root, else warns in dev; `lines` end the instance script. */
 export function forwardScope(
   text: MagicString,
   root: AST.Root,
