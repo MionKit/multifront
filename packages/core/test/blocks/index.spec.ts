@@ -70,7 +70,7 @@ describe('block kinds', () => {
 describe('buildTarget', () => {
   it('builds the react row as react.build does', async () => {
     const {split, ctx} = await load('react/AllBlocks.ucf');
-    expect(buildTarget(split, ctx, 'react')).toEqual(getBlockKind('react').build!(split.targets.react!, ctx));
+    expect(buildTarget(split, ctx, 'react')).toEqual(getBlockKind('react').build(split.targets.react!, ctx));
   });
 
   it("throws the react row's check errors at their place", async () => {

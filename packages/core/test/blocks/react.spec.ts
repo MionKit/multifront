@@ -218,7 +218,7 @@ async function build(name: string) {
   const split = splitBlocks(source, filename);
   const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: true});
   const block = split.targets.react!;
-  return {filename, source, split, ctx, block, diagnostics: react.check(block, split), file: react.build!(block, ctx)};
+  return {filename, source, split, ctx, block, diagnostics: react.check(block, split), file: react.build(block, ctx)};
 }
 
 describe('react.build', () => {

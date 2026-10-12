@@ -34,7 +34,7 @@ interface BlockKind {
   grammar: {scopeName, languageId, byLang?}; // VS Code highlighting; byLang picked by <style lang>
   check(block, split): Diagnostic[]; // rules for the block, e.g. "react must export default"
   fillContext?(blocks, ctx): Promise<void>; // shared kinds only: fill ctx before any build
-  build?(block, ctx): VirtualFile;   // the file the bundler compiles
+  build(block, ctx): VirtualFile;    // the file the bundler compiles
 }
 
 // Language-tools half: packages/language-tools/src/blocks/index.ts, same tags, same order

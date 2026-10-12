@@ -1,4 +1,4 @@
-import {DiagnosticsError, createDiagnostic, targetNotBuilt} from '../diagnostics.ts';
+import {DiagnosticsError, createDiagnostic} from '../diagnostics.ts';
 import type {BlockKind, BlockTag, BuildContext, Diagnostic, SplitResult, Target, VirtualFile} from '../types.ts';
 import {reactKind} from './react.ts';
 import {styleKind} from './style.ts';
@@ -29,7 +29,6 @@ export function buildTarget(split: SplitResult, ctx: BuildContext, target: Targe
     ]);
   }
   const kind = getBlockKind(target);
-  if (!kind.build) throw new DiagnosticsError([targetNotBuilt(split, block)]);
   // Style errors belong to the style modules, other targets' to their own builds: one problem, one error.
   const errors = [...split.errors, ...kind.check(block, split)].sort((first, second) => first.start - second.start);
   if (errors.length > 0) throw new DiagnosticsError(errors);

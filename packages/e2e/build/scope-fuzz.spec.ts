@@ -250,7 +250,7 @@ async function checkCase(fuzzCase: ScopeCase, run: Run): Promise<Violation[]> {
     const ctx = await createBuildContext(split, {root: run.dir, compiler, production});
     let file: VirtualFile;
     try {
-      file = getBlockKind('react').build!(block, ctx);
+      file = getBlockKind('react').build(block, ctx);
     } catch (err) {
       violations.push({rule: 'parses', message: `react.build threw: ${String(err)}`});
       continue;

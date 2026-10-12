@@ -84,7 +84,7 @@ describe.each(CASES)('react.build stamping of $fixture', async ({fixture, scoped
   const split = splitBlocks(source, filename);
   const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production: false});
   const block = split.targets.react!;
-  const file = getBlockKind('react').build!(block, ctx);
+  const file = getBlockKind('react').build(block, ctx);
   const stamp = `data-v-${ctx.scopeId}`;
   const isStamp = (item: JSXAttributeItem) =>
     item.type === 'JSXAttribute' &&
@@ -278,7 +278,7 @@ describe.each(SHAPES)(
     const builds = await Promise.all(
       [false, true].map(async (production) => {
         const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
-        const {code, map} = getBlockKind('react').build!(block, ctx);
+        const {code, map} = getBlockKind('react').build(block, ctx);
         return {code, map: map!, ctx, program: parse(code).program};
       })
     );
