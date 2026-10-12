@@ -4,7 +4,7 @@ import {checkBlocks, locate, splitBlocks} from '@multifront/core';
 import type {Rolldown, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
-import {buildApp, rejection, withDevServer} from './lib/build.ts';
+import {buildApp, expectImportError, rejection, withDevServer, withEditedApp} from './lib/build.ts';
 import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
 
 const COUNTER = '../../../components/Counter.ucf';
@@ -13,23 +13,13 @@ const VUE_MARKERS = ['icon-vue-marker', 'uses-icon-vue-marker'];
 const OTHER_MARKERS = ['icon-react-marker', 'uses-icon-react-marker', 'icon-svelte-marker', 'uses-icon-svelte-marker'];
 
 /** A copy of its own whose `App.vue` also imports `specifier` as `name` and renders it. */
-async function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {
-  const root = await copyApp('vue');
-  try {
-    const app = join(root, 'src', 'App.vue');
-    const source = await readFile(app, 'utf8');
-    const script = "import Plain from './Plain.vue';\n";
-    const template = '  <Plain />\n';
-    if (!source.includes(script) || !source.includes(template)) throw new Error(`App.vue changed:\n${source}`);
-    // Rendered, as TypeScript drops an import nothing uses.
-    const edited = source
-      .replace(script, `${script}import ${name} from ${specifier};\n`)
-      .replace(template, `${template}  <${name} />\n`);
-    await writeFile(app, edited);
-    await run(root);
-  } finally {
-    await removeApp(root);
-  }
+function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {
+  // Rendered, as TypeScript drops an import nothing uses.
+  const edits: [string, string][] = [
+    ["import Plain from './Plain.vue';\n", `import ${name} from ${specifier};\n`],
+    ['  <Plain />\n', `  <${name} />\n`],
+  ];
+  return withEditedApp('vue', join('src', 'App.vue'), edits, run);
 }
 
 describe('imports through plugin-vue in the vue app', () => {
@@ -192,15 +182,12 @@ describe('import errors through plugin-vue', () => {
         if (source) await writeFile(file, source);
         const text = await readFile(file, 'utf8');
         const loc = {file, ...locate(text, text.indexOf(at))};
-
-        const built = await rejection<Rolldown.BundleError>(buildApp(root));
-        expect(built.message).toContain(`(${code})`);
-        expect(built.errors?.[0]?.loc).toEqual(loc);
-
-        await withDevServer(root, {}, async (server) => {
-          const client = await rejection<Rolldown.RollupError>(server.environments.client.transformRequest(`/src/${importer}`));
-          expect(client.message).toContain(`(${code})`);
-          expect(client.loc).toEqual(loc);
+        await expectImportError(root, {
+          build: () => buildApp(root),
+          url: `/src/${importer}`,
+          environments: ['client'],
+          code,
+          loc,
         });
       });
     }

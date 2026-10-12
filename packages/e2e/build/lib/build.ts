@@ -1,9 +1,11 @@
+import {readFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {BuildContext} from '@multifront/core';
 import {build, createServer, mergeConfig, type ESTree, type InlineConfig, type Rolldown, type ViteDevServer} from 'vite';
 import type {Plugin} from 'vite';
-import {readComponent} from '../../fixtures/index.ts';
+import {expect} from 'vitest';
+import {copyApp, readComponent, removeApp} from '../../fixtures/index.ts';
 
 /** plugin-vue picks its dev or production scope id from NODE_ENV. */
 export async function withNodeEnv<Result>(mode: string, run: () => Promise<Result>): Promise<Result> {
@@ -100,4 +102,50 @@ export function exportedScopeId(code: string): string | undefined {
 export function keyName(key: ESTree.ImportAttributeKey | ESTree.PropertyKey): string | undefined {
   if (key.type === 'Identifier') return key.name;
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
+}
+
+/** A copy of fixture app `app` whose `file` gets each `[anchor, added]` text right after its anchor. */
+export async function withEditedApp(
+  app: string,
+  file: string,
+  edits: [anchor: string, added: string][],
+  run: (root: string) => Promise<void>
+): Promise<void> {
+  const root = await copyApp(app);
+  try {
+    const path = join(root, file);
+    let source = await readFile(path, 'utf8');
+    for (const [anchor, added] of edits) {
+      if (!source.includes(anchor)) throw new Error(`${file} changed, no ${JSON.stringify(anchor)}:\n${source}`);
+      source = source.replace(anchor, anchor + added);
+    }
+    await writeFile(path, source);
+    await run(root);
+  } finally {
+    await removeApp(root);
+  }
+}
+
+interface ImportErrorCase {
+  build: () => Promise<unknown>;
+  url: string; // the module whose transform fails in dev
+  environments: readonly ('client' | 'ssr')[];
+  code: string;
+  loc: Rolldown.RollupError['loc'];
+  config?: InlineConfig; // of the dev server
+}
+
+/** Spec 4.4: the build and each dev environment fail with `code` at `loc`; returns the build's error. */
+export async function expectImportError(root: string, {build, url, environments, code, loc, config = {}}: ImportErrorCase) {
+  const built = await rejection<Rolldown.BundleError>(build());
+  expect(built.message).toContain(`(${code})`);
+  expect(built.errors?.[0]?.loc).toEqual(loc);
+  await withDevServer(root, config, async (server) => {
+    for (const environment of environments) {
+      const err = await rejection<Rolldown.RollupError>(server.environments[environment].transformRequest(url));
+      expect(err.message, environment).toContain(`(${code})`);
+      expect(err.loc, environment).toEqual(loc);
+    }
+  });
+  return built;
 }

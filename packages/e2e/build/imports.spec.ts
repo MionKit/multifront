@@ -5,7 +5,7 @@ import {checkBlocks, createBuildContext, loadVueCompiler, locate, rewriteImportA
 import type {Diagnostic, Target} from '@multifront/core';
 import {createServer, isRunnableDevEnvironment, type Rolldown, type ViteDevServer} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {EXPECTED_IMPORTS} from '../fixtures/apps/imports/expected.ts';
+import {EXPECTED_IMPORTS as ROWS} from '../fixtures/apps/imports/expected.ts';
 import {FIXTURES_DIR, TMP_DIR, componentPath, filesOf, readComponent} from '../fixtures/index.ts';
 import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 import {expectNoAttribute, moduleReferences} from './lib/references.ts';
@@ -16,7 +16,6 @@ const CARD = componentPath('Card.ucf');
 const TARGET_ID: Record<Target, string> = {react: `${CARD}.react.tsx`, vue: CARD, svelte: `${CARD}.svelte.svelte`};
 // Vite writes `/@fs` only before a file on disk; the react and svelte ids name none.
 const DEV_URL: Record<Target, string> = {react: TARGET_ID.react, vue: `/@fs${CARD}`, svelte: TARGET_ID.svelte};
-const ROWS = EXPECTED_IMPORTS;
 const FILES = [...new Set(ROWS.map((row) => row.file))];
 const NO_IMPORTS = 'no-default/strings-and-comments.ts';
 const SSR_ENTRY = 'no-default/ssr-entry.tsx';
