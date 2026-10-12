@@ -17,10 +17,7 @@ export function hasSveltePlugin(plugins: readonly Plugin[]): boolean {
   return plugins.some((plugin) => plugin.name === SVELTE_PLUGIN_NAME);
 }
 
-/**
- * plugin-svelte hands `getCombinedSourcemap()` to the compiler, which merges our `load` map into its own; Vite then
- * applies our map a second time and every mapping is lost. For our ids its compile sees no previous map.
- */
+/** plugin-svelte merges our `load` map via `getCombinedSourcemap()`, then Vite applies it again: every mapping lost. */
 export function composeSveltePlugin(config: ResolvedConfig): void {
   const transform = config.plugins.find((plugin) => plugin.name === COMPILE_PLUGIN_NAME)?.transform;
   // A restart runs `configResolved` again on the same plugin-svelte instance.

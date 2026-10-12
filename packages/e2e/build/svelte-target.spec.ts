@@ -18,7 +18,6 @@ const SVELTE_ID = (name: string) => `${componentPath(name)}.svelte.svelte`;
 
 const contextOf = (name: string) => componentContext(ROOT, name);
 
-/** The lines of Panel.ucf that `map` points at, checked to lie in its <svelte> block, one of them `{heading}`'s. */
 function expectPanelMappings(map: SourceMapInput): void {
   const {source} = readComponent('Panel.ucf');
   const lineOf = (offset: number) => source.slice(0, offset).split('\n').length;
@@ -85,7 +84,7 @@ describe('vite build of svelte-vite', () => {
   });
 });
 
-/** A dev server of the app; plugin-svelte pre-bundles svelte, so its cache stays out of the fixture app. */
+/** plugin-svelte pre-bundles svelte, so its cache stays out of the fixture app. */
 async function withSvelteDevServer(config: InlineConfig, run: (server: ViteDevServer) => Promise<void>): Promise<void> {
   await mkdir(TMP_DIR, {recursive: true});
   const cacheDir = await mkdtemp(join(TMP_DIR, 'svelte-vite-cache-'));
@@ -96,7 +95,6 @@ async function withSvelteDevServer(config: InlineConfig, run: (server: ViteDevSe
   }
 }
 
-/** The URL `main.ts` imports Panel's Svelte module by, and that module as `environment` serves it. */
 async function panelModule(server: ViteDevServer, environment: 'client' | 'ssr') {
   const main = await server.environments[environment].transformRequest('/src/main.ts');
   // Client code imports it `from "<url>"`, SSR code through `__vite_ssr_import__("<url>")`.

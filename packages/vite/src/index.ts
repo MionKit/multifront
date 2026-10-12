@@ -136,7 +136,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const {path, query} = splitId(id);
         const own = virtualTarget(path);
         if (own) {
-          // A dev URL (`/src/Card.ucf.react.tsx`) or an id seen again: resolve the real file under it.
+          // A dev URL (`/src/Card.ucf.react.tsx`) or an id seen again.
           const resolved = await this.resolve(own.file, importer, {skipSelf: true});
           return resolved && !resolved.external ? resolved.id + TARGET_SUFFIX[own.target] : null;
         }
