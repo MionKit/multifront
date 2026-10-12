@@ -42,7 +42,6 @@ export interface EditorOptions {
   svelteTypesRoot?: string; // folder of svelte2tsx's shims; default: the installed `svelte2tsx`
 }
 
-/** `emitSvelteTypes` input. */
 export interface EmitSvelteTypesOptions extends Pick<EditorOptions, 'ts' | 'svelteTypesRoot'> {
   root: string; // every `.ucf` file under it with a `<svelte>` block gets a declaration
   outDir?: string; // default `<root>/.ucf/svelte`; `ts` defaults to the project's own, resolved from `root`
