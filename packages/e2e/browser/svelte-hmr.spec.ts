@@ -1,4 +1,4 @@
-import {resolve} from 'node:path';
+import {join, resolve} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {createLogger} from 'vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -36,14 +36,18 @@ async function openApp(name: string) {
   };
   try {
     app = await startDev(root, logger);
+    // A logger left unwired would pass every log check.
+    expect(app.server.config.logger).toBe(logger);
     page = await browser!.newPage();
+    // The copy's apps import `../../../components/…`.
+    const components = resolve(root, '..', '..', 'components');
     const opened = {
       app,
       page,
-      logger,
       logs,
-      // The copy's apps import `../../../components/Panel.ucf`.
-      panelFile: resolve(root, '..', '..', 'components', 'Panel.ucf'),
+      root,
+      panelFile: join(components, 'Panel.ucf'),
+      noStyleFile: join(components, 'svelte', 'NoStyle.ucf'),
       messages: collectConsole(page),
       requests: trackRequests(page),
       payloads: trackHmrPayloads(page),
@@ -61,9 +65,9 @@ async function openApp(name: string) {
   }
 }
 
-async function edit(opened: Opened, from: string, to: string) {
+async function edit(opened: Opened, from: string, to: string, file = opened.panelFile) {
   opened.payloads.clear();
-  await editFile(opened.requests, opened.panelFile, from, to);
+  await editFile(opened.requests, file, from, to);
 }
 
 const marker = ({page}: Opened) => page.evaluate(() => (globalThis as {ucfMarker?: string}).ucfMarker);
@@ -92,8 +96,7 @@ async function svelteEdit(opened: Opened) {
   await expectNoError(opened);
 }
 
-// Resolves whether the Svelte element is still the same DOM node.
-async function scopedStyleEdit(opened: Opened): Promise<boolean> {
+async function scopedStyleEdit(opened: Opened) {
   expect(await sveltePadding(opened)).toBe('16px');
   const before = await opened.page.locator(SVELTE_PANEL).elementHandle();
   await edit(opened, '$pad: 1rem;', '$pad: 2rem;');
@@ -102,14 +105,15 @@ async function scopedStyleEdit(opened: Opened): Promise<boolean> {
 
   expect(await marker(opened)).toBe('kept');
   await expectNoError(opened);
-  return before.evaluate((element, selector) => element === element.ownerDocument.querySelector(selector), SVELTE_PANEL);
+  // Still the same DOM node.
+  expect(
+    await before.evaluate((element, selector) => element === element.ownerDocument.querySelector(selector), SVELTE_PANEL)
+  ).toBe(true);
 }
 
 async function expectCleanConsole(opened: Opened) {
   expect(opened.loads).toBe(1);
   expect(opened.messages.filter(({type}) => type === 'warning' || type === 'error' || type === 'pageerror')).toEqual([]);
-  // A logger left unwired would pass every log check.
-  expect(opened.app.server.config.logger).toBe(opened.logger);
 }
 
 describe('Svelte HMR in apps/svelte-vite', () => {
@@ -128,7 +132,7 @@ describe('Svelte HMR in apps/svelte-vite', () => {
   });
 
   it('a <style scoped> edit fetches only its CSS module and keeps the Svelte element', async () => {
-    expect(await scopedStyleEdit(opened)).toBe(true);
+    await scopedStyleEdit(opened);
 
     expect(opened.requests.paths()).toEqual([styleModule(opened, 0)]);
     expect(opened.payloads.updatedPaths()).toEqual([styleModule(opened, 0)]);
@@ -180,7 +184,7 @@ describe('Svelte HMR beside Vue and React in apps/all-targets', () => {
   });
 
   it('a <style scoped> edit fetches only its style modules and keeps the Svelte element', async () => {
-    expect(await scopedStyleEdit(opened)).toBe(true);
+    await scopedStyleEdit(opened);
 
     // Ours for React and Svelte, plugin-vue's sub-module for the Vue panel.
     const ours = `/@fs${opened.panelFile}?ucf&type=style&index=0&`;
@@ -191,6 +195,34 @@ describe('Svelte HMR beside Vue and React in apps/all-targets', () => {
     }
     expect(opened.payloads.fullReloads()).toBe(0);
     expect(await count()).toBe('3');
+  });
+
+  it('a <svelte> edit to a file with no <vue> block updates its Svelte module', async () => {
+    const noStyleModule = `${opened.noStyleFile}.svelte.svelte`;
+    await edit(opened, 'No script, no style', 'No script, no style!', opened.noStyleFile);
+    await expect.poll(() => opened.page.locator('#no-style .plain').textContent(), POLL).toBe('No script, no style!');
+    await opened.requests.quiet(500);
+
+    expect(opened.requests.paths()).toEqual([noStyleModule]);
+    expect(opened.payloads.updatedPaths()).toEqual([noStyleModule]);
+    expect(opened.payloads.fullReloads()).toBe(0);
+    expect(await marker(opened)).toBe('kept');
+    await expectNoError(opened);
+  });
+
+  it('a plain .svelte file still hot-updates its markup and its style through plugin-svelte', async () => {
+    const plainFile = join(opened.root, 'src', 'Plain.svelte');
+    const plain = opened.page.locator('#plain .plain');
+    await edit(opened, 'Plain svelte</p>', 'Plain svelte!</p>', plainFile);
+    await expect.poll(() => plain.textContent(), POLL).toBe('Plain svelte!');
+    await opened.requests.quiet(500);
+    await edit(opened, 'rgb(1, 2, 3)', 'rgb(4, 5, 6)', plainFile);
+    await expect.poll(() => computed(plain, 'color'), POLL).toBe('rgb(4, 5, 6)');
+    await opened.requests.quiet(500);
+
+    expect(opened.payloads.fullReloads()).toBe(0);
+    expect(await marker(opened)).toBe('kept');
+    await expectNoError(opened);
   });
 
   it('loaded the page once and logged no warning or error', async () => {
