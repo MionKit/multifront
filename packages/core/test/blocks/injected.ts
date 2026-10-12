@@ -20,8 +20,11 @@ export function isHelperImport(node: Node): node is ImportDeclaration {
   return node.type === 'ImportDeclaration' && node.source.value === SCOPE_HELPER_ID;
 }
 
+// `__ucfClass1` too: the build renames a helper the block already names.
 export function isCallTo(node: Expression, name: string): boolean {
-  return node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === name;
+  return (
+    node.type === 'CallExpression' && node.callee.type === 'Identifier' && new RegExp(`^${name}\\d*$`).test(node.callee.name)
+  );
 }
 
 type Edit = [start: number, end: number, replacement: string];
