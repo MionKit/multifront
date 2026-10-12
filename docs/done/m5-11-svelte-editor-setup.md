@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.11
@@ -41,7 +41,7 @@ export function emitSvelteTypes(options: EmitSvelteTypesOptions): string[]; // d
 - **Finding files.** Walk every `.ucf` under `root`, skipping `node_modules`, dot folders below `root` and anything inside `outDir`. Keep only files with a `<svelte>` block (`splitBlocks`).
 - **Loading the tools.**
   - Svelte: `loadSvelteCompiler(root)`. A missing Svelte throws core's "could not find svelte".
-  - TypeScript: `options.ts`, else `typescript` resolved from `root`. A missing one throws `multifront: could not find typescript. Install typescript in your project.`
+  - TypeScript: `options.ts`, else `typescript` resolved from `root`. A missing one throws `multifront: could not find typescript. Install typescript in your project.`; one found but broken throws its own error.
 - **The scripts.** `blocks/svelte.ts:50` `svelteTypes` becomes an export, because it keeps `lang`. Each script is parsed with `ScriptKind.TS` or `ScriptKind.JS` by that `lang`.
 - **Compiler options.**
   - Base: `<root>/tsconfig.json` when present (`ts.getParsedCommandLineOfConfigFile`, errors ignored). Otherwise `{target: ESNext, module: Preserve, moduleResolution: Bundler, strict: true, skipLibCheck: true}`.
@@ -50,8 +50,9 @@ export function emitSvelteTypes(options: EmitSvelteTypesOptions): string[]; // d
   - `getSourceFile`, `fileExists` and `readFile` serve `<file>.ucf.svelte.ts` (`targetScriptName`) from a lazily built map. An imported `.ucf` outside `root` also gets its script, but no output.
   - `resolveModuleNameLiterals` sends `.ucf` specifiers to `resolveUcfImport`, the same block rule as tsserver. Everything else goes to `ts.resolveModuleName`.
 - **Writing.** `program.emit(undefined, writeFile)`. Only `<scanned file>.ucf.svelte.d.ts` is written, to `<outDir>/<path relative to root>.d.ts`, so `src/Card.ucf` gives `.ucf/svelte/src/Card.ucf.d.ts`. Folders are created as needed.
-- **Stale files.** A `*.ucf.d.ts` under `outDir` whose `.ucf` file is gone or has no `<svelte>` block is deleted. A file whose script cannot be built yet keeps its last declaration.
-- **Return value.** The written paths, sorted.
+- **Stale files.** A `*.ucf.d.ts` under `outDir` (skipping `node_modules` and dot folders, as the source walk does) whose `.ucf` file is gone or has no `<svelte>` block is deleted. A file whose script cannot be built yet keeps its last declaration.
+- **Only `.ucf` scripts.** The host serves a script only for a name ending `.ucf.svelte.ts`: `Foo.svelte.ts`, probed for an `import './Foo.svelte'`, is left to TypeScript.
+- **Return value.** The written paths, sorted. A relative `root` or `outDir` is resolved first (`createRequire` needs an absolute path).
 
 ### 2. Our language server calls it on save
 
@@ -67,6 +68,8 @@ export interface ServerOptions extends Pick<EditorOptions, 'svelteTypesRoot'> {
 - `server.documents.onDidSave`. Volar's server advertises `TextDocumentSyncKind.Incremental`, which vscode-languageclient turns into `save: {includeText: false}`, so VS Code sends it.
 - It acts on a `file:` URI ending `.ucf` whose text has a `<svelte>` block, or whose declaration already exists (so removing the block cleans up).
 - `root` is the deepest workspace folder holding the file. There is no emit when no folder holds it, or when there is no TypeScript.
+- Registered in `onInitialize` once the tsdk's TypeScript loaded: no tsdk, no emit.
+- Saves within 100 ms per root are one emit (Save All, auto-save), run after the last one.
 - It runs `emitSvelteTypes({root, ts, svelteTypesRoot})` inside a try.
   - Success logs `multifront: wrote <n> Svelte declarations to <outDir>` (`connection.console.info`).
   - An error logs `multifront: no Svelte declarations for <root> (<reason>)` (`warn`).
@@ -93,11 +96,12 @@ export interface ServerOptions extends Pick<EditorOptions, 'svelteTypesRoot'> {
 
 ### 6. Test helpers
 
-- `editor/lib/lsp.ts:34`: `startLanguageServer` gains `source?: boolean` (default `!server`), so a foreign server (Svelte's) can still run with `--conditions=source` for the vite config.
-- New `editor/lib/svelte.ts`, with three helpers:
+- `editor/lib/lsp.ts:34`: `startLanguageServer` gains `source?: boolean` (default `!server`), so a foreign server (Svelte's) can still run with `--conditions=source` for the vite config, and takes several folders for a multi-root workspace.
+- New `editor/lib/svelte.ts`, with four helpers:
   - `SVELTE_PLUGIN = 'typescript-svelte-plugin'`
-  - `startSvelteLanguageServer(workspace)`: the installed `svelte-language-server/bin/server.js` (`svelteserver --stdio`, as test-utils forks it), source condition on.
-  - `runSvelteCheck(app)`: spawns the installed `svelte-check` (`--workspace <app> --tsconfig ./tsconfig.json --output machine`, `NODE_OPTIONS=--conditions=source`, `NODE_PATH` unset) and parses each `ERROR`/`WARNING` line into `{file, line, column, message}` plus the exit code.
+  - `SVELTE_SERVER`: the installed `svelte-language-server/bin/server.js` (`svelteserver --stdio`, as test-utils forks it), started with the source condition on.
+  - `runSvelteCheck(app)`: spawns the installed `svelte-check` (`--workspace <app> --tsconfig ./tsconfig.json --output machine-verbose`, `NODE_OPTIONS=--conditions=source`, `NODE_PATH` unset) and parses each JSON problem line (`{type, filename, start, message, code}`) plus the exit code.
+  - `saveUcf(server, file)`: opens a `.ucf` file in our server, sends `didSave`, resolves to the emit's log line.
 - `editor/lib/cases.ts:141` `expectSvelteComponent`: for a `.svelte` file, the unsaved `const picked = <binding>;` goes before the first `</script>`.
 
 ## Tests
@@ -113,15 +117,23 @@ Runs on a `copyApp('svelte-vite')` copy. `<copy>` is the copy root, holding `app
 - quickinfo on `App` is not `LegacyComponentType` (it is Svelte's plugin's script);
 - unsaved `mount(App, {target, props: {nope: 1}})` is one TS2322;
 - `heading: 1` on Panel is one TS2322 at `heading`;
-- definition on `App` lands in `App.svelte`, on `Panel` in `Panel.ucf`.
+- definition on `App` lands in `App.svelte` (two spots, svelte2tsx's value and type), on `Panel` in `Panel.ucf`.
 
 **`emitSvelteTypes({root: <copy>})`**, `ts` left to the default:
-- it writes exactly one `.ucf/svelte/components/<path>.ucf.d.ts` per copied `.ucf` file with a `<svelte>` block, and none for the others;
+- it writes exactly one `.ucf/svelte/components/<path>.ucf.d.ts` per copied `.ucf` file whose `<svelte>` block tsserver serves a script for (`getTypesScript`), and none for the others: `svelte/errors/UnclosedBrace.ucf` and `invalid/StyleInSvelte.ucf` get none, as svelte2tsx cannot read them;
 - `Panel.ucf.d.ts` default-exports `import("svelte").Component<…>` with `heading: string`;
 - a JS-block fixture's declaration has typed props, not `{}`;
+- with `Panel.ucf`'s markup broken (an unclosed `{`), a second run keeps its last declaration;
 - after removing `<svelte>` from the copy's `Card.ucf`, a second run deletes `Card.ucf.d.ts`.
 
-**Our language server**, from source, workspace `<copy>`, `tsdk: TSDK`: `didSave` on `components/Panel.ucf` logs `wrote <n> Svelte declarations` and leaves the same files the direct call writes.
+**`emitSvelteTypes` edge cases**: a relative `root` and `outDir` resolve; `outDir` as the root writes beside the sources and leaves a `node_modules` `*.ucf.d.ts` alone; a block importing `./Plain.svelte` beside a `Plain/` folder still gets its declaration; a project with no `typescript` gets the "could not find typescript" error (child process, `NODE_PATH` unset).
+
+**Our language server**, from source, `tsdk: TSDK`:
+- two saves sent at once log one `wrote <n> Svelte declarations` line;
+- saving `Card.ucf` with its `<svelte>` block removed deletes `Card.ucf.d.ts`;
+- in a multi-root workspace (`<copy>`, `<copy>/components`), the output lands under the deepest folder;
+- with no tsdk, a save writes nothing and logs nothing;
+- in a project with no Svelte, a save logs the `no Svelte declarations for <root> (…could not find svelte…)` warning, and the next save does again.
 
 **svelte-language-server over LSP**, workspace `apps/svelte-vite`, on `src/App.svelte`:
 - before any emit, pulled diagnostics are exactly TS2307 at each `.ucf` import (no vite.config error);

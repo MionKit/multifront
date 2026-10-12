@@ -188,15 +188,22 @@ From milestone 4:
 ### 5.11 Svelte's own editor setup
 
 - Build:
-  - `emitSvelteTypes({ root, outDir })` in `@multifront/language-tools`: TypeScript declaration emit over every `Card.ucf.svelte.ts`, written as `<outDir>/<same path>/Card.ucf.d.ts` (default `outDir`: `.ucf/svelte`). Our language server calls it when a `.ucf` file with a `<svelte>` block is saved.
-  - Docs for a Svelte app: add `"rootDirs": ["./src", "./.ucf/svelte/src"]` to `tsconfig.json`.
+  - `emitSvelteTypes({ root, outDir, ts, svelteTypesRoot })` in `@multifront/language-tools` (`src/svelteDeclarations.ts`): TypeScript declaration emit over every `Card.ucf.svelte.ts` under `root` (`.ucf` imports resolved by the block rule, as tsserver does; a JS block parsed as JS), written as `<outDir>/<same path>/Card.ucf.d.ts` (default `outDir`: `.ucf/svelte`). A declaration whose `.ucf` file is gone or has no `<svelte>` block is deleted; a block whose markup does not parse keeps its last one. `ts` defaults to the project's own `typescript`.
+  - Our language server calls it when a `.ucf` file with a `<svelte>` block (or an existing declaration) is saved, for the deepest workspace folder holding it, once per burst of saves. `startServer(options: ServerOptions)` takes `svelteTypesRoot` and `onTypeScript`: the VS Code bundle's own entry, `packages/vscode/src/server.ts`, points svelte2tsx's `typescript` import at the tsdk's copy and its shims at `dist/svelte-types/`.
+  - Docs for a Svelte app: add `"rootDirs": ["./src", "./.ucf/svelte/src"]` to `tsconfig.json` and `.ucf/` to `.gitignore`.
   - Update the spec 11 risk "Our TypeScript plugin inside other editors' setups" with what this step shows.
+  - Root devDependencies: `svelte-language-server` 0.18.4, `typescript-svelte-plugin` 0.3.52, `svelte-check` 4.7.6. `apps/svelte-vite` gains `rootDirs` and `src/mountAll.ts`, and imports `@multifront/vite` through a computed specifier (svelte-check and Svelte's server load its config with Vite's bundling loader, as SvelteKit does in 5.6).
 - Deliverable: `.svelte` importers get `.ucf` types in Svelte's editor and in `svelte-check`, and our plugin lives beside Svelte's tsserver plugin.
-- Test: editor area, `packages/e2e/editor/svelte-editor-setup.spec.ts`, on `apps/svelte-vite`:
-  - real tsserver with `typescript-svelte-plugin` 0.3.52 and our plugin both loaded: a `.ts` file importing a `.svelte` file and a `.ucf` file gets correct types for both;
-  - real `svelte-language-server` 0.18.4 over LSP (`svelteserver --stdio`) on a `.svelte` importer: "cannot find module" before `emitSvelteTypes`; after it, the props are typed and a wrong prop is an error;
-  - real `svelte-check` 4.7.6 on the app: passes, and fails on a fixture page with a wrong prop.
-  - the shared resolution set's `src/Gallery.svelte` row (5.9 left its tsserver side here): in `editor/imports.spec.ts`, real tsserver with `typescript-svelte-plugin` and our plugin, its import has no error, definition lands on `Card.ucf`, and the binding is a Svelte `Component`, as the build picks.
+- Test: editor area, `packages/e2e/editor/svelte-editor-setup.spec.ts`, on copies of `apps/svelte-vite` (helpers in `editor/lib/svelte.ts`):
+  - `emitSvelteTypes` writes one declaration per `.ucf` file whose `<svelte>` block tsserver serves a script for, and none for the others; `Panel.ucf.d.ts` default-exports a Svelte `Component` with `heading: string`; a JS block's props are typed; an unparsable block keeps its declaration; removing a block deletes it.
+  - edge cases: relative `root` and `outDir`; `outDir` as the root leaves `node_modules` alone; a `./Foo.svelte` import beside a `Foo/` folder; no `typescript` installed;
+  - our language server: saves in one burst are one emit, a save after removing a block deletes its declaration, a multi-root workspace writes under the deepest folder, no tsdk means no emit, and no Svelte gives a warning;
+  - real `svelte-language-server` 0.18.4 over LSP (`svelteserver --stdio`) on `src/App.svelte`: `TS2307` at each `.ucf` import before any emit; after our server's save and `didChangeWatchedFiles`, no diagnostic, hover on `<Panel` shows a `Component`, and an unsaved `heading={1}` is one `TS2322` at it;
+  - real `svelte-check` 4.7.6 on the app: fails with `TS2307` on the `.ucf` imports before the emit, passes after it, and fails with one error at a wrong prop in `App.svelte`;
+  - real tsserver with `typescript-svelte-plugin` 0.3.52 and our plugin both loaded, in either order, with the declarations present: `src/mountAll.ts` importing `App.svelte` and `Panel.ucf` gets Svelte's plugin's type for `App` and a `Component` for `Panel`, a wrong prop on either is one `TS2322`, definitions land in `App.svelte` and `Panel.ucf`;
+  - the shared resolution set's `src/Gallery.svelte` row (5.9 left its tsserver side here): in `editor/imports.spec.ts`, real tsserver with `typescript-svelte-plugin` and our plugin, its import has no error, definition lands on `Card.ucf`, and the binding is a Svelte `Component`, as the build picks;
+  - `editor/bundle.spec.ts`: the bundled server's save writes the same files, byte for byte, so svelte2tsx ran on the tsdk's TypeScript.
+- Status: done
 
 ## Hands to later milestones
 
@@ -212,7 +219,8 @@ For milestone 7 (full editor support):
 
 - `packages/language-tools/src/blocks/svelte.ts`: `types()` (`Card.ucf.svelte.ts`) for `mf-tsc` checking every target, and `editor()` for adding markup completions on top. `EditorOptions.svelteCompiler` and `svelteTypesRoot`.
 - The source-map-to-Volar-mappings converter of 5.10, `sourceMapMappings(map, source, generated, data)` and `composeMappings(outer, inner)` in `packages/language-tools/src/mappings.ts`, for any other tool that gives a source map.
-- `emitSvelteTypes({ root, outDir })`, for `mf-tsc` to run it before `svelte-check` in CI.
+- `emitSvelteTypes({ root, outDir, ts, svelteTypesRoot })`, for `mf-tsc` to run it before `svelte-check` in CI.
+- `startServer(options)` at `@multifront/language-tools/server` and its `ServerOptions` (`svelteTypesRoot`, `onTypeScript`), the hooks the VS Code bundle sets.
 - `packages/core/src/blocks/svelte.ts` `build()`: the `.svelte` file `mf-lint` hands to oxlint; `mf-fmt` leaves `<svelte>` as written (spec 6.1).
 - `loadSvelteCompiler(root)` in core.
 - Diagnostic codes `svelte-parse-error` and `missing-style-module`.
