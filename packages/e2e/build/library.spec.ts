@@ -173,6 +173,8 @@ describe('buildLibrary() defaults', () => {
       const options: LibraryOptions = {
         frameworks: ['react', 'react'],
         index: false,
+        // An alias only Vite knows never reaches tsc.
+        dts: false,
         vite: {logLevel: 'silent', resolve: {alias: {'~': join(root, 'src')}}, build: {sourcemap: false}},
       };
       const built = await buildFixtureLibrary(root, options);
@@ -213,8 +215,15 @@ describe('buildLibrary() and NODE_ENV', () => {
 
 describe('buildLibrary() errors', () => {
   it('fails on an import that is not a peer, and keeps it external once packages[framework].peers names it', async () => {
-    const leftPad = "import leftPad from 'left-pad';\n\nexport const cx = (...names: string[]) => leftPad(names.join(' '));\n";
-    await withEditedLibrary([{file: 'src/utils/cx.ts', content: leftPad}], async (root) => {
+    const leftPad =
+      "import leftPad from 'left-pad';\n\nexport const cx = (...names: (string | undefined)[]) => leftPad(names.filter(Boolean).join(' '));\n";
+    // Its types, as a library with an untyped peer would declare them.
+    const leftPadTypes = "declare module 'left-pad' {\n  export default function leftPad(text: string): string;\n}\n";
+    const edits = [
+      {file: 'src/utils/cx.ts', content: leftPad},
+      {file: 'src/left-pad.d.ts', content: leftPadTypes},
+    ];
+    await withEditedLibrary(edits, async (root) => {
       const build = buildFixtureLibrary(root);
       await expect(build).rejects.toThrow('"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of');
       await expect(build).rejects.toThrow('a library package has peer dependencies only');
