@@ -54,7 +54,7 @@ export function readOutput(result: LibraryResult, file: string): string {
   return readFileSync(join(result.outDir, file), 'utf8');
 }
 
-// The React components whose output starts with `"use client"`: hooks, event handlers or the directive itself.
+// Their React output starts with `"use client"`: hooks, event handlers or the directive itself.
 export const LIBRARY_CLIENT = ['Button', 'Counter', 'Tooltip'];
 
 export function parseOutput(file: string, code: string): ParseResult {

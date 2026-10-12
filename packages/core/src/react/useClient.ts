@@ -4,7 +4,6 @@ import {walk} from '../ast.ts';
 import {literalValue} from '../imports/rewrite.ts';
 import {CLASS_COMPONENTS, CREATE_CONTEXT, HOOK, USE_CLIENT} from './reactApis.ts';
 
-// `name` or `x.name`: the last name an expression reads.
 function lastName(node: Expression | null): string | undefined {
   if (node?.type === 'Identifier') return node.name;
   if (node?.type !== 'MemberExpression' || node.computed) return undefined;
@@ -36,9 +35,9 @@ function isClientNode(node: Node): boolean {
   return false;
 }
 
-/** A heuristic: a `<react>` block with a `'use client'` directive, hooks, event handlers, context or a class component. */
+/** A heuristic: a `'use client'` directive, hooks, event handlers, context or a class component. */
 export function needsUseClient(code: string, filename: string): boolean {
-  // A block with syntax errors fails the build elsewhere: the recovered program is enough here.
+  // Syntax errors fail the build elsewhere: the recovered program is enough here.
   const {program} = parseSync(filename, code, {lang: 'tsx', sourceType: 'module'});
   for (const statement of program.body) {
     if (statement.type !== 'ExpressionStatement' || !statement.directive) break;
