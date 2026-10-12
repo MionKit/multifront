@@ -45,6 +45,8 @@
     "@commitlint/cli": "21.2.2",
     "@commitlint/config-conventional": "21.2.2",
     "@jridgewell/trace-mapping": "0.3.31",
+    "@sveltejs/adapter-node": "5.5.7",
+    "@sveltejs/kit": "2.70.3",
     "@sveltejs/vite-plugin-svelte": "7.3.0",
     "@types/node": "26.6.4",
     "@types/react": "19.3.0",
