@@ -262,7 +262,7 @@ For milestone 7 (full editor support):
 Run from the repo root. Commands that start Vite load `@multifront/vite` from `src/` with `NODE_OPTIONS=--conditions=source` and `--configLoader native`. Marks: **pass**, **fail** (with its issue), **needs a person**.
 
 1. `pnpm devx test packages/e2e/browser/svelte-exit.spec.ts`: 9 tests pass (the exit test, in dev and after a build). **pass** (missing on `main`: #98; the QA PR adds it. Panel's heading parity: #99)
-2. `pnpm devx test packages/e2e/editor/svelte-rename-seam.spec.ts`: 64 tests pass; on every `<svelte>` fixture, `renameSvelteStyles` gives the same locals at the same `.ucf` offsets as `build()` (the rename M6 and M7 share with the build). **pass**
+2. `pnpm devx test packages/core/test/blocks/svelte.spec.ts -t renameSvelteStyles`: 64 tests pass; on every `<svelte>` fixture, `renameSvelteStyles` gives the same locals at the same `.ucf` offsets as `build()` (the rename M6 and M7 share with the build). **pass**
 3. `pnpm devx check` on `main`: green, 76 test files and 2994 tests run, none skipped; CI's `check` and `svelte-floor` (svelte 5.55.6, plugin-svelte 7.0.0) run the same 2994. **pass**
 4. `NODE_OPTIONS=--conditions=source pnpm exec vite build packages/e2e/fixtures/apps/svelte-vite --configLoader native --outDir /tmp/mf-svelte --emptyOutDir`, then `grep -cE "with \{|vue-marker|react-marker" /tmp/mf-svelte/assets/*.js`: the build succeeds, grep prints `0`, and the CSS holds `.panel[data-v-2f6d7a25]`. **pass**
 5. The same build with a config holding only `multifront()` (no `svelte()`): fails with "the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles …/components/Counter.ucf.svelte.svelte)", naming `src/main.ts` as the importer. **pass**
