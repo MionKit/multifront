@@ -1,10 +1,10 @@
 import {isTarget} from '@multifront/core';
 import type {Block, BlockTag, SplitResult} from '@multifront/core';
 import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
-import type {EditorCode, EditorContext, EditorOptions} from './types.ts';
+import type {EditorCode, EditorContext, EditorOptions, UcfVirtualCode} from './types.ts';
 
-export function createEditorContext(split: SplitResult, options: EditorOptions): EditorContext {
-  return {...options, split, modules: {}};
+export function createEditorContext(split: SplitResult, options: EditorOptions, previous?: UcfVirtualCode): EditorContext {
+  return {...options, split, modules: {}, previous};
 }
 
 // Targets get their first block only, as the build does; shared kinds get every block.

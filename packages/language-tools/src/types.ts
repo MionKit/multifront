@@ -56,6 +56,7 @@ export interface ServerOptions extends Pick<EditorOptions, 'svelteTypesRoot'> {
 export interface EditorContext extends EditorOptions {
   split: SplitResult;
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
+  previous?: UcfVirtualCode; // the file's root code before this edit, in the language plugin only
 }
 
 /** Root code of a `.ucf` file; keeps its split so services never split the file again. */
