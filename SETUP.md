@@ -56,7 +56,7 @@ The browser tests (`packages/e2e/browser/`) drive Playwright's Chromium: install
 
 Try the extension: `pnpm devx vsix`, then `code --install-extension packages/vscode/multifront-vscode-<version>.vsix`. The command uses the `npm` CLI that ships with Node: vsce lists the plugin pack with `npm list`.
 
-Fuzz tests run on a fixed seed. A failure prints the line that replays it; a longer run on another seed: `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/core/test/split.fuzz.spec.ts` (the scope transform's: `packages/e2e/build/scope-fuzz.spec.ts`).
+Fuzz tests run on a fixed seed. A failure prints the line that replays it; a longer run on another seed: `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=10000 pnpm devx test packages/core/test/split.fuzz.spec.ts` (the scope transform's: `packages/e2e/build/scope-fuzz.spec.ts`, the Svelte scope stamping's: `packages/e2e/build/svelte-scope.fuzz.spec.ts`).
 
 ## Docs graphics
 
