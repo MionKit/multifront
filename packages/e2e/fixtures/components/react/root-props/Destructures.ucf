@@ -1,0 +1,10 @@
+<react>
+  import type { CSSProperties } from 'react'
+
+  type Props = { label: string; className?: string; style?: CSSProperties }
+
+  // The author takes className and style; only ref is left to the build.
+  export default function Destructures({ label, className, style: own = {} }: Props) {
+    return <span className={className} style={own}>{label}</span>
+  }
+</react>

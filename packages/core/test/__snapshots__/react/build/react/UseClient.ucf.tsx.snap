@@ -2,14 +2,14 @@
   'use client';
 import "<fixtures>/components/react/UseClient.ucf?ucf&type=style&index=0&lang.css";
 import $style from "<fixtures>/components/react/UseClient.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import { useState } from 'react';
 
   export default function UseClient(__props) {
     const [count, setCount] = useState(0);
     return (
-      <button {...__ucfScopeAttrs(__props)} className={$style.button} onClick={() => setCount(count + 1)}>
+      <button {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass($style.button, __props.className)} onClick={() => setCount(count + 1)}>
         Clicked {count}
       </button>
     );

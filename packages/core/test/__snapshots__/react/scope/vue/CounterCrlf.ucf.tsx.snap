@@ -1,14 +1,14 @@
 import "<fixtures>/components/vue/CounterCrlf.ucf?ucf&type=style&index=0&lang.css";
 import "<fixtures>/components/vue/CounterCrlf.ucf?ucf&type=style&index=1&lang.css";
 import $style from "<fixtures>/components/vue/CounterCrlf.ucf?ucf&type=style&index=1&module&lang.js";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import { useState } from 'react'
 
   export default function Counter(__props: {start?: number}) {const {start = 0} = __props;
     const [count, setCount] = useState(start)
     return (
-      <div data-v-2cb10fa5="" {...__ucfScopeAttrs(__props)} className="counter">
+      <div data-v-2cb10fa5="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("counter", __props.className)}>
         <span data-v-2cb10fa5="" className="label">Clicks</span>
         <button data-v-2cb10fa5="" className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
       </div>

@@ -1,4 +1,4 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   import { forwardRef } from 'react'
 
@@ -6,4 +6,4 @@ import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
   const __props = 'module'
   const __ref = 'module too'
 
-  export default forwardRef<HTMLDivElement>((__props1, __ref1) => <div {...__ucfScopeAttrs(__props1)} className="shape">{__props} {__ref}</div>)
+  export default forwardRef<HTMLDivElement>((__props1, __ref1) => <div {...__ucfScopeAttrs(__props1)} style={__props1.style} className={__ucfClass("shape", __props1.className)}>{__props} {__ref}</div>)

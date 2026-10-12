@@ -18,7 +18,11 @@ import {children, freshName, walk} from '../ast.ts';
 import {keyName} from '../imports/rewrite.ts';
 import type {Block, BuildContext} from '../types.ts';
 import {FRAGMENT, REACT_MODULE, WRAPPERS} from './reactApis.ts';
-import {SCOPE_ATTRS, WARN_FRAGMENT} from './scopeHelper.ts';
+import {addRootProps, handledRootProps} from './rootProps.ts';
+import {MERGE_CLASS, MERGE_REF, MERGE_STYLE, SCOPE_ATTRS, WARN_FRAGMENT} from './scopeHelper.ts';
+
+// The order the helper import names them in.
+const HELPERS = [SCOPE_ATTRS, WARN_FRAGMENT, MERGE_CLASS, MERGE_STYLE, MERGE_REF];
 
 type Component = FunctionNode | ArrowFunctionExpression;
 type Root = JSXElement | JSXFragment;
@@ -258,7 +262,7 @@ function inComment(comments: Comment[], at: number): boolean {
   return comments.some(({start, end}) => start <= at && at < end);
 }
 
-/** Stamps all but Fragments when scoped; always forwards `data-v-*` props on the default export's roots. */
+/** Stamps all but Fragments when scoped; always forwards `data-v-*` props and the root props on the default export's roots. */
 export function transformScope(
   text: MagicString,
   parsed: Pick<ParseResult, 'program' | 'comments'>,
@@ -296,6 +300,8 @@ export function transformScope(
     if (patternReads(pattern).some((name) => bound.has(name))) return [];
     if (params.slice(1).some((later) => identifierNames(later).some((name) => names.includes(name)))) return [];
   }
+  const plain = param?.type === 'Identifier' ? param.name : undefined;
+  const rootProps = handledRootProps(component, {plain, pattern, forwardRef});
   const roots: FoundRoot[] = [];
   for (const expression of returns) jsxRoots(expression, consts, undefined, roots);
   const spread = new Set<Root>();
@@ -307,8 +313,10 @@ export function transformScope(
     if (isElement) {
       if (spread.has(root)) continue;
       spread.add(root);
-      text.appendLeft(offset + afterName(root.openingElement), ` {...${SCOPE_ATTRS}(${props})}`);
+      const at = afterName(root.openingElement);
+      text.appendLeft(offset + at, ` {...${SCOPE_ATTRS}(${props})}`);
       helpers.add(SCOPE_ATTRS);
+      for (const helper of addRootProps(text, offset, root.openingElement, at, props, rootProps)) helpers.add(helper);
       continue;
     }
     // A const's value runs on every render: warned there, it would fire when another root is returned.
@@ -344,5 +352,5 @@ export function transformScope(
     // React checks a `forwardRef` render function takes zero or two parameters.
     text.appendLeft(offset + at + 1, forwardRef ? `${props}, ${freshName(used, '__ref')}` : props);
   }
-  return [SCOPE_ATTRS, WARN_FRAGMENT].filter((helper) => helpers.has(helper));
+  return HELPERS.filter((helper) => helpers.has(helper));
 }

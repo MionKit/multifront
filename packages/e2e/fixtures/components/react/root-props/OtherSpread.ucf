@@ -1,0 +1,8 @@
+<react>
+  const aria = { role: 'note' }
+
+  // A spread of anything but the props still gets the root props, added before it.
+  export default function OtherSpread() {
+    return <div {...aria} className="other">other</div>
+  }
+</react>

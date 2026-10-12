@@ -1,7 +1,7 @@
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   // The directive must stay first in the body, so the props line goes after it.
   export default function DirectiveBody(__props: { branch?: string }) {
     'use no memo'
-    const { branch } = __props;return <div {...__ucfScopeAttrs(__props)} className="shape">{branch}</div>
+    const { branch } = __props;return <div {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("shape", __props.className)}>{branch}</div>
   }

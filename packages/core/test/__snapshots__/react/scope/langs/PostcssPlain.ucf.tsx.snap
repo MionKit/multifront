@@ -1,6 +1,6 @@
 import "<fixtures>/components/langs/PostcssPlain.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   export default function PostcssPlain(__props: { label: string }) {const { label } = __props;
-    return <em data-v-d5ef5441="" {...__ucfScopeAttrs(__props)} className="note">{label}</em>
+    return <em data-v-d5ef5441="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("note", __props.className)}>{label}</em>
   }

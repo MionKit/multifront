@@ -1,6 +1,6 @@
 import "<fixtures>/components/PanelItem.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   export default function PanelItem(__props: { label: string }) {const { label } = __props;
-    return <p data-v-eced6fdb="" {...__ucfScopeAttrs(__props)} className="item" data-marker="panel-item-react-marker">{label}</p>
+    return <p data-v-eced6fdb="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("item", __props.className)} data-marker="panel-item-react-marker">{label}</p>
   }
