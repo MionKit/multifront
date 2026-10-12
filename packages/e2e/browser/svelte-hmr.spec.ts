@@ -82,7 +82,7 @@ async function expectNoError(opened: Opened) {
   expect(opened.logs).toEqual([]);
 }
 
-// Svelte 5 HMR mounts the component again: the new text and the kept window value show no page reload.
+// Svelte 5 HMR remounts the component; the kept window marker proves no page reload.
 async function svelteEdit(opened: Opened) {
   await edit(opened, '{$style.title}">{heading}</h3>', '{$style.title}">{heading}!</h3>');
   await expect.poll(() => svelteHeading(opened), POLL).toBe('Svelte panel!');
@@ -105,7 +105,6 @@ async function scopedStyleEdit(opened: Opened) {
 
   expect(await marker(opened)).toBe('kept');
   await expectNoError(opened);
-  // Still the same DOM node.
   expect(
     await before.evaluate((element, selector) => element === element.ownerDocument.querySelector(selector), SVELTE_PANEL)
   ).toBe(true);
