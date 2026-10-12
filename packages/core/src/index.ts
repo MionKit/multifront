@@ -25,6 +25,7 @@ export type {
   VueCompiler,
 } from './types.ts';
 export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
+export {renameSvelteStyles} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';

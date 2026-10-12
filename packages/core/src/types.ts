@@ -108,7 +108,14 @@ export type SvelteMode = 'runes' | 'legacy' | 'undecided';
 export type SvelteNode = SvelteCompilerModule.AST.BaseNode & Record<string, unknown>;
 
 /** Loaded from the project's own Svelte. */
-export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse'>;
+export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse' | 'VERSION'>;
+
+/** A `<svelte>` block with its class map uses renamed, as `build()` renames them. */
+export interface SvelteStyleRename<Module> {
+  code: string; // the block content only
+  locals: Map<Module, string>; // each module used, and the local name its uses got
+  lang: 'ts' | 'js'; // of the block's scripts
+}
 
 export interface SourceMap {
   version: 3;
