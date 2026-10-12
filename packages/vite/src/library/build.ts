@@ -61,9 +61,9 @@ async function scan(src: string): Promise<Component[]> {
   );
 }
 
-function indexEntry(root: string, index: string | false | undefined): string | undefined {
+function indexEntry(root: string, src: string, index: string | false | undefined): string | undefined {
   if (index === false) return undefined;
-  const file = normalizePath(resolve(root, index ?? 'src/index.ts'));
+  const file = index === undefined ? `${src}/index.ts` : normalizePath(resolve(root, index));
   if (existsSync(file)) return file;
   if (index !== undefined) throw new Error(`buildLibrary: the index ${index} does not exist in ${root}`);
   return undefined;
@@ -157,10 +157,13 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const root = normalizePath(resolve(options.root ?? process.cwd()));
   const src = normalizePath(resolve(root, options.src ?? 'src'));
   const outDir = normalizePath(resolve(root, options.outDir ?? 'dist'));
-  const index = indexEntry(root, options.index);
+  const index = indexEntry(root, src, options.index);
   const components = await scan(src);
   const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
   const frameworks = options.frameworks ?? TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
+  if (frameworks.length === 0) {
+    throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a block for a framework with a library build`);
+  }
   const rootName = await libraryName(root);
   const jobs = frameworks.map((target): TargetJob => {
     const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];

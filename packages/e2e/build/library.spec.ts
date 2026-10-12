@@ -123,6 +123,25 @@ describe('buildLibrary(): one JS file per component, per target', () => {
   });
 });
 
+describe('buildLibrary() defaults', () => {
+  it('builds only the frameworks some file has a block for, with the index of its own src', async () => {
+    const vueOnly = readFileSync(join(LIBRARY_DIR, 'src', 'VueOnly.ucf'), 'utf8');
+    const edits = [
+      {file: 'lib/VueOnly.ucf', content: vueOnly},
+      {file: 'lib/index.ts', content: "export {default as VueOnly} from './VueOnly.ucf';\n"},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const built = await buildFixtureLibrary(root, {src: 'lib'});
+      try {
+        expect(built.results.map(({target}) => target)).toEqual(['vue']);
+        expect(built.results[0]!.files).toContain('index.js');
+      } finally {
+        await built.remove();
+      }
+    });
+  });
+});
+
 describe('buildLibrary() and NODE_ENV', () => {
   it("builds for production while other library builds overlap, then puts back the caller's NODE_ENV", async () => {
     expect(process.env.NODE_ENV).toBe('test');
@@ -168,6 +187,15 @@ describe('buildLibrary() errors', () => {
     await withEditedLibrary([{file: 'vue-only/VueOnly.ucf', content: vueOnly}], async (root) => {
       const build = buildFixtureLibrary(root, {src: 'vue-only', index: false, frameworks: ['react']});
       await expect(build).rejects.toThrow(/no \.ucf file in .*\/vue-only has a <react> block/);
+    });
+  });
+
+  it('fails when no file has a block for a framework with a library build', async () => {
+    const svelteOnly = '<svelte>\n  <p>svelte only</p>\n</svelte>\n';
+    await withEditedLibrary([{file: 'svelte-only/SvelteOnly.ucf', content: svelteOnly}], async (root) => {
+      await expect(buildFixtureLibrary(root, {src: 'svelte-only', index: false})).rejects.toThrow(
+        /nothing to build, no \.ucf file in .*\/svelte-only has a block for a framework with a library build/
+      );
     });
   });
 
