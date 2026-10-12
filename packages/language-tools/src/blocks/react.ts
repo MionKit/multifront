@@ -8,7 +8,7 @@ const REACT = "import('react')";
 // React renders a lowercase tag as a host element; anything else is a component.
 const HOST_TAG = /^[a-z][\w-]*$/;
 
-// The props the build hands some root, as an object type; undefined when no root takes one.
+// The props the build hands some root, as an object type.
 function rootPropsType({roots}: ReactRootProps): string | undefined {
   const taking = (prop: RootProp) => roots.filter(({props}) => props.includes(prop));
   const members: string[] = [];
