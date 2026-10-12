@@ -7,7 +7,7 @@ import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
-import {buildFixtureLibrary, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
+import {buildFixtureLibrary, parseOutput, readOutput, resultOf, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
 // Components with that block and plain modules; sub-modules and virtual modules under `_virtual/`.
@@ -102,6 +102,21 @@ describe('buildLibrary(): one JS file per component, per target', () => {
         const {sources} = JSON.parse(read(target, file)) as RawSourceMap;
         for (const source of sources) expect(source, `${target}/${file}`).not.toContain('node_modules');
       }
+    }
+  });
+
+  it('ships the root-prop helpers once, under _virtual/, imported by the components that merge', () => {
+    const helper = '_virtual/multifront/scope-attrs.js';
+    const importedFromHelper = (file: string) =>
+      parseOutput(file, read('react', file))
+        .module.staticImports.filter((entry) => entry.moduleRequest.value === `./${helper}`)
+        .flatMap((entry) => entry.entries.map(({importName}) => importName.name));
+    // Button merges its own className and style; Badge handles className itself.
+    expect(importedFromHelper('Button.js')).toEqual(expect.arrayContaining(['__ucfClass', '__ucfStyle']));
+    expect(importedFromHelper('Badge.js')).not.toContain('__ucfClass');
+    for (const file of jsFiles('react')) {
+      const defines = /function __ucf\w+\(/.test(read('react', file));
+      expect({file, defines}).toEqual({file, defines: file === helper});
     }
   });
 
