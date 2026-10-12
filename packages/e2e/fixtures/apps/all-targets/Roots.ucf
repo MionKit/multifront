@@ -1,0 +1,34 @@
+<svelte>
+  <script lang="ts">
+    import ComponentRoot from '../../components/svelte/roots/ComponentRoot.ucf'
+    import EachRoot from '../../components/svelte/roots/EachRoot.ucf'
+    import IfElseRoot from '../../components/svelte/roots/IfElseRoot.ucf'
+    import LegacyRoot from '../../components/svelte/roots/LegacyRoot.ucf'
+    import MultiRoot from '../../components/svelte/roots/MultiRoot.ucf'
+    import NestedRoot from '../../components/svelte/roots/NestedRoot.ucf'
+    import NoPropsRoot from '../../components/svelte/roots/NoPropsRoot.ucf'
+    import RestRoot from '../../components/svelte/roots/RestRoot.ucf'
+    import SvelteElementRoot from '../../components/svelte/roots/SvelteElementRoot.ucf'
+  </script>
+
+  <!-- Each root shape once per branch; `data-case` names the shape and branch the test reads. -->
+  <main class="parent">
+    <div data-case="IfElseRoot:a"><IfElseRoot branch="a" /></div>
+    <div data-case="IfElseRoot:b"><IfElseRoot branch="b" /></div>
+    <div data-case="IfElseRoot:c"><IfElseRoot branch="c" /></div>
+    <div data-case="ComponentRoot:only"><ComponentRoot /></div>
+    <div data-case="SvelteElementRoot:only"><SvelteElementRoot tag="aside" /></div>
+    <div data-case="NestedRoot:then"><NestedRoot value="resolved" /></div>
+    <div data-case="RestRoot:only"><RestRoot label="given" note="rest note" /></div>
+    <div data-case="NoPropsRoot:only"><NoPropsRoot /></div>
+    <div data-case="EachRoot:only"><EachRoot /></div>
+    <div data-case="MultiRoot:only"><MultiRoot /></div>
+    <div data-case="LegacyRoot:only"><LegacyRoot /></div>
+  </main>
+</svelte>
+
+<style scoped>
+.shape {
+  color: rgb(200, 40, 80);
+}
+</style>

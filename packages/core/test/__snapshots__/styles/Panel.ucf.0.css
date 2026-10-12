@@ -1,6 +1,10 @@
-.panel[data-v-92819ee2] {
+.panel[data-v-5caafb1d] {
   padding: 1rem;
 }
-.panel .heading[data-v-92819ee2] {
+.panel .heading[data-v-5caafb1d] {
   margin: 0 0 0.5rem;
+}
+.item[data-v-5caafb1d] {
+  padding-left: 0.5rem;
+  border-left: 2px solid rgb(40, 90, 160);
 }

@@ -1,17 +1,20 @@
 <vue>
   <script setup lang="ts">
+  import PanelItem from './PanelItem.ucf'
+
   defineProps<{ heading: string }>()
   </script>
   <template>
-    <section class="panel"><h3 class="heading">{{ heading }}</h3><slot /></section>
+    <section class="panel"><h3 class="heading">{{ heading }}</h3><PanelItem label="first item" /><slot /></section>
   </template>
 </vue>
 
 <react>
   import type { ReactNode } from 'react'
+  import PanelItem from './PanelItem.ucf'
 
   export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
-    return <section className="panel"><h3 className="heading">{heading}</h3>{children}</section>
+    return <section className="panel"><h3 className="heading">{heading}</h3><PanelItem label="first item" />{children}</section>
   }
 </react>
 
@@ -24,6 +27,12 @@ $pad: 1rem;
   .heading {
     margin: 0 0 $pad * 0.5;
   }
+}
+
+// PanelItem's root, reached through scope forwarding in every framework.
+.item {
+  padding-left: $pad * 0.5;
+  border-left: 2px solid rgb(40, 90, 160);
 }
 </style>
 

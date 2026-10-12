@@ -48,7 +48,8 @@ async function checkPage(root: string, url: string, production: boolean) {
     const scopeOf = (name: string) => scopeAttribute(root, resolve(root, '..', '..', 'components', name), production);
     const [panel, item, counter] = [scopeOf('Panel.ucf'), scopeOf('PanelItem.ucf'), scopeOf('Counter.ucf')];
     expect(html).toContain(`<section ${panel}="" class="panel"`);
-    expect(html).toContain(`<p ${item}="" class="item"`);
+    // Panel forwards its scope to PanelItem's root, after PanelItem's own.
+    expect(html).toContain(`<p ${item}="" ${panel}="" class="item"`);
     expect(html).toContain(`<div ${counter}="" class="counter">`);
     expect(html).toMatch(/<button [^>]*>2<\/button>/);
     const css = await pageCss(url, html, production);

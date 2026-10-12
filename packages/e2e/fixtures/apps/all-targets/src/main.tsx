@@ -7,15 +7,20 @@ import SveltePanel from '../../../components/Panel.ucf' with {framework: 'svelte
 import VuePanel from '../../../components/Panel.ucf' with {framework: 'vue'};
 // No <vue> block: a Svelte edit must never build the Vue target.
 import NoStyle from '../../../components/svelte/NoStyle.ucf' with {framework: 'svelte'};
+import Roots from '../Roots.ucf' with {framework: 'svelte'};
 import Plain from './Plain.svelte';
 
-createApp(VuePanel, {heading: 'Vue panel'}).mount('#vue');
-createRoot(document.getElementById('react')!).render(
-  <>
-    <ReactPanel heading="React panel" />
-    <Counter start={2} />
-  </>
-);
-mount(SveltePanel, {target: document.getElementById('svelte')!, props: {heading: 'Svelte panel'}});
-mount(NoStyle, {target: document.getElementById('no-style')!});
-mount(Plain, {target: document.getElementById('plain')!});
+// The root shapes page warns on purpose: kept off the page the HMR tests read the console of.
+if (new URLSearchParams(location.search).get('page') === 'roots') mount(Roots, {target: document.getElementById('svelte')!});
+else {
+  createApp(VuePanel, {heading: 'Vue panel'}).mount('#vue');
+  createRoot(document.getElementById('react')!).render(
+    <>
+      <ReactPanel heading="React panel" />
+      <Counter start={2} />
+    </>
+  );
+  mount(SveltePanel, {target: document.getElementById('svelte')!, props: {heading: 'Svelte panel'}});
+  mount(NoStyle, {target: document.getElementById('no-style')!});
+  mount(Plain, {target: document.getElementById('plain')!});
+}
