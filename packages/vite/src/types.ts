@@ -50,7 +50,7 @@ export interface LibraryTarget {
   peers: Record<string, string>; // default peer ranges; also the build's externals
 }
 
-/** One target's build: `files` and `skipped` are relative to `outDir` and to `src`. */
+/** `files` are relative to `outDir`, `skipped` to `src`. */
 export interface LibraryResult {
   target: Target;
   outDir: string;

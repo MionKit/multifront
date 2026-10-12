@@ -10,7 +10,7 @@ import {LIBRARY_DIR} from '../fixtures/index.ts';
 import {buildFixtureLibrary, specifiersOf, withEditedLibrary} from './lib/library.ts';
 import type {BuiltLibrary} from './lib/library.ts';
 
-// One JS file per component with that block and per plain module, sub-modules and virtual ones under `_virtual/`.
+// Components with that block and plain modules; sub-modules and virtual modules under `_virtual/`.
 const VIRTUAL = '_virtual/';
 const EXPECTED_JS = {
   vue: ['Badge', 'Button', 'Card', 'Counter', 'Icon', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field', 'index', 'utils/cx'].concat(

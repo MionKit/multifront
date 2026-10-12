@@ -23,10 +23,10 @@ export async function copyApp(name: string): Promise<string> {
   return root;
 }
 
-/** A small real library of `.ucf` files, not a workspace package: its tools resolve from the repo's node_modules. */
+/** Not a workspace package: its tools resolve from the repo's node_modules. */
 export const LIBRARY_DIR = join(FIXTURES_DIR, 'library');
 
-/** A fresh copy of the library fixture to edit; `removeLibrary()` deletes it. */
+/** A copy to edit; `removeLibrary()` deletes it. */
 export async function copyLibrary(): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
   const root = await mkdtemp(join(TMP_DIR, 'library-'));
@@ -34,7 +34,7 @@ export async function copyLibrary(): Promise<string> {
   return root;
 }
 
-/** Deletes a `copyLibrary()` copy, or a temp out dir beside it. */
+/** A `copyLibrary()` copy or a temp out dir beside it. */
 export async function removeLibrary(root: string): Promise<void> {
   if (dirname(root) !== TMP_DIR) throw new Error(`not a temp library folder: ${root}`);
   await rm(root, {recursive: true, force: true});

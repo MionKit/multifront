@@ -11,7 +11,7 @@ export interface BuiltLibrary {
   remove: () => Promise<void>;
 }
 
-/** Builds a library into a fresh temp out dir of its own, so library tests can run in parallel. */
+/** A fresh temp out dir per build, so library tests can run in parallel. */
 export async function buildFixtureLibrary(root = LIBRARY_DIR, options: LibraryOptions = {}): Promise<BuiltLibrary> {
   await mkdir(TMP_DIR, {recursive: true});
   const outDir = await mkdtemp(join(TMP_DIR, 'library-dist-'));
@@ -24,7 +24,7 @@ export async function buildFixtureLibrary(root = LIBRARY_DIR, options: LibraryOp
   }
 }
 
-/** Runs `run` on a fresh copy of the library fixture with `edits` written (a whole file each, new or replaced). */
+/** Each edit is a whole file's content, new or replaced. */
 export async function withEditedLibrary(
   edits: {file: string; content: string}[],
   run: (root: string) => Promise<void>
@@ -42,7 +42,6 @@ export async function withEditedLibrary(
   }
 }
 
-/** Every module specifier of an ES module: imports, re-exports and dynamic imports. */
 export function specifiersOf(file: string, code: string): string[] {
   const {module, errors} = parseSync(file, code, {sourceType: 'module'});
   if (errors.length > 0) throw new Error(`${file} does not parse: ${errors[0]!.message}`);
