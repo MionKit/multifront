@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-12
 milestone: 5
 step: 5.2
@@ -64,7 +64,7 @@ includeContent: true})`).
 1. Parse once (today's code); `missing` non-empty → throw as today.
 2. **Locals**: per used module, `__ucf` + its Svelte name with the first letter upper-cased (`$style` →
    `__ucfStyle`, `$classes` → `__ucfClasses`); a name already bound in the block, or taken by another module
-   (`classes` / `Classes`), gets a number suffix (React's `freshName`, `react/scope.ts`, moved to a shared spot).
+   (`classes` / `Classes`), gets a number suffix (React's `freshName`, moved from `react/scope.ts` to `ast.ts`).
 3. **Renames**: each use → `overwrite(identifier, local)`; shorthand property → `$style: __ucfStyle`; shorthand
    attribute → overwrite the attribute with `$style={__ucfStyle}`. Runes, stores, property, import / export and type
    names are not uses (5.1's rule), so they stay.
@@ -142,11 +142,13 @@ All in `pnpm devx test`, this host and CI `check` job; they need only root devDe
     head has none; every class token is a generated module class (and at least one); no `svelte-` class. HTML
     snapshot `<Name>.ucf.html`;
   - map: right after each stamp traces to the end of the element name in the `.ucf` file; each `__ucfX` traces to its
-    `$x` (line and column).
-- `NamedModule.ucf`: `$classes` and `$style` renamed; `$count`, `$shared`, `$user`, `$first`, `$second`, `$others`,
+    `$x` (line and column), or to the `{` of a shorthand attribute, which is overwritten whole.
+- `NamedModule.ucf`: `$classes` and `$style` renamed (counted); `$count`, `$shared`, `$user`, `$first`, `$second`, `$others`,
   `$extra`, `$makeStore`, `$Store`, runes, `options.$theme`, `{$theme: …}`, `$Row`, `$Props`, `$fetch`, `$exported`
   unchanged. `ModuleNamedStyle.ucf`: `__ucfStyle` imports the `module="style"` class map.
 - Sweep: every other fixture with a `<svelte>` block builds and compiles without throwing.
+- `Components.ucf` holds `const ui = $derived({Child})`: a plain `const` of a prop is Svelte's
+  `state_referenced_locally` warning.
 
 ## Docs
 

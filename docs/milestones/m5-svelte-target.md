@@ -65,23 +65,24 @@ From milestone 4:
 
 ### 5.2 The `<svelte>` kind: `build`
 
-- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`, after 5.1's rules, returns a `VirtualFile` with `ext: '.svelte'` in place of 5.1's `target-not-built`, all edits through MagicString, map back to the `.ucf` file:
-  - In the instance `<script>` (one is added if the block has none, keeping `lang="ts"` when present): `import __ucfStyle from '<class map id>'` per module name (`$classes` gets `__ucfClasses`), and `import '<style id>'` per style block.
-  - Every `$style` / `$name` use that 5.1's rule counts as a class map, in the script and in markup expressions, becomes `__ucfStyle` / `__ucfName` (`$style` imports a `module="style"` block when there is no bare `<style module>`). Runes, stores, property and type names stay as written.
+- Build: `build(block, ctx)` in `packages/core/src/blocks/svelte.ts`, after 5.1's rules, returns a `VirtualFile` with `ext: '.svelte'` in place of 5.1's `target-not-built`, all edits through MagicString over the `.ucf` source, so the map points into the `.ucf` file:
+  - Imports: `import '<style id>'` per style block, then `import __ucfStyle from '<class map id>'` per class map the block uses (`$classes` gets `__ucfClasses`; a name the block already binds gets a number suffix). They go into `<script module>` when the block has one (its imports reach the instance script and the markup, so `$style` works there too), else into the instance `<script>`, else into an added `<script>`.
+  - Every `$style` / `$name` use that 5.1's rule counts as a class map, in the scripts and in markup expressions, becomes `__ucfStyle` / `__ucfName` (`$style` reads a `module="style"` block when there is no bare `<style module>`). A shorthand keeps its name: `{$style}` in an object becomes `{$style: __ucfStyle}`, `<Child {$style} />` becomes `<Child $style={__ucfStyle} />`. Runes, stores, property, import, export and type names stay as written.
   - When any style is `scoped`: `data-v-<id>=""` right after the tag name of every host element (`RegularElement`, `<svelte:element>`) and every component element (`Component`, `<svelte:component>`, `<svelte:self>`), inside `{#if}`, `{#each}`, `{#await}`, `{#key}`, `{#snippet}` and `<svelte:boundary>`. Not on `<svelte:head>` and its children, `<svelte:window>`, `<svelte:body>`, `<svelte:document>`, `<svelte:options>`, `<svelte:fragment>`, `<slot>`.
   - No `<style>` is ever emitted.
 - Deliverable: a `.svelte` file that the real Svelte compiler takes as is.
 
   ```svelte
   <script lang="ts">
-    import __ucfStyle from '<class map id from milestone 3>';
-    import '/abs/Card.ucf?ucf&type=style&index=0&lang.css';
+  import '/abs/Card.ucf?ucf&type=style&index=0&lang.css';
+  import __ucfStyle from '/abs/Card.ucf?ucf&type=style&index=0&module&lang.js';
     let { title }: { title: string } = $props()
   </script>
   <div data-v-1a2b3c4d="" class={__ucfStyle.card}><h2 data-v-1a2b3c4d="">{title}</h2></div>
   ```
 
-- Test: core's own test, `packages/core/test/blocks/svelte.spec.ts`. Real fixtures in `packages/e2e/fixtures/components/svelte/shapes/` (one per markup shape above, plus `{a < b}`, `>` in attribute values, `<!-- <div> -->`, `'<div>'` in script strings, a block with no `<script>`, `<script module>` only). Each one goes through `build`, then the real `svelte/compiler` `compile` with `generate: 'server'`, written to a temp `.js` file and rendered with `svelte/server` `render`. Checks: compile gives no error and no warning; every element from the block carries the scope attribute exactly once; class names are the CSS-module ones; no `svelte-` scoping class; a traced position in the map lands on the right `.ucf` line.
+- Test: core's own test, `packages/core/test/blocks/svelte.spec.ts`. Real fixtures in `packages/e2e/fixtures/components/svelte/shapes/`: one per markup shape above (`Elements`, `SvelteElement`, `Components`, `SvelteComponent`, `Slots` with `<svelte:self>` and `<svelte:fragment>`, `IfBlock`, `EachBlock`, `AwaitBlock`, `KeyBlock`, `Snippets`, `Boundary`, `SpecialElements`), plus `LessThan` (`{a < b}`), `AttributeGt` (`>` in attribute values), `CommentedTag` (`<!-- <div> -->`), `ScriptString` (`'<div>'` in script strings), `NoScript` and `ModuleScriptOnly`, and a plain `Child.svelte` the test passes in as the `Child` prop. Each one goes through `build`, then the real `svelte/compiler` `compile` (server and client), and the server code, written to a temp `.js` file (class map imports pointed at files holding what the Vite plugin serves), is rendered with `svelte/server` `render` and read with `htmlparser2` 10.1.0 (a root devDependency; it keeps repeated attributes). Checks: compile gives no error and no warning; only the stamps, the imports and the renames were added; every element from the block carries the scope attribute exactly once, in the code and in the HTML, and nothing in `<svelte:head>` does; class names are the CSS-module ones; no `svelte-` scoping class; the text after each stamp and each `__ucfStyle` trace back to the right `.ucf` line and column. The 5.1 fixtures and every other `<svelte>` block build and compile.
+- Status: done
 
 ### 5.3 Vite: serve the Svelte id and hand it to plugin-svelte
 
