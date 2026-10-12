@@ -101,7 +101,7 @@ export type VueCompiler = Pick<
   'compileScript' | 'compileStyleAsync' | 'compileStyle' | 'parse' | 'MagicString'
 >;
 
-/** The svelte/compiler parts multifront calls, from the project's own Svelte. */
+/** Loaded from the project's own Svelte. */
 export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse'>;
 
 export interface SourceMap {

@@ -3,7 +3,6 @@ import type {SvelteCompiler, VueCompiler} from './types.ts';
 
 const require = createRequire(import.meta.url);
 
-// The first id the project root resolves, required.
 function loadFromRoot(root: string, ids: readonly string[], missing: string): unknown {
   for (const id of ids) {
     let path: string;

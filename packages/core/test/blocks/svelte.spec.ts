@@ -9,7 +9,6 @@ import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../
 const compiler = loadVueCompiler(import.meta.dirname);
 const ERRORS_DIR = 'svelte/errors';
 
-// What buildTarget throws for the svelte pick, on the host's path.
 async function svelteBuild(name: string) {
   const {filename, source} = readComponent(name);
   const split = splitBlocks(source, filename);
