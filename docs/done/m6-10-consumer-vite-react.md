@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.10
@@ -47,16 +47,19 @@ Checked on this host with throwaway copies:
      written into `#button-ref`), `src/only-card.tsx` (only `Card`, from the package index), `src/checks.tsx` (the
      wrong prop under `@ts-expect-error`, never bundled).
 2. **`packages/e2e/consumer/lib/app.ts`**: `createConsumerApp(template, tarballs: string[]): Promise<ConsumerApp>`
-   (`{dir, remove()}`), `runInApp(app, command: string[])` (`{code, output}`, never throws on exit code),
-   `serveApp(app, command: string[], port)` (`{url, output(), close()}`, own process group, polls until it answers),
-   `freePort()`, `openPage(url)` (`{page, messages, close()}`, CSP violations turned into console errors).
-   Child processes get the shell env minus what Vitest and pnpm add (`NODE_ENV`, `NODE_PATH`, `VITEST*`, `TEST`,
-   `npm_package_*`, `npm_lifecycle_*`) and minus `PATH` entries inside the repo. `MULTIFRONT_KEEP_CONSUMER_APPS`
-   keeps the app and prints its path.
-3. **Build once**: `packFixtureLibrary(dir)` and `fixtureTarballs(dir = MULTIFRONT_CONSUMER_TARBALLS)` in
-   `consumer/lib/pack.ts`, entry `consumer/lib/packFixture.ts`, devx command `consumer-pack <dir>`.
+   (`{dir, remove()}`; no `pnpm add` for an empty list), `runInApp(app, command)` (`pack.ts`'s `ToolRun`, never throws
+   on exit code, names a killing signal), `serveApp(app, command, port)` (`{url, output(), close()}`, own process
+   group, killed on process exit too, polls until it answers), `freePort()`, `openPage(url)` (`{page, messages,
+   close()}`, CSP violations turned into console errors by an init script). Commands are `[string, ...string[]]`.
+   The app's `pnpm-workspace.yaml` is the repo's file minus its package list and `frozenLockfile`. Child processes
+   get the shell env minus `NODE_ENV`, `NODE_PATH`, `VITEST*`, `TEST`, `npm_package_*`, `npm_lifecycle_*`, and minus
+   `PATH` entries inside the repo. `MULTIFRONT_KEEP_CONSUMER_APPS` keeps the app and prints its path.
+3. **Build once**: `fixtureTarballs(dir = MULTIFRONT_CONSUMER_TARBALLS)` in `consumer/lib/pack.ts`; the same file's
+   `import.meta.main` block builds every framework into `<dir>`, packs it and writes `tarballs.json`. devx command
+   `consumer-pack <dir>` runs it under `--conditions=source`.
 4. **CI**: `consumer-pack` job uploads the tarballs; `consumer` job downloads them, caches the pnpm store, installs
-   Chromium, runs `packages/e2e/consumer/`. `check` and the floor jobs `--exclude 'consumer/**'`.
+   Chromium, runs `packages/e2e/consumer/`. `check` runs `--exclude 'consumer/**'`; the floor jobs exclude only the
+   fresh-app specs (`vite-react.spec.ts`, `app.spec.ts`), so `pack.spec.ts` still runs on every floor.
 5. **Env**: `MULTIFRONT_KEEP_CONSUMER_APPS` (dev, `.env.sample`), `MULTIFRONT_CONSUMER_TARBALLS` (internal).
 
 ## Decisions
@@ -64,14 +67,21 @@ Checked on this host with throwaway copies:
 - CI split as planned: `consumer-pack` + `consumer`, the area out of `check` and the floor jobs. (Orchestrator,
   rule 1: README "Test infrastructure", Consumer row.)
 - No fuzz test. (Orchestrator.)
+- Review: the floor jobs keep `pack.spec.ts` (it ran there before this step); the install policy is read from the
+  repo's `pnpm-workspace.yaml`, not copied; the consumer pack entry lives in `pack.ts`; the env vars the helpers
+  clear are registered; `vitest list` confirmed `--exclude 'consumer/**'` reaches the e2e project.
 
 ## Tests
 
 `packages/e2e/consumer/vite-react.spec.ts`: setup builds (or takes CI's) tarballs, creates the app, runs
 `vite build --sourcemap --manifest` and `vite preview`. Checks: the app holds `@mf-fixture/ui-react` and no
-`@multifront` package; `tsc --noEmit` exits 0; Card, Counter, Button render as above with no console problem; a CSP
-canary; only-card's graph has `Card.js` and `--card-padding` but no `Counter.js`, `useToggle.js` or `.counter`, while
-`main`'s has them. `pack.spec.ts`: `devx consumer-pack` writes `tarballs.json` and `fixtureTarballs(dir)` reads it.
+`@multifront` package; `tsc --noEmit` exits 0; the bundle has production React, no `.development.js`; Card, Counter,
+Button render as above with no console problem; a CSP canary (the injected style is refused with a CSP error and
+reported); only-card's graph has `Card.js` and `--card-padding` but no `Counter.js`, `useToggle.js` or `.counter`,
+while `main`'s has them. `pack.spec.ts`: `devx consumer-pack` writes `tarballs.json` and `fixtureTarballs(dir)` reads
+it; `devx consumer-pack` with no folder exits 1 with its message; a folder without `tarballs.json` throws an error
+naming `pnpm devx consumer-pack <dir>`. `app.spec.ts`: `remove()` deletes the app, or keeps it and prints its path
+with `MULTIFRONT_KEEP_CONSUMER_APPS`.
 
 Where: this host (registry reachable, Chromium via `.env`), and CI's `consumer` job.
 

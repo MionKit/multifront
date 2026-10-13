@@ -41,6 +41,7 @@ pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
 pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
+pnpm devx consumer-pack <dir>  # build the e2e fixture library, pack one tarball per framework into <dir> (CI's consumer-pack job)
 pnpm devx vsix          # bundle and pack the VS Code extension into packages/vscode/multifront-vscode-<version>.vsix
 pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
 pnpm devx peer-floor vue    # CI only: install the oldest react, vue or svelte versions @multifront/vite supports (rewrites the lockfile)
@@ -51,6 +52,8 @@ Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e
 The editor exit test (`packages/e2e/editor/vscode/`) runs a real VS Code. Its first run downloads the pinned build into `.vscode-test/` (about 360 MB). On Linux with no display it starts its own Xvfb, so install `xvfb` on a headless machine.
 
 The browser tests (`packages/e2e/browser/`) drive Playwright's Chromium: install it once with `pnpm exec playwright install chromium`, or point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
+
+The consumer tests (`packages/e2e/consumer/`) install the packed fixture library into fresh apps in the OS temp dir: they need `registry.npmjs.org` and Chromium. `MULTIFRONT_KEEP_CONSUMER_APPS=1` keeps those apps and prints their paths (see `.env.sample`). CI runs this area in its own `consumer` job, on the tarballs `pnpm devx consumer-pack` wrote once.
 
 `pnpm devx peer-floor <framework>` writes the bottom of `@multifront/vite`'s peer ranges for that framework as pnpm `overrides` and reinstalls, so the `react-floor`, `vue-floor` and `svelte-floor` CI jobs run every test on the oldest supported React, Vue and Svelte. It rewrites `pnpm-workspace.yaml` and the lockfile, so it refuses to run unless `CI` is set: try it only on a throwaway checkout.
 
