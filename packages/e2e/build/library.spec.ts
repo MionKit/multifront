@@ -274,6 +274,14 @@ describe('buildLibrary() errors', () => {
     });
   });
 
+  it('reads a package.json holding null as one with no name', async () => {
+    await withEditedLibrary([{file: 'package.json', content: 'null\n'}], async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(
+        /^buildLibrary: .*package\.json has no name; set packages\.vue\.name$/
+      );
+    });
+  });
+
   it('fails on two modules that would be written to one file', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [

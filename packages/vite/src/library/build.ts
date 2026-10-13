@@ -6,7 +6,7 @@ import type {SplitResult, Target} from '@multifront/core';
 import {build, mergeConfig, normalizePath} from 'vite';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {multifront} from '../plugin.ts';
-import type {LibraryOptions, LibraryResult, LibraryTarget} from '../types.ts';
+import type {LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
 import {fileOf, filesIn, insideDir, outputName, shownFile} from './names.ts';
 import {writePackageJson} from './packageJson.ts';
@@ -22,15 +22,10 @@ interface Component {
   split: SplitResult;
 }
 
-interface TargetJob extends Omit<LibraryResult, 'files'> {
+interface TargetJob extends LibraryPackageJob, Pick<LibraryResult, 'target' | 'skipped'> {
   row: LibraryTarget;
-  root: string;
   src: string;
   entries: Record<string, string>;
-  peers: Record<string, string>;
-  manifest: Record<string, unknown>;
-  index?: string; // output name
-  components: string[]; // output names
 }
 
 // Overlapping calls share one swap: first in saves the caller's value, last out restores it.
@@ -77,7 +72,7 @@ function indexEntry(root: string, src: string, index: string | false | undefined
 async function libraryManifest(root: string): Promise<Record<string, unknown>> {
   const file = join(root, 'package.json');
   try {
-    return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>;
+    return (JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown> | null) ?? {};
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {};
     throw new Error(`buildLibrary: cannot read ${file}: ${(err as Error).message}`, {cause: err});
@@ -180,9 +175,8 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   };
   await build(options.vite ? mergeConfig(config, options.vite) : config);
   if (options.dts !== false) await row.emitTypes({target, root, src, outDir, modules: [...modules].sort()});
-  const {packageName, manifest, peers, index, components} = job;
-  await writePackageJson({target, root, outDir, packageName, manifest, peers, index, components});
-  return {target, outDir, packageName, files: await filesIn(outDir), skipped: job.skipped};
+  await writePackageJson(job);
+  return {target, outDir, packageName: job.packageName, files: await filesIn(outDir), skipped: job.skipped};
 }
 
 /** One real `vite build` per framework: `<outDir>/<framework>/` gets one ES module per component and plain module. */
