@@ -112,7 +112,7 @@ describe('the packed React package in a fresh Next.js App Router app', () => {
     }
   });
 
-  // Its console check covers React's minified hydration errors (#418, #423, #425) too: they arrive as page errors.
+  // Minified React hydration errors (#418, #423, #425) arrive as page errors: the console check catches them.
   it('hydrates under next start: Counter counts inside the server-rendered Panel, no console problem', () =>
     expectHydrates(served().url, PANEL_COUNTER));
 

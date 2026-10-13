@@ -42,7 +42,7 @@ const served = serveConsumerApp({
 const cardAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true);
 const counterAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Counter.ucf'), true);
 
-// `pnpm install` runs no `prepare` script, so `.svelte-kit/tsconfig.json` (the app's tsconfig extends it) is written here.
+// `pnpm install` runs no `prepare`: sync writes `.svelte-kit/tsconfig.json`, which the app's tsconfig extends.
 async function svelteCheck() {
   const {app} = served();
   const sync = await runInApp(app, ['pnpm', 'exec', 'svelte-kit', 'sync']);
