@@ -10,7 +10,7 @@ import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
 import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, literalSpecifiers, removeLibrary} from '../../fixtures/index.ts';
 
-// A plain Svelte component and runes module, and the `svelte.config.js` that preprocesses them.
+// Plain Svelte component, runes module and the `svelte.config.js` preprocessing them.
 export const CHILD = `<script lang="ts">
   import Icon from './Icon.ucf'
   import { count } from './count.svelte.js'
