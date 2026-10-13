@@ -42,8 +42,11 @@ const CHILD = `<script lang="ts">
 <button class="child" onclick={() => count.value++}><Icon /> {label}: {count.value}</button>
 
 <style lang="scss">
+  // SCSS only: Svelte's own CSS parser rejects this comment and the variable.
+  $color: rgb(10, 20, 30);
+
   .child {
-    color: rgb(10, 20, 30);
+    color: $color;
 
     &:hover {
       color: rgb(40, 50, 60);
@@ -52,6 +55,8 @@ const CHILD = `<script lang="ts">
 </style>
 `;
 const COUNT = 'interface Count {\n  value: number;\n}\n\nexport const count: Count = $state({value: 0});\n';
+const COUNT_JS =
+  "import Icon from './Icon.ucf';\n\nexport const count = $state({value: 0});\nexport const hasIcon = Icon !== undefined;\n";
 const SVELTE_CONFIG =
   "import {vitePreprocess} from '@sveltejs/vite-plugin-svelte';\n\nexport default {preprocess: vitePreprocess()};\n";
 const require = createRequire(import.meta.url);
@@ -232,37 +237,49 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
-  it('ships a plain .svelte file, preprocessed, and a .svelte.ts module, types stripped, as source with types', async () => {
-    const edits = [
-      {file: 'src/Child.svelte', content: CHILD},
-      {file: 'src/count.svelte.ts', content: COUNT},
-      {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
-      {file: 'svelte.config.js', content: SVELTE_CONFIG},
-    ];
-    await withEditedLibrary(edits, async (root) => {
-      const built = await buildFixtureLibrary(root, {frameworks: ['svelte']});
-      try {
-        const result = resultOf(built.results, 'svelte');
-        const output = (file: string) => readOutput(result, file);
-        const plain = ['Child.svelte', 'Child.svelte.d.ts', 'count.svelte.d.ts', 'count.svelte.js'];
-        expect(result.files).toEqual([...FILES, ...plain].sort());
-        const child = output('Child.svelte');
-        expect(svelteSpecifiers('Child.svelte', child)).toEqual(['./Icon.svelte', './count.svelte.js']);
-        expect(child).toContain('let { label }: { label: string } = $props()');
-        expect(child).not.toContain('lang="scss"');
-        expect(child).toMatch(/\.child:hover\s*\{/);
-        expect(output('styles.css')).not.toContain('child');
-        expect(output('count.svelte.js')).toBe('export const count = $state({ value: 0 });\n');
-        expectCompiles('Child.svelte', child);
-        expectCompiles('count.svelte.js', output('count.svelte.js'));
-        expect(svelteSpecifiers('Card.svelte', output('Card.svelte'))).toContain('./Child.svelte');
-        expect(output('Child.svelte.d.ts')).toMatch(/label: string/);
-        expect(output('count.svelte.d.ts')).toMatch(/value: number/);
-      } finally {
-        await built.remove();
-      }
-    });
-  });
+  it.each([
+    ['count.svelte.ts', COUNT, 'export const count = $state({ value: 0 });\n'],
+    ['count.svelte.js', COUNT_JS, COUNT_JS.replace("'./Icon.ucf'", '"./Icon.svelte"')],
+  ])(
+    'ships a plain .svelte file, preprocessed, and %s, types stripped, as source with types',
+    async (module, content, shipped) => {
+      const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+      const edits = [
+        {file: 'src/Child.svelte', content: CHILD},
+        {file: `src/${module}`, content},
+        {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+        {file: 'src/index.ts', content: `${index}export {default as Child} from './Child.svelte';\n`},
+        // Reached by nothing: never shipped.
+        {file: 'src/Unused.svelte', content: '<p>unused</p>\n'},
+        {file: 'svelte.config.js', content: SVELTE_CONFIG},
+      ];
+      await withEditedLibrary(edits, async (root) => {
+        const built = await buildFixtureLibrary(root, {frameworks: ['svelte']});
+        try {
+          const result = resultOf(built.results, 'svelte');
+          const output = (file: string) => readOutput(result, file);
+          const plain = ['Child.svelte', 'Child.svelte.d.ts', 'count.svelte.d.ts', 'count.svelte.js'];
+          expect(result.files).toEqual([...FILES, ...plain].sort());
+          const child = output('Child.svelte');
+          expect(svelteSpecifiers('Child.svelte', child)).toEqual(['./Icon.svelte', './count.svelte.js']);
+          expect(child).toContain('let { label }: { label: string } = $props()');
+          expect(child).not.toContain('lang="scss"');
+          expect(child).toMatch(/\.child:hover\s*\{/);
+          expect(output('styles.css')).not.toContain('child');
+          expect(output('count.svelte.js')).toBe(shipped);
+          expectCompiles('Child.svelte', child);
+          expectCompiles('count.svelte.js', output('count.svelte.js'));
+          expect(svelteSpecifiers('Card.svelte', output('Card.svelte'))).toContain('./Child.svelte');
+          expect(specifiersOf('index.js', output('index.js'))).toContain('./Child.svelte');
+          expect(specifiersOf('index.js', output('index.js'))).not.toContain('./Child.svelte.js');
+          expect(output('Child.svelte.d.ts')).toMatch(/label: string/);
+          expect(output('count.svelte.d.ts')).toMatch(/value: number/);
+        } finally {
+          await built.remove();
+        }
+      });
+    }
+  );
 
   it("runs the library's svelte.config.js preprocessors over a shipped component, its types from the source", async () => {
     const config = SVELTE_CONFIG.replace('vitePreprocess()', 'vitePreprocess({script: true})');
@@ -292,6 +309,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
       {file: 'src/count.svelte.ts', content: COUNT},
       {file, content},
       {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+      {file: 'svelte.config.js', content: SVELTE_CONFIG},
     ];
     await withEditedLibrary(edits, async (root) => {
       const vite = {logLevel: 'silent' as const, resolve: {alias: {'~': join(root, 'src')}}};
