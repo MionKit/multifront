@@ -256,9 +256,10 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 6.13 Consumer: a fresh SvelteKit app
 
-- Build: template `packages/e2e/fixtures/apps/consumer-sveltekit/` (SvelteKit 2.70.3, adapter-node, `svelte-check`, nothing from multifront). A route renders `Card`, `Counter`, `Button` from `@mf-fixture/ui-svelte`.
+- Build: template `packages/e2e/fixtures/apps/consumer-sveltekit/` (SvelteKit 2.70.3, adapter-node, `svelte-check`, nothing from multifront). A route renders `Card`, `Counter`, `Button` from `@mf-fixture/ui-svelte`. In `consumer/lib/app.ts`: `KEY_STYLES` with `keyStyles(page)`, the computed styles of Card's root and title, Counter and Button that every framework's page must give, and `expectHydrates(url, counterSelector, more?)`, shared with `next.spec.ts`.
 - Deliverable: the packed Svelte package works in a fresh SvelteKit app.
-- Test: consumer area, `packages/e2e/consumer/sveltekit.spec.ts`: pack the library, install the tarball, run `svelte-check` (passes; a page with a wrong prop fails), `vite build`, start the node server, then Playwright: the SSR HTML has the `data-v-*` elements, the CSS loads as a file, hydration logs no warning, a click works, and the computed styles of key elements equal 6.10's Vite React consumer.
+- Test: consumer area, `packages/e2e/consumer/sveltekit.spec.ts`: pack the library, install the tarball, run `svelte-check` (passes; a page with a wrong prop fails), `vite build`, start the node server, then Playwright: the SSR HTML has the `data-v-*` elements, the CSS loads as a file, hydration logs no warning, a click works, and the computed styles of key elements equal 6.10's Vite React consumer (`vite-react.spec.ts` checks the same `KEY_STYLES`). The same page under `vite dev` (same app, beside the node server) logs no hydration warning either: Svelte prints its attribute and HTML hydration warnings only in dev.
+- Status: done
 
 ## Hands to later milestones
 
@@ -268,7 +269,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - `needsUseClient(code, filename)` and `reactRootProps(block, filename)` from `@multifront/core`. M7 may use the first for an editor hint; the second places the root props in `Card.ucf.react.tsx`.
 - `__ucfClass`, `__ucfStyle`, `__ucfRef` in the React helper module, and the root props in `Card.ucf.react.tsx`. M7's `mf-tsc` sees the same props as the shipped `.d.ts`.
 - The library fixture `packages/e2e/fixtures/library/` and its `multifront.config.ts`. M7 runs `mf-tsc` and `mf-lint` over it.
-- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage` (with its `javaScript` option), `serveConsumerApp`, `expectStyledCard`, `expectCspEnforced`, `readDist`, `manifestGraph`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
+- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage` (with its `javaScript` option), `serveConsumerApp`, `expectStyledCard`, `expectCspEnforced`, `readDist`, `manifestGraph`, `KEY_STYLES` and `keyStyles` (the exit test's visual parity), `expectHydrates`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
 
 ## Exit test
 

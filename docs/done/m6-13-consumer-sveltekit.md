@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.13
@@ -15,8 +15,8 @@ step: 6.13
 package (`@mf-fixture/ui-svelte`, uncompiled `.svelte` files from 6.8) into a real SvelteKit app, type checks it with
 `svelte-check`, server renders it and hydrates it. The consumer area already has what this needs (`serveConsumerApp`,
 `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage`, `expectStyledCard`) and CI's `consumer-pack` and
-`consumer` jobs. Missing: a SvelteKit template, its spec, a way to hand `PORT` to adapter-node's server, and one table
-for "the same computed styles as 6.10's React consumer".
+`consumer` jobs. Missing: a SvelteKit template, its spec, and one table for "the same computed styles as 6.10's React
+consumer".
 
 Checked on this host with a throwaway app (the repo's install policy, the real `mf-fixture-ui-svelte-1.2.3.tgz` from
 `pnpm devx consumer-pack`):
@@ -55,19 +55,18 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
    - `src/routes/+page.svelte`: `Button`, `Card`, `Counter` from `@mf-fixture/ui-svelte`;
      `<Card title="Hello"><Counter /></Card>`, `<Button label="Go" onclick={() => clicks++} />`,
      `<output id="clicks">`. `onMount` sets `document.body.dataset.hydrated`.
-   - `checks/WrongProp.svelte`: `<Card titel="x" />`. Outside `src`, so the passing `svelte-check` never sees it;
-     the spec copies it in as a page.
 2. **Consumer helpers**, `packages/e2e/consumer/lib/app.ts`:
-   - `serveApp(app, command, port, env = {})`: `env` merged over `consumerEnv()` (adapter-node reads only `PORT`).
-   - `ServedAppOptions.serveEnv?: (port: number) => Record<string, string>`, passed on by `serveConsumerApp`.
-   - `KEY_STYLES` (the table above: selector → `{property: value}`) and `keyStyles(page)` (reads those selectors and
-     properties with `computed`): the one table every framework's page must equal.
+   - `KEY_STYLES` (the table above: selector → `{property: value}`) and `keyStyles(page)` (reads them with
+     `browser/lib/parity.ts`'s `styles`): the one table every framework's page must equal.
+   - `expectHydrates(url, counterSelector, more?)`: 6.12's hydrate check moved out of `next.spec.ts`, used by both
+     specs (Svelte's `more` clicks Button and checks `KEY_STYLES`).
 3. **Spec** `packages/e2e/consumer/sveltekit.spec.ts`, `serveConsumerApp({target: 'svelte', template:
-   'consumer-sveltekit', build: vite build, serve: node build, serveEnv: PORT})`:
+   'consumer-sveltekit', build: vite build, serve: env PORT=<port> node build})` (adapter-node reads only `PORT`;
+   the consumer job is Linux only):
    - installs the `@mf-fixture/ui-svelte` tarball and no `@multifront` package.
    - `svelte-kit sync` + `svelte-check --fail-on-warnings`: exit 0, `0 ERRORS 0 WARNINGS`.
-   - `checks/WrongProp.svelte` copied to `src/routes/wrong/+page.svelte`: `svelte-check` exits 1 with one `ERROR`
-     naming that file and `titel`; the page is removed in `finally`.
+   - a `<Card titel="x" />` page written to `src/routes/wrong/+page.svelte`: `svelte-check` exits 1 with one `ERROR`
+     naming that file and `titel`; the page is removed in `finally`. A failed `svelte-kit sync` throws with its output.
    - `vite build` output has `built in` and `Using @sveltejs/adapter-node`.
    - server HTML: Card's `data-v-*` (`scopeAttribute` over `src/Card.ucf`) on `<article`, Counter's on `<button`, no
      `<style`; every `rel="stylesheet"` link fetched, that CSS holds `--card-padding` and `.counter[data-v-`. JavaScript
@@ -76,7 +75,8 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
      `#clicks` to `1`, `keyStyles(page)` equals `KEY_STYLES`, no console problem.
    - the same hydrate check under `vite dev` (same app, beside the node server): dev Svelte prints every hydration
      warning.
-4. **6.10 side**: `vite-react.spec.ts`'s render test also checks `keyStyles(page)` against `KEY_STYLES`.
+4. **6.10 side**: `vite-react.spec.ts`'s render test also checks `keyStyles(page)` against `KEY_STYLES` (its own
+   Button `font-weight` assert goes: the table pins it).
 5. **CI**: the three floor jobs get `--exclude 'consumer/sveltekit.spec.ts'`. The `consumer` job already runs the
    folder, and its store cache key already hashes `consumer-*/package.json`.
 6. **Milestone doc**: `- Status: done` on 6.13, the `vite dev` line in its Test, `KEY_STYLES` and `keyStyles` in
@@ -102,6 +102,9 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
   the live four-app comparison stays in the exit test. (Orchestrator.)
 - Add a `vite dev` run of the same app for dev-only hydration warnings, plus one line in the step text. (Orchestrator.)
 - No fuzz test. (Orchestrator.)
+- Review: the port goes through `env PORT=<port> node build`, not a new `serveApp` option; `expectHydrates` shared
+  with `next.spec.ts`; the wrong-prop page written from a constant in the spec, not a template file; `keyStyles`
+  reuses `parity.ts`'s `styles`.
 
 ## Out of scope
 
