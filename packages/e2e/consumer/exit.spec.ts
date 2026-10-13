@@ -9,18 +9,14 @@ import {styles} from '../browser/lib/parity.ts';
 import {copyLibrary, removeLibrary} from '../fixtures/index.ts';
 import {runMfBuild} from '../build/lib/library.ts';
 import {createConsumerApp, freePort, openPage, runInApp, serveApp} from './lib/app.ts';
-import type {Command, ConsumerApp} from './lib/app.ts';
+import type {Command, ConsumerApp, ServedAppOptions} from './lib/app.ts';
 import {attw, packLibrary, publint} from './lib/pack.ts';
 
 // node16 looks for `Card.d.svelte.ts` behind a `./Card.svelte` import: every svelte-package layout fails it.
 const ATTW_EXTRA: Partial<Record<Target, string[]>> = {svelte: ['--ignore-rules', 'internal-resolution-error']};
 
-interface ExitApp {
-  template: string;
-  target: Target;
+interface ExitApp extends ServedAppOptions {
   check: Command[];
-  build: Command;
-  serve: (port: number) => Command;
   // Server rendered: the page marks `body[data-hydrated]` once hydrated, and the click waits for it.
   hydrates: boolean;
 }
