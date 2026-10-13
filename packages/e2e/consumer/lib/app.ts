@@ -5,6 +5,7 @@ import {createServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import {basename, delimiter, join, relative, isAbsolute} from 'node:path';
 import type {Page} from 'playwright';
+import type {Manifest} from 'vite';
 import {FIXTURES_DIR} from '../../fixtures/index.ts';
 import {collectConsole, launchChromium} from '../../browser/lib/chromium.ts';
 import type {ToolRun} from './pack.ts';
@@ -85,6 +86,28 @@ export async function createConsumerApp(template: string, tarballs: string[]): P
     throw err;
   }
   return app;
+}
+
+/** A file of the app's `vite build` output. */
+export function readDist(app: ConsumerApp, file: string): string {
+  return readFileSync(join(app.dir, 'dist', file), 'utf8');
+}
+
+/** Every JS and CSS file one manifest entry loads, its static imports included. */
+export function manifestGraph(app: ConsumerApp, entry: string): {js: string[]; css: string[]} {
+  const manifest = JSON.parse(readDist(app, '.vite/manifest.json')) as Manifest;
+  const js = new Set<string>();
+  const css = new Set<string>();
+  const visit = (key: string) => {
+    const chunk = manifest[key];
+    if (!chunk) throw new Error(`no ${key} in the manifest`);
+    if (js.has(chunk.file)) return;
+    js.add(chunk.file);
+    for (const file of chunk.css ?? []) css.add(file);
+    for (const imported of chunk.imports ?? []) visit(imported);
+  };
+  visit(entry);
+  return {js: [...js], css: [...css]};
 }
 
 export function freePort(): Promise<number> {
