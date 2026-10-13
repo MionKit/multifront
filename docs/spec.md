@@ -317,8 +317,8 @@ Requirements:
 2. **Editor basics**: the VS Code extension with highlighting, and `language-tools` with the `<react>` virtual script and the TypeScript plugin resolving `.ucf` imports (steps 1 to 3 of section 6).
 3. **React target and imports**: virtual `.tsx`, `$style`, scope transform with root forwarding, the target rules and attribute rewrite of section 4, Fast Refresh in a demo Vite app. _This is the go/no-go milestone._
 4. **Vue target**: the real-path composition of 3.4 with plugin-vue, and the `<vue>` block in the editor; same demo renders both.
-5. **Library build**: per-target builds, CSS files, `"use client"`, types. Verified in a fresh Next.js App Router app and a fresh Vite React app.
-6. **Svelte target**, and the `<svelte>` block in the editor.
+5. **Svelte target**, and the `<svelte>` block in the editor.
+6. **Library build**: per-target builds for React, Vue and Svelte, CSS files, `"use client"`, types. Verified in fresh Next.js App Router, Vite React, Vite Vue and SvelteKit apps.
 7. **Full editor support**: `mf-tsc`, Svelte markup completions, oxfmt and oxlint for `.ucf`.
 
 ## 10. Tests
@@ -327,7 +327,7 @@ Requirements:
 - Scope transform: snapshot tests per JSX shape (multiple returns, ternaries, `&&`, fragments, `memo`, `forwardRef`, destructured and non-destructured props).
 - Visual parity: render the same component in all targets with Playwright and compare computed styles of key elements.
 - SSR: render the React target with `react-dom/server` and hydrate without mismatch warnings.
-- Library consumers: build the dist packages and install them into fixture Next.js and Vite apps in CI.
+- Library consumers: build the dist packages and install them into fresh Next.js App Router, Vite React, Vite Vue and SvelteKit apps in CI.
 - Imports: automatic per-block imports and the attribute error inside a block (4.1), every rule of 4.2 and their order, static / re-export / dynamic forms, a non-literal attribute error, and that no attribute is left in dev, build or SSR output.
 - Types: the same import resolves to the same target in the build and in the TypeScript plugin (one shared fixture set).
 

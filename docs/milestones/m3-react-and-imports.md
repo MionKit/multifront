@@ -197,7 +197,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
   - The row loop moves from `packages/e2e/editor/tsserver.spec.ts` to `editor/imports.spec.ts`, which covers the `no-default/non-literal.ts` row.
   - The imports root `tsconfig.json` gets `allowJs`, so `.js` and `.jsx` importers sit in their own sub-project with its plugin entry. `no-default/importer.jsx` became `jsx-importer.jsx`: TypeScript leaves a `.jsx` out of a project that has a `.tsx` of the same name.
 - Deliverable: one import, one answer, in the build and in the editor.
-- Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over every `fixtures/apps/imports/` project; each importer's `projectInfo` names its nearest `tsconfig.json`. For every row the build (3.7) resolves to react (`.ts`, `.tsx`, `.js`, `.jsx`, `.ucf`), the import resolves to `Card.ucf` (its React script) with no error. Every error row gives exactly its error on the import; `framework-attribute-not-literal` at the rewrite's span with its message, also for `import()` options that are no object literal, in an unsaved buffer. Rows that pick vue or svelte give the not-built error until milestones 4 and 6 (their virtual scripts do not exist yet); `.vue` and `.svelte` importers come with them. Attribute rows are compared too (spike 1 kept per-import attributes in the types), except `mixed.ts`: types give both its imports the last one's framework, while the build follows each attribute (its cases stay in `tsserver.spec.ts`). An importer with a syntax error gets no rewrite error (an unsaved edit of `non-literal.ts`: `no-target`). Plus `bundle.spec.ts`: the bundled plugin pack reports the same error, so the rewrite runs on oxc-parser's wasm binding; and `seams.spec.ts`: `resolveUcfImport` on `non-literal.ts`, on `rewrite-edges/nested-dynamic.js` (the error goes to the inner import only), and on `react/errors/AttrNoJsx.ucf` (a block that parses as plain TypeScript is still `framework-in-block`).
+- Test: `packages/e2e/editor/imports.spec.ts` (area: editor). A real tsserver with our plugin over every `fixtures/apps/imports/` project; each importer's `projectInfo` names its nearest `tsconfig.json`. For every row the build (3.7) resolves to react (`.ts`, `.tsx`, `.js`, `.jsx`, `.ucf`), the import resolves to `Card.ucf` (its React script) with no error. Every error row gives exactly its error on the import; `framework-attribute-not-literal` at the rewrite's span with its message, also for `import()` options that are no object literal, in an unsaved buffer. Rows that pick vue or svelte give the not-built error until milestones 4 and 5 (their virtual scripts do not exist yet); `.vue` and `.svelte` importers come with them. Attribute rows are compared too (spike 1 kept per-import attributes in the types), except `mixed.ts`: types give both its imports the last one's framework, while the build follows each attribute (its cases stay in `tsserver.spec.ts`). An importer with a syntax error gets no rewrite error (an unsaved edit of `non-literal.ts`: `no-target`). Plus `bundle.spec.ts`: the bundled plugin pack reports the same error, so the rewrite runs on oxc-parser's wasm binding; and `seams.spec.ts`: `resolveUcfImport` on `non-literal.ts`, on `rewrite-edges/nested-dynamic.js` (the error goes to the inner import only), and on `react/errors/AttrNoJsx.ucf` (a block that parses as plain TypeScript is still `framework-in-block`).
 - Status: done
 
 ### 3.9 Browser harness and first render
@@ -333,7 +333,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 Core (`@multifront/core`):
 
 - `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `TargetErrorCode`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
-- `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 6 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
+- `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 5 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block, split): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 6 (library build, `"use client"`), milestone 7 (language server diagnostics; `TSSERVER_CODES` in `@multifront/language-tools` lists the codes the server leaves to tsserver).
 - `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
 - `SCOPE_HELPER_ID` (`'virtual:multifront/scope-attrs'`) and `scopeHelperCode(dev)`. Milestone 6 bundles it once per library build.
@@ -343,21 +343,21 @@ Core (`@multifront/core`):
 Vite (`@multifront/vite`):
 
 - `multifront(options): Plugin[]`, the plugins `multifront` (pre) and `multifront:attributes` (post), `MultifrontOptions.importers`. Every later milestone.
-- `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `/abs/Card.ucf.svelte.svelte`. Milestones 4 and 6 add `load` / `transform`.
+- `resolveId` already maps vue to the real `/abs/Card.ucf` and svelte to `/abs/Card.ucf.svelte.svelte`. Milestones 4 and 5 add `load` / `transform`.
 - `packages/vite/src/cache.ts` `createUcfCache(contextOptions)` with `loadUcf(file): Promise<UcfEntry>` and `splitUcf(file)`, and core's `buildTarget(split, ctx, target)` (throws `DiagnosticsError`). Milestones 4, 5, 6.
-- `packages/vite/src/hmr.ts` `ucfHotUpdate(cache, hasVuePlugin)`: the target-only branch covers react and svelte ids (`VIRTUAL_TARGETS` in `ids.ts`); the bare and `?vue&` modules are handed on when plugin-vue is in the app. Milestones 4 and 6.
+- `packages/vite/src/hmr.ts` `ucfHotUpdate(cache, hasVuePlugin)`: the target-only branch covers react and svelte ids (`VIRTUAL_TARGETS` in `ids.ts`); the bare and `?vue&` modules are handed on when plugin-vue is in the app. Milestones 4 and 5.
 
 Tests and fixtures (`packages/e2e`):
 
 - `packages/e2e/browser/lib/`: `startDev`, `buildAndPreview`, `launchChromium`, `collectConsole`, `renderedStyles(page)` (every `#app` element's computed styles), `trackRequests(page)` and `editFile(requests, file, from, to)` (the requests of an HMR update), `scopeAttribute(root, file, production)`, and Chromium in CI. Milestones 4, 5, 6.
 - `pnpm devx peer-floor <framework>` and the `react-floor` CI job: milestone 4 adds `vue-floor`, milestone 5 `svelte-floor`.
 - `fixtures/apps/demo/` with its SSR entry `src/entry-server.tsx` (`render()`): milestone 4 renders the Vue Card beside the React one, and adds visual parity.
-- `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 6 add `.vue` and `.svelte` importer rows and their editor rows (`packages/e2e/editor/imports.spec.ts`).
+- `fixtures/apps/imports/` with its `expected.ts` rows: milestones 4 and 5 add `.vue` and `.svelte` importer rows and their editor rows (`packages/e2e/editor/imports.spec.ts`).
 - `fixtures/components/react/**` (`shapes/`, `scope/`, `errors/`, `default-forms/`, `forwarding/`, `fuzz-found/`, `ScopedPanel` / `ScopedBadge` / `AllBlocks`, `UseClient` / `Directives` / `Unicode`), and the shared `fixtures/components/Counter.ucf` and `fixtures/components/imports/`: milestone 6 packs them, milestone 5 copies the shapes for Svelte.
 - The canary `packages/e2e/build/attributes-survive.spec.ts`: milestone 4 adds a plugin-vue row, milestone 5 a Svelte row.
 - `packages/e2e/build/imports.spec.ts` and the `vite.config.ts` of each `fixtures/apps/imports/` sub-project: milestone 4 builds the `.vue` rows (the root config already has `vue()`), milestone 5 adds `svelte()` to the configs and the `.svelte` rows to the test.
 - The fuzz harness `packages/e2e/build/lib/fuzz.ts` (seeded random, `shrinkActions`, `replayLine`), the generator pattern of `packages/e2e/build/lib/scopeFuzz.ts`, `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS`: milestone 5 (Svelte stamping).
-- The spike 3 verdict in `docs/plan.md`: milestones 4 and 6.
+- The spike 3 verdict in `docs/plan.md`: milestones 4 and 5.
 
 ## Exit test
 
@@ -414,7 +414,7 @@ Open questions:
 
 ## Out of scope
 
-- Loading and compiling the Vue and Svelte targets (milestones 4 and 6). Their ids resolve, and loading them fails with the not-built error.
+- Loading and compiling the Vue and Svelte targets (milestones 4 and 5). Their ids resolve, and loading them fails with the not-built error.
 - The library build, adding `"use client"`, `.d.ts` output (milestone 6). This milestone only keeps a directive first.
 - SSR hydration and visual parity tests (once two targets exist, plan "Alongside every milestone").
 - Forwarding through HOCs other than `memo` and `forwardRef`, through non-JSX roots, and in class components.

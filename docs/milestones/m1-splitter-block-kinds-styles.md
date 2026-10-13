@@ -7,7 +7,7 @@ Turn a `.ucf` file into blocks we can trust, and compile its `<style>` blocks th
 When this milestone is done:
 
 - `splitBlocks()` in `@multifront/core` splits any `.ucf` file into root blocks with exact offsets, and reports every structural error with a line and a column.
-- The `BlockKind` contract and its registry exist in core, shared kinds first. `<style>` is the first full kind: `check`, `build` and grammar data. The three target kinds have `check` and grammar data; their `build` is filled by milestones 3, 4 and 6.
+- The `BlockKind` contract and its registry exist in core, shared kinds first. `<style>` is the first full kind: `check`, `build` and grammar data. The three target kinds have `check` and grammar data; their `build` is filled by milestones 3, 4 and 5.
 - `compileStyles()` compiles each `<style>` once with `compileStyleAsync`, with source maps back to the `.ucf` file and a class map for each CSS module.
 - `scopeId()` gives the same `data-v-*` id plugin-vue gives, in dev and in production.
 - `createBuildContext()` fills `ctx` (scope id, compiled CSS, `$style` class maps, style module ids) for the target kinds of later milestones.
@@ -333,7 +333,7 @@ None: this is the first milestone. It builds on what the repo already has:
 ### 1.10 Style parity with plugin-vue (the exit test)
 
 - Build: `packages/e2e/build/style-parity.spec.ts`, the exit test below. It generates real files from the fixtures and runs real Vite with the real plugin-vue. `buildApp(root, config?)` in `packages/e2e/build/lib/build.ts` merges an inline Vite config over its base (Vite's `mergeConfig`), so both builds pass `configFile: false`, the plugin list and their entry.
-- Deliverable: proof that the CSS milestones 3 and 6 will ship for React and Svelte is the CSS plugin-vue ships for Vue.
+- Deliverable: proof that the CSS milestones 3 and 5 will ship for React and Svelte is the CSS plugin-vue ships for Vue.
 - Test: see the exit test.
 - Status: done
 
@@ -353,7 +353,7 @@ None: this is the first milestone. It builds on what the repo already has:
 | `compileStyles(blocks, options): Promise<CompiledStyle[]>` | `@multifront/core`, 1.8 | through `createBuildContext` in M3, M5, M6; M2 may call it for `$style` class names |
 | `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `filename`, `split`, `relativePath`, `source`, `production`, `compiler`, `scopeId`, `hasScoped`, `styles`, `modules` of `StyleModule`); types in `types.ts` | M3 (React build), M5 (Svelte build), M6 (CSS files) |
 | `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M5 |
-| `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M6, M5 |
+| `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |
 | `oxc-parser` | exact-pinned dependency of `@multifront/core` (`0.149.0`) | M3 (scope transform) |
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
@@ -394,7 +394,7 @@ None: this is the first milestone. It builds on what the repo already has:
 ## Out of scope
 
 - Any Vite plugin hook: resolving `.ucf` imports, serving style and class map modules, `resolveTarget()`, the attribute rewrite (milestone 3).
-- `build` for `react`, `vue` and `svelte` (milestones 3, 4, 6).
+- `build` for `react`, `vue` and `svelte` (milestones 3, 4, 5).
 - `types` and `editor` halves, `packages/language-tools`, `packages/vscode` (milestone 2 and later).
 - HMR, SSR and the browser area (milestone 3 onward).
 - `v-bind()` in CSS for React and Svelte, `<style src="…">`, target-only `<style>` (open questions in the spec).

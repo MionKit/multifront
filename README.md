@@ -13,6 +13,14 @@ Write one component file with a Vue, React and Svelte version, plus shared style
   }
 </react>
 
+<svelte>
+  <script lang="ts">
+  import type {Snippet} from 'svelte'
+  let {children}: {children?: Snippet} = $props()
+  </script>
+  <div class={$style.card}>{@render children?.()}</div>
+</svelte>
+
 <style module>
 .card { padding: 1rem; }
 </style>
@@ -25,7 +33,7 @@ Write one component file with a Vue, React and Svelte version, plus shared style
 | Package | What it does |
 | --- | --- |
 | [@multifront/core](packages/core/) | The compiler: splits the file, compiles the styles, transforms each target. |
-| [@multifront/vite](packages/vite/) | Vite plugin, built on `@vitejs/plugin-vue`. |
+| [@multifront/vite](packages/vite/) | Vite plugin: hands each target to `@vitejs/plugin-vue`, `@vitejs/plugin-react` or `@sveltejs/vite-plugin-svelte`. Builds the per-framework packages (`mf-build`). |
 | [@multifront/language-tools](packages/language-tools/) | Editor tooling: the Volar language plugin for the TypeScript plugin and the language server. |
 
 ## Develop

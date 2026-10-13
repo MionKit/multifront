@@ -1,7 +1,7 @@
 ---
 type: docs
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-13
 ---
 
@@ -33,3 +33,23 @@ spec gets the wrong order and the wrong consumer list.
 - Spec section 9 order matches `docs/milestones/README.md` and `docs/plan.md`, and the Library build item names the
   four consumer apps.
 - No source file touched, so no comment pass.
+
+## Plan: every doc (approved 2026-10-13)
+
+The user widened the scope: fix every doc, not only the spec, so milestone order and the targets built match what
+shipped (M5 Svelte target, M6 Library build for React, Vue and Svelte, four consumer apps).
+
+Shipped:
+
+- `docs/spec.md`: section 9 lists Svelte target as 5 and Library build as 6; the Library build item names the three
+  targets and the four fresh apps (Next.js App Router, Vite React, Vite Vue, SvelteKit). Section 10's consumer line
+  names the same four apps.
+- Milestone docs: m1 and m3 stop calling the Svelte work milestone 6 ("3, 4 and 5", "4 and 5"); m1 and m2 list M5
+  before M6; m4 points at step 5.11 (Svelte's own editor setup), not 6.11.
+- Root `README.md`: the example gains a `<svelte>` block; the Vite plugin row names plugin-vue, plugin-react,
+  plugin-svelte and `mf-build`. `packages/vite/README.md` says the same.
+- `packages/vscode/README.md`: `.svelte` importers need Svelte for VS Code and a `rootDirs` entry.
+- `packages/AGENTS.md`: `@multifront/vite` carries vite and each framework with its plugin.
+
+Already correct and left alone: `docs/plan.md`, `docs/architecture.md`, `docs/milestones/README.md`, m5 to m7,
+`publicdocs/`, the graphics. No source file touched: no tests, no comment pass.
