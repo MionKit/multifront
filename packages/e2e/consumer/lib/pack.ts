@@ -79,8 +79,16 @@ export function publint(tarball: string): Promise<ToolRun> {
 }
 
 // A CSS subpath has no types to resolve, so attw would call it NoResolution; no registry lookup for @types.
-export function attw(tarball: string): Promise<ToolRun> {
-  return runTool(ATTW, [tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed']);
+export function attw(tarball: string, extra: string[] = []): Promise<ToolRun> {
+  return runTool(ATTW, [
+    tarball,
+    '--profile',
+    'esm-only',
+    '--exclude-entrypoints',
+    'styles.css',
+    '--no-definitely-typed',
+    ...extra,
+  ]);
 }
 
 // Entry of `pnpm devx consumer-pack <dir>`, run once in CI.

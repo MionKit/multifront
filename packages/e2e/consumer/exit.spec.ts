@@ -1,9 +1,6 @@
 // The M6 exit test: the real mf-build bin, packed, installed into four fresh apps, type checked, built, served, rendered.
-import {execFile} from 'node:child_process';
 import {readdirSync} from 'node:fs';
-import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
-import {promisify} from 'node:util';
+import {join} from 'node:path';
 import type {Target} from '@multifront/core';
 import type {Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -13,24 +10,10 @@ import {copyLibrary, removeLibrary} from '../fixtures/index.ts';
 import {runMfBuild} from '../build/lib/library.ts';
 import {createConsumerApp, freePort, openPage, runInApp, serveApp} from './lib/app.ts';
 import type {Command, ConsumerApp} from './lib/app.ts';
-import {packLibrary, publint} from './lib/pack.ts';
-import type {ToolRun} from './lib/pack.ts';
-
-const require = createRequire(import.meta.url);
-const ATTW = join(dirname(require.resolve('@arethetypeswrong/cli/package.json')), 'dist', 'index.js');
+import {attw, packLibrary, publint} from './lib/pack.ts';
 
 // node16 looks for `Card.d.svelte.ts` behind a `./Card.svelte` import: every svelte-package layout fails it.
 const ATTW_EXTRA: Partial<Record<Target, string[]>> = {svelte: ['--ignore-rules', 'internal-resolution-error']};
-
-function attw(target: Target, tarball: string): Promise<ToolRun> {
-  const args = [ATTW, tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed'];
-  return promisify(execFile)(process.execPath, [...args, ...(ATTW_EXTRA[target] ?? [])], {
-    env: {...process.env, NO_COLOR: '1'},
-  }).then(
-    ({stdout, stderr}) => ({code: 0, output: `${stdout}${stderr}`}),
-    (err: {code?: number; stdout?: string; stderr?: string}) => ({code: err.code ?? 1, output: `${err.stdout}${err.stderr}`})
-  );
-}
 
 interface ExitApp {
   template: string;
@@ -138,7 +121,7 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
     expect(tarball).toBeDefined();
     const linted = await publint(tarball!);
     expect(linted.code, linted.output).toBe(0);
-    const typed = await attw(target, tarball!);
+    const typed = await attw(tarball!, ATTW_EXTRA[target]);
     expect(typed.code, typed.output).toBe(0);
   });
 
