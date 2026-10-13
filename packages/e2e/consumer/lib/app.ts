@@ -92,7 +92,6 @@ export async function createConsumerApp(template: string, tarballs: string[]): P
   return app;
 }
 
-/** A file of the app's `vite build` output. */
 export function readDist(app: ConsumerApp, file: string): string {
   return readFileSync(join(app.dir, 'dist', file), 'utf8');
 }
@@ -215,7 +214,7 @@ interface ServedAppOptions {
   serve: (port: number) => Command;
 }
 
-/** A spec's hooks: the fixture's `target` tarball installed into `template`, built, then served. */
+/** Registers the spec's beforeAll and afterAll hooks. */
 export function serveConsumerApp({target, template, build, serve}: ServedAppOptions): () => ServedApp {
   let packed: Awaited<ReturnType<typeof fixtureTarballs>> | undefined;
   let app: ConsumerApp | undefined;
@@ -259,7 +258,7 @@ export async function expectStyledCard(page: Page): Promise<void> {
   expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true))).toBe('');
 }
 
-/** An injected inline style is refused and reported: the page's CSP holds, and a violation would show. */
+/** Proves the CSP holds and its violations get reported. */
 export async function expectCspEnforced(url: string): Promise<void> {
   const {page, messages, close} = await openPage(url);
   try {
