@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-13
 ---
 
@@ -54,7 +54,8 @@ bullet).
   - `.svelte.ts`: types stripped with Vite's `transformWithOxc`, `.ucf` specifiers rewritten, shipped as `.svelte.js`.
   - `.svelte.js`: the same without the strip.
   - Its bare imports are checked like a component's; a plain file and a `.ucf` file written to one name fail.
-- Every shipped `.svelte` file, `.ucf` components included, goes through those preprocessors (own commit).
+- Every shipped `.svelte` file, `.ucf` components included, goes through those preprocessors (own commit). A `<script>`
+  or `<style>` tag a preprocessor rewrote loses its `lang` and `type`, as svelte-package strips them.
 - vite, `library/dts.ts`: a plain `.svelte` file is staged with its `.ucf` specifiers rewritten, unpreprocessed
   (svelte-package types from source too); svelte2tsx's script is written beside every staged `.svelte` file before the
   listing run.
