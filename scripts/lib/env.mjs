@@ -27,6 +27,7 @@ export const REGISTRY = [
   {name: 'VITEST*', scope: 'internal', desc: "Vitest's own markers; the consumer test helpers clear them for the temp apps"},
   {name: 'npm_package_*', scope: 'internal', desc: "set by pnpm's script runner; the consumer test helpers clear them for the temp apps"},
   {name: 'npm_lifecycle_*', scope: 'internal', desc: "set by pnpm's script runner; the consumer test helpers clear them for the temp apps"},
+  {name: 'NEXT_TELEMETRY_DISABLED', scope: 'internal', desc: 'set to 1 by the consumer test helpers for the temp apps, so Next.js sends no telemetry from a test run'},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
