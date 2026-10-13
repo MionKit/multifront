@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.12
@@ -48,6 +48,8 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
      `resolveJsonModule`, `allowJs`, `incremental`, `plugins: [{name: "next"}]`). `include`: `next-env.d.ts`,
      `app`, `.next/types/**/*.ts`, `.next/dev/types/**/*.ts`. `exclude: ["node_modules"]`. Next writes
      `next-env.d.ts` itself, so the template does not ship it.
+   - `app/icon.svg` (6.10's favicon, Next's icon file convention): without it Chromium asks for `/favicon.ico` and
+     logs a 404 console error.
    - `app/layout.tsx`: server component, `<html><body>`, renders `<Hydrated />`.
    - `app/hydrated.tsx`: `'use client'`, an effect sets `document.body.dataset.hydrated`. The spec waits for it
      before clicking, the same way `svelte-ssr.spec.ts` waits for `body[data-hydrated]`.
@@ -69,6 +71,7 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 - `NEXT_TELEMETRY_DISABLED=1` in `consumerEnv()`, with its `REGISTRY` row. (Orchestrator.)
 - No CSP in the Next app: Next's inline bootstrap scripts need a nonce setup. (Orchestrator.)
 - No fuzz test. (Orchestrator.)
+- `app/icon.svg` added while building: the favicon 404 failed every console check.
 
 ## Tests
 
@@ -85,7 +88,8 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 - `next start`, JavaScript off: the server HTML (via `fetch`) links a `.css` file holding Card's `--card-padding` and
   `.counter[data-v-` rules. `expectStyledCard(page)` passes (computed styles plus the scope attribute). Counter
   `Count 0` sits inside `section.panel`. Button has `extra` plus one `button_` class, red, weight `600` (root props
-  through RSC). Tooltip has text-decoration `underline`. Field (subpath) has `display: flex`.
+  through RSC). Tooltip has text-decoration `underline`. Field (subpath) has `display: flex`. `body` has no
+  `data-hydrated` (no script ran).
 - `next start`, JavaScript on: `body[data-hydrated]` appears, then Counter inside Panel goes `Count 0` → `Count 1`.
   No console error or warning and no page error (`consoleProblems` is `[]`). That covers hydration text and the
   minified `#418` / `#423` / `#425`, all of which arrive as `pageerror` or `error`.
