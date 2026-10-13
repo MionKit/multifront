@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../../docs/assets/src/theme.css">
+<style>
+  .card-library-packages { width: 1200px; }
+  .card-library-packages .row { display: grid; grid-template-columns: 360px 130px 1fr; align-items: center; margin-top: 36px; }
+  .card-library-packages .lib { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .card-library-packages .name { font: 700 18px/1 var(--mono); margin-bottom: 4px; }
+  .card-library-packages .file { font: 600 15px/1.2 var(--mono); color: var(--text); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); }
+  .card-library-packages .file .blocks { display: flex; gap: 6px; margin-top: 8px; }
+  .card-library-packages .file .blocks span { font: 600 12px/1 var(--mono); padding: 4px 7px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 9%, var(--panel)); }
+  .card-library-packages .file.plain { color: var(--muted); }
+  .card-library-packages .step { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .card-library-packages .step code { font: 700 15px/1 var(--mono); color: var(--core); }
+  .card-library-packages .arrow { width: 100%; height: 2px; background: #3b4b60; position: relative; }
+  .card-library-packages .arrow::after { content: ''; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left: 9px solid #3b4b60; border-right: 0; }
+  .card-library-packages .outs { display: flex; flex-direction: column; gap: 16px; padding-left: 14px; }
+  .card-library-packages .out { border-radius: 14px; padding: 16px 20px; border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 12%, var(--panel)); }
+  .card-library-packages .out .t { font: 800 18px/1 var(--mono); }
+  .card-library-packages .out .t em { font: 500 14px/1 var(--sans); font-style: normal; color: var(--muted); margin-left: 10px; }
+  .card-library-packages .out pre { margin-top: 10px; font: 14px/1.6 var(--mono); color: #b8c4d2; }
+  .card-library-packages .out pre b { color: var(--text); font-weight: 600; }
+</style></head>
+<body>
+<div class="canvas card-library-packages">
+  <div class="eyebrow">multifront · library build</div>
+  <h1>One library, one package per framework</h1>
+  <p class="sub">mf-build turns the .ucf files of src/ into a React, a Vue and a Svelte package. Apps install them like any other package, with no multifront tools.</p>
+  <div class="row">
+    <div class="lib card">
+      <div class="name">src/</div>
+      <div class="file">Card.ucf
+        <div class="blocks"><span class="k-vue">&lt;vue&gt;</span><span class="k-react">&lt;react&gt;</span><span class="k-svelte">&lt;svelte&gt;</span><span class="k-style">&lt;style&gt;</span></div>
+      </div>
+      <div class="file">forms/Field.ucf
+        <div class="blocks"><span class="k-vue">&lt;vue&gt;</span><span class="k-react">&lt;react&gt;</span><span class="k-svelte">&lt;svelte&gt;</span><span class="k-style">&lt;style&gt;</span></div>
+      </div>
+      <div class="file plain">index.ts</div>
+    </div>
+    <div class="step"><code>mf-build</code><div class="arrow"></div></div>
+    <div class="outs">
+      <div class="out k-react"><div class="t">@mf-fixture/ui-react<em>peer react ^19</em></div>
+<pre><b>Card.js</b>  Card.d.ts  Card.css
+<b>forms/Field.js</b>  forms/Field.d.ts  forms/Field.css
+index.js  styles.css  package.json</pre></div>
+      <div class="out k-vue"><div class="t">@mf-fixture/ui-vue<em>peer vue ^3.5</em></div>
+<pre><b>Card.js</b>  Card.d.ts  Card.css
+<b>forms/Field.js</b>  forms/Field.d.ts  forms/Field.css
+index.js  styles.css  package.json</pre></div>
+      <div class="out k-svelte"><div class="t">@mf-fixture/ui-svelte<em>peer svelte ^5, ships source</em></div>
+<pre><b>Card.svelte</b>  Card.svelte.d.ts  Card.css
+<b>forms/Field.svelte</b>  forms/Field.svelte.d.ts  forms/Field.css
+index.js  styles.css  package.json</pre></div>
+    </div>
+  </div>
+</div>
+</body></html>
