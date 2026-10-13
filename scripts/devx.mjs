@@ -4,7 +4,7 @@
 import {spawnSync} from 'node:child_process';
 import {copyFileSync, cpSync, existsSync, globSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join, relative} from 'node:path';
+import {join, relative, resolve} from 'node:path';
 import {agentDocs} from './lib/agent-docs.mjs';
 import {loadEnv, REGISTRY, REPO_ROOT} from './lib/env.mjs';
 import {CLI, COMMANDS, renderHelp} from './lib/registry.mjs';
@@ -64,6 +64,11 @@ const handlers = {
   },
   test(args) {
     run(bin('vitest'), ['run', ...args]);
+  },
+  'consumer-pack'([dir]) {
+    if (!dir) throw new CliError(`${CLI}: consumer-pack needs a folder to write the tarballs to`);
+    // Node strips the types of the e2e helper and of the packages' src/, which `source` picks.
+    run(join(REPO_ROOT, 'packages', 'e2e', 'consumer', 'lib', 'pack.ts'), [resolve(dir)], {node: ['--conditions=source']});
   },
   commitlint(args) {
     run(bin('@commitlint/cli', 'commitlint'), args);

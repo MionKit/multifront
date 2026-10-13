@@ -1,22 +1,28 @@
 import {execFile} from 'node:child_process';
-import {existsSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
+import {writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import {TARGETS} from '@multifront/core';
 import type {Target} from '@multifront/core';
+import {buildLibrary} from '@multifront/vite';
+import {LIBRARY_DIR} from '../../fixtures/index.ts';
+import {buildFixtureLibrary} from '../../build/lib/library.ts';
 
 const run = promisify(execFile);
+
+type Tarballs = Partial<Record<Target, string>>;
 const require = createRequire(import.meta.url);
 
-interface ToolRun {
+export interface ToolRun {
   code: number;
   output: string;
 }
 
 /** Real `pnpm pack` per framework folder of a `buildLibrary()` out dir. */
-export async function packLibrary(outDir: string): Promise<Partial<Record<Target, string>>> {
-  const tarballs: Partial<Record<Target, string>> = {};
+export async function packLibrary(outDir: string): Promise<Tarballs> {
+  const tarballs: Tarballs = {};
   for (const target of TARGETS) {
     const dir = join(outDir, target);
     if (!existsSync(join(dir, 'package.json'))) continue;
@@ -24,6 +30,28 @@ export async function packLibrary(outDir: string): Promise<Partial<Record<Target
     tarballs[target] = (JSON.parse(stdout) as {filename: string}).filename;
   }
   return tarballs;
+}
+
+const TARBALLS_FILE = 'tarballs.json';
+
+/** The tarballs `pnpm devx consumer-pack <dir>` wrote (CI hands them over), else a fresh build and pack. */
+export async function fixtureTarballs(
+  dir = process.env.MULTIFRONT_CONSUMER_TARBALLS
+): Promise<{tarballs: Tarballs; remove: () => Promise<void>}> {
+  if (dir) {
+    const list = join(resolve(dir), TARBALLS_FILE);
+    if (!existsSync(list)) throw new Error(`${dir} has no ${TARBALLS_FILE}: run pnpm devx consumer-pack ${dir}`);
+    const names = JSON.parse(readFileSync(list, 'utf8')) as Tarballs;
+    const tarballs = Object.fromEntries(Object.entries(names).map(([target, name]) => [target, join(resolve(dir), name!)]));
+    return {tarballs, remove: async () => {}};
+  }
+  const library = await buildFixtureLibrary();
+  try {
+    return {tarballs: await packLibrary(library.outDir), remove: library.remove};
+  } catch (err) {
+    await library.remove();
+    throw err;
+  }
 }
 
 export async function tarFiles(tarball: string): Promise<string[]> {
@@ -53,4 +81,13 @@ export function publint(tarball: string): Promise<ToolRun> {
 // A CSS subpath has no types to resolve, so attw would call it NoResolution; no registry lookup for @types.
 export function attw(tarball: string): Promise<ToolRun> {
   return runTool(ATTW, [tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed']);
+}
+
+// `pnpm devx consumer-pack <dir>`: every framework of the fixture library, built and packed into `dir` once for CI.
+if (import.meta.main) {
+  const dir = process.argv[2]!;
+  await buildLibrary({root: LIBRARY_DIR, outDir: dir, vite: {logLevel: 'silent'}});
+  const tarballs = await packLibrary(dir);
+  const names = Object.fromEntries(Object.entries(tarballs).map(([target, file]) => [target, basename(file)]));
+  await writeFile(join(dir, TARBALLS_FILE), `${JSON.stringify(names, null, 2)}\n`);
 }

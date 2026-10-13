@@ -1,11 +1,14 @@
-import {readFileSync} from 'node:fs';
-import {rm} from 'node:fs/promises';
+import {execFile} from 'node:child_process';
+import {existsSync, readFileSync} from 'node:fs';
+import {mkdir, mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
+import {promisify} from 'node:util';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {LIBRARY_DIR} from '../fixtures/index.ts';
+import {LIBRARY_DIR, TMP_DIR, removeLibrary} from '../fixtures/index.ts';
 import {buildFixtureLibrary, resultOf, withEditedLibrary} from '../build/lib/library.ts';
 import type {BuiltLibrary} from '../build/lib/library.ts';
-import {attw, packLibrary, publint, tarFiles} from './lib/pack.ts';
+import {REPO_ROOT} from './lib/app.ts';
+import {attw, fixtureTarballs, packLibrary, publint, tarFiles} from './lib/pack.ts';
 
 const TARGETS = ['react', 'vue'] as const;
 const FIXTURE = JSON.parse(readFileSync(join(LIBRARY_DIR, 'package.json'), 'utf8')) as Record<string, unknown>;
@@ -170,5 +173,41 @@ describe('package.json', () => {
         await built.remove();
       }
     });
+  });
+});
+
+const DEVX = join(REPO_ROOT, 'scripts', 'devx.mjs');
+
+describe('pnpm devx consumer-pack', () => {
+  it('packs every framework once into a folder that fixtureTarballs() reads back', async () => {
+    await mkdir(TMP_DIR, {recursive: true});
+    const dir = await mkdtemp(join(TMP_DIR, 'consumer-pack-'));
+    try {
+      await promisify(execFile)(process.execPath, [DEVX, 'consumer-pack', dir]);
+      const names = JSON.parse(readFileSync(join(dir, 'tarballs.json'), 'utf8')) as Record<string, string>;
+      expect(names).toEqual({
+        vue: 'mf-fixture-ui-vue-1.2.3.tgz',
+        react: 'mf-fixture-ui-react-1.2.3.tgz',
+        svelte: 'mf-fixture-ui-svelte-1.2.3.tgz',
+      });
+      const {tarballs} = await fixtureTarballs(dir);
+      expect(tarballs).toEqual(Object.fromEntries(Object.entries(names).map(([target, name]) => [target, join(dir, name)])));
+      for (const tarball of Object.values(tarballs)) expect(existsSync(tarball!)).toBe(true);
+    } finally {
+      await removeLibrary(dir);
+    }
+  });
+
+  it('refuses to run without a folder', async () => {
+    const failed = await promisify(execFile)(process.execPath, [DEVX, 'consumer-pack']).then(
+      () => ({code: 0, stderr: ''}),
+      (err: {code: number; stderr: string}) => err
+    );
+    expect(failed.code).toBe(1);
+    expect(failed.stderr.trim()).toBe('devx: consumer-pack needs a folder to write the tarballs to');
+  });
+
+  it('names the command to run when the folder has no tarballs.json', async () => {
+    await expect(fixtureTarballs(LIBRARY_DIR)).rejects.toThrow(`run pnpm devx consumer-pack ${LIBRARY_DIR}`);
   });
 });
