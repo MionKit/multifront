@@ -78,7 +78,7 @@ export function publint(tarball: string): Promise<ToolRun> {
   return runTool(PUBLINT, [tarball, '--strict']);
 }
 
-// A CSS subpath has no types to resolve, so attw would call it NoResolution; no registry lookup for @types.
+// A CSS subpath has no types, so attw would call it NoResolution; no registry lookup for @types.
 export function attw(tarball: string, extra: string[] = []): Promise<ToolRun> {
   return runTool(ATTW, [
     tarball,

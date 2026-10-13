@@ -1,4 +1,4 @@
-// The M6 exit test: the real mf-build bin, packed, installed into four fresh apps, type checked, built, served, rendered.
+// M6 exit test: the real mf-build bin, packed, in four fresh apps: type checked, built, served, rendered.
 import {readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import type {Target} from '@multifront/core';
@@ -10,12 +10,12 @@ import {KEY_STYLES, createConsumerApp, expectHydrates, freePort, keyStyles, runI
 import type {Command, ConsumerApp, ServedAppOptions} from './lib/app.ts';
 import {attw, packLibrary, publint} from './lib/pack.ts';
 
-// node16 looks for `Card.d.svelte.ts` behind a `./Card.svelte` import: every svelte-package layout fails it.
+// node16 looks for `Card.d.svelte.ts` behind `./Card.svelte`: every svelte-package layout fails it.
 const ATTW_EXTRA: Partial<Record<Target, string[]>> = {svelte: ['--ignore-rules', 'internal-resolution-error']};
 
 interface ExitApp extends ServedAppOptions {
   check: Command[];
-  // Server rendered: the page marks `body[data-hydrated]` once hydrated, and the click waits for it.
+  // Server rendered: the click waits for the page's `body[data-hydrated]` mark.
   hydrates: boolean;
 }
 
@@ -47,7 +47,7 @@ const APPS: ExitApp[] = [
   {
     template: 'consumer-sveltekit',
     target: 'svelte',
-    // `pnpm install` runs no `prepare`: sync writes `.svelte-kit/tsconfig.json`, which the app's tsconfig extends.
+    // Install runs no `prepare`: sync writes `.svelte-kit/tsconfig.json`, which the app's tsconfig extends.
     check: [
       ['pnpm', 'exec', 'svelte-kit', 'sync'],
       ['pnpm', 'exec', 'svelte-check', '--tsconfig', './tsconfig.json', '--fail-on-warnings'],
@@ -77,7 +77,7 @@ beforeAll(() => {
     built = await runMfBuild(root);
     if (built.code !== 0) throw new Error(`mf-build failed:\n${built.stderr}`);
     tarballs = await packLibrary(join(root, 'dist'));
-    // allSettled: one failed install must not leave the others landing after afterAll has run.
+    // One failed install must not leave the others landing after afterAll has run.
     const installs = await Promise.allSettled(
       APPS.map(async ({template, target}) => {
         const tarball = tarballs[target];
