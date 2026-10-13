@@ -279,7 +279,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     const end = content.body.at(-1)?.end ?? content.start;
     text.appendLeft(block.contentStart + end, lines.map((line) => `\n${line}`).join(''));
   } else added.push(...lines);
-  // svelte2tsx types a script-less JS component with a `SvelteComponent` it never imports: a package's `.d.ts` breaks.
+  // svelte2tsx types a script-less JS component with an unimported `SvelteComponent`: the package `.d.ts` breaks.
   const tag = library ? '<script lang="ts">' : '<script>';
   if (added.length > 0) text.prependRight(block.contentStart, `${tag}\n${added.join('\n')}\n</script>`);
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});

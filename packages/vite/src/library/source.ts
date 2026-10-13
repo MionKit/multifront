@@ -57,7 +57,7 @@ function bareImports(code: string, root: string): string[] {
   return found;
 }
 
-/** Swaps each compiled component chunk for its uncompiled source (`Card.svelte`); the build still checks and compiles it. */
+/** Swaps each compiled component chunk for its uncompiled `Card.svelte`; the build still checks and compiles it. */
 export function librarySource(job: LibrarySourceJob): Plugin {
   const {target, root, src, sourceExt, peers} = job;
   const names = job.components.map(({relative}) => outputName(`${src}/${relative}`, src));
