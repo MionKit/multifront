@@ -164,6 +164,7 @@ Comes after every target exists, so the per-target table is designed once for Re
 - `"use client"` re-added per output file when the component uses hooks or event handlers.
 - Types: `.d.ts` per target from the per-target virtual scripts. Writes each target's `package.json` with exports, types and peer deps only.
 - Svelte output: uncompiled `.svelte` files + processed CSS + `.d.ts`, the `svelte-package` layout.
+- API: `buildLibrary(options)` and `defineLibrary(options)` from `@multifront/vite`. Command: `mf-build` (a bin of `@multifront/vite`) loads `multifront.config.ts` (or `.js`, `.mjs`, `export default defineLibrary({...})`) from the root through Vite's native config loader, merges `--root`, `--framework` (repeatable), `--out-dir` and `--no-dts` over it, calls `buildLibrary` and prints one line per framework (file count, out dir, package name, skipped files). Exit code 1 on any error.
 - Exit check: the packed packages work in a fresh Next.js App Router app, fresh Vite React and Vue apps, and a fresh SvelteKit app.
 
 ### 7. Full editor support
