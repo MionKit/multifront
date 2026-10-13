@@ -33,12 +33,6 @@ afterAll(async () => {
   await library?.remove();
 });
 
-function tarballOf(target: keyof typeof tarballs): string {
-  const tarball = tarballs[target];
-  if (!tarball) throw new Error(`no ${target} tarball`);
-  return tarball;
-}
-
 function packageJsonOf(outDir: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(outDir, 'package.json'), 'utf8')) as Record<string, unknown>;
 }
@@ -53,23 +47,21 @@ describe('packLibrary', () => {
   });
 
   it.each(TARGETS)('%s: the tarball holds every written file, and no .ucf or node_modules', async (target) => {
-    const files = await tarFiles(tarballOf(target));
+    const files = await tarFiles(tarballs[target]!);
     expect(files).toEqual(resultOf(library.results, target).files.map((file) => `package/${file}`));
-    for (const file of ['Card.js', 'Card.d.ts', 'Card.css', 'styles.css', 'index.js', 'index.d.ts']) {
-      expect(files).toContain(`package/${file}`);
-    }
-    for (const file of ['package.json', 'README.md', 'LICENSE']) expect(files).toContain(`package/${file}`);
+    const expected = ['Card.js', 'Card.d.ts', 'Card.css', 'styles.css', 'index.js', 'index.d.ts', 'package.json'];
+    for (const file of [...expected, 'README.md', 'LICENSE']) expect(files).toContain(`package/${file}`);
     expect(files.filter((file) => file.includes('.ucf') || file.includes('node_modules'))).toEqual([]);
   });
 
   it.each(TARGETS)('%s: the tarball passes publint, warnings included', async (target) => {
-    const {code, output} = await publint(tarballOf(target));
+    const {code, output} = await publint(tarballs[target]!);
     expect(code, output).toBe(0);
     expect(output).toContain('All good!');
   });
 
   it.each(TARGETS)('%s: the tarball passes attw for ESM consumers', async (target) => {
-    const {code, output} = await attw(tarballOf(target));
+    const {code, output} = await attw(tarballs[target]!);
     expect(code, output).toBe(0);
   });
 });
@@ -83,8 +75,7 @@ describe('package.json', () => {
       './*.css': './*.css',
       './package.json': './package.json',
     };
-    const packageJson = packageJsonOf(resultOf(library.results, target).outDir);
-    expect(packageJson).toEqual({
+    const expected = {
       name: `@mf-fixture/ui-${target}`,
       version: '1.2.3',
       description: FIXTURE.description,
@@ -98,28 +89,17 @@ describe('package.json', () => {
       types: './index.d.ts',
       exports,
       peerDependencies: PEERS[target],
-    });
-    expect(Object.keys(packageJson)).toEqual([
-      'name',
-      'version',
-      'description',
-      'license',
-      'author',
-      'repository',
-      'homepage',
-      'keywords',
-      'type',
-      'sideEffects',
-      'types',
-      'exports',
-      'peerDependencies',
-    ]);
+    };
+    const packageJson = packageJsonOf(resultOf(library.results, target).outDir);
+    expect(packageJson).toEqual(expected);
+    expect(Object.keys(packageJson)).toEqual(Object.keys(expected));
     expect(Object.keys(packageJson.exports as object)).toEqual(Object.keys(exports));
   });
 
   it('takes the name and peers from packages, drops every other field and copies no missing doc', async () => {
     const manifest = {
       ...FIXTURE,
+      description: null,
       main: './index.js',
       files: ['src'],
       exports: './src/index.ts',
@@ -140,13 +120,29 @@ describe('package.json', () => {
         const packageJson = packageJsonOf(react.outDir);
         expect(packageJson.name).toBe('@acme/ui-react');
         expect(packageJson.peerDependencies).toEqual({react: '^19.1.0', 'react-dom': '^19.0.0'});
-        for (const field of ['main', 'files', 'scripts', 'dependencies', 'devDependencies']) {
+        for (const field of ['description', 'main', 'files', 'scripts', 'dependencies', 'devDependencies', 'types']) {
           expect(packageJson).not.toHaveProperty(field);
         }
-        expect((packageJson.exports as Record<string, unknown>)['./Card']).toEqual({default: './Card.js'});
+        const exports = packageJson.exports as Record<string, unknown>;
+        expect(exports['.']).toEqual({default: './index.js'});
+        expect(exports['./Card']).toEqual({default: './Card.js'});
         expect(react.files).toContain('package.json');
         expect(react.files).not.toContain('README.md');
         expect(react.files).not.toContain('LICENSE');
+      } finally {
+        await built.remove();
+      }
+    });
+  });
+
+  it('writes a manifest for a library with no package.json of its own', async () => {
+    await withEditedLibrary([], async (root) => {
+      await rm(join(root, 'package.json'));
+      const built = await buildFixtureLibrary(root, {frameworks: ['react'], packages: {react: {name: '@acme/ui-react'}}});
+      try {
+        const packageJson = packageJsonOf(resultOf(built.results, 'react').outDir);
+        expect(Object.keys(packageJson)).toEqual(['name', 'type', 'sideEffects', 'types', 'exports', 'peerDependencies']);
+        expect(packageJson.name).toBe('@acme/ui-react');
       } finally {
         await built.remove();
       }
