@@ -1,7 +1,7 @@
 import {execFile} from 'node:child_process';
 import {existsSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {join} from 'node:path';
+import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
 import {TARGETS} from '@multifront/core';
 import type {Target} from '@multifront/core';
@@ -9,7 +9,7 @@ import type {Target} from '@multifront/core';
 const run = promisify(execFile);
 const require = createRequire(import.meta.url);
 
-export interface ToolRun {
+interface ToolRun {
   code: number;
   output: string;
 }
@@ -32,15 +32,9 @@ export async function tarFiles(tarball: string): Promise<string[]> {
   return stdout.split('\n').filter(Boolean).sort();
 }
 
-// Neither tool exports its `package.json`, so it is found the way Node walks `node_modules`.
-function binOf(name: string, bin: string): string {
-  const dir = require.resolve
-    .paths(name)
-    ?.map((modules) => join(modules, name))
-    .find((path) => existsSync(join(path, 'package.json')));
-  if (!dir) throw new Error(`${name} is not installed`);
-  return join(dir, (require(join(dir, 'package.json')) as {bin: Record<string, string>}).bin[bin]!);
-}
+// publint exports no `package.json`; its bin sits beside its main file.
+const PUBLINT = join(dirname(require.resolve('publint')), 'cli.js');
+const ATTW = join(dirname(require.resolve('@arethetypeswrong/cli/package.json')), 'dist', 'index.js');
 
 async function runTool(file: string, args: string[]): Promise<ToolRun> {
   try {
@@ -54,11 +48,10 @@ async function runTool(file: string, args: string[]): Promise<ToolRun> {
 
 /** Real publint on the tarball itself; warnings fail too. */
 export function publint(tarball: string): Promise<ToolRun> {
-  return runTool(binOf('publint', 'publint'), [tarball, '--strict']);
+  return runTool(PUBLINT, [tarball, '--strict']);
 }
 
 // A CSS subpath has no types to resolve, so attw would call it NoResolution; no registry lookup for @types.
 export function attw(tarball: string): Promise<ToolRun> {
-  const args = [tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed'];
-  return runTool(binOf('@arethetypeswrong/cli', 'attw'), [...args, '--no-color', '--no-emoji']);
+  return runTool(ATTW, [tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed']);
 }
