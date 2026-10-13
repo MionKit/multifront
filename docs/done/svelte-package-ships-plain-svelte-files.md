@@ -53,14 +53,14 @@ bullet).
     specifiers rewritten.
   - `.svelte.ts`: types stripped with Vite's `transformWithOxc`, `.ucf` specifiers rewritten, shipped as `.svelte.js`.
   - `.svelte.js`: the same without the strip.
-  - Its bare imports are checked like a component's; a plain file and a `.ucf` file written to one name fail, and so
-    do they when typed in one `.d.ts` (`Icon.svelte.ts` beside `Icon.ucf`: both `Icon.svelte.d.ts`).
+  - Its bare imports are checked like a component's; a plain file and a `.ucf` file written to one name fail.
 - Every shipped `.svelte` file, `.ucf` components included, goes through those preprocessors (own commit). A `<script>`
   or `<style>` tag a preprocessor rewrote loses its `lang` and `type`, as svelte-package strips them.
 - vite, `library/dts.ts`: a plain `.svelte` file is staged with its `.ucf` specifiers rewritten, unpreprocessed
   (svelte-package types from source too); Svelte's parse for that rewrite sees its `<style>` bodies blanked, since an
   SCSS body is no CSS. svelte2tsx's script is written beside every staged `.svelte` root (a file the build reached)
-  before the listing run.
+  before the listing run. A staged `Icon.svelte.ts` where `Icon.ucf`'s script goes fails the build: both would type
+  as `Icon.svelte.d.ts`, the module reached at runtime or by a type-only import. With `dts: false` both ship.
 - Plain files ship only when the build reaches them, and get no `exports` subpath.
 - Tests, `packages/e2e/build/svelte-library.spec.ts`: the error test becomes a ships test, once with a `.svelte.ts` and
   once with a `.svelte.js` module (SCSS-only syntax preprocessed, compiled with the real compiler, types, no stray chunk
