@@ -212,7 +212,7 @@ export interface ServedApp {
   build: string;
 }
 
-interface ServedAppOptions {
+export interface ServedAppOptions {
   target: Target;
   template: string;
   build: Command;
