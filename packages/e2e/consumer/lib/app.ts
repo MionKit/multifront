@@ -264,7 +264,7 @@ export async function expectStyledCard(page: Page): Promise<void> {
   expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true))).toBe('');
 }
 
-// What every framework's package gives its elements. Button's color is left out: the React page sets it.
+// Styles every framework's package gives its elements; no Button color: the React page sets it.
 export const KEY_STYLES: Record<string, Record<string, string>> = {
   'article.card': {padding: '16px', color: 'rgb(30, 60, 90)', 'border-radius': '8px', 'font-size': '16px'},
   'article.card h2': {padding: '0px 0px 8px', color: 'rgb(150, 40, 60)', 'border-radius': '2px', 'font-size': '20px'},
@@ -272,7 +272,6 @@ export const KEY_STYLES: Record<string, Record<string, string>> = {
   'button:has-text("Go")': {padding: '4px 12px', 'background-color': 'rgb(90, 50, 160)', 'font-weight': '600'},
 };
 
-/** The computed styles `KEY_STYLES` names, read from the page. */
 export async function keyStyles(page: Page): Promise<typeof KEY_STYLES> {
   const read: typeof KEY_STYLES = {};
   for (const [selector, properties] of Object.entries(KEY_STYLES))
@@ -280,7 +279,7 @@ export async function keyStyles(page: Page): Promise<typeof KEY_STYLES> {
   return read;
 }
 
-/** Waits for `body[data-hydrated]` (the app's mark), then clicks Counter; `more` checks the hydrated page further. */
+/** Each app sets `body[data-hydrated]` once hydrated; `more` checks the hydrated page further. */
 export async function expectHydrates(url: string, counterSelector: string, more?: (page: Page) => Promise<void>): Promise<void> {
   const {page, messages, close} = await openPage(url);
   try {
