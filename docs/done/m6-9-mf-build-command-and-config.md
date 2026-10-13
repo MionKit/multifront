@@ -80,31 +80,42 @@ Checked on this host with a throwaway script in the gitignored `packages/e2e/.tm
 
 ## Tests
 
-Build area, new `packages/e2e/build/library-cli.spec.ts`. Runs on this host and in CI's `check` job through
-`pnpm devx test`; no new infra (Node child processes, as `buildInFreshNode()` already does). Not on the Windows job.
+Build area, new `packages/e2e/build/library-cli.spec.ts`. Runs on this host, in CI's `check` job through
+`pnpm devx test`, and on the Windows job (its output lines turn `\` paths into `/`, and it launches a tool's JS entry).
+No new infra: Node child processes, as `buildInFreshNode()` already does.
 
-Helper `runMfBuild(cwd, args)` in `packages/e2e/build/lib/library.ts`: reads the `bin['mf-build']` entry of the
-installed `packages/e2e/node_modules/@multifront/vite/package.json` (the "JS entry, not the `.bin` shim" pattern of
-`scripts/devx.mjs`, Windows-safe), runs `node --conditions=source <entry> ...args` in that cwd, resolves
+Helper `runMfBuild(cwd, args, {source})` in `packages/e2e/build/lib/library.ts`: reads the `bin['mf-build']` entry of
+the installed `packages/e2e/node_modules/@multifront/vite/package.json` (the "JS entry, not the `.bin` shim" pattern
+of `scripts/devx.mjs`, Windows-safe), runs `node [--conditions=source] <entry> ...args` in that cwd, resolves
 `{code, stdout, stderr}`. The exit test reuses it.
 
-Cases, each into its own temp folder (parallel-safe):
+Cases, each on its own library copy (parallel-safe):
 
-1. Fixture config, no flags, on a `copyLibrary()` copy with cwd = the copy: exit 0; `dist/{react,vue,svelte}/package.json`
-   names `@mf-fixture/ui-react`, `@mf-fixture/ui-vue`, `@mf-fixture/ui-svelte`; stdout is exactly three lines (`vue`,
+1. Fixture config, no flags, cwd = the copy: exit 0; `dist/{react,vue,svelte}/package.json` names
+   `@mf-fixture/ui-react`, `@mf-fixture/ui-vue`, `@mf-fixture/ui-svelte`; stdout is exactly three lines (`vue`,
    `react`, `svelte`), each with the real file count on disk, `dist/<target>` and its skipped files (react
    `VueOnly.ucf`; svelte `Badge.ucf, VueOnly.ucf`).
-2. Flags over config: a copy whose `multifront.config.ts` is
-   `defineLibrary({packages: {vue: {name: '@acme/cards-vue'}}})`, run from the fixtures folder with
-   `--root <copy> --framework vue --no-dts --out-dir <tmp>`: exit 0; only `vue/` written, named `@acme/cards-vue`
-   (proves the `.ts` config and its `@multifront/vite` import loaded: not the default name); no `.d.ts`; stdout is exactly
-   `vue: <n> files in <out dir relative to the cwd>/vue (@acme/cards-vue)`.
-3. Unknown framework in a config: a copy with `multifront.config.ts` deleted and `multifront.config.mjs` =
-   `export default {frameworks: ['angular']}`: exit 1, stderr has
-   `mf-build: buildLibrary: unknown framework 'angular'; use vue, react, svelte`, empty stdout (also covers `.mjs`).
-4. Repeated `--framework`: `--framework vue --framework angular` on the fixture: exit 1 with the same message for
-   `angular` (both values reach `frameworks`), no out dir written.
-5. Unknown flag `--outdir x`: exit 1, stderr names `--outdir`.
+2. Flags over config: the config sets `root: 'nowhere'`, `frameworks: ['react']`, `outDir: 'elsewhere'`, `dts: true`
+   and `packages.vue.name: '@acme/cards-vue'`; run from the fixtures folder with
+   `--root <copy> --framework vue --no-dts --out-dir out`: exit 0; only `<copy>/out/vue` written, no `elsewhere`,
+   named `@acme/cards-vue` (the `.ts` config and its `@multifront/vite` import loaded); no `.d.ts`; stdout exactly
+   `vue: <n> files in <out dir relative to the cwd> (@acme/cards-vue)`.
+3. No config: `--root ../.. --framework vue --no-dts` from inside `<copy>/dist/vue`: exit 0, the default name, and
+   the out dir shown as `.`.
+4. Exit 1 with the message, empty stdout, no `dist` (a table; `multifront.config.ts` deleted unless a row writes it):
+   `.ts` wins over `.js`, `.js` over `.mjs` (an `angular` config beside an `export default 5`); a config that is no
+   object (`cannot load <file>: config must export or return an object.`); a config that throws a string
+   (`cannot load <file>: bad config`); `frameworks: 'vue'`
+   (`buildLibrary: frameworks must be an array of framework names, got "vue"`).
+5. Repeated `--framework`: `--framework vue --framework angular`: exit 1 with the `angular` message (both values
+   reach `frameworks`), no out dir written.
+6. Unknown flag `--outdir x` and a positional `src`: exit 1 with parseArgs' message.
+
+Build area, `packages/e2e/build/built-packages.spec.ts` (the built language-tools types test moved here from
+`editor/builtTypes.spec.ts`: one file, so its two `tsc --build` runs never race on the dist of the packages both
+reference): real `tsc --build packages/vite/tsconfig.build.json`, real `pnpm pack --dry-run --json` lists
+`bin/mf-build.js` and `dist/library/cli.js`, then the bin without `--conditions=source` (the `#cli` `default`
+branch, `dist/`) builds a library copy's React package. CI's `check` job only, not Windows.
 
 No fuzz test: no cheap oracle for a flag parser over one real build.
 
@@ -113,6 +124,8 @@ No fuzz test: no cheap oracle for a flag parser over one real build.
 - D1: `configLoader: 'native'`, no `--config-loader` flag (orchestrator; `docs/milestones/README.md` "Fixture configs
   from source" row: fixture configs load natively so `@multifront/vite` comes from `src/`, never a stale `dist/`).
   A `.ts` config needs a Node that strips types (22.18+, 23.6+, 24+).
+- Review: `buildLibrary` rejects a `frameworks` that is not an array (a JS config's `'vue'` would spread into letters);
+  a non-`Error` throw prints as `String(err)`.
 
 ## Out of scope
 
@@ -120,6 +133,5 @@ No fuzz test: no cheap oracle for a flag parser over one real build.
 
 ## Done when
 
-- Checked by hand: after `pnpm devx build`, the bin without `--conditions=source` runs `dist/` and builds the fixture.
-- `pnpm exec mf-build` (the bin) in a library folder builds every target; `library-cli.spec.ts` passes;
+- `pnpm exec mf-build` (the bin) in a library folder builds every target; `library-cli.spec.ts` and `built-packages.spec.ts` pass;
   `pnpm devx check` passes; docs above updated; this spec moved to `docs/done/`.
