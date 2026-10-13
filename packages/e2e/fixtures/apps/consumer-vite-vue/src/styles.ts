@@ -1,5 +1,5 @@
 import '@mf-fixture/ui-vue/styles.css';
-import {createApp} from 'vue';
-import StylesApp from './StylesApp.vue';
+import {createApp, h} from 'vue';
+import {Card} from '@mf-fixture/ui-vue';
 
-createApp(StylesApp).mount('#app');
+createApp({render: () => h(Card, {title: 'Styles'})}).mount('#app');

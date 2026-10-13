@@ -4,10 +4,14 @@ import {cp, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:net';
 import {tmpdir} from 'node:os';
 import {basename, delimiter, join, relative, isAbsolute} from 'node:path';
+import type {Target} from '@multifront/core';
 import type {Page} from 'playwright';
 import type {Manifest} from 'vite';
-import {FIXTURES_DIR} from '../../fixtures/index.ts';
-import {collectConsole, launchChromium} from '../../browser/lib/chromium.ts';
+import {afterAll, beforeAll, expect} from 'vitest';
+import {FIXTURES_DIR, LIBRARY_DIR} from '../../fixtures/index.ts';
+import {collectConsole, computed, consoleProblems, launchChromium} from '../../browser/lib/chromium.ts';
+import {scopeAttribute} from '../../browser/lib/scope.ts';
+import {fixtureTarballs} from './pack.ts';
 import type {ToolRun} from './pack.ts';
 
 export const REPO_ROOT = join(FIXTURES_DIR, '..', '..', '..');
@@ -194,5 +198,81 @@ export async function openPage(url: string): Promise<ConsumerPage> {
   } catch (err) {
     await browser.close();
     throw err;
+  }
+}
+
+export interface ServedApp {
+  app: ConsumerApp;
+  url: string;
+  // The build command's output.
+  build: string;
+}
+
+interface ServedAppOptions {
+  target: Target;
+  template: string;
+  build: Command;
+  serve: (port: number) => Command;
+}
+
+/** A spec's hooks: the fixture's `target` tarball installed into `template`, built, then served. */
+export function serveConsumerApp({target, template, build, serve}: ServedAppOptions): () => ServedApp {
+  let packed: Awaited<ReturnType<typeof fixtureTarballs>> | undefined;
+  let app: ConsumerApp | undefined;
+  let server: Awaited<ReturnType<typeof serveApp>> | undefined;
+  let built = '';
+  let setup: Promise<void> | undefined;
+  beforeAll(() => {
+    setup = (async () => {
+      packed = await fixtureTarballs();
+      const tarball = packed.tarballs[target];
+      if (!tarball) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
+      app = await createConsumerApp(template, [tarball]);
+      const result = await runInApp(app, build);
+      if (result.code !== 0) throw new Error(`${build.join(' ')} failed in ${template}:\n${result.output}`);
+      built = result.output;
+      const port = await freePort();
+      server = await serveApp(app, serve(port), port);
+    })();
+    return setup;
+  }, 240_000);
+  afterAll(async () => {
+    // A timed-out setup keeps running: what it creates late must be removed too.
+    await setup?.catch(() => {});
+    await server?.close();
+    await app?.remove();
+    await packed?.remove();
+  });
+  return () => {
+    if (!app || !server) throw new Error(`${template} is not served: its setup failed`);
+    return {app, url: server.url, build: built};
+  };
+}
+
+/** Card as the library CSS styles it, with the scope attribute every target stamps. */
+export async function expectStyledCard(page: Page): Promise<void> {
+  const card = page.locator('article.card');
+  await card.waitFor();
+  expect(await computed(card, 'padding')).toBe('16px');
+  expect(await computed(card, 'color')).toBe('rgb(30, 60, 90)');
+  expect(await computed(card.locator('h2'), 'color')).toBe('rgb(150, 40, 60)');
+  expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true))).toBe('');
+}
+
+/** An injected inline style is refused and reported: the page's CSP holds, and a violation would show. */
+export async function expectCspEnforced(url: string): Promise<void> {
+  const {page, messages, close} = await openPage(url);
+  try {
+    await page.locator('article.card').waitFor();
+    const injected = await page.addStyleTag({content: 'body { color: red; }'}).then(
+      () => 'applied',
+      (err: Error) => err.message
+    );
+    expect(injected).toContain('Content Security Policy');
+    await expect
+      .poll(() => consoleProblems(messages).map(({text}) => text))
+      .toContainEqual(expect.stringContaining('CSP violation'));
+  } finally {
+    await close();
   }
 }
