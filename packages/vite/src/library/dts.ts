@@ -10,27 +10,21 @@ import type {Target, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {LibraryTypesJob} from '../types.ts';
+import {rewriteSpecifiers} from './specifiers.ts';
+import type {Lang} from './specifiers.ts';
 import {filesIn, shownFile} from './names.ts';
-
-type Lang = 'js' | 'jsx' | 'ts' | 'tsx' | 'dts';
+import {shippedSource} from './source.ts';
 
 /** How one framework turns a staged `src/` into `.d.ts` files. */
 interface TypesTool {
   peer: string; // the package that runs the check
   bin: string; // its bin name
-  ucfExt: '.tsx' | '.vue'; // what a `.ucf` file is staged as
-  specifierExt: '.js' | '.vue'; // what a `.ucf` specifier becomes in the stage
+  ucfExt: '.tsx' | '.vue' | '.svelte'; // what a `.ucf` file is staged as
+  specifierExt: '.js' | '.vue' | '.svelte'; // what a `.ucf` specifier becomes in the stage
   compilerOptions: Record<string, unknown>;
   stageUcf(file: string, source: string, root: string, compiler: VueCompiler): Promise<string>;
 }
 
-const SOURCE_NODES = new Set([
-  'ImportDeclaration',
-  'ExportNamedDeclaration',
-  'ExportAllDeclaration',
-  'ImportExpression',
-  'TSImportType',
-]);
 const DECLARATION = /\.d\.[cm]?ts$/;
 const SCRIPT = /\.[cm]?([jt]sx?)$/;
 // Used only when the library has no tsconfig.json of its own.
@@ -65,42 +59,6 @@ function toolBin(job: LibraryTypesJob, {peer, bin}: TypesTool): string {
   const manifest = resolvePeer(job, peer, `${peer}/package.json`);
   const bins = (JSON.parse(readFileSync(manifest, 'utf8')) as {bin: Record<string, string>}).bin;
   return join(dirname(manifest), bins[bin]!);
-}
-
-/** Rewrites each string-literal module specifier that `renamed` maps. */
-function rewriteSpecifiers(
-  text: MagicString,
-  code: string,
-  offset: number,
-  lang: Lang,
-  filename: string,
-  renamed: (specifier: string) => string | undefined
-): void {
-  let program: unknown;
-  try {
-    program = parseAst(code, {lang}, filename);
-  } catch {
-    // tsc reports the syntax error with its own position.
-    return;
-  }
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as {type?: unknown; source?: {type: string; value: unknown; start: number; end: number}};
-    const {source} = node;
-    if (
-      typeof node.type === 'string' &&
-      SOURCE_NODES.has(node.type) &&
-      source?.type === 'Literal' &&
-      typeof source.value === 'string'
-    ) {
-      const next = renamed(source.value);
-      // The whole literal: an escaped specifier's text is not its value.
-      if (next !== undefined) text.overwrite(offset + source.start, offset + source.end, JSON.stringify(next));
-    }
-    for (const child of Object.values(node)) visit(child);
-  };
-  visit(program);
 }
 
 function ucfRenamer(ext: string): (specifier: string) => string | undefined {
@@ -154,6 +112,20 @@ const vueTool: TypesTool = {
     return text.toString();
   },
 };
+
+function svelteTool(job: LibraryTypesJob): TypesTool {
+  return {
+    peer: 'typescript',
+    bin: 'tsc',
+    ucfExt: '.svelte',
+    specifierExt: '.svelte',
+    compilerOptions: {},
+    // The shipped text: its `.d.ts` types what consumers import.
+    async stageUcf(file, source, root) {
+      return (await shippedSource(splitBlocks(source, file), root, job.src, 'svelte')).code;
+    },
+  };
+}
 
 interface Staged {
   shown: Map<string, string>; // staged path → the source path errors show
@@ -242,21 +214,28 @@ async function reachedRoots(bin: string, stage: string, target: Target, shown: M
     .sort();
 }
 
-async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
-  const bin = toolBin(job, tool);
+/** A fresh stage under the library's own `node_modules`, so its packages resolve; deleted after. */
+async function withStage<Result>(job: LibraryTypesJob, run: (stage: string) => Promise<Result>): Promise<Result> {
   const cache = join(job.root, 'node_modules', '.cache', 'multifront');
   await mkdir(cache, {recursive: true});
   const stage = await mkdtemp(join(cache, `types-${job.target}-`));
   try {
+    return await run(stage);
+  } finally {
+    await rm(stage, {recursive: true, force: true});
+  }
+}
+
+async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
+  const bin = toolBin(job, tool);
+  return withStage(job, async (stage) => {
     const {shown, roots, components} = await stageSources(job, tool, stage);
     await writeTsconfig(job, tool, stage, roots);
     await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job.target, shown));
     const {code, output} = await runTool(bin, stage);
     if (code !== 0) throw compileError(job.target, output, shown);
     return components;
-  } finally {
-    await rm(stage, {recursive: true, force: true});
-  }
+  });
 }
 
 /** `Card.vue.d.ts` → `Card.d.ts`, and `./Card.vue` → `./Card.js` in every declaration. */
@@ -289,4 +268,79 @@ export async function emitReactTypes(job: LibraryTypesJob): Promise<void> {
 /** Real `vue-tsc` over `Card.vue` files made from each `.ucf` file's SFC code. */
 export async function emitVueTypes(job: LibraryTypesJob): Promise<void> {
   await finishVueTypes(job.outDir, new Set(await emitTypes(job, vueTool)));
+}
+
+interface Svelte2tsx {
+  svelte2tsx(
+    code: string,
+    options: {filename: string; isTsFile: boolean; mode: 'dts'; noSvelteComponentTyped: boolean}
+  ): {
+    code: string;
+  };
+  emitDts(config: {libRoot: string; declarationDir: string; svelteShimsPath: string; tsconfig: string}): Promise<void>;
+}
+
+// svelte2tsx's own test for a TypeScript component.
+const TS_SCRIPT = /<script\s+[^>]*?lang=('|")(ts|typescript)('|")/;
+
+/** svelte2tsx, a pinned dependency of language-tools, the version that types the editor. */
+function loadSvelte2tsx(job: LibraryTypesJob): {svelte2tsx: Svelte2tsx; shims: string} {
+  const require = createRequire(resolvePeer(job, '@multifront/language-tools'));
+  return {svelte2tsx: require('svelte2tsx') as Svelte2tsx, shims: require.resolve('svelte2tsx/svelte-shims-v4.d.ts')};
+}
+
+/** TypeScript 6 checks side-effect imports: a `.svelte.d.ts` keeps its component's `import "./Card.css"`. */
+async function dropCssImports(outDir: string, components: string[]): Promise<void> {
+  for (const component of components) {
+    const path = join(outDir, `${component}.d.ts`);
+    if (!existsSync(path)) continue;
+    const code = await readFile(path, 'utf8');
+    const text = new MagicString(code);
+    for (const node of parseAst(code, {lang: 'dts'}, path).body) {
+      if (node.type !== 'ImportDeclaration' || node.specifiers.length > 0 || !String(node.source.value).endsWith('.css'))
+        continue;
+      const {start, end} = node as unknown as {start: number; end: number};
+      text.remove(start, code[end] === '\n' ? end + 1 : end);
+    }
+    if (text.hasChanged()) await writeFile(path, text.toString());
+  }
+}
+
+/** svelte2tsx's `emitDts`, as svelte-package runs it, over `Card.svelte` files holding the shipped code. */
+export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
+  const tool = svelteTool(job);
+  const bin = toolBin(job, tool);
+  const {svelte2tsx, shims} = loadSvelte2tsx(job);
+  await withStage(job, async (stage) => {
+    const {shown, roots, components} = await stageSources(job, tool, stage);
+    // tsc lists what a component reaches through svelte2tsx's script of it, written beside it for that run only.
+    const copies = new Map<string, string>();
+    for (const component of components) {
+      const filename = join(stage, component);
+      const code = await readFile(filename, 'utf8');
+      // TypeScript even for a JS component: svelte2tsx writes type declarations into it.
+      const copy = `${component}.ts`;
+      const script = svelte2tsx.svelte2tsx(code, {
+        filename,
+        isTsFile: TS_SCRIPT.test(code),
+        mode: 'dts',
+        noSvelteComponentTyped: true,
+      });
+      await writeFile(join(stage, copy), script.code);
+      copies.set(component, copy);
+      shown.set(copy, shown.get(component)!);
+    }
+    await writeTsconfig(job, tool, stage, [...roots.map((root) => copies.get(root) ?? root), shims]);
+    const scripts = new Map([...copies].map(([component, copy]) => [copy, component]));
+    const reached = (await reachedRoots(bin, stage, job.target, shown)).map((file) => scripts.get(file) ?? file);
+    for (const copy of copies.values()) await rm(join(stage, copy));
+    await writeTsconfig(job, tool, stage, reached);
+    await svelte2tsx.emitDts({
+      libRoot: stage,
+      declarationDir: job.outDir,
+      svelteShimsPath: shims,
+      tsconfig: join(stage, 'tsconfig.json'),
+    });
+    await dropCssImports(job.outDir, components);
+  });
 }

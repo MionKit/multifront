@@ -1,0 +1,12 @@
+<svelte>
+  <script lang="ts">
+    const icon = import('../../imports/Icon.ucf')
+  </script>
+
+  {#await icon then { default: Icon }}
+    <Icon />
+  {/await}
+  {#await import('../../imports/UsesIcon.ucf') then { default: UsesIcon }}
+    <UsesIcon />
+  {/await}
+</svelte>

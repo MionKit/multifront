@@ -143,6 +143,12 @@ export interface BuildContextOptions {
   root: string; // the Vite root: scope ids hash the path relative to it
   compiler: VueCompiler;
   production: boolean;
+  library?: LibraryMode; // a library package build: the svelte build imports real files beside it, not virtual ids
+}
+
+/** A library package mirrors `src`: `src/forms/Field.ucf` ships as `forms/Field.svelte`. */
+export interface LibraryMode {
+  src: string;
 }
 
 /** What the shared kinds fill for the target builds; one per `.ucf` file. */
@@ -158,6 +164,7 @@ export interface BuildContext {
   hasScoped: boolean; // some <style scoped> exists: target builds stamp attributes only then
   styles: CompiledStyle[]; // one per <style> block, in source order
   modules: Record<string, StyleModule>; // '$style' and named modules, by injection name
+  library?: LibraryMode;
 }
 
 export interface StyleModule {

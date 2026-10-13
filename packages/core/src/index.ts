@@ -11,6 +11,7 @@ export type {
   DiagnosticCode,
   GrammarScope,
   Importer,
+  LibraryMode,
   ReactPropsSite,
   ReactRootProps,
   ResolveTargetOptions,
@@ -37,7 +38,7 @@ export {DiagnosticsError, locate} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
 export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTarget} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
-export {SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
+export {LIBRARY_SCOPE_HELPER, SCOPE_HELPER_ID, scopeHelperCode} from './react/scopeHelper.ts';
 export {USE_CLIENT} from './react/reactApis.ts';
 export {propsTypeInserts} from './react/scope.ts';
 export {needsUseClient} from './react/useClient.ts';

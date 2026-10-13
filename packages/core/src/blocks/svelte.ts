@@ -8,6 +8,7 @@ import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import {topLevelTags} from '../scan.ts';
 import {isNode, patternNames, walk} from '../svelte/ast.ts';
 import {ELEMENTS, forwardScope} from '../svelte/forward.ts';
+import {libraryImports, shipUcfImports} from '../svelte/library.ts';
 import type {
   Block,
   BlockKind,
@@ -254,12 +255,16 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   if (ctx.hasScoped) stampScope(text, root, block, ctx);
   const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode);
 
+  const {library} = ctx;
+  if (library) shipUcfImports(text, root, block);
   // JSON quoting keeps any path a valid string.
-  const imports = [
-    ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
-    ...[...locals].map(([{id}, local]) => `import ${local} from ${JSON.stringify(id)};`),
-    ...(helpers.length > 0 ? [`import {${helpers.join(', ')}} from ${JSON.stringify(SCOPE_HELPER_ID)};`] : []),
-  ];
+  const imports = library
+    ? libraryImports({...ctx, library}, locals, helpers)
+    : [
+        ...ctx.styles.map(({id}) => `import ${JSON.stringify(id)};`),
+        ...[...locals].map(([{id}, local]) => `import ${local} from ${JSON.stringify(id)};`),
+        ...(helpers.length > 0 ? [`import {${helpers.join(', ')}} from ${JSON.stringify(SCOPE_HELPER_ID)};`] : []),
+      ];
   // Module script imports also reach the instance script and markup; not the reverse.
   const script = root.module ?? root.instance;
   const added: string[] = [];
@@ -274,7 +279,9 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
     const end = content.body.at(-1)?.end ?? content.start;
     text.appendLeft(block.contentStart + end, lines.map((line) => `\n${line}`).join(''));
   } else added.push(...lines);
-  if (added.length > 0) text.prependRight(block.contentStart, `<script>\n${added.join('\n')}\n</script>`);
+  // svelte2tsx types a script-less JS component with a `SvelteComponent` it never imports: a package's `.d.ts` breaks.
+  const tag = library ? '<script lang="ts">' : '<script>';
+  if (added.length > 0) text.prependRight(block.contentStart, `${tag}\n${added.join('\n')}\n</script>`);
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }

@@ -1,7 +1,7 @@
 import {existsSync} from 'node:fs';
 import {readFile, readdir} from 'node:fs/promises';
 import {join, relative, resolve} from 'node:path';
-import {TARGETS, splitBlocks} from '@multifront/core';
+import {TARGETS, isTarget, splitBlocks} from '@multifront/core';
 import type {SplitResult, Target} from '@multifront/core';
 import {build, mergeConfig, normalizePath} from 'vite';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
@@ -10,6 +10,7 @@ import type {LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} fr
 import {libraryCss} from './css.ts';
 import {fileOf, filesIn, insideDir, outputName, shownFile} from './names.ts';
 import {writePackageJson} from './packageJson.ts';
+import {librarySource} from './source.ts';
 import {libraryTargets} from './targets.ts';
 import {libraryUseClient} from './useClient.ts';
 
@@ -26,6 +27,7 @@ interface TargetJob extends LibraryPackageJob, Pick<LibraryResult, 'target' | 's
   row: LibraryTarget;
   src: string;
   entries: Record<string, string>;
+  sources: Component[]; // the `.ucf` files with this target's block
 }
 
 // Overlapping calls share one swap: first in saves the caller's value, last out restores it.
@@ -161,6 +163,8 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
       // After `libraryCss`: its CSS import must come below the directive.
       row.useClient && libraryUseClient(),
       writtenModules(src, modules),
+      // After `libraryCss`, which orders `styles.css` by the component chunks this drops.
+      row.sourceExt !== undefined && librarySource({target, root, src, ext: row.sourceExt, components: job.sources}),
     ],
     build: {
       outDir,
@@ -179,7 +183,7 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   return {target, outDir, packageName: job.packageName, files: await filesIn(outDir), skipped: job.skipped};
 }
 
-/** One real `vite build` per framework: `<outDir>/<framework>/` gets one ES module per component and plain module. */
+/** One real `vite build` per framework: `<outDir>/<framework>/` gets one file per component (Svelte: uncompiled) and plain module. */
 export async function buildLibrary(options: LibraryOptions = {}): Promise<LibraryResult[]> {
   const root = normalizePath(resolve(options.root ?? process.cwd()));
   const src = normalizePath(resolve(root, options.src ?? 'src'));
@@ -189,15 +193,15 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
   const frameworks = options.frameworks
     ? [...new Set(options.frameworks)]
-    : TARGETS.filter((target) => target in libraryTargets && withBlock(target).length > 0);
-  if (frameworks.length === 0) {
-    throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a block for a framework with a library build`);
-  }
+    : TARGETS.filter((target) => withBlock(target).length > 0);
+  if (frameworks.length === 0) throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a framework block`);
+  // A JS config reaches here untyped.
+  const unknown = frameworks.find((target) => !isTarget(target));
+  if (unknown !== undefined) throw new Error(`buildLibrary: unknown framework '${unknown}'; use ${TARGETS.join(', ')}`);
   const manifest = await libraryManifest(root);
   const rootName = typeof manifest.name === 'string' ? manifest.name : undefined;
   const jobs = frameworks.map((target): TargetJob => {
-    const row = (libraryTargets as Partial<Record<Target, LibraryTarget>>)[target];
-    if (!row) throw new Error(`buildLibrary: the '${target}' framework has no library build`);
+    const row: LibraryTarget = libraryTargets[target];
     const withTargetBlock = withBlock(target);
     if (withTargetBlock.length === 0) throw new Error(`buildLibrary: no .ucf file in ${src} has a <${target}> block`);
     const packageName = options.packages?.[target]?.name ?? (rootName && `${rootName}-${target}`);
@@ -217,6 +221,9 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
       manifest,
       index: index && outputName(index, src),
       components: withTargetBlock.map((component) => outputName(`${src}/${component.relative}`, src)),
+      componentExt: row.sourceExt ?? '.js',
+      conditions: row.conditions ?? ['default'],
+      sources: withTargetBlock,
     };
   });
   return asProduction(async () => {

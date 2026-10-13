@@ -4,7 +4,7 @@ import type {BuildContext, BuildContextOptions, SplitResult} from './types.ts';
 
 /** Runs no checks: hosts call `checkBlocks` first. */
 export async function createBuildContext(split: SplitResult, options: BuildContextOptions): Promise<BuildContext> {
-  const {root, compiler, production} = options;
+  const {root, compiler, production, library} = options;
   const {filename, source} = split;
   const relativePath = rootRelativePath(root, filename);
   const ctx: BuildContext = {
@@ -19,6 +19,7 @@ export async function createBuildContext(split: SplitResult, options: BuildConte
     hasScoped: false,
     styles: [],
     modules: {},
+    ...(library && {library}),
   };
   // Sequential, in registry order: a later shared kind may read what an earlier one filled.
   for (const kind of BLOCK_KINDS) {

@@ -43,7 +43,7 @@ function typedEntry(name: string) {
 
 describe('packLibrary', () => {
   it('packs one tarball per built framework', () => {
-    expect(Object.keys(tarballs).sort()).toEqual([...TARGETS]);
+    expect(Object.keys(tarballs).sort()).toEqual(['react', 'svelte', 'vue']);
   });
 
   it.each(TARGETS)('%s: the tarball holds every written file, and no .ucf or node_modules', async (target) => {

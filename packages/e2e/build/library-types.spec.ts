@@ -243,6 +243,8 @@ describe('buildLibrary(): the type tools come from the library', () => {
     ['typescript', 'react'],
     ['@multifront/language-tools', 'react'],
     ['vue-tsc', 'vue'],
+    ['typescript', 'svelte'],
+    ['@multifront/language-tools', 'svelte'],
   ] as const)('names %s when the library has not installed it', async (peer, framework) => {
     const root = await copyLibraryOutside([peer]);
     try {
@@ -254,7 +256,7 @@ describe('buildLibrary(): the type tools come from the library', () => {
     }
   });
 
-  it('builds both packages with dts: false and none of them installed, and with all of them', async () => {
+  it('builds every package with dts: false and none of them installed, and with all of them', async () => {
     const without = await copyLibraryOutside(OPTIONAL_PEERS);
     const all = await copyLibraryOutside([]);
     try {

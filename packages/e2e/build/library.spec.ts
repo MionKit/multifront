@@ -4,6 +4,7 @@ import {dirname, join, resolve} from 'node:path';
 import {SourceMapConsumer} from 'source-map-js';
 import type {RawSourceMap} from 'source-map-js';
 import {buildLibrary} from '@multifront/vite';
+import type {Target} from '@multifront/core';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR} from '../fixtures/index.ts';
@@ -57,10 +58,11 @@ function jsFiles(target: 'react' | 'vue'): string[] {
 }
 
 describe('buildLibrary(): one JS file per component, per target', () => {
-  it('builds vue then react, one file per component with that block, and lists the files it skipped', () => {
+  it('builds vue, react then svelte, one file per component with that block, and lists the files it skipped', () => {
     expect(library.results.map(({target, packageName}) => [target, packageName])).toEqual([
       ['vue', '@mf-fixture/ui-vue'],
       ['react', '@mf-fixture/ui-react'],
+      ['svelte', '@mf-fixture/ui-svelte'],
     ]);
     for (const target of ['vue', 'react'] as const) {
       expect(output(target).outDir).toBe(join(library.outDir, target).replaceAll('\\', '/'));
@@ -229,7 +231,7 @@ describe('buildLibrary() errors', () => {
       await expect(build).rejects.toThrow('a library package has peer dependencies only');
       expect(process.env.NODE_ENV).toBe('test');
       const peers = {'left-pad': '^1.3.0'};
-      const built = await buildFixtureLibrary(root, {packages: {vue: {peers}, react: {peers}}});
+      const built = await buildFixtureLibrary(root, {packages: {vue: {peers}, react: {peers}, svelte: {peers}}});
       try {
         for (const {outDir} of built.results) {
           expect(specifiersOf('cx.js', readFileSync(join(outDir, 'utils', 'cx.js'), 'utf8'))).toEqual(['left-pad']);
@@ -259,11 +261,11 @@ describe('buildLibrary() errors', () => {
     });
   });
 
-  it('fails when no file has a block for a framework with a library build', async () => {
-    const svelteOnly = '<svelte>\n  <p>svelte only</p>\n</svelte>\n';
-    await withEditedLibrary([{file: 'svelte-only/SvelteOnly.ucf', content: svelteOnly}], async (root) => {
-      await expect(buildFixtureLibrary(root, {src: 'svelte-only', index: false})).rejects.toThrow(
-        /nothing to build, no \.ucf file in .*\/svelte-only has a block for a framework with a library build/
+  it('fails when no file has a framework block', async () => {
+    const stylesOnly = '<style>\n.theme {\n  color: red;\n}\n</style>\n';
+    await withEditedLibrary([{file: 'styles-only/Theme.ucf', content: stylesOnly}], async (root) => {
+      await expect(buildFixtureLibrary(root, {src: 'styles-only', index: false})).rejects.toThrow(
+        /nothing to build, no \.ucf file in .*\/styles-only has a framework block/
       );
     });
   });
@@ -303,10 +305,10 @@ describe('buildLibrary() errors', () => {
     });
   });
 
-  it('fails on a framework with no library target', async () => {
+  it('fails on a framework name it does not know, as a JS config can pass', async () => {
     await withEditedLibrary([], async (root) => {
-      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-        "the 'svelte' framework has no library build"
+      await expect(buildFixtureLibrary(root, {frameworks: ['angular' as Target]})).rejects.toThrow(
+        "buildLibrary: unknown framework 'angular'; use vue, react, svelte"
       );
     });
   });
