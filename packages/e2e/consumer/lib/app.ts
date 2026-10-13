@@ -279,7 +279,7 @@ export async function keyStyles(page: Page): Promise<typeof KEY_STYLES> {
   return read;
 }
 
-/** A server-rendered app sets `body[data-hydrated]` once hydrated; `more` checks the hydrated page further. */
+/** Server-rendered apps set `body[data-hydrated]` once hydrated; `more` checks the page further. */
 export async function expectHydrates(
   url: string,
   counterSelector: string,
