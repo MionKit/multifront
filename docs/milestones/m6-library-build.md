@@ -307,3 +307,18 @@ It passes only if JS per component, the uncompiled Svelte files, CSS files, `"us
 - `"use server"` and server actions.
 - Nuxt, Remix and other consumer frameworks.
 - `v-bind()` in CSS for React.
+
+## Manual QA
+
+Run from the repo root after `pnpm install`. Each check: what to run, what to expect, and its result on the QA run.
+
+1. `pnpm devx check`: format, lint, agent docs, every test (consumer area included), build all pass, no test skipped. **Passed** (93 files, 3616 tests).
+2. `cp -r packages/e2e/fixtures/library packages/e2e/.tmp/qa-lib && rm -rf packages/e2e/.tmp/qa-lib/node_modules`, then in that folder `node --conditions=source ../../../vite/bin/mf-build.js`: exit 0 and three lines, `vue: 66 files in dist/vue (@mf-fixture/ui-vue)`, `react: 49 files in dist/react (@mf-fixture/ui-react), skipped VueOnly.ucf`, `svelte: 31 files in dist/svelte (@mf-fixture/ui-svelte), skipped Badge.ucf, VueOnly.ucf`. **Passed**.
+3. In that `dist/`: `head -2 react/Counter.js` gives `"use client";` then `import "./Counter.css";`; `head -1 react/Card.js` gives `import "./Card.css";`; no file name holds `.ucf`. **Passed**.
+4. `cat dist/svelte/Card.svelte`: uncompiled Svelte, `import "./Card.css"`, `import Icon from "./Icon.svelte"`, the scope helper from `./_ucf/scopeAttrs.js`, `data-v-<id>` on its elements. **Passed**.
+5. `cat dist/react/Button.d.ts`: the props type gains `className?`, `style?` and `ref?: Ref<ComponentRef<'button'>>`. **Passed**.
+6. Same folder: `mf-build.js --framework vue --no-dts --out-dir out` builds Vue only with no `.d.ts`; `--framework angular` and `--bogus` exit 1 with `mf-build: ...` on stderr. **Passed**.
+7. `pnpm pack` in each `dist/<framework>`, then `publint --strict` and `attw --profile esm-only --exclude-entrypoints styles.css --no-definitely-typed` on each tarball (Svelte adds `--ignore-rules internal-resolution-error`): all pass. **Passed**.
+8. `pnpm devx test --reporter verbose packages/e2e/consumer/exit.spec.ts`: the exit test, mf-build to four fresh apps (Next.js, Vite React, Vite Vue, SvelteKit), every check passes. **Passed** (9 tests).
+9. `MULTIFRONT_KEEP_CONSUMER_APPS=1 pnpm devx test packages/e2e/consumer/exit.spec.ts`, then in each kept app serve it again (`pnpm exec next start`, `pnpm exec vite preview`, `PORT=3000 node build`) and open it: Card, Counter and Button look the same in all four apps, Counter counts. **Needs a person** (judging by eye).
+10. Open `packages/e2e/fixtures/apps/react-root-props/src/App.tsx` in VS Code with the multifront extension: hovering `Button` shows `className`, `style` and a `ref` typed `HTMLButtonElement`; a `ref` for a `<div>` is underlined. **Needs a person** (editor).
