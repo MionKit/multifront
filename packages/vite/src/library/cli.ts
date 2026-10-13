@@ -13,7 +13,7 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-// Native: Node resolves the config's own imports, so `--conditions=source` reaches them; the bundler resolves with `node` only.
+// `native`: Node resolves the config's imports, honouring `--conditions=source`; the bundler resolves with `node` only.
 async function loadConfig(root: string): Promise<LibraryOptions> {
   const file = CONFIG_FILES.map((name) => join(root, name)).find((path) => existsSync(path));
   if (file === undefined) return {};
@@ -31,7 +31,6 @@ function summary({target, files, outDir, packageName, skipped}: LibraryResult): 
   return skipped.length > 0 ? `${line}, skipped ${skipped.join(', ')}` : line;
 }
 
-/** `mf-build [--root <dir>] [--framework <name>]… [--out-dir <dir>] [--no-dts]`; resolves with the exit code. */
 export async function runMfBuild(args: string[]): Promise<number> {
   try {
     const {values} = parseArgs({

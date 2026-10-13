@@ -147,10 +147,8 @@ interface CliRun {
   stderr: string;
 }
 
-/**
- * The real `mf-build` bin, as `pnpm exec mf-build` runs it: its JS entry, not the `.bin` shim (Windows shims are `.cmd`
- * files that need a shell). `source` makes it run `@multifront/vite`'s `src/`; without it, the built `dist/`.
- */
+// Runs the bin's JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
+// `source` runs `@multifront/vite`'s `src/`, else its built `dist/`.
 export async function runMfBuild(cwd: string, args: string[] = [], {source = true} = {}): Promise<CliRun> {
   const dir = join(FIXTURES_DIR, '..', 'node_modules', '@multifront', 'vite');
   const {bin} = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {bin: Record<string, string>};

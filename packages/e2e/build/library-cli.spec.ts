@@ -81,7 +81,6 @@ export default defineLibrary({
     });
   });
 
-  // `multifront.config.ts` is deleted unless a case writes one.
   it.each([
     {name: '.ts before .js', files: {ts: ANGULAR_CONFIG, js: 'export default 5;\n'}, error: UNKNOWN_ANGULAR},
     {name: '.js before .mjs', files: {js: ANGULAR_CONFIG, mjs: 'export default 5;\n'}, error: UNKNOWN_ANGULAR},
