@@ -44,5 +44,6 @@ export {propsTypeInserts} from './react/scope.ts';
 export {needsUseClient} from './react/useClient.ts';
 export {rootRelativePath, scopeId} from './scopeId.ts';
 export {splitBlocks} from './split.ts';
+export {shipUcfImports} from './svelte/library.ts';
 export {compileStyles, moduleClassName, moduleName, stylePreprocessOptions} from './styles.ts';
 export {TARGETS, isTarget} from './targets.ts';

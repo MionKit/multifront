@@ -3,13 +3,13 @@ import type MagicString from 'magic-string';
 import type {AST} from 'svelte/compiler';
 import {importPath} from '../imports/resolveTarget.ts';
 import {LIBRARY_SCOPE_HELPER} from '../react/scopeHelper.ts';
-import type {Block, BuildContext, LibraryMode, StyleModule, SvelteNode} from '../types.ts';
+import type {BuildContext, LibraryMode, StyleModule, SvelteNode} from '../types.ts';
 import {walk} from './ast.ts';
 
 const SOURCE_NODES: ReadonlySet<string> = new Set(['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration']);
 
-/** Each relative `.ucf` specifier of the block, `import()` in markup included, becomes the shipped `.svelte` file. */
-export function shipUcfImports(text: MagicString, root: AST.Root, block: Block): void {
+/** Each relative `.ucf` specifier, `import()` in markup included, becomes the shipped `.svelte` file; `offset` places the parsed code in `text`. */
+export function shipUcfImports(text: MagicString, root: AST.Root, offset: number): void {
   walk([root.module, root.instance, root.fragment], (node) => {
     const source = (SOURCE_NODES.has(node.type) || node.type === 'ImportExpression' ? node.source : undefined) as
       | SvelteNode
@@ -18,7 +18,7 @@ export function shipUcfImports(text: MagicString, root: AST.Root, block: Block):
     if (typeof value !== 'string' || !/^\.\.?\//.test(value) || !value.endsWith('.ucf')) return;
     // The whole literal: an escaped specifier's text is not its value.
     const shipped = JSON.stringify(`${value.slice(0, -'.ucf'.length)}.svelte`);
-    text.overwrite(block.contentStart + source!.start, block.contentStart + source!.end, shipped);
+    text.overwrite(offset + source!.start, offset + source!.end, shipped);
   });
 }
 
