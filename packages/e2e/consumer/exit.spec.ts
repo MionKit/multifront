@@ -2,13 +2,10 @@
 import {readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import type {Target} from '@multifront/core';
-import type {Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {consoleProblems} from '../browser/lib/chromium.ts';
-import {styles} from '../browser/lib/parity.ts';
 import {copyLibrary, removeLibrary} from '../fixtures/index.ts';
 import {runMfBuild} from '../build/lib/library.ts';
-import {createConsumerApp, freePort, openPage, runInApp, serveApp} from './lib/app.ts';
+import {KEY_STYLES, createConsumerApp, expectHydrates, freePort, keyStyles, runInApp, serveApp} from './lib/app.ts';
 import type {Command, ConsumerApp, ServedAppOptions} from './lib/app.ts';
 import {attw, packLibrary, publint} from './lib/pack.ts';
 
@@ -61,11 +58,8 @@ const APPS: ExitApp[] = [
   },
 ];
 
-const PARITY = ['padding', 'color', 'border-radius', 'font-size'];
-
 interface Rendered {
-  card: Record<string, string>;
-  title: Record<string, string>;
+  styles: typeof KEY_STYLES;
   scope: string[];
 }
 
@@ -95,14 +89,6 @@ afterAll(async () => {
   await Promise.all([...installed.values()].map((app) => app.remove()));
   if (root) await removeLibrary(root);
 });
-
-async function renderedOn(page: Page): Promise<Rendered> {
-  const card = page.locator('article.card');
-  const scope = await card.evaluate((element) =>
-    element.getAttributeNames().filter((name: string) => name.startsWith('data-v-'))
-  );
-  return {card: await styles(card, PARITY), title: await styles(card.locator('h2'), PARITY), scope};
-}
 
 describe('M6 exit: mf-build, packed, in four fresh apps', () => {
   it('builds every framework with the real mf-build bin', () => {
@@ -136,20 +122,18 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
       const port = await freePort();
       const server = await serveApp(app, serve(port), port);
       try {
-        const {page, messages, close} = await openPage(server.url);
-        try {
-          await page.locator('article.card').waitFor();
-          await page.locator('button', {hasText: 'Go'}).waitFor();
-          if (hydrates) await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
-          const counter = page.locator('button.counter');
-          expect(await counter.textContent()).toBe('Count 0');
-          await counter.click();
-          await expect.poll(() => counter.textContent()).toBe('Count 1');
-          rendered.set(template, await renderedOn(page));
-          expect(consoleProblems(messages)).toEqual([]);
-        } finally {
-          await close();
-        }
+        await expectHydrates(
+          server.url,
+          'button.counter',
+          async (page) => {
+            await page.locator('button', {hasText: 'Go'}).waitFor();
+            const scope = await page
+              .locator('article.card')
+              .evaluate((element) => element.getAttributeNames().filter((name: string) => name.startsWith('data-v-')));
+            rendered.set(template, {styles: await keyStyles(page), scope});
+          },
+          {hydrates}
+        );
       } finally {
         await server.close();
       }
@@ -157,10 +141,11 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
     300_000
   );
 
-  it('gives Card the same computed styles and the same scope attribute in all four apps', () => {
+  it('gives Card the library styles and the same scope attribute in all four apps', () => {
     expect([...rendered.keys()].sort()).toEqual(APPS.map(({template}) => template).sort());
-    const [first, ...rest] = [...rendered.entries()];
-    for (const [template, seen] of rest) expect({template, ...seen}).toEqual({template, ...first![1]});
-    expect(first![1].scope).toHaveLength(1);
+    const first = rendered.get(APPS[0]!.template)!;
+    expect(first.scope).toHaveLength(1);
+    for (const [template, {styles, scope}] of rendered)
+      expect({template, styles, scope}).toEqual({template, styles: KEY_STYLES, scope: first.scope});
   });
 });

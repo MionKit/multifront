@@ -279,12 +279,17 @@ export async function keyStyles(page: Page): Promise<typeof KEY_STYLES> {
   return read;
 }
 
-/** Each app sets `body[data-hydrated]` once hydrated; `more` checks the hydrated page further. */
-export async function expectHydrates(url: string, counterSelector: string, more?: (page: Page) => Promise<void>): Promise<void> {
+/** A server-rendered app sets `body[data-hydrated]` once hydrated; `more` checks the hydrated page further. */
+export async function expectHydrates(
+  url: string,
+  counterSelector: string,
+  more?: (page: Page) => Promise<void>,
+  {hydrates = true}: {hydrates?: boolean} = {}
+): Promise<void> {
   const {page, messages, close} = await openPage(url);
   try {
     await expectStyledCard(page);
-    await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
+    if (hydrates) await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
     const counter = page.locator(counterSelector);
     expect(await counter.textContent()).toBe('Count 0');
     await counter.click();
