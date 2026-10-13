@@ -288,6 +288,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
         expect(card).toContain('<script>');
         expect(card).not.toContain('lang="ts"');
         expect(card).toContain('let { title, children, ...__ucfRest } = $props();');
+        expect(svelteSpecifiers('Card.svelte', card)).toEqual(expect.arrayContaining(['./Icon.svelte', './utils/cx.js']));
         expectCompiles('Card.svelte', card);
         expect(readOutput(result, 'Card.svelte.d.ts')).toMatch(/title: string/);
       } finally {
