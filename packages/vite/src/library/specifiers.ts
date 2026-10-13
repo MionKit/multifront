@@ -53,7 +53,6 @@ export function ucfRenamer(ext: string): (specifier: string) => string | undefin
       : undefined;
 }
 
-/** `code` with each relative `.ucf` specifier ending in `ext` instead. */
 export function rewriteScript(code: string, lang: Lang, filename: string, ext: string): string {
   if (!code.includes('.ucf')) return code;
   const text = new MagicString(code);

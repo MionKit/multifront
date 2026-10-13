@@ -8,7 +8,7 @@ import {walk} from './ast.ts';
 
 const SOURCE_NODES: ReadonlySet<string> = new Set(['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration']);
 
-/** Each relative `.ucf` specifier, `import()` in markup included, becomes the shipped `.svelte` file; `offset` places the parsed code in `text`. */
+/** `offset`: where the parsed code starts in `text`; `import()` in markup is rewritten too. */
 export function shipUcfImports(text: MagicString, root: AST.Root, offset: number): void {
   walk([root.module, root.instance, root.fragment], (node) => {
     const source = (SOURCE_NODES.has(node.type) || node.type === 'ImportExpression' ? node.source : undefined) as
