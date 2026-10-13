@@ -4,7 +4,7 @@ import {writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {basename, dirname, join, resolve} from 'node:path';
 import {promisify} from 'node:util';
-import {TARGETS, scopeId} from '@multifront/core';
+import {TARGETS} from '@multifront/core';
 import type {Target} from '@multifront/core';
 import {buildLibrary} from '@multifront/vite';
 import {LIBRARY_DIR} from '../../fixtures/index.ts';
@@ -52,11 +52,6 @@ export async function fixtureTarballs(
     await library.remove();
     throw err;
   }
-}
-
-/** The `data-v-<id>` attribute every target stamps for a library fixture file (path relative to its `src`). */
-export function scopeAttribute(file: string): string {
-  return `data-v-${scopeId(`src/${file}`, readFileSync(join(LIBRARY_DIR, 'src', file), 'utf8'), true)}`;
 }
 
 export async function tarFiles(tarball: string): Promise<string[]> {
