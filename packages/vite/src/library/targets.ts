@@ -1,6 +1,6 @@
 import type {Target} from '@multifront/core';
 import type {LibraryTarget} from '../types.ts';
-import {emitReactTypes, emitVueTypes} from './dts.ts';
+import {emitReactTypes, emitSvelteTypes, emitVueTypes} from './dts.ts';
 
 // Imported on use: the framework plugins are optional peers of this package.
 export const libraryTargets = {
@@ -15,4 +15,12 @@ export const libraryTargets = {
     peers: {vue: '^3.5.0'},
     emitTypes: emitVueTypes,
   },
-} satisfies Partial<Record<Target, LibraryTarget>>;
+  // svelte-package's layout: uncompiled `.svelte` files, the consumer's Svelte compiles them.
+  svelte: {
+    plugin: async () => (await import('@sveltejs/vite-plugin-svelte')).svelte(),
+    peers: {svelte: '^5.0.0'},
+    conditions: ['svelte'],
+    sourceExt: '.svelte',
+    emitTypes: emitSvelteTypes,
+  },
+} satisfies Record<Target, LibraryTarget>;

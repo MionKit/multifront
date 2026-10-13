@@ -2,6 +2,9 @@
 
 export const SCOPE_HELPER_ID = 'virtual:multifront/scope-attrs';
 
+/** Where a Svelte library package ships that module, from its root. */
+export const LIBRARY_SCOPE_HELPER = '_ucf/scopeAttrs.js';
+
 export const SCOPE_ATTRS = '__ucfScopeAttrs';
 
 export const WARN_FRAGMENT = '__ucfWarnFragment';

@@ -53,7 +53,9 @@ export interface LibraryOptions {
 export interface LibraryTarget {
   plugin(): Promise<PluginOption>; // the framework's Vite plugin
   peers: Record<string, string>; // default peer ranges; also the build's externals
+  conditions?: string[]; // export conditions naming each file, after `types`; default ['default']
   useClient?: boolean; // `"use client"` atop the output files that need it (React Server Components)
+  sourceExt?: string; // components ship uncompiled, as `Card${sourceExt}`; the build still compiles them for its checks
   emitTypes(job: LibraryTypesJob): Promise<void>; // writes the `.d.ts` files beside the JS build's output
 }
 
@@ -64,13 +66,15 @@ export interface LibraryTypesJob extends Pick<LibraryResult, 'target' | 'outDir'
   modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
 }
 
-/** What `writePackageJson()` gets; posix paths, output names without `.js`. */
+/** What `writePackageJson()` gets; posix paths, output names without their extension. */
 export interface LibraryPackageJob extends Pick<LibraryResult, 'outDir' | 'packageName'> {
   root: string; // library folder: its README.md and LICENSE
   manifest: Record<string, unknown>; // the library's package.json, {} when it has none
   peers: Record<string, string>;
   index?: string; // 'index'
   components: string[]; // 'Card', 'forms/Field'
+  componentExt: string; // '.js', or the row's `sourceExt`
+  conditions: string[];
 }
 
 /** `files` are relative to `outDir`, `skipped` to `src`. */
