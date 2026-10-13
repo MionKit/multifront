@@ -8,6 +8,11 @@ import {buildLibrary} from './build.ts';
 
 const CONFIG_FILES = ['multifront.config.ts', 'multifront.config.js', 'multifront.config.mjs'];
 
+// A config may throw anything; Vite rethrows it unchanged.
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 // Native: Node resolves the config's own imports, so `--conditions=source` reaches them; the bundler resolves with `node` only.
 async function loadConfig(root: string): Promise<LibraryOptions> {
   const file = CONFIG_FILES.map((name) => join(root, name)).find((path) => existsSync(path));
@@ -16,7 +21,7 @@ async function loadConfig(root: string): Promise<LibraryOptions> {
     const loaded = await loadConfigFromFile({command: 'build', mode: 'production'}, file, root, 'silent', undefined, 'native');
     return (loaded?.config ?? {}) as LibraryOptions;
   } catch (err) {
-    throw new Error(`cannot load ${file}: ${(err as Error).message}`, {cause: err});
+    throw new Error(`cannot load ${file}: ${messageOf(err)}`, {cause: err});
   }
 }
 
@@ -46,7 +51,7 @@ export async function runMfBuild(args: string[]): Promise<number> {
     for (const result of await buildLibrary(options)) process.stdout.write(`${summary(result)}\n`);
     return 0;
   } catch (err) {
-    process.stderr.write(`mf-build: ${(err as Error).message}\n`);
+    process.stderr.write(`mf-build: ${messageOf(err)}\n`);
     return 1;
   }
 }

@@ -117,7 +117,7 @@ Spike 1 of [plan.md](../plan.md) "Prototype first". The code is thrown away; onl
   - invalid fixtures still give codes for the blocks `splitBlocks` kept (for example `invalid/DuplicateReact.ucf` keeps its `<style>` code);
   - the halves check: `BLOCK_KINDS` and `EDITOR_BLOCK_KINDS` list the same tags in the same order. It fails if a tag has only one half;
   - a `.ts` file gets no code;
-  - `packages/e2e/editor/builtTypes.spec.ts`: after the real `tsc --build` of the package, a consumer without the `source` condition (`fixtures/apps/language-tools-dist/`) typechecks against `dist/` and sees the plugin's `typescript` field.
+  - `packages/e2e/build/built-packages.spec.ts`: after the real `tsc --build` of the package, a consumer without the `source` condition (`fixtures/apps/language-tools-dist/`) typechecks against `dist/` and sees the plugin's `typescript` field.
 - Status: done
 
 ### 2.5 Typed `$style` and the `Card.ucf.react.tsx` types script
