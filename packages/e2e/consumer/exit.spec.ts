@@ -77,19 +77,25 @@ beforeAll(() => {
     built = await runMfBuild(root);
     if (built.code !== 0) throw new Error(`mf-build failed:\n${built.stderr}`);
     tarballs = await packLibrary(join(root, 'dist'));
-    await Promise.all(
-      APPS.map(async ({template, target}) => installed.set(template, await createConsumerApp(template, [tarballs[target]!])))
+    // allSettled: one failed install must not leave the others landing after afterAll has run.
+    const installs = await Promise.allSettled(
+      APPS.map(async ({template, target}) => {
+        const tarball = tarballs[target];
+        if (!tarball) throw new Error(`no ${target} tarball among ${JSON.stringify(tarballs)}`);
+        installed.set(template, await createConsumerApp(template, [tarball]));
+      })
     );
+    for (const install of installs) if (install.status === 'rejected') throw install.reason;
   })();
   return setup;
 }, 900_000);
 
 afterAll(async () => {
-  // A timed-out setup keeps running: what it creates late must be removed too.
+  // A timed-out setup keeps running: wait for it (hence setup's timeout), then remove what it created late.
   await setup?.catch(() => {});
   await Promise.all([...installed.values()].map((app) => app.remove()));
   if (root) await removeLibrary(root);
-});
+}, 900_000);
 
 describe('M6 exit: mf-build, packed, in four fresh apps', () => {
   it('builds every framework with the real mf-build bin', () => {
