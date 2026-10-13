@@ -76,13 +76,14 @@ bullet).
 
 ## Manual QA
 
-Run on 2026-10-13 against `origin/main` at `f3d2bcb`. "Library copy" = `packages/e2e/fixtures/library` copied to
+Run on 2026-10-13: items 2 to 7 and 9 against `origin/main` at `f3d2bcb`, items 1 and 8 again on the fix of #122
+(QA branch at `f5dba4a`, local run). "Library copy" = `packages/e2e/fixtures/library` copied to
 `packages/e2e/.tmp/qa-lib`, with `src/Child.svelte` (`<script lang="ts">`, imports `./Icon.ucf` and
 `./count.svelte.js`, `<style lang="scss">`), `src/count.svelte.ts` (an interface, `$state`, a function), both exported
 from `src/index.ts`, and a `svelte.config.js` with `vitePreprocess()`.
 
 1. `pnpm devx test packages/e2e/build/svelte-library.spec.ts`: every test passes, "fails on a .svelte.ts module whose
-   declaration is written where a component types ship" included. **Ran: pass, after the fix of #122.**
+   declaration is written where a component types ship" included. **Ran: pass (`f5dba4a`).**
 2. `pnpm devx test packages/e2e/consumer/sveltekit-plain-svelte.spec.ts`: 6 tests pass (mf-build, pack, fresh SvelteKit
    app, svelte-check, vite build, node server, Chromium). **Ran: pass.**
 3. In the library copy, `node --conditions=source ../../node_modules/@multifront/vite/bin/mf-build.js --framework
@@ -101,7 +102,8 @@ from `src/index.ts`, and a `svelte.config.js` with `vitePreprocess()`.
    two clicks on it show `count` 2 and `double` 4, no console message; the built CSS holds `.child.svelte-…` with the
    SCSS color. **Ran: pass.**
 8. Add `src/Icon.svelte.ts` beside `src/Icon.ucf`, export from it in the index, build: fails with `buildLibrary:
-   src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts`. **Ran: pass, after the fix of #122.**
+   src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts`. With `--no-dts`: builds, ships
+   `Icon.svelte` and `Icon.svelte.js`. **Ran: pass (`f5dba4a`).**
 9. CI `svelte-floor` job on `main` (`peer-floor: @sveltejs/vite-plugin-svelte 7.1.1`): the plain-file and preprocess
    tests of `build/svelte-library.spec.ts` ran and passed. **Ran: pass (CI log, run 38445935187).**
 10. Open the installed `node_modules/@mf-fixture/ui-svelte/Child.svelte` and a page using it in VS Code with the Svelte
