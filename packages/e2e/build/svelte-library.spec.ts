@@ -329,6 +329,20 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
+  // Icon.ucf's types and Icon.svelte.ts's types are both Icon.svelte.d.ts: one of them would be lost.
+  it('fails on a .svelte.ts module whose declaration is written where a component types ship', async () => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: 'src/Icon.svelte.ts', content: 'export const iconState: {size: number} = $state({size: 16});\n'},
+      {file: 'src/index.ts', content: `${index}export {iconState} from './Icon.svelte.js';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
+        'buildLibrary: src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts'
+      );
+    });
+  });
+
   it('fails on a bare import a consumer cannot resolve, like an alias into src, in a <svelte> block', async () => {
     const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import { cx as join } from '~/utils/cx.js'\n`);
     await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
