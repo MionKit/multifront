@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import {posix} from 'node:path';
 import MagicString from 'magic-string';
 import {
@@ -8,14 +9,17 @@ import {
   loadSvelteCompiler,
   loadVueCompiler,
   scopeHelperCode,
+  shipUcfImports,
 } from '@multifront/core';
-import type {SplitResult, Target, VirtualFile} from '@multifront/core';
+import type {SplitResult, SvelteCompiler, Target, VirtualFile} from '@multifront/core';
+import type {Preprocessor, PreprocessorGroup} from 'svelte/compiler';
+import {parseAst, transformWithOxc} from 'vite';
 import type {Plugin} from 'vite';
 import type {LibraryComponent, LibraryPackageJob, LibraryTarget, LibraryTypesJob} from '../types.ts';
 import {fileOf, isPeer, outputName, shownFile} from './names.ts';
 import {rewriteSpecifiers} from './specifiers.ts';
 
-// A plain Svelte component or runes module: compiled, it would ship pinned to the library's Svelte internals.
+// A plain Svelte component or runes module of `src`: shipped as its source, like a component.
 const PLAIN_SVELTE = /\.svelte(?:\.[jt]s)?$/;
 
 /** What `librarySource()` gets; posix paths. */
@@ -33,13 +37,13 @@ export async function shippedSource(split: SplitResult, root: string, src: strin
   return buildTarget(split, ctx, target);
 }
 
-// Compiled components, their sub-modules and the virtual helpers: none of it ships.
+// Compiled components, plain Svelte files, their sub-modules and the virtual helpers: none of it ships.
 function compiledOnly(moduleIds: string[]): boolean {
-  return moduleIds.every((id) => id.startsWith('\0') || fileOf(id).endsWith('.ucf'));
+  return moduleIds.every((id) => id.startsWith('\0') || fileOf(id).endsWith('.ucf') || PLAIN_SVELTE.test(fileOf(id)));
 }
 
-// A source file's runtime specifiers that are not relative: the Vite build resolved them, a consumer will not.
-function bareImports(code: string, root: string): string[] {
+// A shipped file's runtime specifiers that are not relative: the Vite build resolved them, a consumer will not.
+function bareImports(code: string, file: string, svelte: boolean, compiler: SvelteCompiler): string[] {
   const found: string[] = [];
   const visit = (value: unknown): void => {
     if (Array.isArray(value)) return value.forEach(visit);
@@ -52,26 +56,85 @@ function bareImports(code: string, root: string): string[] {
     }
     for (const child of Object.values(node)) visit(child);
   };
-  const {module, instance, fragment} = loadSvelteCompiler(root).parse(code, {modern: true});
-  visit([module, instance, fragment]);
+  if (!svelte) visit(parseAst(code, {lang: 'js'}, file));
+  else {
+    const {module, instance, fragment} = compiler.parse(code, {modern: true});
+    visit([module, instance, fragment]);
+  }
   return found;
 }
 
-/** Swaps each compiled component chunk for its uncompiled `Card.svelte`; the build still checks and compiles it. */
+async function shippedSvelte(file: string, compiler: SvelteCompiler, preprocess: PreprocessorGroup[]): Promise<string> {
+  const source = await readFile(file, 'utf8');
+  const {code} = await compiler.preprocess(source, preprocess, {filename: file});
+  const text = new MagicString(code);
+  shipUcfImports(text, compiler.parse(code, {modern: true}), 0);
+  return text.toString();
+}
+
+// Types stripped, not compiled: the consumer's Svelte compiles the runes.
+async function shippedModule(file: string): Promise<string> {
+  const source = await readFile(file, 'utf8');
+  const code = file.endsWith('.ts')
+    ? (await transformWithOxc(source, file, {lang: 'ts', target: 'esnext', sourcemap: false})).code
+    : source;
+  const text = new MagicString(code);
+  rewriteSpecifiers(text, code, 0, 'js', file, (specifier) =>
+    /^\.\.?\//.test(specifier) && specifier.endsWith('.ucf') ? `${specifier.slice(0, -'.ucf'.length)}.svelte` : undefined
+  );
+  return text.toString();
+}
+
+// A tag a preprocessor rewrote holds plain JS or CSS now: its `lang` and `type` go, as svelte-package strips them.
+function withoutLang(preprocessor: Preprocessor | undefined): Preprocessor | undefined {
+  if (!preprocessor) return undefined;
+  return async (options) => {
+    const processed = await preprocessor(options);
+    if (!processed) return processed;
+    const {lang: _lang, type: _type, ...attributes} = processed.attributes ?? options.attributes;
+    return {...processed, attributes};
+  };
+}
+
+// The library's own `svelte.config.js` preprocessors, as svelte-package runs them.
+async function sveltePreprocess(root: string): Promise<PreprocessorGroup[]> {
+  const {loadSvelteConfig} = await import('@sveltejs/vite-plugin-svelte');
+  const preprocess = (await loadSvelteConfig({root}))?.preprocess;
+  return [preprocess ?? []]
+    .flat()
+    .map(({name, markup, script, style}) => ({name, markup, script: withoutLang(script), style: withoutLang(style)}));
+}
+
+/** Swaps each compiled component and plain Svelte file for its source (`Card.svelte`, `count.svelte.js`); the build still checks and compiles it. */
 export function librarySource(job: LibrarySourceJob): Plugin {
   const {target, root, src, sourceExt, peers} = job;
   const names = job.components.map(({relative}) => outputName(`${src}/${relative}`, src));
-  const chunks = new Set(names.map((name) => `${name}.js`));
+  // Each chunk that ships as source → the extension its importers name instead of `.js`.
+  const shipped = new Map<string, string>();
+  // The plain Svelte files of `src` the build reached.
+  const plain = new Set<string>();
   return {
     name: 'multifront:library-source',
     enforce: 'post',
+    renderStart() {
+      shipped.clear();
+      plain.clear();
+      for (const name of names) shipped.set(`${name}.js`, sourceExt);
+      for (const id of this.getModuleIds()) {
+        const file = id.startsWith('\0') ? undefined : fileOf(id);
+        if (!file || !PLAIN_SVELTE.test(file)) continue;
+        plain.add(file);
+        // `Child.svelte` is written as the chunk `Child.svelte.js`; `count.svelte.ts` ships as that chunk's name.
+        if (file.endsWith('.svelte')) shipped.set(`${outputName(file, src)}.js`, '');
+      }
+    },
     renderChunk(code, chunk) {
       if (compiledOnly(chunk.moduleIds)) return null;
       const text = new MagicString(code);
       rewriteSpecifiers(text, code, 0, 'js', chunk.fileName, (specifier) => {
         if (!specifier.startsWith('./') && !specifier.startsWith('../')) return undefined;
-        const file = posix.join(posix.dirname(chunk.fileName), specifier);
-        return chunks.has(file) ? specifier.slice(0, -'.js'.length) + sourceExt : undefined;
+        const ext = shipped.get(posix.join(posix.dirname(chunk.fileName), specifier));
+        return ext === undefined ? undefined : specifier.slice(0, -'.js'.length) + ext;
       });
       return {code: text.toString(), map: text.generateMap({hires: 'boundary'})};
     },
@@ -79,29 +142,40 @@ export function librarySource(job: LibrarySourceJob): Plugin {
       let helper = false;
       for (const [fileName, output] of Object.entries(bundle)) {
         if (output.type !== 'chunk') continue;
-        for (const id of output.moduleIds) {
-          if (id === `\0${SCOPE_HELPER_ID}`) helper = true;
-          const file = id.startsWith('\0') ? undefined : fileOf(id);
-          if (file && !file.endsWith('.ucf') && PLAIN_SVELTE.test(file)) {
-            this.error(
-              `buildLibrary: ${shownFile(root, file)}: a library package ships ${target} code from .ucf <${target}> blocks only`
-            );
-          }
-        }
+        if (output.moduleIds.includes(`\0${SCOPE_HELPER_ID}`)) helper = true;
         if (!compiledOnly(output.moduleIds)) continue;
         delete bundle[fileName];
         delete bundle[`${fileName}.map`];
       }
-      for (const [index, {split}] of job.components.entries()) {
-        const file = await shippedSource(split, root, src, target);
-        for (const specifier of bareImports(file.code, root)) {
+      const compiler = loadSvelteCompiler(root);
+      const checkImports = (file: string, code: string, svelte: boolean, where = '') => {
+        for (const specifier of bareImports(code, file, svelte, compiler)) {
           if (isPeer(peers, specifier)) continue;
           this.error(
-            `buildLibrary: ${shownFile(root, split.filename)} imports "${specifier}" in its <${target}> block: ` +
+            `buildLibrary: ${shownFile(root, file)} imports "${specifier}"${where}: ` +
               `a shipped ${target} file can import relative files and peers only`
           );
         }
-        this.emitFile({type: 'asset', fileName: `${names[index]}${file.ext}`, source: file.code});
+      };
+      const written = new Map<string, string>();
+      for (const [index, {split}] of job.components.entries()) {
+        const file = await shippedSource(split, root, src, target);
+        checkImports(split.filename, file.code, true, ` in its <${target}> block`);
+        const fileName = `${names[index]}${file.ext}`;
+        written.set(fileName, split.filename);
+        this.emitFile({type: 'asset', fileName, source: file.code});
+      }
+      const preprocess = plain.size > 0 ? await sveltePreprocess(root) : [];
+      for (const file of [...plain].sort()) {
+        const component = file.endsWith('.svelte');
+        const fileName = component ? outputName(file, src) : `${outputName(file, src)}.js`;
+        const owner = written.get(fileName);
+        if (owner !== undefined) {
+          this.error(`buildLibrary: ${shownFile(root, owner)} and ${shownFile(root, file)} would both be written as ${fileName}`);
+        }
+        const code = component ? await shippedSvelte(file, compiler, preprocess) : await shippedModule(file);
+        checkImports(file, code, component);
+        this.emitFile({type: 'asset', fileName, source: code});
       }
       if (!helper) return;
       if (bundle[LIBRARY_SCOPE_HELPER]) {

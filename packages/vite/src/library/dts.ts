@@ -5,7 +5,14 @@ import {createRequire} from 'node:module';
 import {dirname, isAbsolute, join, posix} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import MagicString from 'magic-string';
-import {buildTarget, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
+import {
+  buildTarget,
+  createBuildContext,
+  loadSvelteCompiler,
+  loadVueCompiler,
+  shipUcfImports,
+  splitBlocks,
+} from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
@@ -22,6 +29,7 @@ interface TypesTool {
   specifierExt: '.js' | '.vue' | '.svelte'; // what a `.ucf` specifier becomes in the stage
   compilerOptions: Record<string, unknown>;
   stageUcf(file: string, source: string, root: string, compiler: VueCompiler): Promise<string>;
+  stageSvelte?(source: string, root: string): string; // a plain `.svelte` file, when the tool types them
 }
 
 const DECLARATION = /\.d\.[cm]?ts$/;
@@ -123,6 +131,13 @@ function svelteTool(job: LibraryTypesJob): TypesTool {
     async stageUcf(file, source, root) {
       return (await shippedSource(splitBlocks(source, file), root, job.src, 'svelte')).code;
     },
+    // Unpreprocessed, as svelte-package types its sources: a script preprocessor would strip the types.
+    stageSvelte(source, root) {
+      if (!source.includes('.ucf')) return source;
+      const text = new MagicString(source);
+      shipUcfImports(text, loadSvelteCompiler(root).parse(source, {modern: true}), 0);
+      return text.toString();
+    },
   };
 }
 
@@ -145,6 +160,8 @@ async function stageSources(job: LibraryTypesJob, tool: TypesTool, stage: string
     await mkdir(dirname(target), {recursive: true});
     const lang = langOf(name);
     if (isUcf) await writeFile(target, await tool.stageUcf(file, await readFile(file, 'utf8'), job.root, compiler));
+    else if (tool.stageSvelte && name.endsWith('.svelte'))
+      await writeFile(target, tool.stageSvelte(await readFile(file, 'utf8'), job.root));
     else if (lang) await writeFile(target, rewriteScript(await readFile(file, 'utf8'), lang, file, tool.specifierExt));
     else await copyFile(file, target);
     staged.shown.set(path, shownFile(job.root, file));
@@ -309,13 +326,13 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
   const shims = require.resolve('svelte2tsx/svelte-shims-v4.d.ts');
   await withStage(job, async (stage) => {
     const {shown, roots, components} = await stageSources(job, tool, stage);
-    // tsc lists what a component reaches through svelte2tsx's script of it, written beside it for that run only.
+    // tsc lists what a `.svelte` file reaches through svelte2tsx's script of it, written beside it for that run only.
     const copies = new Map<string, string>();
-    for (const component of components) {
-      const filename = join(stage, component);
+    for (const file of roots.filter((path) => path.endsWith('.svelte'))) {
+      const filename = join(stage, file);
       const code = await readFile(filename, 'utf8');
       // TypeScript even for a JS component: svelte2tsx writes type declarations into it.
-      const copy = `${component}.ts`;
+      const copy = `${file}.ts`;
       const script = svelte2tsx.svelte2tsx(code, {
         filename,
         isTsFile: TS_SCRIPT.test(code),
@@ -323,11 +340,11 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
         noSvelteComponentTyped: true,
       });
       await writeFile(join(stage, copy), script.code);
-      copies.set(component, copy);
-      shown.set(copy, shown.get(component)!);
+      copies.set(file, copy);
+      shown.set(copy, shown.get(file)!);
     }
     await writeTsconfig(job, tool, stage, [...roots.map((root) => copies.get(root) ?? root), shims]);
-    const scripts = new Map([...copies].map(([component, copy]) => [copy, component]));
+    const scripts = new Map([...copies].map(([file, copy]) => [copy, file]));
     const reached = (await reachedRoots(bin, stage, job.target, shown)).map((file) => scripts.get(file) ?? file);
     for (const copy of copies.values()) await rm(join(stage, copy));
     await writeTsconfig(job, tool, stage, reached);

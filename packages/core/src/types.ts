@@ -108,7 +108,7 @@ export type SvelteMode = 'runes' | 'legacy' | 'undecided';
 export type SvelteNode = SvelteCompilerModule.AST.BaseNode & Record<string, unknown>;
 
 /** Loaded from the project's own Svelte. */
-export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse' | 'VERSION'>;
+export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse' | 'preprocess' | 'VERSION'>;
 
 /** A `<svelte>` block with its class map uses renamed, as `build()` renames them. */
 export interface SvelteStyleRename<Module> {

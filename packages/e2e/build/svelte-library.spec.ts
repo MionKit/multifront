@@ -3,7 +3,7 @@ import {copyFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {join, posix} from 'node:path';
 import {scopeId} from '@multifront/core';
-import {compile, parse} from 'svelte/compiler';
+import {compile, compileModule, parse} from 'svelte/compiler';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR, literalSpecifiers} from '../fixtures/index.ts';
 import {packLibrary, publint} from '../consumer/lib/pack.ts';
@@ -31,6 +31,29 @@ const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
 // Only in Card's `<svelte>` block.
 const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.ucf'\n";
 const SVELTE_PROPS = 'let { title, children }: { title: string; children?: Snippet } = $props()';
+const SVELTE_CHILDREN = '{@render children?.()}';
+const CHILD = `<script lang="ts">
+  import Icon from './Icon.ucf'
+  import { count } from './count.svelte.js'
+
+  let { label }: { label: string } = $props()
+</script>
+
+<button class="child" onclick={() => count.value++}><Icon /> {label}: {count.value}</button>
+
+<style lang="scss">
+  .child {
+    color: rgb(10, 20, 30);
+
+    &:hover {
+      color: rgb(40, 50, 60);
+    }
+  }
+</style>
+`;
+const COUNT = 'interface Count {\n  value: number;\n}\n\nexport const count: Count = $state({value: 0});\n';
+const SVELTE_CONFIG =
+  "import {vitePreprocess} from '@sveltejs/vite-plugin-svelte';\n\nexport default {preprocess: vitePreprocess()};\n";
 const require = createRequire(import.meta.url);
 const SHIMS = createRequire(require.resolve('@multifront/language-tools')).resolve('svelte2tsx/svelte-shims-v4.d.ts');
 
@@ -55,6 +78,24 @@ function svelte() {
 
 function read(file: string): string {
   return readOutput(svelte(), file);
+}
+
+// Card's `<svelte>` block imports `from` and renders it as `tag`.
+function cardUsing(tag: string, from: string): string {
+  const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import ${tag} from '${from}'\n`);
+  return edited(card, SVELTE_CHILDREN, `${SVELTE_CHILDREN}\n    <${tag} label="child" />`);
+}
+
+function expectCompiles(file: string, code: string): void {
+  for (const generate of ['client', 'server'] as const) {
+    const {warnings} = file.endsWith('.svelte')
+      ? compile(code, {filename: file, generate})
+      : compileModule(code, {filename: file, generate});
+    expect(
+      warnings.map(({code: warning, message}) => `${warning}: ${message}`),
+      file
+    ).toEqual([]);
+  }
 }
 
 // The string-literal specifiers of a component's scripts and markup, `import()` included.
@@ -86,13 +127,7 @@ describe('buildLibrary(): the Svelte package', () => {
     for (const file of svelte().files.filter((name) => name.endsWith('.svelte'))) {
       const code = read(file);
       expect(code, file).toContain('</script>');
-      for (const generate of ['client', 'server'] as const) {
-        const {warnings} = compile(code, {filename: file, generate});
-        expect(
-          warnings.map(({code: warning, message}) => `${warning}: ${message}`),
-          file
-        ).toEqual([]);
-      }
+      expectCompiles(file, code);
     }
     expect(read('Card.svelte')).toContain('{@render children?.()}');
     for (const file of svelte().files.filter((name) => /\.(svelte|js|d\.ts)$/.test(name))) {
@@ -197,22 +232,67 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
-  it.each([
-    ['src/Child.svelte', '<p>child</p>\n', "import Child from './Child.svelte'"],
-    ['src/count.svelte.ts', 'export const count = $state({value: 0});\n', "import { count } from './count.svelte.js'"],
-  ])('fails on a plain Svelte file, %s, which would ship compiled', async (file, content, use) => {
-    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  ${use}\n`);
-    await withEditedLibrary(
-      [
-        {file, content},
-        {file: 'src/Card.ucf', content: card},
-      ],
-      async (root) => {
-        await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-          `buildLibrary: ${file}: a library package ships svelte code from .ucf <svelte> blocks only`
-        );
+  it('ships a plain .svelte file, preprocessed, and a .svelte.ts module, types stripped, as source with types', async () => {
+    const edits = [
+      {file: 'src/Child.svelte', content: CHILD},
+      {file: 'src/count.svelte.ts', content: COUNT},
+      {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+      {file: 'svelte.config.js', content: SVELTE_CONFIG},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const built = await buildFixtureLibrary(root, {frameworks: ['svelte']});
+      try {
+        const result = resultOf(built.results, 'svelte');
+        const output = (file: string) => readOutput(result, file);
+        const plain = ['Child.svelte', 'Child.svelte.d.ts', 'count.svelte.d.ts', 'count.svelte.js'];
+        expect(result.files).toEqual([...FILES, ...plain].sort());
+        const child = output('Child.svelte');
+        expect(svelteSpecifiers('Child.svelte', child)).toEqual(['./Icon.svelte', './count.svelte.js']);
+        expect(child).toContain('let { label }: { label: string } = $props()');
+        expect(child).not.toContain('lang="scss"');
+        expect(child).toMatch(/\.child:hover\s*\{/);
+        expect(output('styles.css')).not.toContain('child');
+        expect(output('count.svelte.js')).toBe('export const count = $state({ value: 0 });\n');
+        expectCompiles('Child.svelte', child);
+        expectCompiles('count.svelte.js', output('count.svelte.js'));
+        expect(svelteSpecifiers('Card.svelte', output('Card.svelte'))).toContain('./Child.svelte');
+        expect(output('Child.svelte.d.ts')).toMatch(/label: string/);
+        expect(output('count.svelte.d.ts')).toMatch(/value: number/);
+      } finally {
+        await built.remove();
       }
-    );
+    });
+  });
+
+  it.each([
+    ['src/Child.svelte', "<script>\n  import { cx } from '~/utils/cx.js'\n</script>\n\n<p class={cx('child')}>child</p>\n"],
+    ['src/count.svelte.ts', "import {cx} from '~/utils/cx.js';\n\nexport const count = $state({value: cx('a')});\n"],
+  ])('fails on a bare import a consumer cannot resolve in a plain Svelte file, %s', async (file, content) => {
+    const edits = [
+      {file: 'src/Child.svelte', content: CHILD},
+      {file: 'src/count.svelte.ts', content: COUNT},
+      {file, content},
+      {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const vite = {logLevel: 'silent' as const, resolve: {alias: {'~': join(root, 'src')}}};
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false, vite})).rejects.toThrow(
+        `buildLibrary: ${file} imports "~/utils/cx.js": a shipped svelte file can import relative files and peers only`
+      );
+    });
+  });
+
+  it('fails on a plain .svelte file written where a component ships', async () => {
+    const edits = [
+      {file: 'src/Plain.ucf', content: '<svelte>\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/Plain.svelte', content: '<p>plain</p>\n'},
+      {file: 'src/Card.ucf', content: cardUsing('Plain', './Plain.svelte')},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false})).rejects.toThrow(
+        'buildLibrary: src/Plain.ucf and src/Plain.svelte would both be written as Plain.svelte'
+      );
+    });
   });
 
   it('fails on a bare import a consumer cannot resolve, like an alias into src, in a <svelte> block', async () => {

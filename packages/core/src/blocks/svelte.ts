@@ -256,7 +256,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode);
 
   const {library} = ctx;
-  if (library) shipUcfImports(text, root, block);
+  if (library) shipUcfImports(text, root, block.contentStart);
   // JSON quoting keeps any path a valid string.
   const imports = library
     ? libraryImports({...ctx, library}, locals, helpers)
