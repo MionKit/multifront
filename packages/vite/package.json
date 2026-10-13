@@ -47,7 +47,7 @@
   },
   "peerDependencies": {
     "@multifront/language-tools": "workspace:*",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.1.1",
     "@vitejs/plugin-react": "^6.0.0",
     "@vitejs/plugin-vue": "^6.0.3",
     "@vue/compiler-sfc": "^3.5.15",
