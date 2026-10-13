@@ -108,13 +108,12 @@ async function sveltePreprocess(root: string): Promise<PreprocessorGroup[]> {
     .map(({name, markup, script, style}) => ({name, markup, script: withoutLang(script), style: withoutLang(style)}));
 }
 
-/** Swaps each compiled component and plain Svelte file for its source (`Card.svelte`, `count.svelte.js`); the build still checks and compiles it. */
+/** Ships each component and plain Svelte file as its source; the build still checks and compiles it. */
 export function librarySource(job: LibrarySourceJob): Plugin {
   const {target, root, src, sourceExt, peers} = job;
   const names = job.components.map(({relative}) => outputName(`${src}/${relative}`, src));
   // Each chunk that ships as source → the extension its importers name instead of `.js`.
   const shipped = new Map<string, string>();
-  // The plain Svelte files of `src` the build reached.
   const plain = new Set<string>();
   return {
     name: 'multifront:library-source',

@@ -17,7 +17,7 @@ export const libraryTargets = {
   },
   // svelte-package's layout: uncompiled `.svelte` files, the consumer's Svelte compiles them.
   svelte: {
-    // A plain `.svelte` file's `<style>` ships inside its source: no CSS of the compiled, dropped code reaches the CSS step.
+    // `<style>` ships inside each `.svelte` source: the compiled, dropped code must add no CSS to the CSS step.
     plugin: async () => (await import('@sveltejs/vite-plugin-svelte')).svelte({emitCss: false}),
     peers: {svelte: '^5.0.0'},
     conditions: ['svelte'],
