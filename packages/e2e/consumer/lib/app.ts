@@ -47,6 +47,8 @@ function consumerEnv(): NodeJS.ProcessEnv {
     env[pathKey] = env[pathKey]!.split(delimiter)
       .filter((entry) => entry && !insideRepo(entry))
       .join(delimiter);
+  // Next.js sends usage data unless told not to.
+  env.NEXT_TELEMETRY_DISABLED = '1';
   return env;
 }
 
@@ -186,10 +188,10 @@ const CSP_REPORTER = `document.addEventListener('securitypolicyviolation', (even
   console.error('CSP violation: ' + event.violatedDirective + ' ' + event.blockedURI);
 });`;
 
-export async function openPage(url: string): Promise<ConsumerPage> {
+export async function openPage(url: string, {javaScript = true}: {javaScript?: boolean} = {}): Promise<ConsumerPage> {
   const browser = await launchChromium();
   try {
-    const page = await browser.newPage();
+    const page = await (await browser.newContext({javaScriptEnabled: javaScript})).newPage();
     const messages = collectConsole(page);
     await page.addInitScript({content: CSP_REPORTER});
     await page.goto(url);
@@ -202,6 +204,8 @@ export async function openPage(url: string): Promise<ConsumerPage> {
 
 export interface ServedApp {
   app: ConsumerApp;
+  // The installed one.
+  tarball: string;
   url: string;
   // The build command's output.
   build: string;
@@ -220,12 +224,14 @@ export function serveConsumerApp({target, template, build, serve}: ServedAppOpti
   let app: ConsumerApp | undefined;
   let server: Awaited<ReturnType<typeof serveApp>> | undefined;
   let built = '';
+  let tarball = '';
   let setup: Promise<void> | undefined;
   beforeAll(() => {
     setup = (async () => {
       packed = await fixtureTarballs();
-      const tarball = packed.tarballs[target];
-      if (!tarball) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
+      const found = packed.tarballs[target];
+      if (!found) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
+      tarball = found;
       app = await createConsumerApp(template, [tarball]);
       const result = await runInApp(app, build);
       if (result.code !== 0) throw new Error(`${build.join(' ')} failed in ${template}:\n${result.output}`);
@@ -244,7 +250,7 @@ export function serveConsumerApp({target, template, build, serve}: ServedAppOpti
   });
   return () => {
     if (!app || !server) throw new Error(`${template} is not served: its setup failed`);
-    return {app, url: server.url, build: built};
+    return {app, tarball, url: server.url, build: built};
   };
 }
 
