@@ -141,26 +141,25 @@ export async function buildInFreshNode(root: string, options: LibraryOptions): P
   }
 }
 
-export interface CliRun {
+interface CliRun {
   code: number;
   stdout: string;
   stderr: string;
 }
 
-// The JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
-function mfBuildBin(): string {
+/**
+ * The real `mf-build` bin, as `pnpm exec mf-build` runs it: its JS entry, not the `.bin` shim (Windows shims are `.cmd`
+ * files that need a shell). `source` makes it run `@multifront/vite`'s `src/`; without it, the built `dist/`.
+ */
+export async function runMfBuild(cwd: string, args: string[] = [], {source = true} = {}): Promise<CliRun> {
   const dir = join(FIXTURES_DIR, '..', 'node_modules', '@multifront', 'vite');
   const {bin} = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {bin: Record<string, string>};
-  return join(dir, bin['mf-build']!);
-}
-
-/** The real `mf-build` bin, as `pnpm exec mf-build` runs it; `source` makes it run `@multifront/vite`'s `src/`. */
-export async function runMfBuild(cwd: string, args: string[] = []): Promise<CliRun> {
+  const node = source ? ['--conditions=source'] : [];
   try {
-    const {stdout, stderr} = await promisify(execFile)(process.execPath, ['--conditions=source', mfBuildBin(), ...args], {cwd});
+    const {stdout, stderr} = await promisify(execFile)(process.execPath, [...node, join(dir, bin['mf-build']!), ...args], {cwd});
     return {code: 0, stdout, stderr};
   } catch (err) {
-    const {code, stdout = '', stderr = ''} = err as {code?: number; stdout?: string; stderr?: string};
+    const {code, stdout = '', stderr = ''} = err as {code?: number | string; stdout?: string; stderr?: string};
     if (typeof code !== 'number') throw err;
     return {code, stdout, stderr};
   }

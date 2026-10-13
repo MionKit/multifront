@@ -185,6 +185,10 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const index = indexEntry(root, src, options.index);
   const components = await scan(src);
   const withBlock = (target: Target) => components.filter(({split}) => split.targets[target]);
+  // A JS config reaches here untyped: a string would spread into letters.
+  if (options.frameworks !== undefined && !Array.isArray(options.frameworks)) {
+    throw new Error(`buildLibrary: frameworks must be an array of framework names, got ${JSON.stringify(options.frameworks)}`);
+  }
   const frameworks = options.frameworks
     ? [...new Set(options.frameworks)]
     : TARGETS.filter((target) => withBlock(target).length > 0);
