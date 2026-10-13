@@ -264,6 +264,25 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
+  it("runs the library's svelte.config.js preprocessors over a shipped component, its types from the source", async () => {
+    const config = SVELTE_CONFIG.replace('vitePreprocess()', 'vitePreprocess({script: true})');
+    await withEditedLibrary([{file: 'svelte.config.js', content: config}], async (root) => {
+      const built = await buildFixtureLibrary(root, {frameworks: ['svelte']});
+      try {
+        const result = resultOf(built.results, 'svelte');
+        const card = readOutput(result, 'Card.svelte');
+        expect(card).toContain('<script>');
+        expect(card).not.toContain('lang="ts"');
+        expect(card).toContain('let { title, children, ...__ucfRest } = $props();');
+        expect(svelteSpecifiers('Card.svelte', card)).toEqual(expect.arrayContaining(['./Icon.svelte', './utils/cx.js']));
+        expectCompiles('Card.svelte', card);
+        expect(readOutput(result, 'Card.svelte.d.ts')).toMatch(/title: string/);
+      } finally {
+        await built.remove();
+      }
+    });
+  });
+
   it.each([
     ['src/Child.svelte', "<script>\n  import { cx } from '~/utils/cx.js'\n</script>\n\n<p class={cx('child')}>child</p>\n"],
     ['src/count.svelte.ts', "import {cx} from '~/utils/cx.js';\n\nexport const count = $state({value: cx('a')});\n"],
