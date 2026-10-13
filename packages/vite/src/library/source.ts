@@ -161,21 +161,28 @@ export function librarySource(job: LibrarySourceJob): Plugin {
       };
       const preprocess = await sveltePreprocess(root);
       const written = new Map<string, string>();
+      // A shipped file and its `.d.ts`: `Icon.svelte.ts` ships as `Icon.svelte.js` but types as `Icon.ucf` does.
+      const claim = (file: string, fileName: string, declaration: string) => {
+        for (const name of [fileName, declaration]) {
+          const owner = written.get(name);
+          if (owner === undefined) continue;
+          this.error(`buildLibrary: ${shownFile(root, owner)} and ${shownFile(root, file)} would both be written as ${name}`);
+        }
+        written.set(fileName, file).set(declaration, file);
+      };
       for (const [index, {split}] of job.components.entries()) {
         const file = await shippedSource(split, root, src, target);
         const fileName = `${names[index]}${file.ext}`;
         const {code} = await compiler.preprocess(file.code, preprocess, {filename: `${src}/${fileName}`});
         checkImports(split.filename, code, true, ` in its <${target}> block`);
-        written.set(fileName, split.filename);
+        claim(split.filename, fileName, `${fileName}.d.ts`);
         this.emitFile({type: 'asset', fileName, source: code});
       }
       for (const file of [...plain].sort()) {
         const component = file.endsWith('.svelte');
-        const fileName = component ? outputName(file, src) : `${outputName(file, src)}.js`;
-        const owner = written.get(fileName);
-        if (owner !== undefined) {
-          this.error(`buildLibrary: ${shownFile(root, owner)} and ${shownFile(root, file)} would both be written as ${fileName}`);
-        }
+        const base = outputName(file, src);
+        const fileName = component ? base : `${base}.js`;
+        claim(file, fileName, `${base}.d.ts`);
         const code = component ? await shippedSvelte(file, compiler, preprocess) : await shippedModule(file);
         checkImports(file, code, component);
         this.emitFile({type: 'asset', fileName, source: code});

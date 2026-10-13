@@ -147,6 +147,7 @@ export default function Page() {
 | `src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only` | Move the CSS into a `<style>` block. |
 | `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only`, or the same for a plain `src/Child.svelte` | Import the file by its relative path. |
 | `src/Child.ucf and src/Child.svelte would both be written as Child.svelte` | Rename one of the two files. |
+| `src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts` | Rename one of the two files. |
 | `shared/tokens.ts is outside src` | Move the file into `src`. |
 | `package.json has no name; set packages.vue.name` | Name the library, or set that package's `name`. |
 | `src/Badge.ts and src/Badge.ucf would both be written as Badge.js` | Rename one of the two files. |
