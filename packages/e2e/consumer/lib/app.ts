@@ -47,7 +47,7 @@ function consumerEnv(): NodeJS.ProcessEnv {
     env[pathKey] = env[pathKey]!.split(delimiter)
       .filter((entry) => entry && !insideRepo(entry))
       .join(delimiter);
-  // Next.js sends usage data unless told not to.
+  // Next.js telemetry is opt-out.
   env.NEXT_TELEMETRY_DISABLED = '1';
   return env;
 }
