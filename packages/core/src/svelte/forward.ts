@@ -78,7 +78,7 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
   }
 }
 
-/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `let __ucfRest = $props();` line. */
+/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `let {...__ucfRest} = $props();` line. */
 function propsName(text: MagicString, instance: AST.Script | null, block: Block, used: Set<string>, lines: string[]): string {
   const {id} =
     (instance?.content.body ?? [])
@@ -92,7 +92,8 @@ function propsName(text: MagicString, instance: AST.Script | null, block: Block,
   const name = freshName(used, '__ucfRest');
   used.add(name);
   if (id?.type !== 'ObjectPattern') {
-    lines.push(`let ${name} = $props();`);
+    // Destructured: svelte2tsx types `let rest = $props()` with a props type it never declares.
+    lines.push(`let {...${name}} = $props();`);
     return name;
   }
   const {start} = id as unknown as AST.BaseNode;
