@@ -184,7 +184,7 @@ const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&
 
 // The forwarding edits: the helper import, the spread, the added rest, the dev warning.
 const HELPER_IMPORT = String.raw`import \{__ucf\w+(?:, __ucf\w+)*\} from "virtual:multifront/scope-attrs";`;
-const FORWARD_LINE = String.raw`(?:let __ucfRest\d* = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
+const FORWARD_LINE = String.raw`(?:let \{\.\.\.__ucfRest\d*\} = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
 
 function undoBuild(code: string, ctx: BuildContext): string {
   const names = new Map<string, string>();
@@ -193,15 +193,18 @@ function undoBuild(code: string, ctx: BuildContext): string {
     if (local && module) names.set(local, module.name === '$style' ? '$style' : `$${module.name}`);
   }
   const line = `(?:${IMPORT}|${HELPER_IMPORT}|${FORWARD_LINE})`;
-  return code
-    .replaceAll(` data-v-${ctx.scopeId}=""`, '')
-    .replaceAll(/ \{\.\.\.__ucfScopeAttrs\(\w+\)\}/g, '')
-    .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
-    .replace(new RegExp(String.raw`^<script>\n(?:${line}\n)*${line}\n</script>`), '')
-    .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
-    .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
-    .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
-    .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local);
+  return (
+    code
+      .replaceAll(` data-v-${ctx.scopeId}=""`, '')
+      .replaceAll(/ \{\.\.\.__ucfScopeAttrs\(\w+\)\}/g, '')
+      // Before the rest goes: the added `let {...__ucfRest} = $props();` line is one of ours.
+      .replace(new RegExp(String.raw`^<script>\n(?:${line}\n)*${line}\n</script>`), '')
+      .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
+      .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
+      .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
+      .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
+      .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local)
+  );
 }
 
 afterAll(removeRendered);
