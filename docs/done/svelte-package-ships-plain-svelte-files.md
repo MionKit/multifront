@@ -72,3 +72,37 @@ bullet).
 ## Decisions
 
 - Every shipped `.svelte` file, components included, is preprocessed in this PR (orchestrator, answer (a)).
+
+## Manual QA
+
+Run on 2026-10-13 against `origin/main` at `f3d2bcb`. "Library copy" = `packages/e2e/fixtures/library` copied to
+`packages/e2e/.tmp/qa-lib`, with `src/Child.svelte` (`<script lang="ts">`, imports `./Icon.ucf` and
+`./count.svelte.js`, `<style lang="scss">`), `src/count.svelte.ts` (an interface, `$state`, a function), both exported
+from `src/index.ts`, and a `svelte.config.js` with `vitePreprocess()`.
+
+1. `pnpm devx test packages/e2e/build/svelte-library.spec.ts`: every test passes but "fails on a .svelte.ts module
+   whose declaration is written where a component types ship" (QA finding, fails until fixed). **Ran: as expected.**
+2. `pnpm devx test packages/e2e/consumer/sveltekit-plain-svelte.spec.ts`: 6 tests pass (mf-build, pack, fresh SvelteKit
+   app, svelte-check, vite build, node server, Chromium). **Ran: pass.**
+3. In the library copy, `node --conditions=source ../../node_modules/@multifront/vite/bin/mf-build.js --framework
+   svelte`: `dist/svelte/` holds `Child.svelte` (`import Icon from "./Icon.svelte"`, `<style>` as plain CSS, no
+   `lang="scss"`), `count.svelte.js` (no types), `Child.svelte.d.ts` (`label: string`), `count.svelte.d.ts`, and no
+   `exports` subpath for either. **Ran: pass.**
+4. Same build with `svelte.config.js` removed and a plain CSS `<style>`: builds, `Child.svelte` keeps `lang="ts"` and its
+   CSS. With SCSS and no config: fails with plugin-svelte's "Did you forget to add a scss preprocessor?". **Ran: pass.**
+5. Same build run from another folder with `--root .tmp/qa-lib`: the library's `svelte.config.js` still applies (the
+   shipped `<style>` is CSS). **Ran: pass.**
+6. `pnpm pack` in `dist/svelte`, copy `fixtures/apps/consumer-sveltekit`, `pnpm add <tarball>`, a page rendering `Child`
+   and `double()`: `svelte-kit sync && svelte-check --fail-on-warnings` gives 0 errors 0 warnings; a page with
+   `<Child labl="x" />` and `const n: string = count.value` gives exactly those 2 errors. Both with and without the
+   library's `svelte.config.js`. **Ran: pass.**
+7. In that app, `vite build`, then `PORT=4719 node build`: the HTML holds `<button class="child svelte-…">`; in Chromium,
+   two clicks on it show `count` 2 and `double` 4, no console message; the built CSS holds `.child.svelte-…` with the
+   SCSS color. **Ran: pass.**
+8. Add `src/Icon.svelte.ts` beside `src/Icon.ucf`, export from it in the index, build: expected a build error (both types
+   would be `Icon.svelte.d.ts`); got a green build whose `Icon.svelte.d.ts` is the component's, the module's types lost.
+   **Ran: fail (QA finding).**
+9. CI `svelte-floor` job on `main` (`peer-floor: @sveltejs/vite-plugin-svelte 7.1.1`): the plain-file and preprocess
+   tests of `build/svelte-library.spec.ts` ran and passed. **Ran: pass (CI log, run 38445935187).**
+10. Open the installed `node_modules/@mf-fixture/ui-svelte/Child.svelte` and a page using it in VS Code with the Svelte
+    extension: hover on `<Child label>` shows `label: string`, no red squiggle. **needs a person.**
