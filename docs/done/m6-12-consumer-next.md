@@ -73,6 +73,8 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 - No CSP in the Next app: Next's inline bootstrap scripts need a nonce setup. (Orchestrator.)
 - No fuzz test. (Orchestrator.)
 - `app/icon.svg` added while building: the favicon 404 failed every console check.
+- CI: Next prints `⚠ No build cache found` under `CI` (a fresh app has no `.next/cache`); the build check allows that
+  one line.
 - Review: one `expectHydrates(url)` for the `next start` and `next dev` checks; the stripped-tarball steps inline in
   their one test; `openPage`'s flag is a plain parameter; `Command` exported from `app.ts`; build-output checks for a
   tsconfig rewrite, a mid-build install and a skipped type check; a test for the telemetry switch; the `next dev`
@@ -85,8 +87,9 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 
 - The app holds `@mf-fixture/ui-react` and no `@multifront` package.
 - `next build` passes: the output has `Compiled successfully`, `Finished TypeScript in ` (not the skipped
-  "config validation" run), no `⚠` line, no "reconfigured your" tsconfig rewrite and no "Installing " of a missing
-  package. Next's own TypeScript run checks `app/` against the shipped `.d.ts`.
+  "config validation" run), no `⚠` line but the "No build cache found" Next prints under CI, no "reconfigured your"
+  tsconfig rewrite and no "Installing " of a missing package. Next's own TypeScript run checks `app/` against the
+  shipped `.d.ts`.
 - `next telemetry status` in the app prints `Status: Disabled`.
 - **The directive is needed**: the installed tarball is unpacked to a temp dir, the first line `"use client";` of
   `Counter.js` is dropped (after checking it is there), the folder is repacked with `packLibrary` and installed into a
