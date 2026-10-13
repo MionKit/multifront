@@ -40,3 +40,32 @@ bullet).
   Svelte package ships both as source, with types, and its files compile with the real Svelte compiler.
 - The test that expected the build error now expects the shipped files.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan (approved 2026-10-13)
+
+- core: `shipUcfImports(text, root, offset)` takes an offset (the block caller passes `block.contentStart`), exported
+  from `@multifront/core` so a whole file uses it with `0`.
+- vite, `library/targets.ts`: the svelte row runs `svelte({emitCss: false})`. A plain file's `<style>` ships inside its
+  source and its compiled JS is dropped, so no CSS chunk reaches `libraryCss`. `.ucf` output never has component CSS.
+- vite, `library/source.ts`: plain Svelte ids count as compiled (chunks and maps dropped); kept chunks point
+  `Child.svelte.js` at `Child.svelte`. Each plain file the build reached is emitted as source:
+  - `.svelte`: the library's `svelte.config.js` preprocessors (plugin-svelte's `loadSvelteConfig`), then `.ucf`
+    specifiers rewritten.
+  - `.svelte.ts`: types stripped with Vite's `transformWithOxc`, `.ucf` specifiers rewritten, shipped as `.svelte.js`.
+  - `.svelte.js`: the same without the strip.
+  - Its bare imports are checked like a component's; a plain file and a `.ucf` file written to one name fail.
+- Every shipped `.svelte` file, `.ucf` components included, goes through those preprocessors (own commit).
+- vite, `library/dts.ts`: a plain `.svelte` file is staged with its `.ucf` specifiers rewritten, unpreprocessed
+  (svelte-package types from source too); svelte2tsx's script is written beside every staged `.svelte` file before the
+  listing run.
+- Plain files ship only when the build reaches them, and get no `exports` subpath.
+- Tests, `packages/e2e/build/svelte-library.spec.ts`: the error test becomes a ships test (preprocessed, compiled with
+  the real compiler, types, no stray chunk or CSS); a plain file's alias import fails; a name clash fails;
+  `vitePreprocess({script: true})` strips `lang="ts"` from a shipped component.
+- Docs: `docs/milestones/m6-library-build.md` (6.8 and the risk line), `docs/architecture.md` (library build bullet),
+  `publicdocs/06-building-a-library.md` (Svelte note, error table).
+- Fuzzing: none; the only rewrite is core's `shipUcfImports`, already run over every `<svelte>` fixture.
+
+## Decisions
+
+- Every shipped `.svelte` file, components included, is preprocessed in this PR (orchestrator, answer (a)).
