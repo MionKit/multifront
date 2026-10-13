@@ -49,7 +49,9 @@ describe('the packed React package in a fresh Next.js App Router app', () => {
     const {build} = served();
     expect(build).toContain('Compiled successfully');
     expect(build).toMatch(/Finished TypeScript in /);
-    expect(build).not.toContain('⚠');
+    // Under CI only: a fresh app has no `.next/cache` to restore.
+    const warnings = build.split('\n').filter((line) => line.includes('⚠') && !line.includes('No build cache found'));
+    expect(warnings).toEqual([]);
     // The template ships what Next would write or install itself.
     expect(build).not.toContain('reconfigured your');
     expect(build).not.toContain('Installing ');
