@@ -309,6 +309,10 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
       const code = await readFile(filename, 'utf8');
       // TypeScript even for a JS component: svelte2tsx writes type declarations into it.
       const copy = `${file}.ts`;
+      // tsc and consumers resolve `./Icon.svelte` and `./Icon.svelte.js` alike: to `Icon.svelte.d.ts`.
+      if (shown.has(copy)) {
+        throw new Error(`buildLibrary: ${shown.get(file)} and ${shown.get(copy)} would both be written as ${file}.d.ts`);
+      }
       const script = svelte2tsx.svelte2tsx(code, {
         filename,
         isTsFile: TS_SCRIPT.test(code),
