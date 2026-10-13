@@ -245,13 +245,14 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 6.12 Consumer: a fresh Next.js App Router app
 
-- Build: template `packages/e2e/fixtures/apps/consumer-next/` (exact pinned `next`, `react`, `react-dom`, `typescript`, `@types/react`). `app/page.tsx` is a server component (no directive) that renders `Card`, `Panel` (which renders `Counter`), `Button` and `Tooltip` from `@mf-fixture/ui-react`, plus one from a subpath (`@mf-fixture/ui-react/forms/Field`).
+- Build: template `packages/e2e/fixtures/apps/consumer-next/` (exact pinned `next` 16.3.5, `react`, `react-dom`, `typescript`, `@types/react`, `@types/node`: without it `next build` installs it mid-build; a `tsconfig.json` in the shape Next writes, so it rewrites nothing; `app/icon.svg`, so no favicon request fails). `app/page.tsx` is a server component (no directive) that renders `Card`, `Panel` (which renders `Counter`), `Button` (with `className` and `style`) and `Tooltip` from `@mf-fixture/ui-react`, plus one from a subpath (`@mf-fixture/ui-react/forms/Field`). `app/layout.tsx` renders `app/hydrated.tsx`, a client component whose effect marks `body[data-hydrated]`. In `consumer/lib/app.ts`: `openPage(url, {javaScript})` opens a page with JavaScript off, `serveConsumerApp`'s result names the installed `tarball`, and every temp app runs with `NEXT_TELEMETRY_DISABLED=1`.
 - Deliverable: the packed React package works in Next.js App Router with server rendering and React Server Components.
 - Test: consumer area, `packages/e2e/consumer/next.spec.ts`:
-  - real `next build` passes. Without the directive on `Counter.js` it would fail ("useState only works in Client Components"), so this proves 6.3.
-  - `next start` and Playwright: with JavaScript turned off the page is already styled (the CSS is a real `<link>`, server rendered); with JavaScript on, Counter increments inside the server-rendered `Panel`.
-  - no console error, warning or page error: no hydration text, and none of React's minified hydration errors (`#418`, `#423`, `#425`).
-  - the same page under `next dev` shows no hydration warning either (full warning texts in dev).
+  - real `next build` (Turbopack) passes, its TypeScript run included, with no `⚠` line. The same tarball with the directive cut from `Counter.js`, repacked and installed into a second fresh app, fails `next build` while prerendering `/` (`useState) is not a function`), so this proves 6.3.
+  - `next start` and Playwright: with JavaScript turned off the page is already styled (the server HTML links a `.css` file holding the library rules), Counter shows `Count 0` inside `Panel`, Button has both classes and the merged style, Tooltip and Field are styled; with JavaScript on, once `body[data-hydrated]` is set, Counter increments inside the server-rendered `Panel`.
+  - no console error, warning or page error: no hydration text, and none of React's minified hydration errors (`#418`, `#423`, `#425`, page errors in production).
+  - the same page under `next dev` (same app, beside `next start`) shows no hydration warning either (full warning texts in dev).
+- Status: done
 
 ### 6.13 Consumer: a fresh SvelteKit app
 
@@ -267,7 +268,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - `needsUseClient(code, filename)` and `reactRootProps(block, filename)` from `@multifront/core`. M7 may use the first for an editor hint; the second places the root props in `Card.ucf.react.tsx`.
 - `__ucfClass`, `__ucfStyle`, `__ucfRef` in the React helper module, and the root props in `Card.ucf.react.tsx`. M7's `mf-tsc` sees the same props as the shipped `.d.ts`.
 - The library fixture `packages/e2e/fixtures/library/` and its `multifront.config.ts`. M7 runs `mf-tsc` and `mf-lint` over it.
-- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage`, `serveConsumerApp`, `expectStyledCard`, `expectCspEnforced`, `readDist`, `manifestGraph`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
+- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage` (with its `javaScript` option), `serveConsumerApp`, `expectStyledCard`, `expectCspEnforced`, `readDist`, `manifestGraph`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
 
 ## Exit test
 
