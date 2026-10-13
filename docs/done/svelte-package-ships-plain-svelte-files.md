@@ -57,11 +57,13 @@ bullet).
 - Every shipped `.svelte` file, `.ucf` components included, goes through those preprocessors (own commit). A `<script>`
   or `<style>` tag a preprocessor rewrote loses its `lang` and `type`, as svelte-package strips them.
 - vite, `library/dts.ts`: a plain `.svelte` file is staged with its `.ucf` specifiers rewritten, unpreprocessed
-  (svelte-package types from source too); svelte2tsx's script is written beside every staged `.svelte` file before the
-  listing run.
+  (svelte-package types from source too); Svelte's parse for that rewrite sees its `<style>` bodies blanked, since an
+  SCSS body is no CSS. svelte2tsx's script is written beside every staged `.svelte` root (a file the build reached)
+  before the listing run.
 - Plain files ship only when the build reaches them, and get no `exports` subpath.
-- Tests, `packages/e2e/build/svelte-library.spec.ts`: the error test becomes a ships test (preprocessed, compiled with
-  the real compiler, types, no stray chunk or CSS); a plain file's alias import fails; a name clash fails;
+- Tests, `packages/e2e/build/svelte-library.spec.ts`: the error test becomes a ships test, once with a `.svelte.ts` and
+  once with a `.svelte.js` module (SCSS-only syntax preprocessed, compiled with the real compiler, types, no stray chunk
+  or CSS, an unreached plain file left out, the index's `./Child.svelte` import kept); a plain file's alias import fails; a name clash fails;
   `vitePreprocess({script: true})` strips `lang="ts"` from a shipped component.
 - Docs: `docs/milestones/m6-library-build.md` (6.8 and the risk line), `docs/architecture.md` (library build bullet),
   `publicdocs/06-building-a-library.md` (Svelte note, error table).
