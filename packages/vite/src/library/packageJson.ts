@@ -3,11 +3,11 @@ import {copyFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import type {LibraryPackageJob} from '../types.ts';
 
-// In this order, each only when the library's own package.json has it.
+// Order here is the key order in the written package.json.
 const COPIED = ['version', 'description', 'license', 'author', 'repository', 'homepage', 'keywords'];
 const DOCS = ['README.md', 'LICENSE'];
 
-/** A target package's manifest: the library's metadata, an `exports` map and the row's peers, nothing else. */
+/** Library metadata, `exports` and peers, nothing else. */
 export async function writePackageJson(job: LibraryPackageJob): Promise<void> {
   const {root, outDir, manifest, index, components} = job;
   const typed = (name: string) => existsSync(join(outDir, `${name}.d.ts`));
