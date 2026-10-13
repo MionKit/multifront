@@ -87,12 +87,12 @@ export default defineLibrary({
     {
       name: 'a config that is no object',
       files: {mjs: 'export default 5;\n'},
-      error: 'mf-build: cannot load <root>/multifront.config.mjs: config must export or return an object.',
+      error: 'mf-build: cannot load <mjs>: config must export or return an object.',
     },
     {
       name: 'a config that throws a string',
       files: {mjs: "throw 'bad config';\n"},
-      error: 'mf-build: cannot load <root>/multifront.config.mjs: bad config',
+      error: 'mf-build: cannot load <mjs>: bad config',
     },
     {
       name: 'frameworks as a string',
@@ -105,7 +105,7 @@ export default defineLibrary({
       if (!('ts' in files)) await rm(join(root, 'multifront.config.ts'));
       const run = await runMfBuild(root);
       expect(run.code).toBe(1);
-      expect(run.stderr).toContain(error.replace('<root>', root));
+      expect(run.stderr).toContain(error.replace('<mjs>', join(root, 'multifront.config.mjs')));
       expect(run.stdout).toBe('');
       expect(existsSync(join(root, 'dist'))).toBe(false);
     });
