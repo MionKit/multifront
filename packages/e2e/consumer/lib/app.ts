@@ -22,7 +22,7 @@ const INSTALL_POLICY = readFileSync(join(REPO_ROOT, 'pnpm-workspace.yaml'), 'utf
   ''
 );
 
-type Command = [string, ...string[]];
+export type Command = [string, ...string[]];
 
 export interface ConsumerApp {
   dir: string;
@@ -188,7 +188,7 @@ const CSP_REPORTER = `document.addEventListener('securitypolicyviolation', (even
   console.error('CSP violation: ' + event.violatedDirective + ' ' + event.blockedURI);
 });`;
 
-export async function openPage(url: string, {javaScript = true}: {javaScript?: boolean} = {}): Promise<ConsumerPage> {
+export async function openPage(url: string, javaScript = true): Promise<ConsumerPage> {
   const browser = await launchChromium();
   try {
     const page = await (await browser.newContext({javaScriptEnabled: javaScript})).newPage();
@@ -229,9 +229,8 @@ export function serveConsumerApp({target, template, build, serve}: ServedAppOpti
   beforeAll(() => {
     setup = (async () => {
       packed = await fixtureTarballs();
-      const found = packed.tarballs[target];
-      if (!found) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
-      tarball = found;
+      tarball = packed.tarballs[target] ?? '';
+      if (!tarball) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
       app = await createConsumerApp(template, [tarball]);
       const result = await runInApp(app, build);
       if (result.code !== 0) throw new Error(`${build.join(' ')} failed in ${template}:\n${result.output}`);
