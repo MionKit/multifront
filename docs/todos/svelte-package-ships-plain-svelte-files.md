@@ -20,11 +20,13 @@ to `.svelte.js`. Library authors should be able to do the same.
 - The check sits in `librarySource()`'s `generateBundle` (`packages/vite/src/library/source.ts`, `PLAIN_SVELTE`).
   Instead of failing, drop those compiled chunks too and emit the source, the way components are emitted.
 - A plain `.svelte` file may import `.ucf` files: its `.ucf` specifiers need the same rewrite core's library mode does
-  (`shipUcfImports` in `packages/core/src/svelte/library.ts`), which works on a Svelte AST, not a `.ucf` block.
+  (`shipUcfImports` in `packages/core/src/svelte/library.ts`), which offsets by a `.ucf` block's `contentStart`; a whole
+  file needs it without that offset.
 - A `.svelte.ts` module ships as `.svelte.js` with its types stripped (not compiled); importers already name
   `./x.svelte.js`.
-- The types stage (`emitSvelteTypes` in `packages/vite/src/library/dts.ts`) already copies plain files and emitDts
-  types `.svelte` files; check `Child.svelte.d.ts` and `x.svelte.d.ts` come out.
+- The types stage (`emitSvelteTypes` in `packages/vite/src/library/dts.ts`) copies plain files, but its
+  `tsc --listFilesOnly` run reads only the `.ucf` components through svelte2tsx copies: a plain `.svelte` root needs
+  the same copy before the listing, or tsc fails on it. Then check `Child.svelte.d.ts` and `x.svelte.d.ts` come out.
 - The implementer plans the details.
 
 ## Docs
