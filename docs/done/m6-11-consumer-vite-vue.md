@@ -40,16 +40,19 @@ Checked on this host with a throwaway app (repo install policy, the real `@mf-fi
    - `src/main.ts` mounts `src/App.vue`: `Card` holding `Counter`, `Button` with `class="extra"`,
      `:style="{color: 'red'}"` and `@click` (counts into `#clicks` when given a `MouseEvent`), `VueOnly`. All from
      `@mf-fixture/ui-vue`; `VueOnly` from its subpath (the index exports only components with every framework's block).
-   - `src/styles.ts` imports `@mf-fixture/ui-vue/styles.css` and mounts `src/StylesApp.vue`, which renders only
-     `Card`: the page taking the combined file instead of relying on per-component CSS.
+   - `src/styles.ts` imports `@mf-fixture/ui-vue/styles.css` and renders only `Card` (a render function): the page
+     taking the combined file instead of relying on per-component CSS.
    - `src/Checks.vue`: the wrong prop under `<!-- @vue-expect-error -->`, type checked only, never bundled.
-2. **Shared expectation**: `scopeAttribute(file)` in `packages/e2e/consumer/lib/pack.ts` beside `fixtureTarballs`:
-   `data-v-<core scopeId('src/<file>', source, true)>` for a library fixture file. The exit test's parity reuses it.
-3. **Shared build reads**: `readDist(app, file)` and `manifestGraph(app, entry)` move from `vite-react.spec.ts` into
-   `packages/e2e/consumer/lib/app.ts`, so both specs read the app's `dist/` and manifest graph the same way.
-4. **React side**: `packages/e2e/consumer/vite-react.spec.ts`'s render test also asserts Card's root carries
-   `scopeAttribute('Card.ucf')`, so the Vue and React attributes are pinned to one value.
-5. **CI**: the three floor jobs (`.github/workflows/ci.yml:76`, `:97`, `:118`) also `--exclude
+2. **Shared consumer helpers** in `packages/e2e/consumer/lib/app.ts`, used by both Vite specs:
+   - `serveConsumerApp({target, template, build, serve})`: the spec's `beforeAll` / `afterAll` (tarball, install,
+     build, serve, teardown in order), returning a getter for `{app, url, build}`.
+   - `expectStyledCard(page)`: Card's computed padding, color, title color, and the root's scope attribute from
+     `browser/lib/scope.ts`'s `scopeAttribute(LIBRARY_DIR, <src/Card.ucf>, true)` (core's `scopeId`).
+   - `expectCspEnforced(url)`: the 6.10 CSP canary.
+   - `readDist(app, file)` and `manifestGraph(app, entry)`, moved from `vite-react.spec.ts`.
+3. **React side**: `packages/e2e/consumer/vite-react.spec.ts` moves onto these helpers, so its Card check now asserts
+   the scope attribute too: the Vue and React attributes are pinned to one value.
+4. **CI**: the three floor jobs (`.github/workflows/ci.yml:76`, `:97`, `:118`) also `--exclude
    'consumer/vite-vue.spec.ts'` (fresh apps pin their own framework versions). The `consumer` job already runs the
    folder; its store cache key already hashes `consumer-*/package.json`.
 
@@ -60,30 +63,33 @@ Checked on this host with a throwaway app (repo install policy, the real `@mf-fi
   it. (Orchestrator.)
 - Both apps' Card attribute checked against core's `scopeId`, not against each other. (Orchestrator.)
 - No fuzz test. (Orchestrator.)
+- Review: reuse `browser/lib/scope.ts`'s `scopeAttribute` instead of a second one; share the setup, the Card check and
+  the CSP canary between the specs; the styles page renders Card itself; the Vue build skips `--sourcemap` (nothing
+  reads the maps).
 
 ## Tests
 
-`packages/e2e/consumer/vite-vue.spec.ts`, shaped like `vite-react.spec.ts`. Setup: `fixtureTarballs()`,
-`createConsumerApp('consumer-vite-vue', [vue tarball])`, `vite build --sourcemap --manifest`, `vite preview`
-(240 s setup timeout). Checks:
+`packages/e2e/consumer/vite-vue.spec.ts`. Setup through `serveConsumerApp`: `fixtureTarballs()`,
+`createConsumerApp('consumer-vite-vue', [vue tarball])`, `vite build --manifest`, `vite preview` (240 s setup
+timeout). Checks:
 
 - the app holds `@mf-fixture/ui-vue` and no `@multifront` package.
 - `vue-tsc --noEmit --pretty false` prints nothing, exits 0 (an unused `@vue-expect-error` would fail too).
 - `vite build` passes.
-- main page: Card computed padding, color, title color; Card root has `scopeAttribute('Card.ucf')`; Counter
+- main page: Card computed padding, color, title color; Card root has Card's scope attribute (`expectStyledCard`); Counter
   `Count 0` → `Count 1`; Button both classes, red, weight 600, a click sets `#clicks` to 1; VueOnly padding `4px`; no
   console error or warning, page error or CSP violation (`consoleProblems`).
 - CSP canary: an injected inline style is refused and reported.
 - styles page: its manifest CSS holds `.counter`, `.vue-only`, `.badge` rules (components it never imports), `main`'s
   holds no `.badge`; in Chromium Card is styled the same, no console problem.
-- `vite-react.spec.ts`: Card's root carries the same `scopeAttribute('Card.ucf')`.
+- `vite-react.spec.ts`: Card's root carries the same attribute (`expectStyledCard`).
 
 Where: this host (registry reachable, Chromium via `.env`), and CI's `consumer` job. No new infra.
 
 ## Docs
 
-- Milestone doc 6.11: `- Status: done`, shipped shapes (styles page, `scopeAttribute`); "Hands to later milestones"
-  consumer line names `scopeAttribute`, `readDist`, `manifestGraph`.
+- Milestone doc 6.11: `- Status: done`, shipped shapes (styles page, shared helpers); "Hands to later milestones"
+  consumer line names `serveConsumerApp`, `expectStyledCard`, `expectCspEnforced`, `readDist`, `manifestGraph`.
 - `docs/milestones/README.md` Consumer row already says the floor jobs leave out the fresh-app specs: no change.
   SETUP.md, spec: no change.
 
