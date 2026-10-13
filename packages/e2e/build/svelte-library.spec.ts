@@ -8,6 +8,9 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {LIBRARY_DIR, literalSpecifiers} from '../fixtures/index.ts';
 import {packLibrary, publint} from '../consumer/lib/pack.ts';
 import {
+  CHILD,
+  COUNT,
+  SVELTE_CONFIG,
   buildFixtureLibrary,
   copyLibraryChecks,
   edited,
@@ -32,33 +35,8 @@ const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
 const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.ucf'\n";
 const SVELTE_PROPS = 'let { title, children }: { title: string; children?: Snippet } = $props()';
 const SVELTE_CHILDREN = '{@render children?.()}';
-const CHILD = `<script lang="ts">
-  import Icon from './Icon.ucf'
-  import { count } from './count.svelte.js'
-
-  let { label }: { label: string } = $props()
-</script>
-
-<button class="child" onclick={() => count.value++}><Icon /> {label}: {count.value}</button>
-
-<style lang="scss">
-  // SCSS only: Svelte's own CSS parser rejects this comment and the variable.
-  $color: rgb(10, 20, 30);
-
-  .child {
-    color: $color;
-
-    &:hover {
-      color: rgb(40, 50, 60);
-    }
-  }
-</style>
-`;
-const COUNT = 'interface Count {\n  value: number;\n}\n\nexport const count: Count = $state({value: 0});\n';
 const COUNT_JS =
   "import Icon from './Icon.ucf';\n\nexport const count = $state({value: 0});\nexport const hasIcon = Icon !== undefined;\n";
-const SVELTE_CONFIG =
-  "import {vitePreprocess} from '@sveltejs/vite-plugin-svelte';\n\nexport default {preprocess: vitePreprocess()};\n";
 const require = createRequire(import.meta.url);
 const SHIMS = createRequire(require.resolve('@multifront/language-tools')).resolve('svelte2tsx/svelte-shims-v4.d.ts');
 

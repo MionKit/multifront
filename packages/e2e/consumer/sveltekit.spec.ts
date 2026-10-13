@@ -13,22 +13,11 @@ import {
   freePort,
   keyStyles,
   openPage,
-  runInApp,
   serveApp,
   serveConsumerApp,
+  svelteCheck,
 } from './lib/app.ts';
-import type {Command} from './lib/app.ts';
 
-const SVELTE_CHECK: Command = [
-  'pnpm',
-  'exec',
-  'svelte-check',
-  '--tsconfig',
-  './tsconfig.json',
-  '--fail-on-warnings',
-  '--output',
-  'machine',
-];
 const WRONG_PROP_PAGE = `<script lang="ts">\n  import {Card} from '@mf-fixture/ui-svelte';\n</script>\n\n<Card titel="x" />\n`;
 
 const served = serveConsumerApp({
@@ -41,14 +30,6 @@ const served = serveConsumerApp({
 
 const cardAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true);
 const counterAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Counter.ucf'), true);
-
-// `pnpm install` runs no `prepare`: sync writes `.svelte-kit/tsconfig.json`, which the app's tsconfig extends.
-async function svelteCheck() {
-  const {app} = served();
-  const sync = await runInApp(app, ['pnpm', 'exec', 'svelte-kit', 'sync']);
-  if (sync.code !== 0) throw new Error(`svelte-kit sync failed:\n${sync.output}`);
-  return runInApp(app, SVELTE_CHECK);
-}
 
 async function clicksAndKeyStyles(page: Page): Promise<void> {
   await page.locator('button', {hasText: 'Go'}).click();
@@ -64,7 +45,7 @@ describe('the packed Svelte package in a fresh SvelteKit app', () => {
   });
 
   it('type checks with real svelte-check, warnings included', async () => {
-    const {code, output} = await svelteCheck();
+    const {code, output} = await svelteCheck(served().app);
     expect(output).toContain(' 0 ERRORS 0 WARNINGS ');
     expect(code, output).toBe(0);
   });
@@ -74,7 +55,7 @@ describe('the packed Svelte package in a fresh SvelteKit app', () => {
     await mkdir(dir, {recursive: true});
     await writeFile(join(dir, '+page.svelte'), WRONG_PROP_PAGE);
     try {
-      const {code, output} = await svelteCheck();
+      const {code, output} = await svelteCheck(served().app);
       expect(code, output).toBe(1);
       const errors = output.split('\n').filter((line) => line.includes(' ERROR '));
       expect(errors).toHaveLength(1);

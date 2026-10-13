@@ -10,6 +10,33 @@ import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
 import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, literalSpecifiers, removeLibrary} from '../../fixtures/index.ts';
 
+// A plain Svelte component and runes module, and the `svelte.config.js` that preprocesses them.
+export const CHILD = `<script lang="ts">
+  import Icon from './Icon.ucf'
+  import { count } from './count.svelte.js'
+
+  let { label }: { label: string } = $props()
+</script>
+
+<button class="child" onclick={() => count.value++}><Icon /> {label}: {count.value}</button>
+
+<style lang="scss">
+  // SCSS only: Svelte's own CSS parser rejects this comment and the variable.
+  $color: rgb(10, 20, 30);
+
+  .child {
+    color: $color;
+
+    &:hover {
+      color: rgb(40, 50, 60);
+    }
+  }
+</style>
+`;
+export const COUNT = 'interface Count {\n  value: number;\n}\n\nexport const count: Count = $state({value: 0});\n';
+export const SVELTE_CONFIG =
+  "import {vitePreprocess} from '@sveltejs/vite-plugin-svelte';\n\nexport default {preprocess: vitePreprocess()};\n";
+
 export interface BuiltLibrary {
   outDir: string;
   results: LibraryResult[];
