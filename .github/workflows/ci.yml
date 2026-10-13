@@ -73,7 +73,7 @@ jobs:
       - *chromium
       # Fresh consumer apps pin their own framework versions: only the consumer job installs them.
       - name: Test
-        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
+        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/sveltekit-plain-svelte.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
 
   # Every test again on the oldest supported Vue: the bottom of @multifront/vite's vue peer ranges.
   vue-floor:
@@ -94,7 +94,7 @@ jobs:
       - *chromium
       # Fresh consumer apps pin their own framework versions: only the consumer job installs them.
       - name: Test
-        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
+        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/sveltekit-plain-svelte.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
 
   # Every test again on the oldest supported Svelte: the bottom of @multifront/vite's svelte peer ranges.
   svelte-floor:
@@ -115,7 +115,7 @@ jobs:
       - *chromium
       # Fresh consumer apps pin their own framework versions: only the consumer job installs them.
       - name: Test
-        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
+        run: pnpm devx test --reporter verbose --exclude 'consumer/vite-react.spec.ts' --exclude 'consumer/vite-vue.spec.ts' --exclude 'consumer/next.spec.ts' --exclude 'consumer/sveltekit.spec.ts' --exclude 'consumer/sveltekit-plain-svelte.spec.ts' --exclude 'consumer/app.spec.ts' --exclude 'consumer/exit.spec.ts'
 
   # Builds the fixture library and packs one tarball per framework, once, for every consumer job.
   consumer-pack:
