@@ -83,7 +83,7 @@ export function attw(tarball: string): Promise<ToolRun> {
   return runTool(ATTW, [tarball, '--profile', 'esm-only', '--exclude-entrypoints', 'styles.css', '--no-definitely-typed']);
 }
 
-// `pnpm devx consumer-pack <dir>`: every framework of the fixture library, built and packed into `dir` once for CI.
+// Entry of `pnpm devx consumer-pack <dir>`, run once in CI.
 if (import.meta.main) {
   const dir = process.argv[2]!;
   await buildLibrary({root: LIBRARY_DIR, outDir: dir, vite: {logLevel: 'silent'}});

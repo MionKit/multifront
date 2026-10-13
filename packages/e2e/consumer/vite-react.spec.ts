@@ -31,7 +31,7 @@ beforeAll(() => {
 }, 240_000);
 
 afterAll(async () => {
-  // A timed-out setup keeps running: wait for it, so what it creates late is removed too.
+  // A timed-out setup keeps running: what it creates late must be removed too.
   await setup?.catch(() => {});
   await server?.close();
   await app?.remove();
@@ -59,7 +59,6 @@ function graphOf(entry: string): {js: string[]; css: string[]} {
   return {js: [...js], css: [...css]};
 }
 
-/** The modules bundled into a graph, read from its source maps. */
 function sourcesOf(js: string[]): string[] {
   return js.flatMap((file) => (JSON.parse(readDist(`${file}.map`)) as {sources: string[]}).sources);
 }
