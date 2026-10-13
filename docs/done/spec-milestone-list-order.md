@@ -9,12 +9,13 @@ created: 2026-10-13
 
 ## Intent
 
-`docs/spec.md` section 9 "Milestones" lists "5. Library build" then "6. Svelte target". Every other doc runs them the
+`docs/spec.md` section 9 "Milestones" lists "5. Library build" then "6. Svelte target". The plan docs run them the
 other way: `docs/milestones/README.md` (5. Svelte target, 6. Library build), `docs/plan.md` ("### 5. Svelte target",
 "### 6. Library build"), the M6 milestone doc ("It comes after the three targets (M3, M4, M5)") and spec section 11
 itself ("tested in M5" for the Svelte tsserver plugin). The spec's Library build item also names only two consumer
 apps (Next.js App Router, Vite React), while the milestone shipped four (plus Vite Vue and SvelteKit). A reader of the
-spec gets the wrong order and the wrong consumer list.
+spec gets the wrong order and the wrong consumer list. The milestone docs m1 to m4 and the READMEs carried the same
+old order or a target list without Svelte (found while planning).
 
 ## Direction
 
@@ -23,10 +24,12 @@ spec gets the wrong order and the wrong consumer list.
   Next.js App Router, Vite React, Vite Vue, SvelteKit.
 - Check spec section 10 "Library consumers" line against the same four apps.
 - The implementer reads the M6 milestone doc for the shipped facts and plans the exact wording.
+- Widened at approval: every doc, not only the spec (see the Plan section below).
 
 ## Docs
 
-- `docs/spec.md` sections 9 and 10 only. `docs/plan.md`, `docs/architecture.md` and the milestone docs already match.
+- `docs/spec.md` sections 9 and 10, milestone docs m1 to m4, the root and package READMEs, `packages/AGENTS.md`.
+  `docs/plan.md`, `docs/architecture.md`, `docs/milestones/README.md` and m5 to m7 already match.
 
 ## Done when
 

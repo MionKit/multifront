@@ -332,7 +332,7 @@ Throwaway experiment (spike 3 of `docs/plan.md`), done before any other step. Th
 
 Core (`@multifront/core`):
 
-- `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `TargetErrorCode`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (library build with `framework` set), 6 (`.svelte` importers), 7 (`mf-tsc`).
+- `resolveTarget(importer, attribute, options): TargetChoice`, `Importer`, `ResolveTargetOptions`, `TargetChoice`, `TargetRule`, `TargetErrorCode`, `DEFAULT_IMPORTERS`, `importerFromId(id)`. The vue and svelte rules are already in. Milestone 4 (`.vue` importers, the `<vue>` block's imports), 5 (`.svelte` importers), 6 (library build with `framework` set), 7 (`mf-tsc`).
 - `rewriteImportAttributes(code, filename)`, `UcfImport`, and the rewritten form `./Card.ucf?framework=<target>`. Milestones 4 and 5 call it on `<script>` content if the spike verdict says plugin-vue or Svelte drop the attribute.
 - The react row of the registry: `react.check(block, split): Diagnostic[]` and `react.build(block, ctx): VirtualFile` (`ext: '.tsx'`, map into the `.ucf`, directive prologue kept first). Milestone 6 (library build, `"use client"`), milestone 7 (language server diagnostics; `TSSERVER_CODES` in `@multifront/language-tools` lists the codes the server leaves to tsserver).
 - `packages/core/src/react/reactApis.ts`: the React API names the transforms look for. Any later React-specific name goes there, never in another file.
