@@ -65,8 +65,7 @@ function bareImports(code: string, file: string, svelte: boolean, compiler: Svel
 }
 
 async function shippedSvelte(file: string, compiler: SvelteCompiler, preprocess: PreprocessorGroup[]): Promise<string> {
-  const source = await readFile(file, 'utf8');
-  const {code} = await compiler.preprocess(source, preprocess, {filename: file});
+  const {code} = await compiler.preprocess(await readFile(file, 'utf8'), preprocess, {filename: file});
   const text = new MagicString(code);
   shipUcfImports(text, compiler.parse(code, {modern: true}), 0);
   return text.toString();
@@ -96,7 +95,7 @@ function withoutLang(preprocessor: Preprocessor | undefined): Preprocessor | und
   };
 }
 
-// The library's own `svelte.config.js` preprocessors, as svelte-package runs them.
+// The library's own `svelte.config.js` preprocessors, run over every shipped `.svelte` file as svelte-package does.
 async function sveltePreprocess(root: string): Promise<PreprocessorGroup[]> {
   const {loadSvelteConfig} = await import('@sveltejs/vite-plugin-svelte');
   const preprocess = (await loadSvelteConfig({root}))?.preprocess;
@@ -157,15 +156,16 @@ export function librarySource(job: LibrarySourceJob): Plugin {
           );
         }
       };
+      const preprocess = await sveltePreprocess(root);
       const written = new Map<string, string>();
       for (const [index, {split}] of job.components.entries()) {
         const file = await shippedSource(split, root, src, target);
-        checkImports(split.filename, file.code, true, ` in its <${target}> block`);
         const fileName = `${names[index]}${file.ext}`;
+        const {code} = await compiler.preprocess(file.code, preprocess, {filename: `${src}/${fileName}`});
+        checkImports(split.filename, code, true, ` in its <${target}> block`);
         written.set(fileName, split.filename);
-        this.emitFile({type: 'asset', fileName, source: file.code});
+        this.emitFile({type: 'asset', fileName, source: code});
       }
-      const preprocess = plain.size > 0 ? await sveltePreprocess(root) : [];
       for (const file of [...plain].sort()) {
         const component = file.endsWith('.svelte');
         const fileName = component ? outputName(file, src) : `${outputName(file, src)}.js`;
