@@ -1,4 +1,4 @@
-import type MagicString from 'magic-string';
+import MagicString from 'magic-string';
 import {parseAst} from 'vite';
 import type {Lang} from '../types.ts';
 
@@ -44,4 +44,19 @@ export function rewriteSpecifiers(
     for (const child of Object.values(node)) visit(child);
   };
   visit(program);
+}
+
+export function ucfRenamer(ext: string): (specifier: string) => string | undefined {
+  return (specifier) =>
+    (specifier.startsWith('./') || specifier.startsWith('../')) && specifier.endsWith('.ucf')
+      ? specifier.slice(0, -'.ucf'.length) + ext
+      : undefined;
+}
+
+/** `code` with each relative `.ucf` specifier ending in `ext` instead. */
+export function rewriteScript(code: string, lang: Lang, filename: string, ext: string): string {
+  if (!code.includes('.ucf')) return code;
+  const text = new MagicString(code);
+  rewriteSpecifiers(text, code, 0, lang, filename, ucfRenamer(ext));
+  return text.toString();
 }

@@ -17,10 +17,11 @@ import {parseAst, transformWithOxc} from 'vite';
 import type {Plugin} from 'vite';
 import type {LibraryComponent, LibraryPackageJob, LibraryTarget, LibraryTypesJob} from '../types.ts';
 import {fileOf, isPeer, outputName, shownFile} from './names.ts';
-import {rewriteSpecifiers} from './specifiers.ts';
+import {rewriteScript, rewriteSpecifiers} from './specifiers.ts';
 
 // A plain Svelte component or runes module of `src`: shipped as its source, like a component.
 const PLAIN_SVELTE = /\.svelte(?:\.[jt]s)?$/;
+const STYLE_BODY = /(<style\b[^>]*>)([\s\S]*?)(?=<\/style>)/g;
 
 /** What `librarySource()` gets; posix paths. */
 interface LibrarySourceJob
@@ -64,11 +65,18 @@ function bareImports(code: string, file: string, svelte: boolean, compiler: Svel
   return found;
 }
 
+/** A plain `.svelte` file's code with its `.ucf` imports pointed at the shipped `.svelte` files. */
+export function svelteShipped(code: string, compiler: SvelteCompiler): string {
+  // Svelte parses every `<style>` as CSS: an unpreprocessed SCSS body would throw, so the parse sees it blanked.
+  const blanked = code.replace(STYLE_BODY, (_, open: string, body: string) => open + body.replace(/[^\n]/g, ' '));
+  const text = new MagicString(code);
+  shipUcfImports(text, compiler.parse(blanked, {modern: true}), 0);
+  return text.toString();
+}
+
 async function shippedSvelte(file: string, compiler: SvelteCompiler, preprocess: PreprocessorGroup[]): Promise<string> {
   const {code} = await compiler.preprocess(await readFile(file, 'utf8'), preprocess, {filename: file});
-  const text = new MagicString(code);
-  shipUcfImports(text, compiler.parse(code, {modern: true}), 0);
-  return text.toString();
+  return svelteShipped(code, compiler);
 }
 
 // Types stripped, not compiled: the consumer's Svelte compiles the runes.
@@ -77,11 +85,7 @@ async function shippedModule(file: string): Promise<string> {
   const code = file.endsWith('.ts')
     ? (await transformWithOxc(source, file, {lang: 'ts', target: 'esnext', sourcemap: false})).code
     : source;
-  const text = new MagicString(code);
-  rewriteSpecifiers(text, code, 0, 'js', file, (specifier) =>
-    /^\.\.?\//.test(specifier) && specifier.endsWith('.ucf') ? `${specifier.slice(0, -'.ucf'.length)}.svelte` : undefined
-  );
-  return text.toString();
+  return rewriteScript(code, 'js', file, '.svelte');
 }
 
 // A tag a preprocessor rewrote holds plain JS or CSS now: its `lang` and `type` go, as svelte-package strips them.
