@@ -309,6 +309,7 @@ Requirements:
 - **React conventions:** the compiler makes every component root accept and merge `className` and `style`, and forward `ref`, automatically (React 19 and later, where `ref` is a prop), the same in apps and in the library. A component that handles one of these props itself keeps its own handling (3.5, item 5). Theming through CSS variables, identical across targets.
 - **Peer dependencies only:** react/react-dom, vue, or svelte. Zero runtime dependencies otherwise.
 - `exports` map per package with types.
+- **One command:** `mf-build` reads `multifront.config.ts` (`defineLibrary({...})`) and writes every package.
 
 ## 9. Milestones
 

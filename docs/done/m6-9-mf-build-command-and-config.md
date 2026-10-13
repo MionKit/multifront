@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.9
@@ -97,7 +97,8 @@ Cases, each into its own temp folder (parallel-safe):
 2. Flags over config: a copy whose `multifront.config.ts` is
    `defineLibrary({packages: {vue: {name: '@acme/cards-vue'}}})`, run from the fixtures folder with
    `--root <copy> --framework vue --no-dts --out-dir <tmp>`: exit 0; only `vue/` written, named `@acme/cards-vue`
-   (proves the `.ts` config and its `@multifront/vite` import loaded: not the default name); no `.d.ts`; one stdout line.
+   (proves the `.ts` config and its `@multifront/vite` import loaded: not the default name); no `.d.ts`; stdout is exactly
+   `vue: <n> files in <out dir relative to the cwd>/vue (@acme/cards-vue)`.
 3. Unknown framework in a config: a copy with `multifront.config.ts` deleted and `multifront.config.mjs` =
    `export default {frameworks: ['angular']}`: exit 1, stderr has
    `mf-build: buildLibrary: unknown framework 'angular'; use vue, react, svelte`, empty stdout (also covers `.mjs`).
@@ -119,5 +120,6 @@ No fuzz test: no cheap oracle for a flag parser over one real build.
 
 ## Done when
 
+- Checked by hand: after `pnpm devx build`, the bin without `--conditions=source` runs `dist/` and builds the fixture.
 - `pnpm exec mf-build` (the bin) in a library folder builds every target; `library-cli.spec.ts` passes;
   `pnpm devx check` passes; docs above updated; this spec moved to `docs/done/`.
