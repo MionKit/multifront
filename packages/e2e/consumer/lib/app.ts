@@ -10,6 +10,7 @@ import type {Manifest} from 'vite';
 import {afterAll, beforeAll, expect} from 'vitest';
 import {FIXTURES_DIR, LIBRARY_DIR} from '../../fixtures/index.ts';
 import {collectConsole, computed, consoleProblems, launchChromium} from '../../browser/lib/chromium.ts';
+import {styles} from '../../browser/lib/parity.ts';
 import {scopeAttribute} from '../../browser/lib/scope.ts';
 import {fixtureTarballs} from './pack.ts';
 import type {ToolRun} from './pack.ts';
@@ -261,6 +262,39 @@ export async function expectStyledCard(page: Page): Promise<void> {
   expect(await computed(card, 'color')).toBe('rgb(30, 60, 90)');
   expect(await computed(card.locator('h2'), 'color')).toBe('rgb(150, 40, 60)');
   expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true))).toBe('');
+}
+
+// What every framework's package gives its elements. Button's color is left out: the React page sets it.
+export const KEY_STYLES: Record<string, Record<string, string>> = {
+  'article.card': {padding: '16px', color: 'rgb(30, 60, 90)', 'border-radius': '8px', 'font-size': '16px'},
+  'article.card h2': {padding: '0px 0px 8px', color: 'rgb(150, 40, 60)', 'border-radius': '2px', 'font-size': '20px'},
+  'button.counter': {padding: '4px 12px', color: 'rgb(120, 40, 160)'},
+  'button:has-text("Go")': {padding: '4px 12px', 'background-color': 'rgb(90, 50, 160)', 'font-weight': '600'},
+};
+
+/** The computed styles `KEY_STYLES` names, read from the page. */
+export async function keyStyles(page: Page): Promise<typeof KEY_STYLES> {
+  const read: typeof KEY_STYLES = {};
+  for (const [selector, properties] of Object.entries(KEY_STYLES))
+    read[selector] = await styles(page.locator(selector), Object.keys(properties));
+  return read;
+}
+
+/** Waits for `body[data-hydrated]` (the app's mark), then clicks Counter; `more` checks the hydrated page further. */
+export async function expectHydrates(url: string, counterSelector: string, more?: (page: Page) => Promise<void>): Promise<void> {
+  const {page, messages, close} = await openPage(url);
+  try {
+    await expectStyledCard(page);
+    await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
+    const counter = page.locator(counterSelector);
+    expect(await counter.textContent()).toBe('Count 0');
+    await counter.click();
+    await expect.poll(() => counter.textContent()).toBe('Count 1');
+    await more?.(page);
+    expect(consoleProblems(messages)).toEqual([]);
+  } finally {
+    await close();
+  }
 }
 
 /** Proves the CSP holds and its violations get reported. */

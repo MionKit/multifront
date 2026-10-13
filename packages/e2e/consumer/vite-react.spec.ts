@@ -2,7 +2,17 @@ import {readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {computed, consoleProblems} from '../browser/lib/chromium.ts';
-import {expectCspEnforced, expectStyledCard, manifestGraph, openPage, readDist, runInApp, serveConsumerApp} from './lib/app.ts';
+import {
+  KEY_STYLES,
+  expectCspEnforced,
+  expectStyledCard,
+  keyStyles,
+  manifestGraph,
+  openPage,
+  readDist,
+  runInApp,
+  serveConsumerApp,
+} from './lib/app.ts';
 
 const served = serveConsumerApp({
   target: 'react',
@@ -53,8 +63,8 @@ describe('the packed React package in a fresh Vite React app', () => {
       expect(classes).toContain('extra');
       expect(classes.filter((name) => name.startsWith('button_'))).toHaveLength(1);
       expect(await computed(button, 'color')).toBe('rgb(255, 0, 0)');
-      expect(await computed(button, 'font-weight')).toBe('600');
       await expect.poll(() => page.locator('#button-ref').textContent()).toBe('BUTTON');
+      expect(await keyStyles(page)).toEqual(KEY_STYLES);
 
       expect(consoleProblems(messages)).toEqual([]);
     } finally {
