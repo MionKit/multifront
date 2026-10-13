@@ -238,9 +238,10 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 
 ### 6.11 Consumer: a fresh Vite Vue app
 
-- Build: template `packages/e2e/fixtures/apps/consumer-vite-vue/` (exact pinned `vite`, `@vitejs/plugin-vue`, `vue`, `vue-tsc`, `typescript`), `App.vue` renders `Card`, `Counter`, `Button`, `VueOnly` from `@mf-fixture/ui-vue`; one page imports `@mf-fixture/ui-vue/styles.css` instead of relying on per-component CSS.
+- Build: template `packages/e2e/fixtures/apps/consumer-vite-vue/` (exact pinned `vite`, `@vitejs/plugin-vue`, `vue`, `vue-tsc`, `typescript`, the 6.10 CSP). `App.vue` renders `Card`, `Counter`, `Button` (with `class`, `style` and `@click`) from `@mf-fixture/ui-vue` and `VueOnly` from its subpath (`@mf-fixture/ui-vue/VueOnly`); a second page, `styles.html`, imports `@mf-fixture/ui-vue/styles.css` and renders only `Card`. `Checks.vue` holds the wrong prop, type checked only. `scopeAttribute(file)` in `consumer/lib/pack.ts` gives the `data-v-<scopeId>` attribute of a library fixture file, from core's `scopeId()`; `readDist(app, file)` and `manifestGraph(app, entry)` in `consumer/lib/app.ts` read the app's build output.
 - Deliverable: the packed Vue package installs and works in a plain Vite Vue app.
-- Test: consumer area, `packages/e2e/consumer/vite-vue.spec.ts`: real `vue-tsc --noEmit` passes (one `<!-- @vue-expect-error -->` on a wrong prop), real `vite build`, `vite preview`, Playwright: styles applied, Counter increments, the `data-v-<scopeId>` attribute on Card's root equals the React one from 6.10, no console error or warning.
+- Test: consumer area, `packages/e2e/consumer/vite-vue.spec.ts`: real `vue-tsc --noEmit` passes (one `<!-- @vue-expect-error -->` on a wrong prop), real `vite build`, `vite preview`, Playwright: styles applied, Counter increments, Button gets both classes, the merged style and its `click` event, VueOnly is styled, no console error or warning, no CSP violation (with 6.10's canary). Card's root carries `scopeAttribute('Card.ucf')`, which `vite-react.spec.ts` now checks on the React Card too, so both targets stamp one attribute. The styles page's CSS holds the rules of components it never imports (`styles.css` alone brings them) and its Card is styled the same.
+- Status: done
 
 ### 6.12 Consumer: a fresh Next.js App Router app
 
@@ -266,7 +267,7 @@ New tools this milestone adds (exact pins, each older than 30 days, per `pnpm-wo
 - `needsUseClient(code, filename)` and `reactRootProps(block, filename)` from `@multifront/core`. M7 may use the first for an editor hint; the second places the root props in `Card.ucf.react.tsx`.
 - `__ucfClass`, `__ucfStyle`, `__ucfRef` in the React helper module, and the root props in `Card.ucf.react.tsx`. M7's `mf-tsc` sees the same props as the shipped `.d.ts`.
 - The library fixture `packages/e2e/fixtures/library/` and its `multifront.config.ts`. M7 runs `mf-tsc` and `mf-lint` over it.
-- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
+- The consumer area `packages/e2e/consumer/` with `packLibrary`, `fixtureTarballs`, `scopeAttribute`, `createConsumerApp`, `runInApp`, `serveApp`, `freePort`, `openPage`, `readDist`, `manifestGraph`, and CI's `consumer-pack` and `consumer` jobs. M7 packs `@multifront/language-tools` with it.
 
 ## Exit test
 

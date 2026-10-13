@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.11
@@ -45,9 +45,11 @@ Checked on this host with a throwaway app (repo install policy, the real `@mf-fi
    - `src/Checks.vue`: the wrong prop under `<!-- @vue-expect-error -->`, type checked only, never bundled.
 2. **Shared expectation**: `scopeAttribute(file)` in `packages/e2e/consumer/lib/pack.ts` beside `fixtureTarballs`:
    `data-v-<core scopeId('src/<file>', source, true)>` for a library fixture file. The exit test's parity reuses it.
-3. **React side**: `packages/e2e/consumer/vite-react.spec.ts`'s render test also asserts Card's root carries
+3. **Shared build reads**: `readDist(app, file)` and `manifestGraph(app, entry)` move from `vite-react.spec.ts` into
+   `packages/e2e/consumer/lib/app.ts`, so both specs read the app's `dist/` and manifest graph the same way.
+4. **React side**: `packages/e2e/consumer/vite-react.spec.ts`'s render test also asserts Card's root carries
    `scopeAttribute('Card.ucf')`, so the Vue and React attributes are pinned to one value.
-4. **CI**: the three floor jobs (`.github/workflows/ci.yml:76`, `:97`, `:118`) also `--exclude
+5. **CI**: the three floor jobs (`.github/workflows/ci.yml:76`, `:97`, `:118`) also `--exclude
    'consumer/vite-vue.spec.ts'` (fresh apps pin their own framework versions). The `consumer` job already runs the
    folder; its store cache key already hashes `consumer-*/package.json`.
 
@@ -81,7 +83,7 @@ Where: this host (registry reachable, Chromium via `.env`), and CI's `consumer` 
 ## Docs
 
 - Milestone doc 6.11: `- Status: done`, shipped shapes (styles page, `scopeAttribute`); "Hands to later milestones"
-  consumer line names `scopeAttribute`.
+  consumer line names `scopeAttribute`, `readDist`, `manifestGraph`.
 - `docs/milestones/README.md` Consumer row already says the floor jobs leave out the fresh-app specs: no change.
   SETUP.md, spec: no change.
 
