@@ -5,21 +5,14 @@ import {createRequire} from 'node:module';
 import {dirname, isAbsolute, join, posix} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import MagicString from 'magic-string';
-import {
-  buildTarget,
-  createBuildContext,
-  loadSvelteCompiler,
-  loadVueCompiler,
-  shipUcfImports,
-  splitBlocks,
-} from '@multifront/core';
+import {buildTarget, createBuildContext, loadSvelteCompiler, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {Lang, LibraryTypesJob} from '../types.ts';
-import {rewriteSpecifiers} from './specifiers.ts';
+import {rewriteScript, rewriteSpecifiers, ucfRenamer} from './specifiers.ts';
 import {filesIn, shownFile} from './names.ts';
-import {shippedSource} from './source.ts';
+import {shippedSource, svelteShipped} from './source.ts';
 
 /** How one framework turns a staged `src/` into `.d.ts` files. */
 interface TypesTool {
@@ -66,20 +59,6 @@ function toolBin(job: LibraryTypesJob, {peer, bin}: TypesTool): string {
   const manifest = resolvePeer(job, peer, `${peer}/package.json`);
   const bins = (JSON.parse(readFileSync(manifest, 'utf8')) as {bin: Record<string, string>}).bin;
   return join(dirname(manifest), bins[bin]!);
-}
-
-function ucfRenamer(ext: string): (specifier: string) => string | undefined {
-  return (specifier) =>
-    (specifier.startsWith('./') || specifier.startsWith('../')) && specifier.endsWith('.ucf')
-      ? specifier.slice(0, -'.ucf'.length) + ext
-      : undefined;
-}
-
-function rewriteScript(code: string, lang: Lang, filename: string, ext: string): string {
-  if (!code.includes('.ucf')) return code;
-  const text = new MagicString(code);
-  rewriteSpecifiers(text, code, 0, lang, filename, ucfRenamer(ext));
-  return text.toString();
 }
 
 function reactTool(job: LibraryTypesJob): TypesTool {
@@ -133,10 +112,7 @@ function svelteTool(job: LibraryTypesJob): TypesTool {
     },
     // Unpreprocessed, as svelte-package types its sources: a script preprocessor would strip the types.
     stageSvelte(source, root) {
-      if (!source.includes('.ucf')) return source;
-      const text = new MagicString(source);
-      shipUcfImports(text, loadSvelteCompiler(root).parse(source, {modern: true}), 0);
-      return text.toString();
+      return source.includes('.ucf') ? svelteShipped(source, loadSvelteCompiler(root)) : source;
     },
   };
 }
