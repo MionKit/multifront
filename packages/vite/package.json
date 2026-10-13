@@ -21,7 +21,17 @@
       "default": "./dist/index.js"
     }
   },
+  "imports": {
+    "#cli": {
+      "source": "./src/library/cli.ts",
+      "default": "./dist/library/cli.js"
+    }
+  },
+  "bin": {
+    "mf-build": "./bin/mf-build.js"
+  },
   "files": [
+    "bin",
     "dist",
     "!dist/**/*.tsbuildinfo"
   ],
