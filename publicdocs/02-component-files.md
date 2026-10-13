@@ -43,6 +43,47 @@ Each block holds what you would write in that framework's own file. Write only t
 | `<svelte>` | The inside of a `.svelte` file, no `<style>` |
 | `<style>` | CSS for every block. `scoped`, `module` and `lang` work as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style) |
 
+## Class, Style and Ref on React Components
+
+Every `<react>` component passes the `className`, `style` and `ref` its parent gives on to its root element, the same root a parent's [scoped style](03-styles.md#styling-a-child-component) reaches. The editor and a [library's](06-building-a-library.md) `.d.ts` files type them, `ref` for the root's tag.
+
+`Button.ucf`
+
+```html
+<react>
+  import type { MouseEventHandler } from 'react'
+  import { cx } from './utils/cx.js'
+
+  export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
+    return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
+  }
+</react>
+```
+
+`App.tsx`
+
+```tsx
+import {useRef} from 'react';
+import Button from '../../../library/src/Button.ucf';
+
+export default function App() {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  return (
+    <section data-case="button">
+      <Button label="Press" className="extra" style={{color: 'red'}} ref={buttonRef} />
+    </section>
+  );
+}
+```
+
+| Prop | On the root |
+| --- | --- |
+| `className` | Joins the root's own classes |
+| `style` | Merges with the root's own style; the parent's values win |
+| `ref` | Gets the root element, as does the root's own `ref` |
+
+> **Tip:** To place one of these props yourself, read it from the props, as in `({ label, className })`. multifront then leaves that prop to you.
+
 ## Block Rules
 
 The editor marks each broken rule as an error. [Errors](07-errors.md) says how to fix each one.
