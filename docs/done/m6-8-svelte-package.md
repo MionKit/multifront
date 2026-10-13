@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-13
 milestone: 6
 step: 6.8
@@ -53,6 +53,8 @@ Checked on this host with throwaway scripts outside the repo:
   - `import {__ucfScopeAttrs} from "../_ucf/scopeAttrs.js";` (posix path from the file's folder to
     `<src>/_ucf/scopeAttrs.js`, `./…` when it does not start with `.`);
   - `const __ucfStyle = {"card": "…"};` per class map, inlined from `StyleModule.classes`.
+  - A `<script>` library mode has to add is written `<script lang="ts">`: svelte2tsx types a script-less JS
+    component with a `SvelteComponent` it never imports, so its `.d.ts` would not check.
   - Every relative `.ucf` specifier of the block becomes `.svelte` (the whole literal, `JSON.stringify`, MagicString
     over Svelte's AST): `ImportDeclaration`, `ExportNamedDeclaration` / `ExportAllDeclaration` sources in the module
     and instance scripts, and an `ImportExpression` with a string literal anywhere, markup included.
@@ -97,9 +99,11 @@ Checked on this host with throwaway scripts outside the repo:
   it, or set dts: false`.
 - Stage with `stageSources`: each `.ucf` as `Card.svelte` holding the library-mode code (the shipped text), `.ucf`
   specifiers in plain files → `.svelte`.
-- Listing run: beside each staged component a `Card.svelte.ts` (`.svelte.js` by svelte2tsx's own `lang="ts"` test) with
-  `svelte2tsx(code, {filename, isTsFile, mode: 'dts'}).code`; the existing `reachedRoots` (`tsc --listFilesOnly`),
-  shims among the roots; copies deleted, `Card.svelte.ts` mapped back to `Card.svelte`.
+- Listing run: beside each staged component a `Card.svelte.ts` (TypeScript even for a JS component: svelte2tsx writes
+  type declarations into its script) with `svelte2tsx(code, {filename, isTsFile, mode: 'dts'}).code`, `isTsFile` by
+  svelte2tsx's own `lang="ts"` test; the existing `reachedRoots` (`tsc --listFilesOnly`), shims among the roots; copies
+  deleted, `Card.svelte.ts` mapped back to `Card.svelte`. The staging and cleanup moved into `withStage()`, shared with
+  React and Vue; the specifier rewrite moved to `library/specifiers.ts`, shared with `librarySource()`.
 - Writes the tsconfig with every reached file as a root, runs
   `emitDts({libRoot: stage, declarationDir: outDir, svelteShimsPath, tsconfig})` (never fails on a type error, like
   svelte-package), removes each side-effect `.css` import from the written `.svelte.d.ts` files, deletes the stage in
@@ -155,6 +159,9 @@ tsc, publint, `pnpm pack` already run there (6.6, 6.7).
   rows for svelte), `consumer/pack.spec.ts`.
 
 ## Out of scope
+
+- A user-written JS script that is not in runes mode still gets svelte2tsx's `.d.ts` with an unimported
+  `SvelteComponent`, as with svelte-package (noted in the milestone's risks).
 
 - Shipping plain `.svelte` / `.svelte.ts` files of `src` (guidelines todo).
 - `mf-build` (6.9), the consumer apps (6.10 to 6.13).
