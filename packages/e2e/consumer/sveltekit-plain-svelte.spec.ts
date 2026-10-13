@@ -57,7 +57,6 @@ const WRONG_PAGE = `<script lang="ts">
 `;
 let mfBuild: Awaited<ReturnType<typeof runMfBuild>> | undefined;
 
-// The fixture library with the plain files, built by the real mf-build bin and packed.
 async function plainLibraryTarballs() {
   const root = await copyLibrary();
   try {

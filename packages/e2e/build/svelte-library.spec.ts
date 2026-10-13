@@ -307,7 +307,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
-  // Icon.ucf's types and Icon.svelte.ts's types are both Icon.svelte.d.ts: one of them would be lost.
+  // Icon.ucf and Icon.svelte.ts would both emit Icon.svelte.d.ts: one would be lost.
   it('fails on a .svelte.ts module whose declaration is written where a component types ship', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [
