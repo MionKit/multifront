@@ -63,7 +63,7 @@ Each component becomes its own file and keeps its folder: `src/forms/Field.ucf` 
 
 Each package also holds `index.js` from `src/index.ts`, the plain `.ts` files the components import as `.js`, `styles.css` with every component's CSS, and the library's `README.md` and `LICENSE`. Its `package.json` copies `version`, `description`, `license`, `author`, `repository`, `homepage` and `keywords` from the library's, and lists peer dependencies only.
 
-> **Note:** The Svelte package ships each component uncompiled, as `svelte-package` does, so the app's own Svelte compiler builds it.
+> **Note:** The Svelte package ships each component uncompiled, as `svelte-package` does, so the app's own Svelte compiler builds it. Plain `.svelte` files and `.svelte.ts` modules the components import ship the same way, `.svelte.ts` as `.svelte.js` with its types stripped. Every shipped `.svelte` file goes through the preprocessors of the library's `svelte.config.js`.
 
 ## Using a Package in an App
 
@@ -145,8 +145,8 @@ export default function Page() {
 | `the react types need typescript; install it, or set dts: false` | Install the package the message names in the library. |
 | `the react types do not compile: src/Card.ucf: error TS2322 …` | Fix the type error in that file. |
 | `src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only` | Move the CSS into a `<style>` block. |
-| `src/Child.svelte: a library package ships svelte code from .ucf <svelte> blocks only` | Move the Svelte code into the `<svelte>` block of a `.ucf` file. |
-| `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only` | Import the file by its relative path. |
+| `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only`, or the same for a plain `src/Child.svelte` | Import the file by its relative path. |
+| `src/Child.ucf and src/Child.svelte would both be written as Child.svelte` | Rename one of the two files. |
 | `shared/tokens.ts is outside src` | Move the file into `src`. |
 | `package.json has no name; set packages.vue.name` | Name the library, or set that package's `name`. |
 | `src/Badge.ts and src/Badge.ucf would both be written as Badge.js` | Rename one of the two files. |
