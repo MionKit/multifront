@@ -44,7 +44,8 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 1. **Template** `packages/e2e/fixtures/apps/consumer-next/`, no multifront package:
    - `package.json`: `next` 16.3.5, `react` 19.3.0, `react-dom` 19.3.0; dev `typescript` 6.0.3, `@types/react`
      19.3.0, `@types/node` 26.6.4 (Next needs it, see Problem).
-   - `tsconfig.json`: 6.10's compiler options plus what Next requires (`isolatedModules`, `esModuleInterop`,
+   - `tsconfig.json`: 6.10's compiler options without `allowImportingTsExtensions` and `types: ["vite/client"]` (Vite only), plus
+     what Next requires (`isolatedModules`, `esModuleInterop`,
      `resolveJsonModule`, `allowJs`, `incremental`, `plugins: [{name: "next"}]`). `include`: `next-env.d.ts`,
      `app`, `.next/types/**/*.ts`, `.next/dev/types/**/*.ts`. `exclude: ["node_modules"]`. Next writes
      `next-env.d.ts` itself, so the template does not ship it.
@@ -57,7 +58,7 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
      `Button` with `label`, `className="extra"`, `style={{color: 'red'}}` (props a server component can pass), and
      `Tooltip` with text children, all from `@mf-fixture/ui-react`. Also `Field` from `@mf-fixture/ui-react/forms/Field`.
 2. **Consumer helpers** in `packages/e2e/consumer/lib/app.ts`:
-   - `openPage(url, {javaScript = true} = {})`: opens the page in `browser.newContext({javaScriptEnabled})`.
+   - `openPage(url, javaScript = true)`: opens the page in `browser.newContext({javaScriptEnabled})`.
    - `ServedApp` gains `tarball` (the installed one), so the spec can build a changed copy of it.
    - `consumerEnv()` sets `NEXT_TELEMETRY_DISABLED=1`, so tests never send Next's telemetry. It goes in
      `scripts/lib/env.mjs` `REGISTRY` as `internal`.
@@ -72,6 +73,10 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 - No CSP in the Next app: Next's inline bootstrap scripts need a nonce setup. (Orchestrator.)
 - No fuzz test. (Orchestrator.)
 - `app/icon.svg` added while building: the favicon 404 failed every console check.
+- Review: one `expectHydrates(url)` for the `next start` and `next dev` checks; the stripped-tarball steps inline in
+  their one test; `openPage`'s flag is a plain parameter; `Command` exported from `app.ts`; build-output checks for a
+  tsconfig rewrite, a mid-build install and a skipped type check; a test for the telemetry switch; the `next dev`
+  server closed even when its setup times out.
 
 ## Tests
 
@@ -79,8 +84,10 @@ Checked on this host with a throwaway app (the repo's install policy, the real `
 'consumer-next', build: ['pnpm', 'exec', 'next', 'build'], serve: next start --port})`. Checks:
 
 - The app holds `@mf-fixture/ui-react` and no `@multifront` package.
-- `next build` passes: the output has `Compiled successfully` and no `⚠` line. Next's own TypeScript run checks
-  `app/` against the shipped `.d.ts`.
+- `next build` passes: the output has `Compiled successfully`, `Finished TypeScript in ` (not the skipped
+  "config validation" run), no `⚠` line, no "reconfigured your" tsconfig rewrite and no "Installing " of a missing
+  package. Next's own TypeScript run checks `app/` against the shipped `.d.ts`.
+- `next telemetry status` in the app prints `Status: Disabled`.
 - **The directive is needed**: the installed tarball is unpacked to a temp dir, the first line `"use client";` of
   `Counter.js` is dropped (after checking it is there), the folder is repacked with `packLibrary` and installed into a
   second `createConsumerApp('consumer-next', …)`, and `next build` runs. The exit code is not 0, and the output

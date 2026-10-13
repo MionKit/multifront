@@ -4,16 +4,15 @@ import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import type {Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {computed, consoleProblems} from '../browser/lib/chromium.ts';
 import {createConsumerApp, expectStyledCard, freePort, openPage, runInApp, serveApp, serveConsumerApp} from './lib/app.ts';
-import type {ConsumerApp} from './lib/app.ts';
+import type {Command, ConsumerApp} from './lib/app.ts';
 import {packLibrary} from './lib/pack.ts';
 
 const run = promisify(execFile);
 
-const NEXT_BUILD: [string, ...string[]] = ['pnpm', 'exec', 'next', 'build'];
+const NEXT_BUILD: Command = ['pnpm', 'exec', 'next', 'build'];
 const USE_CLIENT = '"use client";\n';
 
 const served = serveConsumerApp({
@@ -23,31 +22,20 @@ const served = serveConsumerApp({
   serve: (port) => ['pnpm', 'exec', 'next', 'start', '--port', String(port)],
 });
 
-/** The React tarball repacked with the directive cut from `Counter.js`. */
-async function withoutUseClient(tarball: string): Promise<{tarball: string; remove: () => Promise<void>}> {
-  const dir = await mkdtemp(join(tmpdir(), 'mf-no-use-client-'));
-  const remove = () => rm(dir, {recursive: true, force: true});
+// Covers React's minified hydration errors (#418, #423, #425) too: they arrive as page errors.
+async function expectHydrates(url: string): Promise<void> {
+  const {page, messages, close} = await openPage(url);
   try {
-    await mkdir(join(dir, 'react'));
-    await run('tar', ['-xzf', tarball, '-C', join(dir, 'react'), '--strip-components=1']);
-    const counter = join(dir, 'react', 'Counter.js');
-    const source = await readFile(counter, 'utf8');
-    if (!source.startsWith(USE_CLIENT)) throw new Error(`Counter.js does not start with ${USE_CLIENT}`);
-    await writeFile(counter, source.slice(USE_CLIENT.length));
-    const {react} = await packLibrary(dir);
-    return {tarball: react!, remove};
-  } catch (err) {
-    await remove();
-    throw err;
+    await expectStyledCard(page);
+    await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
+    const counter = page.locator('section.panel button.counter');
+    expect(await counter.textContent()).toBe('Count 0');
+    await counter.click();
+    await expect.poll(() => counter.textContent()).toBe('Count 1');
+    expect(consoleProblems(messages)).toEqual([]);
+  } finally {
+    await close();
   }
-}
-
-async function expectHydratedCounter(page: Page): Promise<void> {
-  await page.locator('body[data-hydrated]').waitFor({state: 'attached'});
-  const counter = page.locator('section.panel button.counter');
-  expect(await counter.textContent()).toBe('Count 0');
-  await counter.click();
-  await expect.poll(() => counter.textContent()).toBe('Count 1');
 }
 
 describe('the packed React package in a fresh Next.js App Router app', () => {
@@ -60,22 +48,38 @@ describe('the packed React package in a fresh Next.js App Router app', () => {
   it('builds with real next build, type checked, with no warning', () => {
     const {build} = served();
     expect(build).toContain('Compiled successfully');
-    expect(build).toContain('Finished TypeScript');
+    expect(build).toMatch(/Finished TypeScript in /);
     expect(build).not.toContain('⚠');
+    // The template ships what Next would write or install itself.
+    expect(build).not.toContain('reconfigured your');
+    expect(build).not.toContain('Installing ');
+  });
+
+  it('runs Next with telemetry off', async () => {
+    const {code, output} = await runInApp(served().app, ['pnpm', 'exec', 'next', 'telemetry', 'status']);
+    expect(code, output).toBe(0);
+    expect(output).toContain('Status: Disabled');
   });
 
   it('fails next build once Counter.js loses its "use client"', async () => {
-    const stripped = await withoutUseClient(served().tarball);
+    const dir = await mkdtemp(join(tmpdir(), 'mf-no-use-client-'));
     let app: ConsumerApp | undefined;
     try {
-      app = await createConsumerApp('consumer-next', [stripped.tarball]);
+      await mkdir(join(dir, 'react'));
+      await run('tar', ['-xzf', served().tarball, '-C', join(dir, 'react'), '--strip-components=1']);
+      const counter = join(dir, 'react', 'Counter.js');
+      const source = await readFile(counter, 'utf8');
+      expect(source.startsWith(USE_CLIENT)).toBe(true);
+      await writeFile(counter, source.slice(USE_CLIENT.length));
+      const {react} = await packLibrary(dir);
+      app = await createConsumerApp('consumer-next', [react!]);
       const {code, output} = await runInApp(app, NEXT_BUILD);
       expect(code, output).not.toBe(0);
       expect(output).toContain('Error occurred prerendering page "/"');
       expect(output).toContain('useState) is not a function');
     } finally {
       await app?.remove();
-      await stripped.remove();
+      await rm(dir, {recursive: true, force: true});
     }
   }, 240_000);
 
@@ -88,7 +92,7 @@ describe('the packed React package in a fresh Next.js App Router app', () => {
     expect(css).toContain('--card-padding');
     expect(css).toContain('.counter[data-v-');
 
-    const {page, messages, close} = await openPage(url, {javaScript: false});
+    const {page, messages, close} = await openPage(url, false);
     try {
       await expectStyledCard(page);
       expect(await page.locator('section.panel button.counter').textContent()).toBe('Count 0');
@@ -111,40 +115,24 @@ describe('the packed React package in a fresh Next.js App Router app', () => {
     }
   });
 
-  it('hydrates under next start: Counter counts inside the server-rendered Panel, no console problem', async () => {
-    const {page, messages, close} = await openPage(served().url);
-    try {
-      await expectStyledCard(page);
-      await expectHydratedCounter(page);
-      // Covers React's minified hydration errors (#418, #423, #425): they arrive as page errors.
-      expect(consoleProblems(messages)).toEqual([]);
-    } finally {
-      await close();
-    }
-  });
+  it('hydrates under next start: Counter counts inside the server-rendered Panel, no console problem', () =>
+    expectHydrates(served().url));
 
   describe('under next dev', () => {
-    let server: Awaited<ReturnType<typeof serveApp>> | undefined;
+    let starting: ReturnType<typeof serveApp> | undefined;
 
     beforeAll(async () => {
       const port = await freePort();
-      server = await serveApp(served().app, ['pnpm', 'exec', 'next', 'dev', '--port', String(port)], port);
+      starting = serveApp(served().app, ['pnpm', 'exec', 'next', 'dev', '--port', String(port)], port);
+      await starting;
     });
 
     afterAll(async () => {
-      await server?.close();
+      // A timed-out setup keeps running: the server it starts late must be closed too.
+      await (await starting?.catch(() => undefined))?.close();
     });
 
     // Dev React prints the full hydration warning texts.
-    it('hydrates with no hydration warning and counts a click', async () => {
-      const {page, messages, close} = await openPage(server!.url);
-      try {
-        await expectStyledCard(page);
-        await expectHydratedCounter(page);
-        expect(consoleProblems(messages)).toEqual([]);
-      } finally {
-        await close();
-      }
-    });
+    it('hydrates with no hydration warning and counts a click', async () => expectHydrates((await starting!).url));
   });
 });
