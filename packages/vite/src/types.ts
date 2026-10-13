@@ -55,7 +55,7 @@ export interface LibraryTarget {
   peers: Record<string, string>; // default peer ranges; also the build's externals
   conditions?: string[]; // export conditions naming each file, after `types`; default ['default']
   useClient?: boolean; // `"use client"` atop the output files that need it (React Server Components)
-  sourceExt?: '.svelte'; // components ship uncompiled, as `Card${sourceExt}`; the build still compiles them for its checks
+  sourceExt?: '.svelte'; // components ship uncompiled (`Card.svelte`); the build still compiles them for its checks
   emitTypes(job: LibraryTypesJob): Promise<void>; // writes the `.d.ts` files beside the JS build's output
 }
 

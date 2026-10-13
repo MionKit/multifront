@@ -177,7 +177,7 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   return {target, outDir, packageName: job.packageName, files: await filesIn(outDir), skipped: job.skipped};
 }
 
-/** One real `vite build` per framework: `<outDir>/<framework>/` gets one file per component (Svelte: uncompiled) and plain module. */
+/** One `vite build` per framework into `<outDir>/<framework>/`: a file per component (Svelte uncompiled) and plain module. */
 export async function buildLibrary(options: LibraryOptions = {}): Promise<LibraryResult[]> {
   const root = normalizePath(resolve(options.root ?? process.cwd()));
   const src = normalizePath(resolve(root, options.src ?? 'src'));

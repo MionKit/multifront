@@ -78,7 +78,7 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
   }
 }
 
-/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `let {...__ucfRest} = $props();` line. */
+/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `$props()` line. */
 function propsName(text: MagicString, instance: AST.Script | null, block: Block, used: Set<string>, lines: string[]): string {
   const {id} =
     (instance?.content.body ?? [])
