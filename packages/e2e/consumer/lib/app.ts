@@ -95,6 +95,22 @@ export async function createConsumerApp(template: string, tarballs: string[]): P
   return app;
 }
 
+// Install runs no `prepare`: sync writes `.svelte-kit/tsconfig.json`, which the app's tsconfig extends.
+export async function svelteCheck(app: ConsumerApp): Promise<ToolRun> {
+  const sync = await runInApp(app, ['pnpm', 'exec', 'svelte-kit', 'sync']);
+  if (sync.code !== 0) throw new Error(`svelte-kit sync failed:\n${sync.output}`);
+  return runInApp(app, [
+    'pnpm',
+    'exec',
+    'svelte-check',
+    '--tsconfig',
+    './tsconfig.json',
+    '--fail-on-warnings',
+    '--output',
+    'machine',
+  ]);
+}
+
 export function readDist(app: ConsumerApp, file: string): string {
   return readFileSync(join(app.dir, 'dist', file), 'utf8');
 }
@@ -217,10 +233,17 @@ export interface ServedAppOptions {
   template: string;
   build: Command;
   serve: (port: number) => Command;
+  // Default: the fixture library's.
+  tarballs?: () => ReturnType<typeof fixtureTarballs>;
+  // Runs on the installed app before its build.
+  prepare?: (app: ConsumerApp) => Promise<void>;
+  // Of the setup and of the cleanup that waits for it.
+  timeout?: number;
 }
 
 /** Registers the spec's beforeAll and afterAll hooks. */
-export function serveConsumerApp({target, template, build, serve}: ServedAppOptions): () => ServedApp {
+export function serveConsumerApp(options: ServedAppOptions): () => ServedApp {
+  const {target, template, build, serve, tarballs = fixtureTarballs, prepare, timeout = 240_000} = options;
   let packed: Awaited<ReturnType<typeof fixtureTarballs>> | undefined;
   let app: ConsumerApp | undefined;
   let server: Awaited<ReturnType<typeof serveApp>> | undefined;
@@ -229,10 +252,11 @@ export function serveConsumerApp({target, template, build, serve}: ServedAppOpti
   let setup: Promise<void> | undefined;
   beforeAll(() => {
     setup = (async () => {
-      packed = await fixtureTarballs();
+      packed = await tarballs();
       tarball = packed.tarballs[target] ?? '';
       if (!tarball) throw new Error(`no ${target} tarball among ${JSON.stringify(packed.tarballs)}`);
       app = await createConsumerApp(template, [tarball]);
+      await prepare?.(app);
       const result = await runInApp(app, build);
       if (result.code !== 0) throw new Error(`${build.join(' ')} failed in ${template}:\n${result.output}`);
       built = result.output;
@@ -240,14 +264,14 @@ export function serveConsumerApp({target, template, build, serve}: ServedAppOpti
       server = await serveApp(app, serve(port), port);
     })();
     return setup;
-  }, 240_000);
+  }, timeout);
   afterAll(async () => {
     // A timed-out setup keeps running: what it creates late must be removed too.
     await setup?.catch(() => {});
     await server?.close();
     await app?.remove();
     await packed?.remove();
-  });
+  }, timeout);
   return () => {
     if (!app || !server) throw new Error(`${template} is not served: its setup failed`);
     return {app, tarball, url: server.url, build: built};
