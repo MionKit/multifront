@@ -29,7 +29,7 @@ function insideRepo(path: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
-// The user's shell env: Vitest's NODE_ENV=test would make Vite build dev React, and repo bins must not stand in for the app's.
+// User's shell env: Vitest's NODE_ENV=test makes Vite build dev React; repo bins must not stand in for the app's.
 function consumerEnv(): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(process.env)) {
@@ -60,7 +60,7 @@ export function runInApp(app: ConsumerApp, [file, ...args]: Command): Promise<To
   });
 }
 
-/** A copy of `fixtures/apps/<template>` in the OS temp dir, outside the workspace, with the tarballs installed. */
+/** A `fixtures/apps/<template>` copy outside the workspace, tarballs installed. */
 export async function createConsumerApp(template: string, tarballs: string[]): Promise<ConsumerApp> {
   const dir = await mkdtemp(join(tmpdir(), `mf-consumer-${template}-`));
   const app: ConsumerApp = {
