@@ -14,7 +14,7 @@ interface ToolRun {
   output: string;
 }
 
-/** One real `pnpm pack` per target folder of a `buildLibrary()` out dir; the tarballs land in `outDir`. */
+/** Real `pnpm pack` per framework folder of a `buildLibrary()` out dir. */
 export async function packLibrary(outDir: string): Promise<Partial<Record<Target, string>>> {
   const tarballs: Partial<Record<Target, string>> = {};
   for (const target of TARGETS) {
@@ -26,7 +26,6 @@ export async function packLibrary(outDir: string): Promise<Partial<Record<Target
   return tarballs;
 }
 
-/** Every entry of a tarball, from real `tar -t`. */
 export async function tarFiles(tarball: string): Promise<string[]> {
   const {stdout} = await run('tar', ['-tzf', tarball]);
   return stdout.split('\n').filter(Boolean).sort();
@@ -46,7 +45,7 @@ async function runTool(file: string, args: string[]): Promise<ToolRun> {
   }
 }
 
-/** Real publint on the tarball itself; warnings fail too. */
+/** `--strict`: warnings fail too. */
 export function publint(tarball: string): Promise<ToolRun> {
   return runTool(PUBLINT, [tarball, '--strict']);
 }
