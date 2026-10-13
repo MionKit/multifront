@@ -1,17 +1,12 @@
-import {basename, dirname, relative, sep} from 'node:path';
+import {basename} from 'node:path';
 import type MagicString from 'magic-string';
 import type {AST} from 'svelte/compiler';
+import {importPath} from '../imports/resolveTarget.ts';
 import {LIBRARY_SCOPE_HELPER} from '../react/scopeHelper.ts';
 import type {Block, BuildContext, LibraryMode, StyleModule, SvelteNode} from '../types.ts';
 import {walk} from './ast.ts';
 
 const SOURCE_NODES: ReadonlySet<string> = new Set(['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration']);
-
-// Relative to `dir`, always starting with `.`, so a bundler never reads it as a package.
-function relativeImport(dir: string, file: string): string {
-  const path = relative(dir, file).split(sep).join('/');
-  return path.startsWith('.') ? path : `./${path}`;
-}
 
 /** Each relative `.ucf` specifier of the block, `import()` in markup included, becomes the shipped `.svelte` file. */
 export function shipUcfImports(text: MagicString, root: AST.Root, block: Block): void {
@@ -33,9 +28,8 @@ export function libraryImports(
   locals: Map<StyleModule, string>,
   helpers: string[]
 ): string[] {
-  const dir = dirname(ctx.filename);
   const css = `./${basename(ctx.filename, '.ucf')}.css`;
-  const helper = relativeImport(dir, `${ctx.library.src}/${LIBRARY_SCOPE_HELPER}`);
+  const helper = importPath(ctx.filename, `${ctx.library.src}/${LIBRARY_SCOPE_HELPER}`);
   return [
     ...(ctx.styles.length > 0 ? [`import ${JSON.stringify(css)};`] : []),
     ...(helpers.length > 0 ? [`import {${helpers.join(', ')}} from ${JSON.stringify(helper)};`] : []),

@@ -6,6 +6,7 @@ import {
   buildFixtureLibrary,
   buildInFreshNode,
   copyLibraryChecks,
+  edited,
   readOutput,
   resultOf,
   typeCheck,
@@ -34,11 +35,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await library?.remove();
 });
-
-function edited(source: string, from: string, to: string): string {
-  if (!source.includes(from)) throw new Error(`the fixture has no ${JSON.stringify(from)}`);
-  return source.replace(from, to);
-}
 
 // The stage folder is deleted whether the build passed or not.
 function stagesLeft(root: string): string[] {

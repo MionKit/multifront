@@ -1,10 +1,10 @@
 import {readFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {basename, join, relative, sep} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {DiagnosticsError, buildTarget, createBuildContext, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {LibraryMode, VirtualFile} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {FIXTURES_DIR, componentPath, listComponents} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, listComponents, literalSpecifiers} from '../../../e2e/fixtures/index.ts';
 import {svelte} from './render.ts';
 
 const compiler = loadVueCompiler(import.meta.dirname);
@@ -42,18 +42,8 @@ function compiled(code: string): string[] {
 
 // The string-literal specifiers of the scripts and markup, `import()` included.
 function specifiers(code: string): string[] {
-  const root = svelte.parse(code, {modern: true});
-  const found: string[] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as {type?: unknown; source?: {type?: string; value?: unknown}};
-    if (node.type !== 'Literal' && node.source?.type === 'Literal' && typeof node.source.value === 'string')
-      found.push(node.source.value);
-    for (const child of Object.values(node)) visit(child);
-  };
-  visit([root.module, root.instance, root.fragment]);
-  return found;
+  const {module, instance, fragment} = svelte.parse(code, {modern: true});
+  return literalSpecifiers([module, instance, fragment]);
 }
 
 describe.each(FIXTURES)('library mode: $filename', ({filename, library}) => {
@@ -71,12 +61,9 @@ describe.each(FIXTURES)('library mode: $filename', ({filename, library}) => {
     expect(file.code).not.toMatch(/\?ucf|virtual:/);
     const found = specifiers(file.code);
     expect(found.filter((specifier) => specifier.endsWith('.ucf'))).toEqual([]);
-    const css = `./${filename
-      .split('/')
-      .pop()!
-      .replace(/\.ucf$/, '.css')}`;
+    const css = `./${basename(filename, '.ucf')}.css`;
     expect(found.includes(css)).toBe(ctx.styles.length > 0);
-    const depth = filename.slice(library.src.length + 1).split('/').length - 1;
+    const depth = relative(library.src, filename).split(sep).length - 1;
     const helper = `${depth === 0 ? './' : '../'.repeat(depth)}_ucf/scopeAttrs.js`;
     expect(found.filter((specifier) => specifier.endsWith('scopeAttrs.js'))).toEqual(
       file.code.includes('__ucfScopeAttrs(') ? [helper] : []

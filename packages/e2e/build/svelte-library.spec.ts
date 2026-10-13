@@ -5,11 +5,12 @@ import {join, posix} from 'node:path';
 import {scopeId} from '@multifront/core';
 import {compile, parse} from 'svelte/compiler';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {LIBRARY_DIR} from '../fixtures/index.ts';
+import {LIBRARY_DIR, literalSpecifiers} from '../fixtures/index.ts';
 import {packLibrary, publint} from '../consumer/lib/pack.ts';
 import {
   buildFixtureLibrary,
   copyLibraryChecks,
+  edited,
   readOutput,
   resultOf,
   specifiersOf,
@@ -56,25 +57,10 @@ function read(file: string): string {
   return readOutput(svelte(), file);
 }
 
-function edited(source: string, from: string, to: string): string {
-  if (!source.includes(from)) throw new Error(`the fixture has no ${JSON.stringify(from)}`);
-  return source.replace(from, to);
-}
-
 // The string-literal specifiers of a component's scripts and markup, `import()` included.
 function svelteSpecifiers(file: string, code: string): string[] {
-  const root = parse(code, {modern: true, filename: file});
-  const found: string[] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as {type?: unknown; source?: {type?: string; value?: unknown}};
-    if (node.type !== 'Literal' && node.source?.type === 'Literal' && typeof node.source.value === 'string')
-      found.push(node.source.value);
-    for (const child of Object.values(node)) visit(child);
-  };
-  visit([root.module, root.instance, root.fragment]);
-  return found;
+  const {module, instance, fragment} = parse(code, {modern: true, filename: file});
+  return literalSpecifiers([module, instance, fragment]);
 }
 
 function specifiersIn(file: string): string[] {
@@ -227,5 +213,47 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
         );
       }
     );
+  });
+
+  it('fails on a bare import a consumer cannot resolve, like an alias into src, in a <svelte> block', async () => {
+    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import { cx as join } from '~/utils/cx.js'\n`);
+    await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
+      const vite = {logLevel: 'silent' as const, resolve: {alias: {'~': join(root, 'src')}}};
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], vite})).rejects.toThrow(
+        'buildLibrary: src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only'
+      );
+    });
+  });
+
+  it("points a nested plain module's import() of a component at its .svelte file", async () => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: 'src/utils/cards.ts', content: "export const loadCard = () => import('../Card.ucf');\n"},
+      {file: 'src/index.ts', content: `${index}export {loadCard} from './utils/cards.js';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const built = await buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false});
+      try {
+        const result = resultOf(built.results, 'svelte');
+        expect(specifiersOf('cards.js', readOutput(result, 'utils/cards.js'))).toEqual(['../Card.svelte']);
+        expect(result.files).not.toContain('Card.js');
+      } finally {
+        await built.remove();
+      }
+    });
+  });
+
+  it('fails on a file of src that would be written where the scope helper ships', async () => {
+    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_ucf/scopeAttrs.js'\n`);
+    const edits = [
+      // A side effect, so the build keeps the module.
+      {file: 'src/_ucf/scopeAttrs.ts', content: "console.info('loaded');\n"},
+      {file: 'src/Card.ucf', content: card},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
+        'buildLibrary: _ucf/scopeAttrs.js is the name of the shipped scope helper; rename that file in src'
+      );
+    });
   });
 });
