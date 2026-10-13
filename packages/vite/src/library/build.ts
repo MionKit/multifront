@@ -2,13 +2,13 @@ import {existsSync} from 'node:fs';
 import {readFile, readdir} from 'node:fs/promises';
 import {join, relative, resolve} from 'node:path';
 import {TARGETS, isTarget, splitBlocks} from '@multifront/core';
-import type {SplitResult, Target} from '@multifront/core';
+import type {Target} from '@multifront/core';
 import {build, mergeConfig, normalizePath} from 'vite';
 import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {multifront} from '../plugin.ts';
-import type {LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} from '../types.ts';
+import type {LibraryComponent, LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
-import {fileOf, filesIn, insideDir, outputName, shownFile} from './names.ts';
+import {fileOf, filesIn, insideDir, isPeer, outputName, shownFile} from './names.ts';
 import {writePackageJson} from './packageJson.ts';
 import {librarySource} from './source.ts';
 import {libraryTargets} from './targets.ts';
@@ -18,16 +18,11 @@ import {libraryUseClient} from './useClient.ts';
 const BARE = /^(?![./\0])/;
 const REAL_ID = /^[^\0]/;
 
-interface Component {
-  relative: string; // from src, posix
-  split: SplitResult;
-}
-
 interface TargetJob extends LibraryPackageJob, Pick<LibraryResult, 'target' | 'skipped'> {
   row: LibraryTarget;
   src: string;
   entries: Record<string, string>;
-  sources: Component[]; // the `.ucf` files with this target's block
+  sources: LibraryComponent[]; // the `.ucf` files with this target's block
 }
 
 // Overlapping calls share one swap: first in saves the caller's value, last out restores it.
@@ -53,7 +48,7 @@ export function defineLibrary(options: LibraryOptions): LibraryOptions {
   return options;
 }
 
-async function scan(src: string): Promise<Component[]> {
+async function scan(src: string): Promise<LibraryComponent[]> {
   const names = (await readdir(src, {recursive: true})).filter((name) => name.endsWith('.ucf')).map(normalizePath);
   return Promise.all(
     names.sort().map(async (name) => {
@@ -83,8 +78,6 @@ async function libraryManifest(root: string): Promise<Record<string, unknown>> {
 
 /** Peers stay external; any other package or file outside `src` fails. */
 function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plugin {
-  const names = Object.keys(peers);
-  const isPeer = (id: string) => names.some((peer) => id === peer || id.startsWith(`${peer}/`));
   const shown = (file: string) => shownFile(root, file);
   return {
     name: 'multifront:library',
@@ -92,7 +85,7 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
     resolveId: {
       filter: {id: BARE},
       async handler(id, importer, options) {
-        if (isPeer(id)) return {id, external: true};
+        if (isPeer(peers, id)) return {id, external: true};
         const resolved = await this.resolve(id, importer, {...options, skipSelf: true});
         // A virtual id, an alias into `src` or a Windows entry (`C:/…` passes the filter).
         if (resolved && !resolved.external && (resolved.id.startsWith('\0') || insideDir(src, fileOf(resolved.id)))) {
@@ -164,7 +157,8 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
       row.useClient && libraryUseClient(),
       writtenModules(src, modules),
       // After `libraryCss`, which orders `styles.css` by the component chunks this drops.
-      row.sourceExt !== undefined && librarySource({target, root, src, ext: row.sourceExt, components: job.sources}),
+      row.sourceExt !== undefined &&
+        librarySource({target, root, src, sourceExt: row.sourceExt, peers: job.peers, components: job.sources}),
     ],
     build: {
       outDir,

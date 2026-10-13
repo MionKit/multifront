@@ -9,9 +9,8 @@ import {buildTarget, createBuildContext, loadVueCompiler, splitBlocks} from '@mu
 import type {Target, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
-import type {LibraryTypesJob} from '../types.ts';
+import type {Lang, LibraryTypesJob} from '../types.ts';
 import {rewriteSpecifiers} from './specifiers.ts';
-import type {Lang} from './specifiers.ts';
 import {filesIn, shownFile} from './names.ts';
 import {shippedSource} from './source.ts';
 
@@ -283,12 +282,6 @@ interface Svelte2tsx {
 // svelte2tsx's own test for a TypeScript component.
 const TS_SCRIPT = /<script\s+[^>]*?lang=('|")(ts|typescript)('|")/;
 
-/** svelte2tsx, a pinned dependency of language-tools, the version that types the editor. */
-function loadSvelte2tsx(job: LibraryTypesJob): {svelte2tsx: Svelte2tsx; shims: string} {
-  const require = createRequire(resolvePeer(job, '@multifront/language-tools'));
-  return {svelte2tsx: require('svelte2tsx') as Svelte2tsx, shims: require.resolve('svelte2tsx/svelte-shims-v4.d.ts')};
-}
-
 /** TypeScript 6 checks side-effect imports: a `.svelte.d.ts` keeps its component's `import "./Card.css"`. */
 async function dropCssImports(outDir: string, components: string[]): Promise<void> {
   for (const component of components) {
@@ -310,7 +303,10 @@ async function dropCssImports(outDir: string, components: string[]): Promise<voi
 export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
   const tool = svelteTool(job);
   const bin = toolBin(job, tool);
-  const {svelte2tsx, shims} = loadSvelte2tsx(job);
+  // svelte2tsx, a pinned dependency of language-tools: the version that types the editor.
+  const require = createRequire(resolvePeer(job, '@multifront/language-tools'));
+  const svelte2tsx = require('svelte2tsx') as Svelte2tsx;
+  const shims = require.resolve('svelte2tsx/svelte-shims-v4.d.ts');
   await withStage(job, async (stage) => {
     const {shown, roots, components} = await stageSources(job, tool, stage);
     // tsc lists what a component reaches through svelte2tsx's script of it, written beside it for that run only.

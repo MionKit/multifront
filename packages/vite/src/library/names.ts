@@ -59,3 +59,8 @@ export async function filesIn(dir: string): Promise<string[]> {
     .map((entry) => normalizePath(relative(dir, join(entry.parentPath, entry.name))))
     .sort();
 }
+
+/** A peer or one of its subpaths (`react/jsx-runtime`): the only bare imports a library package keeps. */
+export function isPeer(peers: Record<string, string>, id: string): boolean {
+  return Object.keys(peers).some((peer) => id === peer || id.startsWith(`${peer}/`));
+}

@@ -126,3 +126,18 @@ export function hasClass(css: string, name: string): boolean {
 export function hasKeyframes(css: string, name: string): boolean {
   return new RegExp(`@keyframes\\s+${name.replace(/[$]/g, '\\$&')}(?![\\w-])`).test(css);
 }
+
+/** Every string-literal specifier in a parsed tree: imports, re-exports, `import()` and `import()` types. */
+export function literalSpecifiers(tree: unknown): string[] {
+  const found: string[] = [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== 'object') return;
+    const node = value as {type?: unknown; source?: {type?: string; value?: unknown}};
+    if (node.type !== 'Literal' && node.source?.type === 'Literal' && typeof node.source.value === 'string')
+      found.push(node.source.value);
+    for (const child of Object.values(node)) visit(child);
+  };
+  visit(tree);
+  return found;
+}

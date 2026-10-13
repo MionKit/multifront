@@ -55,7 +55,7 @@ export interface LibraryTarget {
   peers: Record<string, string>; // default peer ranges; also the build's externals
   conditions?: string[]; // export conditions naming each file, after `types`; default ['default']
   useClient?: boolean; // `"use client"` atop the output files that need it (React Server Components)
-  sourceExt?: string; // components ship uncompiled, as `Card${sourceExt}`; the build still compiles them for its checks
+  sourceExt?: '.svelte'; // components ship uncompiled, as `Card${sourceExt}`; the build still compiles them for its checks
   emitTypes(job: LibraryTypesJob): Promise<void>; // writes the `.d.ts` files beside the JS build's output
 }
 
@@ -73,9 +73,18 @@ export interface LibraryPackageJob extends Pick<LibraryResult, 'outDir' | 'packa
   peers: Record<string, string>;
   index?: string; // 'index'
   components: string[]; // 'Card', 'forms/Field'
-  componentExt: string; // '.js', or the row's `sourceExt`
+  componentExt: '.js' | NonNullable<LibraryTarget['sourceExt']>;
   conditions: string[];
 }
+
+/** A `.ucf` file of the library, split once. */
+export interface LibraryComponent {
+  relative: string; // from src, posix
+  split: SplitResult;
+}
+
+/** A language Vite's `parseAst` reads. */
+export type Lang = 'js' | 'jsx' | 'ts' | 'tsx' | 'dts';
 
 /** `files` are relative to `outDir`, `skipped` to `src`. */
 export interface LibraryResult {

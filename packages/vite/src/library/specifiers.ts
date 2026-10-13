@@ -1,7 +1,6 @@
 import type MagicString from 'magic-string';
 import {parseAst} from 'vite';
-
-export type Lang = 'js' | 'jsx' | 'ts' | 'tsx' | 'dts';
+import type {Lang} from '../types.ts';
 
 const SOURCE_NODES = new Set([
   'ImportDeclaration',

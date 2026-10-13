@@ -8,7 +8,7 @@ import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
-import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, removeLibrary} from '../../fixtures/index.ts';
+import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, literalSpecifiers, removeLibrary} from '../../fixtures/index.ts';
 
 export interface BuiltLibrary {
   outDir: string;
@@ -77,18 +77,13 @@ export function specifiersOf(file: string, code: string): string[] {
 
 /** Every string-literal specifier of a declaration file: imports, re-exports and `import()` types. */
 export function typeSpecifiersOf(file: string, code: string): string[] {
-  const {program} = parseOutput(file, code);
-  const found: string[] = [];
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== 'object') return;
-    const node = value as {type?: unknown; source?: {type?: string; value?: unknown}};
-    if (node.type !== 'Literal' && node.source?.type === 'Literal' && typeof node.source.value === 'string')
-      found.push(node.source.value);
-    for (const child of Object.values(node)) visit(child);
-  };
-  visit(program);
-  return found;
+  return literalSpecifiers(parseOutput(file, code).program);
+}
+
+/** `source` with its one `from`, which must be there, replaced. */
+export function edited(source: string, from: string, to: string): string {
+  if (!source.includes(from)) throw new Error(`the fixture has no ${JSON.stringify(from)}`);
+  return source.replace(from, to);
 }
 
 const require = createRequire(import.meta.url);
