@@ -33,7 +33,7 @@ Checked on this host with throwaway copies outside the repo:
 
    ```ts
    /** What `writePackageJson()` gets; posix paths, output names without `.js`. */
-   export interface LibraryPackageJob extends Pick<LibraryResult, 'target' | 'outDir' | 'packageName'> {
+   export interface LibraryPackageJob extends Pick<LibraryResult, 'outDir' | 'packageName'> {
      root: string; // library folder: its README.md and LICENSE
      manifest: Record<string, unknown>; // the library's package.json, {} when it has none
      peers: Record<string, string>;
@@ -46,7 +46,7 @@ Checked on this host with throwaway copies outside the repo:
    `<outDir>/package.json` (2-space JSON, final newline), keys in this order:
    - `name` = `job.packageName` (`packages[target].name`, default `<name>-<target>`, as build.ts already computes).
    - `version`, `description`, `license`, `author`, `repository`, `homepage`, `keywords` copied from `manifest`, each
-     only when present.
+     only when present and not `null`.
    - `type: "module"`, `sideEffects: ["*.css"]`.
    - `types: "./index.d.ts"` only when there is an index and its `.d.ts` was written.
    - `exports`: `"."` when there is an index, then one subpath per component in source order (`"./Card"`,
@@ -56,11 +56,11 @@ Checked on this host with throwaway copies outside the repo:
    - `peerDependencies` = `job.peers` (row ranges merged with `packages[target].peers`). No `dependencies`,
      `devDependencies`, `scripts`, `main`, `files`, `private`.
    - Copies `README.md` and `LICENSE` from `root` when present.
-   - What exists comes from `filesIn(outDir)` (`names.ts`); output names from `outputName()` (`names.ts`).
+   - A `.d.ts` is checked with `existsSync`; output names come from `outputName()` (`names.ts`).
 
 3. **`build.ts`**: `libraryName()` becomes `libraryManifest(root): Promise<Record<string, unknown>>` (same errors:
-   missing → `{}`, unparsable → "cannot read …"). `TargetJob` gains `manifest`, `index` and `components` (output
-   names). `buildOne` calls `writePackageJson` last, after `emitTypes`, before `filesIn`, so `LibraryResult.files`
+   missing or `null` → `{}`, unparsable → "cannot read …"). `TargetJob` extends `LibraryPackageJob` (so gains
+   `manifest`, `index` and `components`, as output names). `buildOne` calls `writePackageJson(job)` last, after `emitTypes`, before `filesIn`, so `LibraryResult.files`
    lists `package.json`, `README.md`, `LICENSE` too.
 
 4. **Fixture**: `packages/e2e/fixtures/library/package.json` gains `repository` and `homepage`, so every copied field
@@ -72,8 +72,8 @@ Checked on this host with throwaway copies outside the repo:
    - `packLibrary(outDir): Promise<Partial<Record<Target, string>>>`: per `<outDir>/<target>/` with a
      `package.json`, real `pnpm pack --pack-destination <outDir> --json`; returns the tarball paths.
    - `tarFiles(tarball)` (real `tar -tzf`), and `publint(tarball)` / `attw(tarball)` running the root-installed bins
-     through `process.execPath`, resolving with `{code, output}`. Neither tool exports its `package.json`, so the bin
-     is found by walking `require.resolve.paths()`.
+     through `process.execPath`, resolving with `{code, output}`. publint exports no `package.json`, so its bin is
+     found beside its resolved main file; attw's from its `package.json`.
 
 ## Decisions
 
@@ -102,7 +102,11 @@ Checked on this host with throwaway copies outside the repo:
 - **Overrides and dropped fields**: an edited copy whose `package.json` adds `dependencies`, `devDependencies`,
   `scripts`, `main`, `files`, `exports`, built with `packages.react = {name: '@acme/ui-react', peers: {react:
   '^19.1.0'}}`: name and overridden peer land, `react-dom` keeps its default, none of those fields are written;
-  without `README.md` / `LICENSE` neither is written.
+  without `README.md` / `LICENSE` neither is written. With `dts: false` there is no top-level `types` and `"."` is
+  `{default}`; a `description: null` is not copied.
+- **No library manifest**: a copy without `package.json`, named through `packages.react.name`, gets exactly `name`,
+  `type`, `sideEffects`, `types`, `exports`, `peerDependencies`. In `build/library.spec.ts`, a `package.json` holding
+  `null` fails with the "has no name" error.
 - **Minimal library**: `plain/Plain.ucf` (React, no style), `src: 'plain'`, `dts: false`: `exports` is exactly
   `"./Plain": {default}` + the two CSS entries + `"./package.json"`, no top-level `types`, and the tarball passes
   publint and attw.
