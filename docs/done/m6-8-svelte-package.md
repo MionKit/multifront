@@ -67,9 +67,10 @@ Checked on this host with throwaway scripts outside the repo:
 - `types.ts`, `LibraryTarget`:
   - `conditions?: string[]`: export conditions naming each file, after `types`; default `['default']`. A condition
     other than `default` is also a top-level field naming the index (svelte-package's `"svelte"`).
-  - `sourceExt?: string`: components ship uncompiled as `Card<sourceExt>`; the build still compiles them for its
+  - `sourceExt?: '.svelte'`: components ship uncompiled as `Card<sourceExt>`; the build still compiles them for its
     checks, CSS and module graph. No `emit(job)` hook.
-  - `LibraryPackageJob` gains `componentExt` (`.js` or `.svelte`) and `conditions`.
+  - `LibraryPackageJob` gains `componentExt` (`.js` or `.svelte`) and `conditions`. `LibraryComponent` (a `.ucf` file,
+    split once) and `Lang` move to `types.ts`, shared by `build.ts`, `source.ts`, `dts.ts` and `specifiers.ts`.
 - `library/targets.ts`: svelte row (`plugin` = `(await import('@sveltejs/vite-plugin-svelte')).svelte()`,
   `peers: {svelte: '^5.0.0'}`, `conditions: ['svelte']`, `sourceExt: '.svelte'`, `emitTypes: emitSvelteTypes`), then
   `satisfies Record<Target, LibraryTarget>`.
@@ -80,11 +81,13 @@ Checked on this host with throwaway scripts outside the repo:
 - `library/source.ts` (new), `librarySource(job)`, `enforce: 'post'` after `libraryCss` (which reads the component
   chunks' imports to order `styles.css`):
   - `renderChunk`: in non-component chunks (index, plain modules) a relative specifier pointing at a component chunk
-    (`./Card.js`) becomes `./Card.svelte` (Vite's `parseAst` + MagicString, with a map).
+    (`./Card.js`, `import('../Card.js')` too) becomes `./Card.svelte` (Vite's `parseAst` + MagicString, with a map).
   - `generateBundle`: deletes every chunk whose modules are all virtual (`\0`) or `.ucf` ids, and its `<file>.map`.
     Emits `Card.svelte` per component from `buildTarget(split, ctx, target)` with
-    `createBuildContext(split, {root, compiler: loadVueCompiler(root), production: true, library: {src}})` (a
-    `DiagnosticsError` through `rollupError`, like `plugin.ts`), one function shared with the types stage. Emits
+    `createBuildContext(split, {root, compiler: loadVueCompiler(root), production: true, library: {src}})`, one
+    function shared with the types stage. A runtime import in that source that is neither relative nor a peer (an
+    alias into `src`, which the Vite build resolved but a consumer cannot) is a build error (`isPeer()` in `names.ts`,
+    shared with the peer-only guard). Emits
     `_ucf/scopeAttrs.js` (`scopeHelperCode(false)`) when the bundle held `\0virtual:multifront/scope-attrs`; a file
     already at that name is a build error. A plain `.svelte` file or a `.svelte.js` / `.svelte.ts` module in the graph
     is a build error.
@@ -100,7 +103,7 @@ Checked on this host with throwaway scripts outside the repo:
 - Stage with `stageSources`: each `.ucf` as `Card.svelte` holding the library-mode code (the shipped text), `.ucf`
   specifiers in plain files → `.svelte`.
 - Listing run: beside each staged component a `Card.svelte.ts` (TypeScript even for a JS component: svelte2tsx writes
-  type declarations into its script) with `svelte2tsx(code, {filename, isTsFile, mode: 'dts'}).code`, `isTsFile` by
+  type declarations into its script) with `svelte2tsx(code, {filename, isTsFile, mode: 'dts', noSvelteComponentTyped: true}).code`, `isTsFile` by
   svelte2tsx's own `lang="ts"` test; the existing `reachedRoots` (`tsc --listFilesOnly`), shims among the roots; copies
   deleted, `Card.svelte.ts` mapped back to `Card.svelte`. The staging and cleanup moved into `withStage()`, shared with
   React and Vue; the specifier rewrite moved to `library/specifiers.ts`, shared with `librarySource()`.
@@ -108,15 +111,6 @@ Checked on this host with throwaway scripts outside the repo:
   `emitDts({libRoot: stage, declarationDir: outDir, svelteShimsPath, tsconfig})` (never fails on a type error, like
   svelte-package), removes each side-effect `.css` import from the written `.svelte.d.ts` files, deletes the stage in
   `finally`.
-
-### 4. Docs
-
-- `docs/milestones/m6-library-build.md`: the "One target, one row" decision, the 6.8 Build text (one build,
-  `sourceExt`, `library: {src}`, `{types, svelte}` exports, `_ucf/scopeAttrs.js`), the "Svelte's `emit(job)` hook"
-  risk bullet settled, the exit test's attw flag for Svelte, `- Status: done`.
-- `docs/architecture.md`, library build bullet: the Svelte swap, `_ucf/scopeAttrs.js`, emitDts types, the `svelte`
-  condition.
-- `docs/plan.md`: the Svelte types need `typescript` and `@multifront/language-tools` (its svelte2tsx).
 
 ## Decisions
 
@@ -129,7 +123,7 @@ Checked on this host with throwaway scripts outside the repo:
 - `library: {src}` instead of `library: boolean`: the helper path needs the file's depth.
 - Svelte exports are `{types, svelte}`, no `default`: the svelte-package layout, publint-checked.
 - `let {...__ucfRest} = $props()` in apps too: related fix (svelte2tsx), matches spec 3.5.1, own commit.
-- No fuzz addition: the core table covers every Svelte fixture shape.
+- No fuzz addition: the core table covers every Svelte fixture shape (orchestrator, rule 3).
 
 ## Tests
 
@@ -138,7 +132,7 @@ tsc, publint, `pnpm pack` already run there (6.6, 6.7).
 
 - Build area, `packages/e2e/build/svelte-library.spec.ts` (new): builds `{frameworks: ['svelte']}`, packs.
   - Exact file list: each component's `.svelte`, `.svelte.d.ts`, `.css` (nested `forms/Field.*`), `index.js`,
-    `index.d.ts`, `utils/cx.js`, `utils/cx.d.ts`, their maps, `_ucf/scopeAttrs.js`, `styles.css`, `package.json`,
+    `index.d.ts`, `utils/cx.js`, `utils/cx.d.ts`, `utils/cx.js.map`, `_ucf/scopeAttrs.js`, `styles.css`, `package.json`,
     `README.md`, `LICENSE`; `skipped` = `['Badge.ucf', 'VueOnly.ucf']`.
   - Every `.svelte` compiles with the real `svelte/compiler` (client, server), no warning; no shipped file holds
     `.ucf`, `virtual:`, `\0` or `?ucf`.
@@ -150,19 +144,38 @@ tsc, publint, `pnpm pack` already run there (6.6, 6.7).
     right props pass, `// @ts-expect-error` on wrong ones. Fails without the forward fix or the CSS-import strip.
   - A type-only `src/types.ts` used in Card's `<svelte>` props gets `types.d.ts` (the listing run).
   - The whole `package.json`; the tarball passes `publint --strict`.
-  - A plain `src/Child.svelte` imported by Card fails with the plain-Svelte error.
-- Core, `packages/core/test/svelte/library.spec.ts` (new): library mode over every `components/svelte/{shapes,roots}`
-  fixture, the library fixture's `src` and a new `components/svelte/imports/DynamicImport.ucf` (markup `import()` of a
+  - A plain `src/Child.svelte`, or a `src/count.svelte.ts` runes module, imported by Card fails with the plain-Svelte
+    error.
+  - An alias into `src` in Card's `<svelte>` block fails with the bare-import error.
+  - `src/utils/cards.ts`'s `import('../Card.ucf')` ships as `import("../Card.svelte")`.
+  - A `src/_ucf/scopeAttrs.ts` fails: it would be written where the scope helper ships.
+- Core, `packages/core/test/svelte/library.spec.ts` (new): library mode over every
+  `components/svelte/{shapes,roots,imports,library}` fixture, the library fixture's `src` and a new
+  `components/svelte/library/DynamicImport.ucf` (markup `import()` of a
   `.ucf`): compiles with the real Svelte compiler, no virtual or `?ucf` id, `.ucf` → `.svelte`, the CSS import exactly
-  when the file has styles, class map consts equal `ctx.modules`, the helper path relative to `src`.
+  when the file has styles, class map consts equal `ctx.modules`, the helper path relative to `src`. Also in the
+  `windows` CI job (its paths go through `path.relative`).
 - Updated (svelte is now a default framework): `build/library.spec.ts`, `build/library-types.spec.ts` (missing-peer
   rows for svelte), `consumer/pack.spec.ts`.
+
+## Docs
+
+- `docs/milestones/m6-library-build.md`: the "One target, one row" decision, the 6.8 Build text (one build,
+  `sourceExt`, `library: {src}`, `{types, svelte}` exports, `_ucf/scopeAttrs.js`), the "Svelte's `emit(job)` hook"
+  risk bullet settled, the exit test's attw flag for Svelte, `- Status: done`.
+- `docs/architecture.md`, library build bullet: the Svelte swap, `_ucf/scopeAttrs.js`, emitDts types, the `svelte`
+  condition.
+- `docs/plan.md`: the Svelte types need `typescript` and `@multifront/language-tools` (its svelte2tsx).
+
+## Fuzzing
+
+None. A cheap oracle exists (library mode against app mode in the svelte scope fuzz), but library mode only touches
+the import header and literal specifiers, and the core table runs every Svelte fixture shape.
 
 ## Out of scope
 
 - A user-written JS script that is not in runes mode still gets svelte2tsx's `.d.ts` with an unimported
   `SvelteComponent`, as with svelte-package (noted in the milestone's risks).
-
 - Shipping plain `.svelte` / `.svelte.ts` files of `src` (guidelines todo).
 - `mf-build` (6.9), the consumer apps (6.10 to 6.13).
 - Failing the build on a Svelte type error (emitDts does not, nor does svelte-package).
