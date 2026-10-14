@@ -59,7 +59,7 @@ export async function loadServerModule(name: string, code: string): Promise<unkn
   return ((await import(/* @vite-ignore */ pathToFileURL(path).href)) as {default: unknown}).default;
 }
 
-/** Imports point at what the Vite plugin would serve; CSS imports are dropped. */
+/** Imports point at what the Vite plugin would serve. */
 async function serverModule(file: VirtualFile, ctx: BuildContext, name: string): Promise<unknown> {
   // Svelte hashes the `<svelte:head>` marker from the filename relative to `rootDir`, the cwd by default.
   const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`, rootDir: REPO_ROOT});
@@ -76,7 +76,6 @@ async function serverModule(file: VirtualFile, ctx: BuildContext, name: string):
     else if (module) await point(`${name}.classes${module.index}.js`, `export default ${JSON.stringify(module.classes)};`);
     else if (id === SCOPE_HELPER_ID) await point(`${name}.scope.js`, scopeHelperCode(!ctx.production));
     else if (id.endsWith('.ucf')) {
-      // Another fixture's Svelte target, built the same way.
       const fixture = relative(componentPath(''), join(dirname(ctx.filename), id))
         .split(sep)
         .join('/');
