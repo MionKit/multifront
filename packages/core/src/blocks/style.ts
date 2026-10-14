@@ -14,6 +14,36 @@ const BY_LANG: Record<string, GrammarScope> = {
 };
 const STYLE_LANGS: readonly string[] = ['css', ...Object.keys(BY_LANG)];
 const LANG_LIST = orList(STYLE_LANGS);
+// compiler-sfc's own `parseCssVars` rules, so we flag exactly the v-binds Vue sets.
+const COMMENT = /\/\*[\s\S]*?\*\/|\/\/.*/g;
+const V_BIND = /v-bind\s*\(/g;
+// Vue rewrites these only in scoped styles; the shadow DOM `::slotted()` is plain CSS.
+const SLOTTED = /(?<!:):slotted\(|::v-slotted\(/g;
+
+/** `v-bind()` and `:slotted()` spots: Vue sets them up at runtime, React and Svelte would silently drop them. */
+function vueOnlyStyle(block: Block, split: SplitResult): Diagnostic[] {
+  const others = (['react', 'svelte'] as const).filter((target) => split.targets[target]).map((target) => `<${target}>`);
+  if (others.length === 0) return [];
+  const content = block.content.replace(COMMENT, (comment) => comment.replace(/[^\n]/g, ' '));
+  const report = (pattern: RegExp, message: string) =>
+    [...content.matchAll(pattern)].map((match) => {
+      const start = block.contentStart + match.index;
+      return createDiagnostic(split, 'vue-only-style', start, start + match[0].length, message);
+    });
+  const not = orList(others);
+  return [
+    ...report(
+      V_BIND,
+      `v-bind() in <style> works in <vue> only, not in ${not}; set a CSS variable through the style prop instead`
+    ),
+    ...('scoped' in block.attrs
+      ? report(
+          SLOTTED,
+          `:slotted() in <style scoped> works in <vue> only, not in ${not}; use :deep() or style the content from the parent`
+        )
+      : []),
+  ].sort((first, second) => first.start - second.start);
+}
 
 function check(block: Block, split: SplitResult): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -27,7 +57,7 @@ function check(block: Block, split: SplitResult): Diagnostic[] {
     const message = `<style module> injects ${name} more than once; give each module its own name`;
     diagnostics.push(createDiagnostic(split, 'duplicate-style-module', block.start, block.contentStart, message));
   }
-  return diagnostics;
+  return [...diagnostics, ...vueOnlyStyle(block, split)];
 }
 
 async function fillContext(blocks: Block[], ctx: BuildContext): Promise<void> {

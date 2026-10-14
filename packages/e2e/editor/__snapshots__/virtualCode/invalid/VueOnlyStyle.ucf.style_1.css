@@ -1,0 +1,8 @@
+
+/* Not scoped: Vue leaves :slotted() as written, in every framework alike. */
+:slotted(.e) {
+  color: blue;
+}
+.box {
+  font-size: v-bind(size);
+}

@@ -74,6 +74,7 @@ export type DiagnosticCode =
   | 'unknown-style-lang'
   | 'duplicate-style-module'
   | 'style-compile-error'
+  | 'vue-only-style'
   | 'vue-empty-block'
   | 'svelte-parse-error'
   | 'missing-style-module'
