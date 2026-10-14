@@ -24,6 +24,7 @@ const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, numb
   'ComposesScoped.ucf': {hasScoped: true, modules: {$style: 0}},
   'Counter.ucf': {hasScoped: true, modules: {$style: 1}},
   'Hello.ucf': {hasScoped: false, modules: {}},
+  'Note.ucf': {hasScoped: true, modules: {}},
   'Panel.ucf': {hasScoped: true, modules: {$style: 2}},
   'PanelItem.ucf': {hasScoped: true, modules: {}},
   'ReactDefaultSpecifier.ucf': {hasScoped: false, modules: {$style: 0}},
