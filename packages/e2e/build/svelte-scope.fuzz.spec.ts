@@ -473,6 +473,12 @@ describe('svelte scope stamping fuzz', () => {
         'forwards',
         {pre: (code) => code.replaceAll(/(\w)\.class\)/g, '$1.klass)').replaceAll(", 'class'", ", 'klass'")},
       ],
+      // The same for its style.
+      [
+        "the parent's style dropped",
+        'forwards',
+        {pre: (code) => code.replaceAll(/(\w)\.style\)/g, '$1.nostyle)').replaceAll(", 'style'", ", 'nostyle'")},
+      ],
     ];
 
     it.each(BROKEN)(
