@@ -46,15 +46,11 @@ A component with no block for a framework is left out of that package, and the l
 {
   "findings": [
     {
-      "file": "src/Twice.ucf",
-      "line": 7,
-      "column": 1,
-      "end": {"line": 7, "column": 8},
-      "code": "duplicate-target",
+      "file": "src/Card.ucf",
+      "code": "name-clash",
       "severity": "error",
-      "message": "<react> appears more than once; keep one",
-      "block": "react",
-      "framework": "react"
+      "message": "src/Card.ucf and src/card.ts would be written as Card.js and card.js, which macOS and Windows see as one file",
+      "framework": "vue"
     }
   ],
   "errorCount": 1,
@@ -63,7 +59,7 @@ A component with no block for a framework is left out of that package, and the l
 }
 ```
 
-Each finding has the file, the code, the severity and the message. Line and column count from 1 and always point into the file you wrote. `block` names the `.ucf` block, `framework` the build that failed. A clean run has no findings and lists each package's `framework`, `name`, `outDir`, file count and `skipped` components.
+Each finding has the file, the code, the severity, the message and the `framework` whose build failed. An error at a spot in a file adds `line`, `column` and `end`, counted from 1 in the file you wrote, and `block` for the `.ucf` block it sits in. A clean run has no findings and lists each package's `framework`, `name`, `outDir`, file count and `skipped` components.
 
 | Exit code | Means |
 | --- | --- |
@@ -174,14 +170,22 @@ export default function Page() {
 
 ## Fixing a Failed Build
 
-`mf-build` stops at the first framework whose build fails and prints every error of that build: the errors of [Errors](07-errors.md), and the library errors below. A type error prints with its TypeScript code, `TS2322` say, and points into a `.ucf` file without a line.
+`mf-build` stops at the first framework whose build fails. It prints each error of that build on one line, with its file, position and code, then a count:
+
+```
+src/Twice.ucf:7:1: error duplicate-target (react): <react> appears more than once; keep one
+src/Twice.ucf:13:1: error duplicate-target (react): <react> appears more than once; keep one
+mf-build: 2 errors in the react build
+```
+
+The codes are those of [Errors](07-errors.md) and the library errors below. A type error keeps its TypeScript code, `TS2322` say, and names a `.ucf` file without a line.
 
 | Code | Message | Fix |
 | --- | --- | --- |
 | `not-a-peer` | `"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of …` | Add the package to `packages.<framework>.peers`, so the app installs it, or drop the import. |
 | `css-outside-style` | `src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only` | Move the CSS into a `<style>` block. |
 | `svelte-import` | `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only`, or the same for a plain `src/Child.svelte` | Import the file by its relative path. |
-| `outside-src` | `shared/tokens.ts is outside src` | Move the file into `src`. |
+| `outside-src` | `shared/tokens.ts is outside src: …` | Move the file into `src`. |
 | `name-clash` | `src/Child.ucf and src/Child.svelte would both be written as Child.svelte`, `src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts`, `src/Badge.ts and src/Badge.ucf would both be written as Badge.js`, or the same as `Badge.d.ts` when `Badge.ts` is imported only with `import type` | Rename one of the two files. |
 | `name-clash` | `src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, which macOS and Windows see as one file`, or the same with names like `Child.svelte` and `child.svelte`, `Icon.svelte.d.ts` and `icon.svelte.d.ts`, or `Card.d.ts` and `card.d.ts` for a `card.ts` imported only with `import type` | Rename one of the two files, so their names differ by more than case. |
 | `name-clash` | `src/Café.ts and src/Café.ucf would be written as Café.js and Café.js, which macOS sees as one file` | The two names have the same letters, with an accent typed two ways. Rename one of the two files. |

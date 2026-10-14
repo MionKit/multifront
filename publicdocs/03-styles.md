@@ -38,7 +38,7 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 
 `v-bind()` in CSS and `:slotted()` in a `<style scoped>` work in `<vue>` only. A file with a `<react>` or `<svelte>` block that uses them fails to build for those frameworks ([`vue-only-style`](07-errors.md#component-file-errors)), so no framework renders without them.
 
-Use a CSS variable in their place. `Vars.ucf`:
+Use a CSS variable in place of `v-bind()`, and [`:deep()`](#styling-content-passed-to-a-child) in place of `:slotted()`. `Vars.ucf`:
 
 ```html
 <style scoped>
@@ -110,3 +110,21 @@ What the child renders decides whether its root gets the parent's style:
 | `<svelte>`: text, `{@render}`, `{@html}` or `<slot>` | No |
 
 > **Tip:** A `<svelte>` child that is only markup passes nothing on, with no warning. Add `<svelte:options runes />` or a script with `$props()`.
+
+## Styling Content Passed to a Child
+
+Content a parent passes in, as a Vue slot, React `children` or a Svelte snippet, takes the parent's scoped style. The child's own scoped style misses it in every framework, as in Vue; `:deep()` reaches it.
+
+`Frame.ucf`
+
+```html
+<style scoped>
+/* The parent's elements carry the parent's scope, not this one: never reaches them. */
+.from-parent {
+  font-weight: 900;
+}
+:deep(.deep-target) {
+  text-decoration: underline;
+}
+</style>
+```
