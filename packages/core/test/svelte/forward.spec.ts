@@ -121,7 +121,8 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
   } else {
     it(`spreads the parent's scope from ${from} on each of its ${roots} roots, in dev and in production`, () => {
       for (const {file} of [dev, production]) {
-        expect(file!.code.split(`{...${helper}(${from})}`)).toHaveLength(roots! + 1);
+        // The root props a root lacks follow the props name.
+        expect(file!.code.split(new RegExp(String.raw`\{\.\.\.${helper}\(${from}(?:, '\w+')*\)\}`))).toHaveLength(roots! + 1);
         expect(file!.code.split(`${helper}(`)).toHaveLength(roots! + 1);
         expect(file!.code).not.toContain('__ucfWarnFragment');
       }

@@ -2,6 +2,6 @@
   <script lang="ts">
 import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
     let count = $state(1)
-let {...__ucfRest}: {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props();
+let {...__ucfRest} = $props();
   </script>
-  <button {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)} onclick={() => count++}><span class="inner">{count}</span></button>
+  <button {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass("shape", __ucfRest.class)} onclick={() => count++}><span class="inner">{count}</span></button>

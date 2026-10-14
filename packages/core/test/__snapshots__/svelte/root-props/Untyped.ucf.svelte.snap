@@ -3,4 +3,4 @@
 import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
     let { label = 'untyped', ...__ucfRest } = $props()
   </script>
-  <p {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("own", __ucfRest.class)}>{label}</p>
+  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass("own", __ucfRest.class)}>{label}</p>

@@ -3,7 +3,7 @@
 import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
     import SvelteElementRoot from './SvelteElementRoot.ucf'
 
-    let { label = 'component', ...__ucfRest }: ({ label?: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+    let { label = 'component', ...__ucfRest }: { label?: string } = $props()
   </script>
   <!-- The child's root gets this file's scope and its parent's. -->
-  <SvelteElementRoot {...__ucfScopeAttrs(__ucfRest)} class={__ucfRest.class} style={__ucfRest.style} tag="article" {label} />
+  <SvelteElementRoot {...__ucfScopeAttrs(__ucfRest, 'class', 'style')} tag="article" {label} />

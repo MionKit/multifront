@@ -11,18 +11,18 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
   {#key props.value}
     <svelte:boundary>
       {#if props.boom}
-        <p {...__ucfScopeAttrs(props)} style={props.style} class={__ucfClass("shape", props.class)}><span class="inner">{boom()}</span></p>
+        <p {...__ucfScopeAttrs(props, 'style')} class={__ucfClass("shape", props.class)}><span class="inner">{boom()}</span></p>
       {:else}
         {#await value}
-          <p {...__ucfScopeAttrs(props)} style={props.style} class={__ucfClass("shape", props.class)}><span class="inner">pending</span></p>
+          <p {...__ucfScopeAttrs(props, 'style')} class={__ucfClass("shape", props.class)}><span class="inner">pending</span></p>
         {:then text}
-          <div {...__ucfScopeAttrs(props)} style={props.style} class={__ucfClass("shape", props.class)}><span class="inner">{text}</span></div>
+          <div {...__ucfScopeAttrs(props, 'style')} class={__ucfClass("shape", props.class)}><span class="inner">{text}</span></div>
         {:catch}
-          <section {...__ucfScopeAttrs(props)} style={props.style} class={__ucfClass("shape", props.class)}><span class="inner">catch</span></section>
+          <section {...__ucfScopeAttrs(props, 'style')} class={__ucfClass("shape", props.class)}><span class="inner">catch</span></section>
         {/await}
       {/if}
       {#snippet failed()}
-        <section {...__ucfScopeAttrs(props)} style={props.style} class={__ucfClass("shape", props.class)}><span class="inner">failed</span></section>
+        <section {...__ucfScopeAttrs(props, 'style')} class={__ucfClass("shape", props.class)}><span class="inner">failed</span></section>
       {/snippet}
     </svelte:boundary>
   {/key}

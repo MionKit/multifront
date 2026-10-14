@@ -3,12 +3,12 @@
 import "<fixtures>/components/svelte/shapes/EachBlock.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/EachBlock.ucf?ucf&type=style&index=0&module&lang.js";
 import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-    let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = [], ...__ucfRest}: ({
+    let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = [], ...__ucfRest}: {
       rows?: {id: number; cells: string[]}[]
       empty?: string[]
-    }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+    } = $props()
   </script>
-  <ul data-v-d7512b55="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass(__ucfStyle.list, __ucfRest.class)}>
+  <ul data-v-d7512b55="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(__ucfStyle.list, __ucfRest.class)}>
     {#each rows as row, index (row.id)}
       <li data-v-d7512b55="" class={__ucfStyle.row}>
         {index}

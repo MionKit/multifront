@@ -15,9 +15,11 @@ export const MERGE_STYLE = '__ucfStyle';
 
 export const MERGE_REF = '__ucfRef';
 
-const SCOPE_ATTRS_CODE = `export function ${SCOPE_ATTRS}(props) {
+// `keys`: root props a Svelte root lacks, passed on only when given: beside a spread, `class={undefined}` renders `class=""`.
+const SCOPE_ATTRS_CODE = `export function ${SCOPE_ATTRS}(props, ...keys) {
   const attrs = {};
   for (const key in props) if (key.startsWith('data-v-')) attrs[key] = props[key];
+  for (const key of keys) if (props[key] != null) attrs[key] = props[key];
   return attrs;
 }
 `;

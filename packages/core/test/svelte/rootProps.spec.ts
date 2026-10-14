@@ -4,7 +4,7 @@ import {afterAll, describe, expect, it} from 'vitest';
 import {svelteEditorSource} from '@multifront/core';
 import type {SvelteRootProp} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
-import {FIXTURES_DIR, listComponents} from '../../../e2e/fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, listComponents} from '../../../e2e/fixtures/index.ts';
 import {removeRendered, renderBuild, startTags, svelte, svelteBuild} from './render.ts';
 
 afterAll(removeRendered);
@@ -17,7 +17,7 @@ const TYPE = "{class?: import('svelte/elements').ClassValue | null; style?: stri
 type State = 'added' | 'merged' | 'author' | 'none';
 type Node = Record<string, unknown> & {type: string; start: number; end: number};
 
-// Hand-read from the fixtures. `roots`: per forwarded root in source order; `typed`: the `$props()` text of both the
+// Hand-read from the fixtures. `roots`: per forwarded root in source order; `typed`: the `$props()` text of the library
 // build and the editor source; `renders`: the props of each server render, and the root's class list and style.
 type Row = {
   fixture: string;
@@ -104,22 +104,24 @@ function visit(value: unknown, enter: (node: Node) => void): void {
 }
 
 // The roots the build spread the parent's scope on, and the props name it reads.
-function forwardedRoots(code: string): {root: Node; props: string}[] {
-  const found: {root: Node; props: string}[] = [];
+// `added`: the root props the spread passes on.
+function forwardedRoots(code: string): {root: Node; props: string; added: string[]}[] {
+  const found: {root: Node; props: string; added: string[]}[] = [];
   visit(svelte.parse(code, {modern: true}).fragment, (node) => {
     for (const attribute of (node.attributes as Node[] | undefined) ?? []) {
-      const spread = /^\{\.\.\.__ucfScopeAttrs\d*\((\w+)\)\}$/.exec(code.slice(attribute.start, attribute.end));
-      if (attribute.type === 'SpreadAttribute' && spread) found.push({root: node, props: spread[1]!});
+      const spread = /^\{\.\.\.__ucfScopeAttrs\d*\((\w+)((?:, '\w+')*)\)\}$/.exec(code.slice(attribute.start, attribute.end));
+      if (attribute.type === 'SpreadAttribute' && spread)
+        found.push({root: node, props: spread[1]!, added: [...spread[2]!.matchAll(/'(\w+)'/g)].map(([, key]) => key!)});
     }
   });
   return found;
 }
 
-function state(code: string, root: Node, prop: SvelteRootProp, props: string): State {
+function state(code: string, {root, props, added}: ReturnType<typeof forwardedRoots>[number], prop: SvelteRootProp): State {
+  if (added.includes(prop)) return 'added';
   const own = (root.attributes as Node[]).find(({type, name}) => type === 'Attribute' && name === prop);
   if (!own) return 'none';
   const value = code.slice(own.start, own.end);
-  if (value === `${prop}={${props}.${prop}}`) return 'added';
   const merge = prop === 'class' ? '__ucfClass' : '__ucfStyle';
   return new RegExp(String.raw`^${prop}=\{${merge}\d*\(.*, ${props}\.${prop}\)\}$`, 's').test(value) ? 'merged' : 'author';
 }
@@ -146,18 +148,20 @@ describe.each(ROWS)('svelte.build root props of $fixture', async ({fixture, root
 
   it('adds, merges or leaves class and style on each root, in dev and in production', () => {
     for (const {file} of [dev, production]) {
-      const found = forwardedRoots(file!.code).map(({root, props}) => ({
-        class: state(file!.code, root, 'class', props),
-        style: state(file!.code, root, 'style', props),
+      const found = forwardedRoots(file!.code).map((root) => ({
+        class: state(file!.code, root, 'class'),
+        style: state(file!.code, root, 'style'),
       }));
       expect(found).toEqual(roots);
     }
   });
 
-  it('types the props the same in the build and the editor source', () => {
+  it("types the props the same in the library build and the editor source, and leaves an app's untyped", async () => {
     const {split, ctx} = dev;
+    const library = await svelteBuild(fixture, true, {src: componentPath('')});
     const editor = svelteEditorSource(split.targets.svelte!, split, svelte, ctx.modules).code;
-    for (const code of [dev.file!.code, editor]) expect(code).toContain(typed);
+    for (const code of [library.file!.code, editor]) expect(code).toContain(typed);
+    for (const {file} of [dev, production]) expect(file!.code).not.toContain("import('svelte/elements')");
   });
 
   it.each(renders)("renders the parent's class and style on the root: %o", async (row) => {

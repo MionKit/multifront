@@ -3,13 +3,13 @@
 import "<fixtures>/components/svelte/shapes/Elements.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle1 from "<fixtures>/components/svelte/shapes/Elements.ucf?ucf&type=style&index=0&module&lang.js";
 import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-    let {label = 'Hello', ...__ucfRest}: ({label?: string}) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+    let {label = 'Hello', ...__ucfRest}: {label?: string} = $props()
     const classes = {$style: __ucfStyle1}
     const titleClass: string = __ucfStyle1.title
     // Taken: the class map's local gets a number suffix.
     const __ucfStyle = 'own'
   </script>
-  <article data-v-0360e34e="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass(__ucfStyle1.card, __ucfRest.class)}>
+  <article data-v-0360e34e="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(__ucfStyle1.card, __ucfRest.class)}>
     <h2 data-v-0360e34e="" class={titleClass} data-own={__ucfStyle}>{label}</h2>
     <p data-v-0360e34e="" class={classes.$style.text}>Text <strong data-v-0360e34e="" class={__ucfStyle1.text}>bold</strong><br data-v-0360e34e="" />after</p>
     <input data-v-0360e34e="" class={__ucfStyle1.field} value={label} aria-label="Label" />

@@ -19,7 +19,7 @@ import {
   scopeHelperCode,
   splitBlocks,
 } from '@multifront/core';
-import type {BuildContext, VirtualFile} from '@multifront/core';
+import type {BuildContext, LibraryMode, VirtualFile} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, TMP_DIR, componentPath, readComponent} from '../../../e2e/fixtures/index.ts';
 
@@ -27,10 +27,10 @@ const compiler = loadVueCompiler(import.meta.dirname);
 export const svelte = createRequire(import.meta.url)('svelte/compiler') as typeof SvelteCompilerModule;
 const REPO_ROOT = join(FIXTURES_DIR, '..', '..', '..');
 
-export async function svelteBuild(name: string, production = false) {
+export async function svelteBuild(name: string, production = false, library?: LibraryMode) {
   const {filename, source} = readComponent(name);
   const split = splitBlocks(source, filename);
-  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production});
+  const ctx = await createBuildContext(split, {root: FIXTURES_DIR, compiler, production, library});
   try {
     return {split, source, ctx, file: buildTarget(split, ctx, 'svelte'), thrown: []};
   } catch (err) {
