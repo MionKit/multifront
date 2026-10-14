@@ -1,11 +1,11 @@
 
   <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
     import { derived, readable } from 'svelte/store'
 
     // `$derived` stays a rune beside svelte/store's `derived`.
     const doubled = $derived(2)
     const store = derived(readable(1), (value) => value)
-let {...__ucfRest} = $props();
+let {...__ucfRest}: {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props();
   </script>
-  <p {...__ucfScopeAttrs(__ucfRest)} class="shape"><span class="inner">{doubled} {$store}</span></p>
+  <p {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)}><span class="inner">{doubled} {$store}</span></p>

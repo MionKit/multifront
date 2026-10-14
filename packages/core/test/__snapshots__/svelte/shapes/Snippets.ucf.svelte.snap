@@ -2,13 +2,13 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/Snippets.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/Snippets.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let {items = ['one', 'two'], ...__ucfRest}: {items?: string[]} = $props()
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+    let {items = ['one', 'two'], ...__ucfRest}: ({items?: string[]}) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
   </script>
   {#snippet item(text: string)}
     <li data-v-8eebef98="" class={__ucfStyle.item}><span data-v-8eebef98="" class={__ucfStyle.text}>{text}</span></li>
   {/snippet}
-  <ul data-v-8eebef98="" {...__ucfScopeAttrs(__ucfRest)} class={__ucfStyle.list}>
+  <ul data-v-8eebef98="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass(__ucfStyle.list, __ucfRest.class)}>
     {#snippet last()}<li data-v-8eebef98="" class={__ucfStyle.item}>Last</li>{/snippet}
     {#each items as text}{@render item(text)}{/each}
     {@render last()}

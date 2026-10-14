@@ -1,6 +1,6 @@
 
   <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    const shown = 'shown', { label = 'rest', ...rest }: { label?: string; note?: string } = $props()
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+    const shown = 'shown', { label = 'rest', ...rest }: ({ label?: string; note?: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
   </script>
-  <p {...__ucfScopeAttrs(rest)} class="shape"><span class="inner">{label} / {rest.note ?? 'no note'} / {shown}</span></p>
+  <p {...__ucfScopeAttrs(rest)} style={rest.style} class={__ucfClass("shape", rest.class)}><span class="inner">{label} / {rest.note ?? 'no note'} / {shown}</span></p>

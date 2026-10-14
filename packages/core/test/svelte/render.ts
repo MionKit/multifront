@@ -97,7 +97,7 @@ export async function renderBuild(file: VirtualFile, ctx: BuildContext, name: st
 
 /** `top`: the tag sits at the top level of the HTML. */
 export function startTags(html: string, stamp: string) {
-  const tags: {name: string; stamps: number; classes: string[]; top: boolean}[] = [];
+  const tags: {name: string; stamps: number; classes: string[]; style?: string; top: boolean}[] = [];
   let depth = 0;
   // Not parse5: it would drop a repeated attribute. Void elements close at once.
   const parser = new Parser({
@@ -106,6 +106,7 @@ export function startTags(html: string, stamp: string) {
       const tag = tags.at(-1)!;
       if (name === stamp) tag.stamps++;
       if (name === 'class') tag.classes.push(...value.split(/\s+/).filter(Boolean));
+      if (name === 'style') tag.style = value;
     },
     onclosetag: () => void depth--,
   });

@@ -1,6 +1,6 @@
 
   <svelte:options runes />
   <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-let {...__ucfRest} = $props();</script>
-  <p {...__ucfScopeAttrs(__ucfRest)} class="shape"><span class="inner">empty script</span></p>
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+let {...__ucfRest}: {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props();</script>
+  <p {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)}><span class="inner">empty script</span></p>

@@ -1,0 +1,169 @@
+// Spec 3.6, root props: a forwarded Svelte root takes and merges the parent's `class` and `style`, typed for the editor.
+import {basename} from 'node:path';
+import {afterAll, describe, expect, it} from 'vitest';
+import {svelteEditorSource} from '@multifront/core';
+import type {SvelteRootProp} from '@multifront/core';
+// A relative path, not a package dependency: @multifront/e2e depends on core.
+import {FIXTURES_DIR, listComponents} from '../../../e2e/fixtures/index.ts';
+import {removeRendered, renderBuild, startTags, svelte, svelteBuild} from './render.ts';
+
+afterAll(removeRendered);
+
+const ROOT_PROPS_DIR = 'svelte/root-props';
+const PARENT = {class: 'parent-extra', style: 'color: red'};
+const TYPE = "{class?: import('svelte/elements').ClassValue | null; style?: string | null}";
+
+// How the build left a root's `class` or `style`.
+type State = 'added' | 'merged' | 'author' | 'none';
+type Node = Record<string, unknown> & {type: string; start: number; end: number};
+
+// Hand-read from the fixtures. `roots`: per forwarded root in source order; `typed`: the `$props()` text of both the
+// build and the editor source; `renders`: the props of each server render, and the root's class list and style.
+type Row = {
+  fixture: string;
+  roots: Record<SvelteRootProp, State>[];
+  typed?: string;
+  renders: {props?: Record<string, unknown>; classes: string[]; style?: string}[];
+};
+
+const ROWS: Row[] = (
+  [
+    {
+      fixture: 'ComponentRoot.ucf',
+      roots: [{class: 'merged', style: 'merged'}],
+      typed: `let { tag = 'aside', ...__ucfRest }: ({ tag?: string }) & ${TYPE} = $props()`,
+      // SvelteElementRoot merges again: its own class first, then the one this root passed on.
+      renders: [{classes: ['shape', 'own', 'parent-extra'], style: 'padding: 1px; color: red'}],
+    },
+    {
+      fixture: 'Destructures.ucf',
+      roots: [{class: 'author', style: 'author'}],
+      typed: "let { class: klass = '', style, ...__ucfRest }: { class?: string; style?: string } = $props()",
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'JsDoc.ucf',
+      roots: [{class: 'merged', style: 'merged'}],
+      typed: `/** @type {({ label?: string }) & ${TYPE}} */\n    let { label = 'jsdoc', ...__ucfRest } = $props()`,
+      renders: [{classes: ['own', 'parent-extra'], style: 'padding: 1px; color: red'}],
+    },
+    {
+      fixture: 'Merges.ucf',
+      roots: [
+        {class: 'merged', style: 'merged'},
+        {class: 'merged', style: 'merged'},
+        {class: 'merged', style: 'merged'},
+        {class: 'merged', style: 'added'},
+      ],
+      typed: `let { branch, tone = 'calm', ...__ucfRest }: ({ branch: string; tone?: string }) & ${TYPE} = $props()`,
+      renders: [
+        {props: {branch: 'text'}, classes: ['own', 'text', 'parent-extra'], style: 'padding: 4px;; color: red'},
+        {props: {branch: 'mixed'}, classes: ['own', 'calm', 'parent-extra'], style: 'margin: 1px; color: red'},
+        {props: {branch: 'expression'}, classes: ['own', 'calm', 'parent-extra'], style: 'padding: 2px; color: red'},
+        // Svelte's `style:` directive wins over the parent's style.
+        {props: {branch: 'directive'}, classes: ['own-calm', 'parent-extra'], style: 'color: blue;'},
+      ],
+    },
+    {
+      fixture: 'ReadsProps.ucf',
+      roots: [{class: 'author', style: 'added'}],
+      typed: 'let props: ({ label?: string; class?: string }) & {style?: string | null} = $props()',
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'SpreadsRest.ucf',
+      roots: [{class: 'author', style: 'none'}],
+      typed: "let { label = 'spreads', ...rest }: { label?: string; [key: string]: unknown } = $props()",
+      renders: [{classes: ['parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'Untyped.ucf',
+      roots: [{class: 'merged', style: 'added'}],
+      typed: "let { label = 'untyped', ...__ucfRest } = $props()",
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'Valueless.ucf',
+      roots: [{class: 'author', style: 'merged'}],
+      typed: `let { label = 'valueless', ...__ucfRest }: ({ label?: string }) & {style?: string | null} = $props()`,
+      // Left as written; beside the scope spread, Svelte renders a `class` with no value as `class="true"`.
+      renders: [{classes: ['true'], style: 'padding: 1px; color: red'}],
+    },
+  ] satisfies Row[]
+).map((row) => ({...row, fixture: `${ROOT_PROPS_DIR}/${row.fixture}`}));
+
+it('has a row for every svelte/root-props/ fixture', () => {
+  expect(listComponents(ROOT_PROPS_DIR)).toEqual(ROWS.map(({fixture}) => fixture));
+});
+
+function visit(value: unknown, enter: (node: Node) => void): void {
+  if (Array.isArray(value)) return value.forEach((item) => visit(item, enter));
+  if (!value || typeof value !== 'object') return;
+  if (typeof (value as Node).type === 'string') enter(value as Node);
+  for (const child of Object.values(value)) visit(child, enter);
+}
+
+// The roots the build spread the parent's scope on, and the props name it reads.
+function forwardedRoots(code: string): {root: Node; props: string}[] {
+  const found: {root: Node; props: string}[] = [];
+  visit(svelte.parse(code, {modern: true}).fragment, (node) => {
+    for (const attribute of (node.attributes as Node[] | undefined) ?? []) {
+      const spread = /^\{\.\.\.__ucfScopeAttrs\d*\((\w+)\)\}$/.exec(code.slice(attribute.start, attribute.end));
+      if (attribute.type === 'SpreadAttribute' && spread) found.push({root: node, props: spread[1]!});
+    }
+  });
+  return found;
+}
+
+function state(code: string, root: Node, prop: SvelteRootProp, props: string): State {
+  const own = (root.attributes as Node[]).find(({type, name}) => type === 'Attribute' && name === prop);
+  if (!own) return 'none';
+  const value = code.slice(own.start, own.end);
+  if (value === `${prop}={${props}.${prop}}`) return 'added';
+  const merge = prop === 'class' ? '__ucfClass' : '__ucfStyle';
+  return new RegExp(String.raw`^${prop}=\{${merge}\d*\(.*, ${props}\.${prop}\)\}$`, 's').test(value) ? 'merged' : 'author';
+}
+
+describe.each(ROWS)('svelte.build root props of $fixture', async ({fixture, roots, typed, renders}) => {
+  const dev = await svelteBuild(fixture);
+  const production = await svelteBuild(fixture, true);
+  const name = basename(fixture, '.ucf');
+
+  it('builds in dev and in production, and Svelte compiles both with no warning', () => {
+    for (const {file, ctx} of [dev, production]) {
+      for (const generate of ['server', 'client'] as const) {
+        const {warnings} = svelte.compile(file!.code, {generate, filename: `${ctx.filename}.svelte.svelte`});
+        expect(warnings.map(({code, message}) => `${code}: ${message}`)).toEqual([]);
+      }
+    }
+  });
+
+  it('matches the dev code snapshot', async () => {
+    await expect(dev.file!.code.replaceAll(FIXTURES_DIR, '<fixtures>')).toMatchFileSnapshot(
+      `../__snapshots__/${fixture}.svelte.snap`
+    );
+  });
+
+  it('adds, merges or leaves class and style on each root, in dev and in production', () => {
+    for (const {file} of [dev, production]) {
+      const found = forwardedRoots(file!.code).map(({root, props}) => ({
+        class: state(file!.code, root, 'class', props),
+        style: state(file!.code, root, 'style', props),
+      }));
+      expect(found).toEqual(roots);
+    }
+  });
+
+  it('types the props the same in the build and the editor source', () => {
+    const {split, ctx} = dev;
+    const editor = svelteEditorSource(split.targets.svelte!, split, svelte, ctx.modules).code;
+    for (const code of [dev.file!.code, editor]) expect(code).toContain(typed);
+  });
+
+  it.each(renders)("renders the parent's class and style on the root: %o", async (row) => {
+    const {props, classes, style} = row;
+    const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(row)}`, {...props, ...PARENT});
+    const [root] = startTags(body, 'data-none');
+    expect({classes: root!.classes, style: root!.style}).toEqual({classes, style});
+  });
+});

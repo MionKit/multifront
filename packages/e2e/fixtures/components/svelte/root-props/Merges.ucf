@@ -1,0 +1,17 @@
+<svelte>
+  <script lang="ts">
+    // Named like the class merge: the build imports it under another name.
+    const __ucfClass = 'own-merge'
+    const style = 'padding: 2px'
+    let { branch, tone = 'calm' }: { branch: string; tone?: string } = $props()
+  </script>
+  {#if branch === 'text'}
+    <section class="own &#x74;ext" style="padding: 4px;">text</section>
+  {:else if branch === 'mixed'}
+    <p class="own {tone}" style="margin: {tone === 'calm' ? 1 : 2}px">mixed</p>
+  {:else if branch === 'expression'}
+    <div class={['own', tone]} {style}>{__ucfClass}</div>
+  {:else}
+    <span class=own-{tone} style:color="blue">directive</span>
+  {/if}
+</svelte>

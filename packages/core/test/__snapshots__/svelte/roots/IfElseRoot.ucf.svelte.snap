@@ -1,14 +1,14 @@
 
   <script lang="ts">
 import "<fixtures>/components/svelte/roots/IfElseRoot.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let { branch /* the case */, ...__ucfRest }: { branch: string } = $props()
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+    let { branch /* the case */, ...__ucfRest }: ({ branch: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
   </script>
   {#if branch === 'a'}
     {@const label = 'a'}
-    <div data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">{label}</span></div>
+    <div data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)}><span data-v-eb591586="" class="inner">{label}</span></div>
   {:else if branch === 'b'}
-    <p data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">b</span></p>
+    <p data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)}><span data-v-eb591586="" class="inner">b</span></p>
   {:else}
-    <section data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} class="shape"><span data-v-eb591586="" class="inner">c</span></section>
+    <section data-v-eb591586="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)}><span data-v-eb591586="" class="inner">c</span></section>
   {/if}

@@ -1,0 +1,6 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'untyped' } = $props()
+  </script>
+  <p class="own">{label}</p>
+</svelte>
