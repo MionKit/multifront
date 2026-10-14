@@ -17,17 +17,17 @@ export function shownFile(root: string, file: string): string {
   return normalizePath(relative(root, file));
 }
 
-/** Names with one key are one file on a case-insensitive file system (macOS, Windows). */
+/** Names with one key are one file on macOS, which ignores case and Unicode normalization; Windows ignores case only. */
 export function fileKey(name: string): string {
-  return name.toLowerCase();
+  return name.normalize('NFC').toLowerCase();
 }
 
-/** Two files of `src` given one output file, by name or by case. */
+/** Two files of `src` given one output file, by name, case or Unicode normalization. */
 export function clashMessage(first: string, firstName: string, second: string, secondName: string): string {
   if (firstName === secondName) return `buildLibrary: ${first} and ${second} would both be written as ${firstName}`;
+  const systems = firstName.toLowerCase() === secondName.toLowerCase() ? 'macOS and Windows see' : 'macOS sees';
   return (
-    `buildLibrary: ${first} and ${second} would be written as ${firstName} and ${secondName}, ` +
-    'which macOS and Windows see as one file'
+    `buildLibrary: ${first} and ${second} would be written as ${firstName} and ${secondName}, ` + `which ${systems} as one file`
   );
 }
 
