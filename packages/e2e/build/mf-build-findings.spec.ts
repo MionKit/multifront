@@ -188,47 +188,47 @@ describe('mf-build on a Svelte compiler error (spec 8.1: never a position in gen
 
 describe('mf-build when a style preprocessor is not installed (spec 8.1: a missing tool is exit 2)', () => {
   // The repo keeps less uninstalled on purpose (spec 3.8).
-  const lessy = `<react>
-  export default function Lessy() {
-    return <div className="a">x</div>
-  }
-</react>
+  const {source} = readComponent('invalid/MissingPreprocessor.ucf');
+  const file = 'src/MissingPreprocessor.ucf';
 
-<style lang="less">
-@c: red;
-.a { color: @c; }
-</style>
-`;
+  async function expectMissing(root: string, framework: string): Promise<void> {
+    for (const format of ['text', 'json']) {
+      const run = await runMfBuild(root, ['--framework', framework, '--no-dts', '--format', format]);
+      expect(run).toEqual({
+        code: 2,
+        stdout: '',
+        stderr: `mf-build: buildLibrary: ${file}: <style lang="less"> needs less; install it\n`,
+      });
+    }
+  }
 
   it('exits 2 with one stderr line and an empty stdout, whatever the format', async () => {
-    await withEditedLibrary([{file: 'src/Lessy.ucf', content: lessy}], async (root) => {
-      const run = await runMfBuild(root, ['--framework', 'react', '--no-dts', '--format', 'json']);
-      expect(run.code).toBe(2);
-      expect(run.stdout).toBe('');
-      expect(run.stderr).toMatch(/^mf-build: .*less.*\n$/);
-    });
+    await withEditedLibrary([{file, content: source}], (root) => expectMissing(root, 'react'));
   });
 
-  const everyFramework = `<vue>
-  <template><div class="a">x</div></template>
-</vue>
+  const everyFramework = `<vue>\n  <template><span class="pill">x</span></template>\n</vue>\n\n<svelte>\n  <span class="pill">x</span>\n</svelte>\n\n${source}`;
 
-<svelte>
-  <div class="a">x</div>
-</svelte>
+  it.each(['vue', 'svelte'] as const)('names the file and the package to install in the %s build', async (framework) => {
+    await withEditedLibrary([{file, content: everyFramework}], (root) => expectMissing(root, framework));
+  });
 
-${lessy}`;
-
-  it.each(['react', 'vue', 'svelte'] as const)('names the file and the package to install in the %s build', async (framework) => {
-    await withEditedLibrary([{file: 'src/Lessy.ucf', content: everyFramework}], async (root) => {
-      for (const format of ['text', 'json']) {
-        const run = await runMfBuild(root, ['--framework', framework, '--no-dts', '--format', format]);
-        expect(run).toEqual({
-          code: 2,
-          stdout: '',
-          stderr: 'mf-build: buildLibrary: src/Lessy.ucf: <style lang="less"> needs less; install it\n',
-        });
-      }
+  // A plain `.less` file ships no CSS anyway (css-outside-style): Vite's own error stands, with no `<style>` block made up.
+  it("leaves a plain .less file to Vite's error in the library's files", async () => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: 'src/theme.less', content: '@c: red;\n.t { color: @c; }\n'},
+      {file: 'src/index.ts', content: `${index}import './theme.less';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts', '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(report(run.stdout).findings).toEqual([
+        expect.objectContaining({
+          file: 'src/theme.less',
+          code: 'vite:css',
+          message: expect.stringMatching(/^Preprocessor dependency "less" not found/),
+        }),
+      ]);
     });
   });
 });
