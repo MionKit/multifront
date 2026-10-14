@@ -32,6 +32,7 @@ const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> =
     {scoped: false, module: '$style'},
   ],
   'Hello.ucf': [],
+  'Note.ucf': [{scoped: true, module: undefined}],
   'Panel.ucf': [
     {scoped: true, module: undefined},
     {scoped: false, module: undefined},

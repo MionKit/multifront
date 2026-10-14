@@ -1,0 +1,32 @@
+<vue>
+  <script setup lang="ts">
+  withDefaults(defineProps<{ tone?: string }>(), { tone: 'calm' })
+  </script>
+
+  <template>
+    <p :class="['note', tone]" style="margin: 2px; padding: 1px">note</p>
+  </template>
+</vue>
+
+<react>
+  export default function Note({ tone = 'calm' }: { tone?: string }) {
+    return <p className={`note ${tone}`} style={{ margin: 2, padding: 1 }}>note</p>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { tone = 'calm' }: { tone?: string } = $props()
+  </script>
+
+  <p class="note {tone}" style="margin: 2px; padding: 1px">note</p>
+</svelte>
+
+<style scoped>
+.note {
+  font-style: italic;
+}
+.calm {
+  color: rgb(40, 90, 160);
+}
+</style>

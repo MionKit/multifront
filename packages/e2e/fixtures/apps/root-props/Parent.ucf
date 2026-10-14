@@ -1,0 +1,46 @@
+<vue>
+  <script setup lang="ts">
+  import Button from '../../library/src/Button.ucf'
+  import Note from '../../components/Note.ucf'
+  </script>
+
+  <template>
+    <section class="parent">
+      <div data-case="button"><Button label="Press" class="extra" style="color: red; font-weight: 700" /></div>
+      <div data-case="note"><Note class="extra" style="padding: 6px" /></div>
+    </section>
+  </template>
+</vue>
+
+<react>
+  import Button from '../../library/src/Button.ucf'
+  import Note from '../../components/Note.ucf'
+
+  export default function Parent() {
+    return (
+      <section className="parent">
+        <div data-case="button"><Button label="Press" className="extra" style={{ color: 'red', fontWeight: 700 }} /></div>
+        <div data-case="note"><Note className="extra" style={{ padding: 6 }} /></div>
+      </section>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    import Button from '../../library/src/Button.ucf'
+    import Note from '../../components/Note.ucf'
+  </script>
+
+  <section class="parent">
+    <div data-case="button"><Button label="Press" class="extra" style="color: red; font-weight: 700" /></div>
+    <div data-case="note"><Note class="extra" style="padding: 6px" /></div>
+  </section>
+</svelte>
+
+<!-- Reaches each child's root only through forwarding, with the class the parent passed. -->
+<style scoped>
+.extra {
+  text-decoration: underline;
+}
+</style>

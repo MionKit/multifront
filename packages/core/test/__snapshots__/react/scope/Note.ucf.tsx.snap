@@ -1,0 +1,6 @@
+import "<fixtures>/components/Note.ucf?ucf&type=style&index=0&lang.css";
+import {__ucfScopeAttrs, __ucfClass, __ucfStyle} from "virtual:multifront/scope-attrs";
+
+  export default function Note(__props: { tone?: string }) {const { tone = 'calm' } = __props;
+    return <p data-v-a891ea91="" {...__ucfScopeAttrs(__props)} ref={__props.ref} className={__ucfClass(`note ${tone}`, __props.className)} style={__ucfStyle({ margin: 2, padding: 1 }, __props.style)}>note</p>
+  }
