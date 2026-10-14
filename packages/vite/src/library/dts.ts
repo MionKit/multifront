@@ -231,12 +231,40 @@ async function withStage<Result>(job: LibraryTypesJob, run: (stage: string) => P
   }
 }
 
+/** A type-only module has no chunk: only its `.d.ts` name can clash with a component's. */
+function checkDeclarationNames(job: LibraryTypesJob, tool: TypesTool, reached: string[], staged: Staged): void {
+  const components = new Set(staged.components);
+  const owners = new Map<string, {name: string; shown: string}>();
+  for (const path of reached) {
+    if (DECLARATION.test(path) || !staged.shown.has(path)) continue;
+    const name = components.has(path)
+      ? `${path.slice(0, -tool.ucfExt.length)}.d.ts`
+      : path.replace(/\.([cm]?)[jt]sx?$/, '.d.$1ts');
+    if (name === path) continue;
+    const declaration = {name, shown: staged.shown.get(path)!};
+    const owner = owners.get(fileKey(name));
+    if (!owner) {
+      owners.set(fileKey(name), declaration);
+      continue;
+    }
+    const [first, second] = [owner, declaration].sort((one, other) => (one.shown < other.shown ? -1 : 1));
+    throw libraryError(
+      'name-clash',
+      `${job.root}/${first!.shown}`,
+      clashMessage(first!.shown, first!.name, second!.shown, second!.name)
+    );
+  }
+}
+
 async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[]> {
   const bin = toolBin(job, tool);
   return withStage(job, async (stage) => {
-    const {shown, roots, components} = await stageSources(job, tool, stage);
+    const staged = await stageSources(job, tool, stage);
+    const {shown, roots, components} = staged;
     await writeTsconfig(job, tool, stage, roots);
-    await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job, shown));
+    const reached = await reachedRoots(bin, stage, job, shown);
+    checkDeclarationNames(job, tool, reached, staged);
+    await writeTsconfig(job, tool, stage, reached);
     const {code, output} = await runTool(bin, stage);
     if (code !== 0) throw compileError(job, output, shown);
     return components;
