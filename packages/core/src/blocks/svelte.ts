@@ -252,7 +252,7 @@ function scriptLang(block: Block): SvelteScriptLang | undefined {
   return lang === undefined ? undefined : lang === 'ts' ? 'ts' : 'js';
 }
 
-// After the instance script's last statement (`$props()` before a warning reads it), else in a new script.
+// After the instance script's last statement, so `$props()` is declared before a warning reads it.
 function addLines(text: MagicString, root: AST.Root, block: Block, lines: string[], tag: string): void {
   if (lines.length === 0) return;
   if (!root.instance) {
