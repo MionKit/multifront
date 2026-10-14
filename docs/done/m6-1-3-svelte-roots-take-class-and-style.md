@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-14
 milestone: 6.1
 step: 6.1.3
@@ -33,6 +33,8 @@ Same names, now taking Svelte values too. With no parent value the root's own co
   `ClassValue` that Svelte's own `clsx` flattens (`class={expr}` compiles to `$.clsx(expr)`).
 - `__ucfStyle(own, extra)`: two strings → `` `${own}; ${extra}` `` (the parent's declarations come last, so its keys
   win); else the object spread (React, unchanged).
+- `__ucfScopeAttrs(props, ...keys)` also copies each of `keys` the parent gave (not `null` / `undefined`): the
+  root props a Svelte root lacks ride the spread (see 3).
 - The library already ships these in `_ucf/scopeAttrs.js` (`scopeHelperCode(false)`).
 
 ### 2. Helper locals never clash (`forward.ts`, `blocks/svelte.ts`, `svelte/library.ts`)
@@ -60,13 +62,15 @@ Legacy mode, several roots, an `{#each}` root and undecided blocks get nothing n
 
 | Own attribute | Build output |
 | --- | --- |
-| none | ` class={R.class}` right after the scope spread, before every author attribute |
+| none | rides the spread: `{...__ucfScopeAttrs(R, 'class')}`, before every author attribute |
 | `class={expr}` | `class={__ucfClass(expr, R.class)}`, insert only |
 | `{style}` shorthand | `style={__ucfStyle(style, R.style)}` |
 | `class="a b"`, text only | `class={__ucfClass("a b", R.class)}`: JSON of Svelte's decoded `data` |
 | `class="a {b} c"` | `` class={__ucfClass(`a ${b ?? ''} c`, R.class)} ``: Svelte's own stringify; tag sources stay in place |
 | `class` with no value | left as written |
 
+- Not ` class={R.class}`: beside a spread, Svelte renders `class={undefined}` as `class=""`, so an app passing no
+  class would change its HTML (found by the Svelte scope fuzz).
 - `class:x` / `style:x` directives untouched: Svelte applies them on top (a root's `style:color` beats the parent).
 - `escapeOnce` skips attributes these edits rewrote.
 
@@ -80,7 +84,9 @@ takes it.
 - No `$props()`: the added line is typed (TS annotation, or JSDoc in a JS script). Language = the first `lang` among
   the block's scripts, the added `<script lang="ts">` of library mode included.
 - Unannotated `$props()`: no type edit; svelte2tsx infers, and the added rest makes it `& Record<string, any>`.
-- The build always writes these edits: the library `.d.ts` comes from svelte2tsx over the shipped code.
+- Only a library build writes these type edits (its `.d.ts` comes from svelte2tsx over the shipped code), and the
+  editor. An app build stays untyped: Svelte strips the types anyway, and the `import(` in them made Vite's dynamic
+  import scan parse uncompiled output when plugin-svelte leaves the id out (`svelte-target.spec.ts`).
 - `renameSvelteStyles` is renamed `svelteEditorSource` (type `SvelteStyleRename` → `SvelteEditorSource`): the class
   map rename plus the build's `$props()` edits and these type edits, so editor and library `.d.ts` see one props
   type. Returns `lang: 'ts'` when it adds a `<script lang="ts">`.
@@ -104,16 +110,18 @@ Orchestrator's answers to the plan:
 All run here and in CI's `check` job (Chromium, tsserver already there); `consumer` job for the exit test;
 `svelte-floor` (5.55.6) runs the Svelte ones again. No new infra.
 
-1. Core build, new fixtures `packages/e2e/fixtures/components/svelte/root-props/` (`Merges`, `ReadsProps`,
-   `Destructures`, `SpreadsRest`, `HelperClash`, `JsDoc`, `Untyped`, `Valueless`), new spec
+1. Core build, new fixtures `packages/e2e/fixtures/components/svelte/root-props/` (`ComponentRoot`, `Destructures`,
+   `JsDoc`, `Merges` (also declares `__ucfClass`), `ReadsProps`, `SpreadsRest`, `Untyped`, `Valueless`), new spec
    `packages/core/test/svelte/rootProps.spec.ts`: per root the state of `class` and `style`; the typed text from the
-   build and from `svelteEditorSource`; compiles with no warning; code snapshot; server render with the parent's
-   `class` / `style`, exact class list and style. `HelperClash` pins the aliased import (fails on `main`).
+   library build and from `svelteEditorSource`, none in an app build; compiles with no warning; code snapshot;
+   server render with the parent's `class` / `style`, exact class list and style. The helper clash fix has its own
+   fixture `svelte/roots/HelperClashRoot.ucf` (declares `__ucfScopeAttrs`, fails on `main`), also on the browser
+   roots page; `svelte/library.spec.ts` builds the root-props fixtures in library mode too.
 2. `packages/core/test/svelte/forward.spec.ts`: renders pass `class` / `style` too; forwarded roots hold them,
    nothing else does. Snapshots of `svelte/roots/` and `svelte/shapes/` updated; `undoBuild` / `HELPER_IMPORT` in
    `blocks/svelte.spec.ts` and the helper regex in `svelte/library.spec.ts` learn the new edits and aliases.
 3. Browser parity: app `packages/e2e/fixtures/apps/root-props/` (`Parent.ucf` with three blocks, scoped `.extra`
-   rule; children library `Button.ucf` and new shared `components/Note.ucf`). New
+   rule; children library `Button.ucf` and new shared `components/Note.ucf`, registered in core's fixture tables). New
    `packages/e2e/browser/root-props-parity.spec.ts` on build + preview and dev: Svelte computed styles, sorted class
    lists and `data-v-*` equal React's and Vue's; no console problem.
 4. Editor: `packages/e2e/editor/svelte-root-props.spec.ts`, tsserver with our plugin on `Parent.ucf`: no error;
@@ -121,7 +129,9 @@ All run here and in CI's `check` job (Chromium, tsserver already there); `consum
 5. Library types: `packages/e2e/fixtures/library-checks/svelte.ts` passes `class` / `style` to Button, plus a
    `@ts-expect-error` `style: 1`.
 6. Consumer: `consumer-sveltekit` passes `class="extra" style="color: red"`; `exit.spec.ts` drops its Svelte skip.
-7. Fuzz: the `forwards` rule's parent also passes a class and a style; every forwarded root holds them, nothing else.
+7. Fuzz: the `forwards` rule's parent also passes a class and a style; every forwarded root holds them, nothing else
+   (`same-html` compares both twins without them). The shapes' `Child.svelte` passes them on like a `.ucf` root, and
+   a new negative control ("the parent's class dropped") proves the rule live.
 
 ## Docs
 
@@ -129,7 +139,8 @@ All run here and in CI's `check` job (Chromium, tsserver already there); `consum
   (incl. the shadowing difference); section 5 (the Svelte virtual script carries the root props); section 8 (one
   styling rule for every framework).
 - `docs/architecture.md`: helper module's merges cover Svelte; the `<svelte>` editor code carries the root-prop types.
-- `publicdocs/03-styles.md` forwarding table; `publicdocs/02-component-files.md` root props section names Svelte.
+- `publicdocs/03-styles.md` forwarding table; `publicdocs/02-component-files.md` root props section ("Class, Style
+  and Ref on Components") names Svelte.
 - `docs/milestones/m5-svelte-target.md`: the renamed function. Milestone doc: `- Status: done`.
 
 ## Out of scope

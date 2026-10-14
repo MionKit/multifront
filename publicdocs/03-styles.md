@@ -83,7 +83,7 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 
 What the child renders decides whether its root gets the parent's style:
 
-| The child renders | Gets the parent's scoped style |
+| The child renders | Gets the parent's scoped style and its `class` / `className` and `style` props |
 | --- | --- |
 | `<react>`: an element, also through `?:`, `&&`, `memo` or `forwardRef` | Yes |
 | `<svelte>`: one element, also one per `{#if}`, `{#key}`, `{#await}` or `<svelte:boundary>` branch | Yes |
