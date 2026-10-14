@@ -38,7 +38,7 @@ function failAtImport(context: Rolldown.TransformPluginContext, code: string, id
   const loc =
     original.line === null ? {file: id, ...at} : {file: original.source ?? id, line: original.line, column: original.column};
   // `mf-build` prints `short`: the code and importer are fields of its findings.
-  return context.error({message, loc, pluginCode: error.code, meta: {message: error.short}});
+  return context.error({message, loc, meta: {code: error.code, message: error.short}});
 }
 
 interface RawScript {

@@ -2,7 +2,7 @@ import {existsSync} from 'node:fs';
 import {dirname, join, relative, resolve} from 'node:path';
 import {runCommand} from '@multifront/core';
 import type {CommandResult, CommandSpec, CommandValues, Target} from '@multifront/core';
-import {createLogger, loadConfigFromFile, mergeConfig, normalizePath} from 'vite';
+import {createLogger, loadConfigFromFile, normalizePath} from 'vite';
 import type {LibraryOptions, LibraryResult} from '../types.ts';
 import {buildLibrary} from './build.ts';
 import {LibraryError} from './errors.ts';
@@ -66,10 +66,13 @@ async function build(values: CommandValues): Promise<CommandResult> {
   if (values.framework) options.frameworks = values.framework as Target[];
   if (values['out-dir'] !== undefined) options.outDir = values['out-dir'] as string;
   if (values['no-dts']) options.dts = false;
-  // Vite's `✗ Build failed` goes: the findings say what failed. Its warnings stay on stderr.
-  const customLogger = createLogger(config.vite?.logLevel ?? 'warn');
-  customLogger.error = () => {};
-  options.vite = mergeConfig(config.vite ?? {}, {customLogger});
+  // Only Vite's `✗ Build failed` line goes, the findings say what failed; its other logs stay on stderr.
+  const logger = config.vite?.customLogger ?? createLogger(config.vite?.logLevel ?? 'warn');
+  const error: typeof logger.error = (message, logOptions) => {
+    if (!message.includes('Build failed in')) logger.error(message, logOptions);
+  };
+  // Through the prototype, `hasWarned` stays the one the logger's own `warn` sets.
+  options.vite = {...config.vite, customLogger: Object.assign(Object.create(logger) as typeof logger, {error})};
   try {
     const results = await buildLibrary(options);
     const packages = results.map(({target, packageName, outDir, files, skipped}) => {

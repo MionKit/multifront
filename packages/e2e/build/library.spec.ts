@@ -227,7 +227,9 @@ describe('buildLibrary() errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       const build = buildFixtureLibrary(root);
-      await expect(build).rejects.toThrow('"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of');
+      await expect(build).rejects.toThrow(
+        'buildLibrary: "left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of'
+      );
       await expect(build).rejects.toThrow('a library package has peer dependencies only');
       expect(process.env.NODE_ENV).toBe('test');
       const peers = {'left-pad': '^1.3.0'};
@@ -249,7 +251,7 @@ describe('buildLibrary() errors', () => {
       {file: 'src/Card.ucf', content: card.replace('<react>\n', "<react>\n  import '../shared/tokens.js'\n")},
     ];
     await withEditedLibrary(edits, async (root) => {
-      await expect(buildFixtureLibrary(root)).rejects.toThrow('shared/tokens.ts is outside src');
+      await expect(buildFixtureLibrary(root)).rejects.toThrow('buildLibrary: shared/tokens.ts is outside src');
     });
   });
 
