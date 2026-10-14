@@ -167,22 +167,9 @@ const ERROR_CASES = [
     tag: '<style>',
     reason: /Cannot find module 'no-such-package\/base\.css'$/,
   },
-  {
-    fixture: 'invalid/MissingPreprocessor.ucf',
-    line: 7,
-    column: 0,
-    rule: '<style lang="less">',
-    text: '<style lang="less">',
-    tag: '<style lang="less">',
-  },
 ];
 
 describe('compileStyles on blocks that do not compile', () => {
-  it('runs MissingPreprocessor.ucf where less cannot load', () => {
-    const require = createRequire(import.meta.url);
-    expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
-  });
-
   describe.each(ERROR_CASES)('$fixture', ({fixture, line, column, rule, text, tag, reason}) => {
     const {filename, source} = readComponent(fixture);
     // A broken `composes … from` file once crashed or hung the whole process.
@@ -209,5 +196,29 @@ describe('compileStyles on blocks that do not compile', () => {
       expect(style.map).toBeUndefined();
       expect(style.classes).toBeUndefined();
     });
+  });
+});
+
+describe('compileStyles where the preprocessor is not installed', () => {
+  it('runs MissingPreprocessor.ucf where less cannot load', () => {
+    const require = createRequire(import.meta.url);
+    expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
+  });
+
+  const {filename, source} = readComponent('invalid/MissingPreprocessor.ucf');
+  const script = fileURLToPath(new URL('styles.child.ts', import.meta.url));
+  const output = execFileSync(process.execPath, [script, 'invalid/MissingPreprocessor.ucf'], {encoding: 'utf8', timeout: 30_000});
+  const [style] = JSON.parse(output) as [CompiledStyle];
+
+  it('reports one missing-preprocessor error on the opening tag, naming the package to install', () => {
+    expect(style.errors.map(({code, line, column, filename: file, message}) => ({code, line, column, file, message}))).toEqual([
+      {code: 'missing-preprocessor', line: 7, column: 0, file: filename, message: '<style lang="less"> needs less; install it'},
+    ]);
+    const [error] = style.errors;
+    expect(error!.start).toBe(offsetOf(source, 7, 0));
+    expect(source.slice(error!.start, error!.end)).toBe('<style lang="less">');
+    expect(style.code).toBe('');
+    expect(style.map).toBeUndefined();
+    expect(style.classes).toBeUndefined();
   });
 });

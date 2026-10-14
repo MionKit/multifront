@@ -235,7 +235,7 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
       try {
         results.push(await buildOne(job, options));
       } catch (err) {
-        throw frameworkError(err, job.target);
+        throw frameworkError(err, job.target, root);
       }
     }
     return results;

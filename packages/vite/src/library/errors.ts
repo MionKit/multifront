@@ -5,7 +5,7 @@ import type {Finding, LibraryErrorCode, Target} from '@multifront/core';
 import type {Rolldown} from 'vite';
 import {findingError, importFinding} from '../diagnostics.ts';
 import {splitId, virtualTarget} from '../ids.ts';
-import {fileOf} from './names.ts';
+import {fileOf, shownFile} from './names.ts';
 
 /** A library build that failed on its files; `findings` is what `mf-build` prints. */
 export class LibraryError extends Error {
@@ -33,11 +33,32 @@ const ONE_BASED_COLUMNS = new Set(['vite:vue']);
 // Rolldown's own plugins name themselves in the message only: `[builtin:vite-transform] Only string literals ...`.
 const TAGGED = /^\[([^\]\s]+)\] (.*)$/;
 
+// Vite's CSS plugin, on a `<vue>` component's style.
+const VITE_MISSING_PREPROCESSOR = /^Preprocessor dependency "([^"]+)" not found\./;
+
+/** Vite's error for a missing preprocessor, as core reports it for the other frameworks. */
+function missingPreprocessor(error: Rolldown.RollupError, firstLine: string): Finding | undefined {
+  const name = error.plugin === 'vite:css' ? VITE_MISSING_PREPROCESSOR.exec(firstLine)?.[1] : undefined;
+  if (name === undefined || error.id === undefined) return undefined;
+  const {path, query} = splitId(error.id);
+  const lang = [...query.keys()].find((key) => key.startsWith('lang.'))?.slice('lang.'.length);
+  const tag = lang ? `<style lang="${lang}">` : '<style>';
+  return {
+    file: path,
+    code: 'missing-preprocessor',
+    severity: 'error',
+    message: `${tag} needs ${name}; install it`,
+    block: 'style',
+  };
+}
+
 /** Another plugin's error: positioned only where its `loc` names a real file, never in code a compiler generated. */
 function foreignFinding(error: Rolldown.RollupError): Finding {
   // Vite sets `pluginCode` to the module's source: our own code and message come in `meta`.
   const meta = error.meta as {code?: string; message?: string} | undefined;
   const firstLine = stripVTControlCharacters(error.message).split('\n')[0]!;
+  const missing = missingPreprocessor(error, firstLine);
+  if (missing) return missing;
   const tagged = error.plugin === undefined ? TAGGED.exec(firstLine) : null;
   const code = meta?.code ?? error.plugin ?? tagged?.[1] ?? error.code ?? 'error';
   const message = meta?.message ?? tagged?.[2] ?? firstLine;
@@ -64,9 +85,15 @@ function buildFindings(err: unknown): Finding[] | undefined {
 }
 
 /** A failed framework build as a `LibraryError` naming the framework; anything else, a config error say, unchanged. */
-export function frameworkError(err: unknown, framework: Target): unknown {
+export function frameworkError(err: unknown, framework: Target, root: string): unknown {
   const findings = buildFindings(err);
   if (!findings) return err;
+  // A missing tool is no error in the library's files: `mf-build` exits 2.
+  const missing = findings.find((finding) => finding.code === 'missing-preprocessor');
+  if (missing) {
+    const file = missing.file === undefined ? '' : `${shownFile(root, missing.file)}: `;
+    return new Error(`buildLibrary: ${file}${missing.message}`, {cause: err});
+  }
   const message = err instanceof Error ? err.message : String(err);
   // Output with no line we can read, from a crashed tsc say: nothing to point at.
   if (findings.length === 0) return new Error(message, {cause: err});

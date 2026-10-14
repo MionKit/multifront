@@ -192,4 +192,5 @@ These are setup errors: `mf-build` exits with code 2 and prints the message afte
 | Message | Fix |
 | --- | --- |
 | `the react types need typescript; install it, or set dts: false` | Install the package the message names in the library. |
+| `src/Card.ucf: <style lang="less"> needs less; install it` | Install the preprocessor the message names in the library. |
 | `package.json has no name; set packages.vue.name` | Name the library, or set that package's `name`. |
