@@ -105,18 +105,20 @@ describe('checkBlocks', () => {
     const SLOTTED =
       ':slotted() in <style scoped> works in <vue> only, not in <react> or <svelte>; use :deep() or style the content from the parent';
 
-    it('reports each v-bind() and each scoped :slotted() on its own text, never one in a comment or ::slotted()', () => {
+    it('reports each v-bind() and each scoped :slotted() on its own text, never one in a /* */ or // comment or ::slotted()', () => {
       expect(diagnostics.map(({code, line, column, message}) => ({code, line, column, message}))).toEqual([
         {code: 'vue-only-style', line: 33, column: 9, message: V_BIND},
         {code: 'vue-only-style', line: 35, column: 0, message: SLOTTED},
         {code: 'vue-only-style', line: 38, column: 0, message: SLOTTED},
         {code: 'vue-only-style', line: 53, column: 13, message: V_BIND},
+        {code: 'vue-only-style', line: 60, column: 10, message: V_BIND},
       ]);
       expect(diagnostics.map(({start, end}) => source.slice(start, end))).toEqual([
         'v-bind(',
         ':slotted(',
         '::v-slotted(',
         'v-bind(',
+        'v-bind (',
       ]);
     });
 
@@ -126,14 +128,15 @@ describe('checkBlocks', () => {
       const bound = diagnostics
         .filter(({message}) => message === V_BIND)
         .map(({end}) => /^\s*([\w$]+)/.exec(source.slice(end))![1]);
-      expect(bound).toEqual(descriptor.cssVars);
+      expect(bound).toEqual(['color', 'size', 'size']);
+      expect([...new Set(bound)]).toEqual(descriptor.cssVars);
     });
 
     it('names only the blocks the file has', () => {
       const vueAndReact = source.replace(/<svelte>[^]*<\/svelte>/, '');
       const messages = checkBlocks(splitBlocks(vueAndReact, filename)).map(({message}) => message);
       expect(messages[0]).toBe(V_BIND.replace('<react> or <svelte>', '<react>'));
-      expect(messages).toHaveLength(4);
+      expect(messages).toHaveLength(5);
     });
 
     it('reports nothing in a file with only a <vue> block', () => {

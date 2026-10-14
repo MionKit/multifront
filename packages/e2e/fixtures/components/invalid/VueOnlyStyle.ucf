@@ -53,3 +53,10 @@
   font-size: v-bind(size);
 }
 </style>
+
+<style scoped lang="scss">
+// Line comments are not read either: v-bind(size)
+.box {
+  margin: v-bind (size);
+}
+</style>

@@ -1,0 +1,5 @@
+
+// Line comments are not read either: v-bind(size)
+.box {
+  margin: v-bind (size);
+}

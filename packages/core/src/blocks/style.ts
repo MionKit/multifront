@@ -14,35 +14,26 @@ const BY_LANG: Record<string, GrammarScope> = {
 };
 const STYLE_LANGS: readonly string[] = ['css', ...Object.keys(BY_LANG)];
 const LANG_LIST = orList(STYLE_LANGS);
-// compiler-sfc's own `parseCssVars` rules, so we flag exactly the v-binds Vue sets.
+// compiler-sfc's own `parseCssVars` comment rule, so we flag exactly the v-binds Vue sets.
 const COMMENT = /\/\*[\s\S]*?\*\/|\/\/.*/g;
-const V_BIND = /v-bind\s*\(/g;
-// Vue rewrites these only in scoped styles; the shadow DOM `::slotted()` is plain CSS.
-const SLOTTED = /(?<!:):slotted\(|::v-slotted\(/g;
+// The shadow DOM `::slotted()` is plain CSS; Vue rewrites `:slotted()` only in scoped styles.
+const VUE_ONLY = /v-bind\s*\(|(?<!:):slotted\(|::v-slotted\(/g;
 
 /** `v-bind()` and `:slotted()` spots: Vue sets them up at runtime, React and Svelte would silently drop them. */
 function vueOnlyStyle(block: Block, split: SplitResult): Diagnostic[] {
   const others = (['react', 'svelte'] as const).filter((target) => split.targets[target]).map((target) => `<${target}>`);
   if (others.length === 0) return [];
+  const otherTags = orList(others);
   const content = block.content.replace(COMMENT, (comment) => comment.replace(/[^\n]/g, ' '));
-  const report = (pattern: RegExp, message: string) =>
-    [...content.matchAll(pattern)].map((match) => {
-      const start = block.contentStart + match.index;
-      return createDiagnostic(split, 'vue-only-style', start, start + match[0].length, message);
-    });
-  const not = orList(others);
-  return [
-    ...report(
-      V_BIND,
-      `v-bind() in <style> works in <vue> only, not in ${not}; set a CSS variable through the style prop instead`
-    ),
-    ...('scoped' in block.attrs
-      ? report(
-          SLOTTED,
-          `:slotted() in <style scoped> works in <vue> only, not in ${not}; use :deep() or style the content from the parent`
-        )
-      : []),
-  ].sort((first, second) => first.start - second.start);
+  return [...content.matchAll(VUE_ONLY)].flatMap((match) => {
+    const vBind = match[0].startsWith('v-bind');
+    if (!vBind && !('scoped' in block.attrs)) return [];
+    const message = vBind
+      ? `v-bind() in <style> works in <vue> only, not in ${otherTags}; set a CSS variable through the style prop instead`
+      : `:slotted() in <style scoped> works in <vue> only, not in ${otherTags}; use :deep() or style the content from the parent`;
+    const start = block.contentStart + match.index;
+    return [createDiagnostic(split, 'vue-only-style', start, start + match[0].length, message)];
+  });
 }
 
 function check(block: Block, split: SplitResult): Diagnostic[] {

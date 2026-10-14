@@ -163,7 +163,7 @@ const INVALID_CASES: InvalidCase[] = [
     blocks: ['react', 'style'],
   },
   {fixture: 'invalid/UnknownStyleLang.ucf', errors: [], blocks: ['react', 'style', 'style', 'style']},
-  {fixture: 'invalid/VueOnlyStyle.ucf', errors: [], blocks: ['vue', 'react', 'svelte', 'style', 'style']},
+  {fixture: 'invalid/VueOnlyStyle.ucf', errors: [], blocks: ['vue', 'react', 'svelte', 'style', 'style', 'style']},
 ];
 
 describe('splitBlocks on invalid fixtures', () => {
