@@ -19,7 +19,8 @@ export const libraryTargets = {
   svelte: {
     // `<style>` ships inside each `.svelte` source: the compiled, dropped code must add no CSS to the CSS step.
     plugin: async () => (await import('@sveltejs/vite-plugin-svelte')).svelte({emitCss: false}),
-    peers: {svelte: '^5.0.0'},
+    // 5.16: shipped roots merge class values with Svelte's own clsx and type them with its `ClassValue`.
+    peers: {svelte: '^5.16.0'},
     conditions: ['svelte'],
     sourceExt: '.svelte',
     emitTypes: emitSvelteTypes,

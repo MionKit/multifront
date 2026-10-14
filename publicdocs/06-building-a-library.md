@@ -59,7 +59,7 @@ Each component becomes its own file and keeps its folder: `src/forms/Field.ucf` 
 | --- | --- | --- |
 | React | `Card.js`, `Card.d.ts`, `Card.css` | `react`, `react-dom` `^19.0.0` |
 | Vue | `Card.js`, `Card.d.ts`, `Card.css` | `vue` `^3.5.0` |
-| Svelte | `Card.svelte`, `Card.svelte.d.ts`, `Card.css` | `svelte` `^5.0.0` |
+| Svelte | `Card.svelte`, `Card.svelte.d.ts`, `Card.css` | `svelte` `^5.16.0` |
 
 Each package also holds `index.js` from `src/index.ts`, the plain `.ts` files the components import as `.js`, `styles.css` with every component's CSS, and the library's `README.md` and `LICENSE`. Its `package.json` copies `version`, `description`, `license`, `author`, `repository`, `homepage` and `keywords` from the library's, and lists peer dependencies only.
 
