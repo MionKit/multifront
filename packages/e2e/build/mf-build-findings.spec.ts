@@ -154,24 +154,24 @@ describe('mf-build on a Svelte compiler error (spec 8.1: never a position in gen
 </svelte>
 `;
 
-  it('names the .ucf file, and no line of the generated .svelte file', async () => {
-    await withEditedLibrary([{file: 'src/Bad.ucf', content: bad}], async (root) => {
-      const run = await runMfBuild(root, ['--framework', 'svelte', '--no-dts', '--format', 'json']);
-      expect(run.stderr).toBe('');
-      expect(run.code).toBe(1);
-      const {findings} = report(run.stdout);
-      expect(findings).toHaveLength(1);
-      const [finding] = findings;
-      expect(finding).toMatchObject({file: 'src/Bad.ucf', severity: 'error', block: 'svelte', framework: 'svelte'});
-      // The virtual `Bad.ucf.svelte.svelte` exists only inside the build: an agent cannot open it.
-      expect(finding!.message).not.toMatch(/\.ucf\.svelte\.svelte/);
-      // A position, when given, is the assignment's in the file the user wrote.
-      if (finding!.line !== undefined) {
+  // Plugin-svelte names the compiled file in its message: a space in the path once kept that name.
+  it.each(['src/Bad.ucf', 'src/my widgets/Bad.ucf'])(
+    'names %s and its line, and no line of the generated .svelte file',
+    async (file) => {
+      await withEditedLibrary([{file, content: bad}], async (root) => {
+        const run = await runMfBuild(root, ['--framework', 'svelte', '--no-dts', '--format', 'json']);
+        expect(run.stderr).toBe('');
+        expect(run.code).toBe(1);
+        const {findings} = report(run.stdout);
+        expect(findings).toHaveLength(1);
+        const [finding] = findings;
         const {line, offset} = locate(bad, 'doubled = 3');
-        expect({line: finding!.line, column: finding!.column}).toEqual({line, column: offset});
-      }
-    });
-  });
+        expect(finding).toMatchObject({file, line, column: offset, severity: 'error', block: 'svelte', framework: 'svelte'});
+        // The virtual `Bad.ucf.svelte.svelte` exists only inside the build: an agent cannot open it.
+        expect(finding!.message).not.toMatch(/\.ucf\.svelte\.svelte/);
+      });
+    }
+  );
 });
 
 describe('mf-build when a style preprocessor is not installed (spec 8.1: a missing tool is exit 2)', () => {
