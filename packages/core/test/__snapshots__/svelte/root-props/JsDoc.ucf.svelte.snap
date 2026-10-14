@@ -1,7 +1,7 @@
 
   <script>
 import {__ucfScopeAttrs, __ucfClass, __ucfStyle} from "virtual:multifront/scope-attrs";
-    /** @type {({ label?: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null}} */
+    /** @type {{ label?: string }} */
     let { label = 'jsdoc', ...__ucfRest } = $props()
   </script>
   <p {...__ucfScopeAttrs(__ucfRest)} class={__ucfClass("own", __ucfRest.class)} style={__ucfStyle("padding: 1px", __ucfRest.style)}>{label}</p>

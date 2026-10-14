@@ -4,7 +4,7 @@
 import "<fixtures>/components/svelte/shapes/SpecialElements.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/SpecialElements.ucf?ucf&type=style&index=0&module&lang.js";
 import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-    let {title = 'Page', ...__ucfRest}: ({title?: string}) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+    let {title = 'Page', ...__ucfRest}: {title?: string} = $props()
     let width = $state(0)
     let visible = $state(true)
   </script>
@@ -18,4 +18,4 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
   <svelte:window bind:innerWidth={width} />
   <svelte:body onmouseenter={() => (visible = true)} />
   <svelte:document onvisibilitychange={() => (visible = !visible)} />
-  <main data-v-9f4a2880="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass(__ucfStyle.main, __ucfRest.class)}><h1 data-v-9f4a2880="" class={__ucfStyle.title}>{title} {width} {visible}</h1></main>
+  <main data-v-9f4a2880="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(__ucfStyle.main, __ucfRest.class)}><h1 data-v-9f4a2880="" class={__ucfStyle.title}>{title} {width} {visible}</h1></main>

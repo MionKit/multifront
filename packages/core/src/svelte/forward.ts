@@ -8,8 +8,8 @@ import {isNode, patternNames} from './ast.ts';
 import type {Pattern} from './ast.ts';
 import {
   SVELTE_MERGE,
-  addRootProps,
   handledRootProps,
+  mergeRootProps,
   propsDeclaration,
   propsLine,
   rootPropsType,
@@ -165,12 +165,12 @@ function rootsOf(root: AST.Root): Roots {
 const forwards = (found: Roots, mode: SvelteMode): boolean =>
   mode === 'runes' && found.elements.length > 0 && !found.many && !found.each;
 
-/** The root props each root takes, and their type written into the `$props()` annotation. */
-function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: Lang) {
+/** The root props each root takes; `typed`: their type goes into the `$props()` annotation, else `type` is unset. */
+function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: Lang, typed: boolean) {
   const declaration = propsDeclaration(root.instance);
   const handled = handledRootProps(root, declaration);
   const takes = new Map(found.elements.map(({node}) => [node, rootTakes(node, handled)]));
-  const type = rootPropsType(new Set([...takes.values()].flat()));
+  const type = typed ? rootPropsType(new Set([...takes.values()].flat())) : undefined;
   if (declaration && type) typePropsDeclaration(text, block, declaration, type, lang);
   return {takes, type, declaration};
 }
@@ -186,7 +186,7 @@ export function typeRootProps(
 ): string[] {
   const found = rootsOf(root);
   if (!forwards(found, mode)) return [];
-  const {type, declaration} = planRootProps(text, root, block, found, lang);
+  const {type, declaration} = planRootProps(text, root, block, found, lang, true);
   const lines: string[] = [];
   propsName(text, declaration, block, used, lines, type, lang);
   return lines;
@@ -208,7 +208,8 @@ export function forwardScope(
   // An undecided block compiles either way: `$props()` would make it runes, `$$props` would break it as runes.
   if ((found.elements.length === 0 && !found.each) || mode === 'undecided') return {helpers: [], lines};
   if (forwards(found, mode)) {
-    const {takes, type, declaration} = planRootProps(text, root, block, found, lang);
+    // Typed only where the `.d.ts` comes from the shipped code: an app's Svelte strips the types anyway.
+    const {takes, type, declaration} = planRootProps(text, root, block, found, lang, ctx.library !== undefined);
     let props = propsName(text, declaration, block, used, lines, type, lang);
     if (found.elements.some(({bound}) => bound.has(props))) {
       // `{:then props}` around a root hides the props; a `$derived` alias reads them without Svelte's warning.
@@ -223,8 +224,10 @@ export function forwardScope(
     for (const {node} of found.elements) {
       // Same offset as the stamp, so the spread lands after it.
       const nameEnd = block.contentStart + node.start + 1 + (node.name as string).length;
-      text.appendLeft(nameEnd, ` {...${scopeAttrs}(${props})}`);
-      const rewritten = addRootProps(text, block, node, takes.get(node)!, nameEnd, props, merge);
+      const {added, rewritten} = mergeRootProps(text, block, node, takes.get(node)!, props, merge);
+      // A root prop it lacks rides the spread, before every author attribute: a later author spread still wins.
+      const keys = added.map((prop) => `, '${prop}'`).join('');
+      text.appendLeft(nameEnd, ` {...${scopeAttrs}(${props}${keys})}`);
       escapeOnce(text, node, block, rewritten);
     }
     return {helpers, lines};

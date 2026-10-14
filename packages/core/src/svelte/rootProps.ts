@@ -113,24 +113,23 @@ function ownAttribute(node: SvelteNode, prop: SvelteRootProp): SvelteNode | unde
 // Text between backticks reads as written.
 const templateText = (text: string): string => text.replace(/\\|`|\$\{/g, (match) => `\\${match}`);
 
-/** Merges or adds each prop this root takes; returns the attributes it rewrote. `merge`: the helper's local. */
-export function addRootProps(
+/** Merges each prop this root takes and has; `added`: the ones it lacks, `rewritten`: the attributes merged. */
+export function mergeRootProps(
   text: MagicString,
   block: Block,
   node: SvelteNode,
   takes: SvelteRootProp[],
-  at: number,
   props: string,
   merge: (prop: SvelteRootProp) => string
-): Set<SvelteNode> {
+): {added: SvelteRootProp[]; rewritten: Set<SvelteNode>} {
   const offset = block.contentStart;
+  const added: SvelteRootProp[] = [];
   const rewritten = new Set<SvelteNode>();
   for (const prop of takes) {
     const own = ownAttribute(node, prop);
     const extra = `${props}.${prop}`;
-    // Right after the forwarding spread, before every author attribute: a later author spread still wins.
     if (!own) {
-      text.appendLeft(at, ` ${prop}={${extra}}`);
+      added.push(prop);
       continue;
     }
     rewritten.add(own);
@@ -171,7 +170,7 @@ export function addRootProps(
     if (own.end > last.end) text.overwrite(offset + last.end, offset + own.end, close);
     else text.appendLeft(offset + own.end, close);
   }
-  return rewritten;
+  return {added, rewritten};
 }
 
 /** `{class?: …; style?: …}` for the props some root takes, else undefined. */

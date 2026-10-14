@@ -199,13 +199,12 @@ function undoBuild(code: string, ctx: BuildContext): string {
   return (
     code
       .replaceAll(` data-v-${ctx.scopeId}=""`, '')
-      .replaceAll(/ \{\.\.\.__ucfScopeAttrs\(\w+\)\}/g, '')
+      .replaceAll(/ \{\.\.\.__ucfScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/g, '')
       // Before the rest goes: the added `let {...__ucfRest} = $props();` line is one of ours.
       .replace(new RegExp(String.raw`^<script>\n(?:${line}\n)*${line}\n</script>`), '')
       .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
       .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
       .replaceAll(new RegExp(String.raw`: \(([\s\S]*?)\) & ${ROOT_PROPS_TYPE}`, 'g'), ': $1')
-      .replaceAll(/ (?:class|style)=\{\w+\.(?:class|style)\}/g, '')
       .replaceAll(/(class|style)=\{__ucf(?:Class|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
       .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
       .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
@@ -322,9 +321,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
       if (!attribute) return;
       // The spread, then the root props it adds.
       const spread =
-        /^ \{\.\.\.__ucfScopeAttrs\d*\(\w+\)\}(?: (?:class|style)=\{\w+\.(?:class|style)\})*/.exec(
-          file!.code.slice(attribute.end)
-        )?.[0] ?? '';
+        /^ \{\.\.\.__ucfScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/.exec(file!.code.slice(attribute.end))?.[0] ?? '';
       const original = originalPositionFor(map, locate(file!.code, attribute.end + spread.length));
       const {node: from} = before[index]!;
       const nameEnd = block.contentStart + from.start + 1 + (from.name as string).length;

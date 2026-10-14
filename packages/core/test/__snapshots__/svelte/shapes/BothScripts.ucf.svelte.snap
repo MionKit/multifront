@@ -6,6 +6,6 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
     export const moduleClass: string = __ucfStyle.text
   </script>
   <script lang="ts">
-    let {label = 'Both', ...__ucfRest}: ({label?: string}) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+    let {label = 'Both', ...__ucfRest}: {label?: string} = $props()
   </script>
-  <p data-v-77aa89a0="" {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass(moduleClass, __ucfRest.class)}><b data-v-77aa89a0="" class={__ucfStyle.text}>{label}</b></p>
+  <p data-v-77aa89a0="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(moduleClass, __ucfRest.class)}><b data-v-77aa89a0="" class={__ucfStyle.text}>{label}</b></p>

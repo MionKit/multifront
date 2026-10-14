@@ -4,4 +4,4 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
     const __ucfRest = 'taken'
     let {...__ucfRest1} = $props()
   </script>
-  <p {...__ucfScopeAttrs(__ucfRest1)} style={__ucfRest1.style} class={__ucfClass("shape", __ucfRest1.class)}><span class="inner">{__ucfRest}</span></p>
+  <p {...__ucfScopeAttrs(__ucfRest1, 'style')} class={__ucfClass("shape", __ucfRest1.class)}><span class="inner">{__ucfRest}</span></p>

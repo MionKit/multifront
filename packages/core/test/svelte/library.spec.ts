@@ -12,7 +12,7 @@ const LIBRARY_SRC = join(FIXTURES_DIR, 'library', 'src');
 const COMPONENTS: LibraryMode = {src: componentPath('')};
 // Every `<svelte>` shape, plus the library fixture's components, built as the library build builds them.
 const FIXTURES = [
-  ...['svelte/shapes', 'svelte/roots', 'svelte/imports', 'svelte/library'].flatMap((folder) =>
+  ...['svelte/shapes', 'svelte/roots', 'svelte/root-props', 'svelte/imports', 'svelte/library'].flatMap((folder) =>
     listComponents(folder).map((name) => ({filename: componentPath(name), library: COMPONENTS}))
   ),
   ...['Card.ucf', 'Panel.ucf', 'Icon.ucf', 'forms/Field.ucf'].map((name) => ({
