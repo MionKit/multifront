@@ -212,7 +212,7 @@ describe('mf-build when a style preprocessor is not installed (spec 8.1: a missi
     await withEditedLibrary([{file, content: everyFramework}], (root) => expectMissing(root, framework));
   });
 
-  // A plain `.less` file ships no CSS anyway (css-outside-style): Vite's own error stands, with no `<style>` block made up.
+  // A plain `.less` file ships no CSS anyway (css-outside-style): Vite's own error stands.
   it("leaves a plain .less file to Vite's error in the library's files", async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [

@@ -180,7 +180,7 @@ function onlyFile(map: Pick<SourceMap, 'file' | 'sources' | 'names' | 'mappings'
   };
 }
 
-// compiler-sfc's own `require` of the preprocessor package: sass for scss and sass, stylus for styl.
+// compiler-sfc's own `require` of the package: sass for scss and sass, stylus for styl.
 const MISSING_PREPROCESSOR = /^Cannot find module '(sass|less|stylus)'/;
 
 function compileError(err: Error, block: Block, {filename, source}: CompileStylesOptions): Diagnostic {

@@ -1,4 +1,4 @@
-// A command of its own process on runCommand: the spec reads its exit code and output.
+// Run in its own process by command.spec.ts, which reads its exit code and output.
 import type {CommandOption, CommandSpec} from '@multifront/core';
 import {runCommand} from '../src/index.ts';
 
