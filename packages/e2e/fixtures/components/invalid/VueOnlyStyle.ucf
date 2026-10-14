@@ -1,0 +1,55 @@
+<vue>
+  <script setup lang="ts">
+  const color = 'rgb(10, 120, 60)'
+  const size = '12px'
+  </script>
+
+  <template>
+    <div class="box"><slot /></div>
+  </template>
+</vue>
+
+<react>
+  import type {ReactNode} from 'react'
+
+  export default function VueOnlyStyle({children}: {children?: ReactNode}) {
+    return <div className="box">{children}</div>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    import type {Snippet} from 'svelte'
+
+    let {children}: {children?: Snippet} = $props()
+  </script>
+
+  <div class="box">{@render children?.()}</div>
+</svelte>
+
+<style scoped>
+/* Comments are not read: v-bind(color) :slotted(.d) */
+.box {
+  color: v-bind(color);
+}
+:slotted(.a) {
+  font-style: italic;
+}
+::v-slotted(.b) {
+  font-weight: 700;
+}
+/* The shadow DOM pseudo-element is plain CSS. */
+::slotted(.c) {
+  color: red;
+}
+</style>
+
+<style>
+/* Not scoped: Vue leaves :slotted() as written, in every framework alike. */
+:slotted(.e) {
+  color: blue;
+}
+.box {
+  font-size: v-bind(size);
+}
+</style>

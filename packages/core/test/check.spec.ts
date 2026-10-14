@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {checkBlocks, splitBlocks} from '@multifront/core';
+import {checkBlocks, loadVueCompiler, splitBlocks, vueSfcCode} from '@multifront/core';
 import type {Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
@@ -57,7 +57,10 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
 const CHECK_FIXTURES = CHECK_CASES.map((row) => row.fixture);
 // <react> blocks TypeScript cannot parse either: the splitter cut one early, the other lacks a brace.
 const SYNTAX_FIXTURES = ['invalid/ReactCloseInString.ucf', 'invalid/ReactSyntaxError.ucf'];
-const SPLIT_FIXTURES = listComponents('invalid').filter((name) => ![...CHECK_FIXTURES, ...SYNTAX_FIXTURES].includes(name));
+const VUE_ONLY_STYLE = 'invalid/VueOnlyStyle.ucf';
+const SPLIT_FIXTURES = listComponents('invalid').filter(
+  (name) => ![...CHECK_FIXTURES, ...SYNTAX_FIXTURES, VUE_ONLY_STYLE].includes(name)
+);
 
 describe('checkBlocks', () => {
   it.each(listComponents())('reports nothing for %s', (name) => {
@@ -91,6 +94,52 @@ describe('checkBlocks', () => {
     it('matches the diagnostics snapshot', async () => {
       const table = diagnostics.map((diagnostic) => ({...diagnostic, filename: fixture}));
       await expect(`${JSON.stringify(table, null, 2)}\n`).toMatchFileSnapshot(`__snapshots__/check/${fixture}.json`);
+    });
+  });
+
+  describe(VUE_ONLY_STYLE, () => {
+    const {split, diagnostics} = check(VUE_ONLY_STYLE);
+    const {source, filename} = split;
+    const V_BIND =
+      'v-bind() in <style> works in <vue> only, not in <react> or <svelte>; set a CSS variable through the style prop instead';
+    const SLOTTED =
+      ':slotted() in <style scoped> works in <vue> only, not in <react> or <svelte>; use :deep() or style the content from the parent';
+
+    it('reports each v-bind() and each scoped :slotted() on its own text, never one in a comment or ::slotted()', () => {
+      expect(diagnostics.map(({code, line, column, message}) => ({code, line, column, message}))).toEqual([
+        {code: 'vue-only-style', line: 33, column: 9, message: V_BIND},
+        {code: 'vue-only-style', line: 35, column: 0, message: SLOTTED},
+        {code: 'vue-only-style', line: 38, column: 0, message: SLOTTED},
+        {code: 'vue-only-style', line: 53, column: 13, message: V_BIND},
+      ]);
+      expect(diagnostics.map(({start, end}) => source.slice(start, end))).toEqual([
+        'v-bind(',
+        ':slotted(',
+        '::v-slotted(',
+        'v-bind(',
+      ]);
+    });
+
+    it('finds the v-bind() expressions compiler-sfc finds in the same styles', () => {
+      const {code} = vueSfcCode(source, split.blocks, filename);
+      const {descriptor} = loadVueCompiler(import.meta.dirname).parse(code, {filename});
+      const bound = diagnostics
+        .filter(({message}) => message === V_BIND)
+        .map(({end}) => /^\s*([\w$]+)/.exec(source.slice(end))![1]);
+      expect(bound).toEqual(descriptor.cssVars);
+    });
+
+    it('names only the blocks the file has', () => {
+      const vueAndReact = source.replace(/<svelte>[^]*<\/svelte>/, '');
+      const messages = checkBlocks(splitBlocks(vueAndReact, filename)).map(({message}) => message);
+      expect(messages[0]).toBe(V_BIND.replace('<react> or <svelte>', '<react>'));
+      expect(messages).toHaveLength(4);
+    });
+
+    it('reports nothing in a file with only a <vue> block', () => {
+      expect(check('vue/VBind.ucf').diagnostics).toEqual([]);
+      const onlyVue = source.replace(/<react>[^]*<\/svelte>/, '');
+      expect(checkBlocks(splitBlocks(onlyVue, filename))).toEqual([]);
     });
   });
 

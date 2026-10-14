@@ -1,0 +1,15 @@
+
+/* Comments are not read: v-bind(color) :slotted(.d) */
+.box {
+  color: v-bind(color);
+}
+:slotted(.a) {
+  font-style: italic;
+}
+::v-slotted(.b) {
+  font-weight: 700;
+}
+/* The shadow DOM pseudo-element is plain CSS. */
+::slotted(.c) {
+  color: red;
+}
