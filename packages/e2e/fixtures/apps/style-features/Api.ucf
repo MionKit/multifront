@@ -1,0 +1,67 @@
+<!-- Props, element refs and slots, each framework's own way. -->
+<vue>
+  <script setup lang="ts">
+  import { onMounted, ref } from 'vue'
+
+  const props = defineProps<{ label: string }>()
+  const root = ref<HTMLElement>()
+  const inner = ref<HTMLElement>()
+  const refs = ref('')
+  onMounted(() => {
+    refs.value = `${root.value?.tagName}/${inner.value?.tagName}`
+  })
+  defineExpose({ hello: () => 'vue-hello' })
+  </script>
+
+  <template>
+    <div ref="root" class="api">
+      <b class="label">{{ props.label }}</b>
+      <em ref="inner" class="refs">{{ refs }}</em>
+      <slot name="item" :value="7" />
+    </div>
+  </template>
+</vue>
+
+<react>
+  import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+  export default function Api({label, item}: {label: string; item?: (value: number) => ReactNode}) {
+    const root = useRef<HTMLDivElement>(null)
+    const inner = useRef<HTMLElement>(null)
+    const [refs, setRefs] = useState('')
+    useEffect(() => {
+      setRefs(`${root.current?.tagName}/${inner.current?.tagName}`)
+    }, [])
+    return (
+      <div ref={root} className="api">
+        <b className="label">{label}</b>
+        <em ref={inner} className="refs">{refs}</em>
+        {item?.(7)}
+      </div>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    import type { Snippet } from 'svelte'
+
+    let { label, item }: { label: string; item?: Snippet<[number]> } = $props()
+    let root: HTMLElement | undefined = $state()
+    let inner: HTMLElement | undefined = $state()
+    let refs = $state('')
+    $effect(() => {
+      refs = `${root?.tagName}/${inner?.tagName}`
+    })
+
+    export function hello() {
+      return 'svelte-hello'
+    }
+  </script>
+
+  <div bind:this={root} class="api">
+    <b class="label">{label}</b>
+    <em bind:this={inner} class="refs">{refs}</em>
+    {@render item?.(7)}
+  </div>
+</svelte>

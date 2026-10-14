@@ -1,0 +1,124 @@
+<vue>
+  <script setup lang="ts">
+  import { onMounted, ref } from 'vue'
+  import Api from './Api.ucf'
+  import Blocks from './Blocks.ucf'
+  import Frame from './Frame.ucf'
+  import Langs from './Langs.ucf'
+  import Vars from './Vars.ucf'
+  import VueFeatures from './VueFeatures.ucf'
+
+  const api = ref<InstanceType<typeof Api>>()
+  const parentRef = ref('')
+  onMounted(() => {
+    parentRef.value = `${api.value?.hello()} ${api.value?.$el.tagName}`
+  })
+  </script>
+
+  <template>
+    <section class="parent">
+      <div data-case="blocks"><Blocks /></div>
+      <div data-case="langs"><Langs /></div>
+      <div data-case="vars"><Vars style="--accent: rgb(200, 0, 0); --pad: 4px" /></div>
+      <div data-case="fallback"><Vars /></div>
+      <div data-case="frame">
+        <Frame>
+          <span class="from-parent deep-target global-target">content</span>
+          <template #footer><b class="from-parent">footer</b></template>
+        </Frame>
+      </div>
+      <div data-case="vue-features">
+        <VueFeatures><span class="slotted-target">slotted</span></VueFeatures>
+      </div>
+      <div data-case="api">
+        <Api ref="api" label="Label">
+          <template #item="{ value }"><i class="item">item {{ value }}</i></template>
+        </Api>
+        <s class="parent-ref">{{ parentRef }}</s>
+      </div>
+    </section>
+  </template>
+</vue>
+
+<react>
+  import { useEffect, useRef, useState } from 'react'
+  import type { CSSProperties } from 'react'
+  import Api from './Api.ucf'
+  import Blocks from './Blocks.ucf'
+  import Frame from './Frame.ucf'
+  import Langs from './Langs.ucf'
+  import Vars from './Vars.ucf'
+
+  export default function Parent() {
+    const api = useRef<HTMLDivElement>(null)
+    const [parentRef, setParentRef] = useState('')
+    useEffect(() => {
+      setParentRef(`${api.current?.tagName}`)
+    }, [])
+    return (
+      <section className="parent">
+        <div data-case="blocks"><Blocks /></div>
+        <div data-case="langs"><Langs /></div>
+        <div data-case="vars"><Vars style={{ '--accent': 'rgb(200, 0, 0)', '--pad': '4px' } as CSSProperties} /></div>
+        <div data-case="fallback"><Vars /></div>
+        <div data-case="frame">
+          <Frame footer={<b className="from-parent">footer</b>}>
+            <span className="from-parent deep-target global-target">content</span>
+          </Frame>
+        </div>
+        <div data-case="api">
+          <Api ref={api} label="Label" item={(value) => <i className="item">item {value}</i>} />
+          <s className="parent-ref">{parentRef}</s>
+        </div>
+      </section>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    import Api from './Api.ucf'
+    import Blocks from './Blocks.ucf'
+    import Frame from './Frame.ucf'
+    import Langs from './Langs.ucf'
+    import Vars from './Vars.ucf'
+
+    let api: ReturnType<typeof Api> | undefined = $state()
+    let parentRef = $state('')
+    $effect(() => {
+      parentRef = `${api?.hello()}`
+    })
+  </script>
+
+  <section class="parent">
+    <div data-case="blocks"><Blocks /></div>
+    <div data-case="langs"><Langs /></div>
+    <div data-case="vars"><Vars style="--accent: rgb(200, 0, 0); --pad: 4px" /></div>
+    <div data-case="fallback"><Vars /></div>
+    <!-- Svelte's own way: the variables go on a display: contents wrapper. -->
+    <div data-case="svelte-props"><Vars --accent="rgb(200, 0, 0)" --pad="4px" /></div>
+    <div data-case="frame">
+      <Frame>
+        <span class="from-parent deep-target global-target">content</span>
+        {#snippet footer()}<b class="from-parent">footer</b>{/snippet}
+      </Frame>
+    </div>
+    <div data-case="api">
+      <Api bind:this={api} label="Label">
+        {#snippet item(value)}<i class="item">item {value}</i>{/snippet}
+      </Api>
+      <s class="parent-ref">{parentRef}</s>
+    </div>
+  </section>
+</svelte>
+
+<style scoped>
+/* Reaches the slot content the parent wrote, in every framework. */
+.from-parent {
+  color: rgb(0, 100, 200);
+}
+/* Reaches the child's root only, through scope forwarding. */
+.frame {
+  margin: 5px;
+}
+</style>

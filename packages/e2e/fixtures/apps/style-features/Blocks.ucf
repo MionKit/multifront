@@ -1,0 +1,70 @@
+<!-- Each style block kind on its own element. -->
+<vue>
+  <template>
+    <div class="blocks">
+      <p class="global-rule">global</p>
+      <p class="scoped-rule">scoped</p>
+      <p :class="$style.moduleRule">module</p>
+      <p :class="classes.namedRule">named module</p>
+      <p :class="scopedClasses.scopedModuleRule">scoped module</p>
+    </div>
+  </template>
+</vue>
+
+<react>
+  export default function Blocks() {
+    return (
+      <div className="blocks">
+        <p className="global-rule">global</p>
+        <p className="scoped-rule">scoped</p>
+        <p className={$style.moduleRule}>module</p>
+        <p className={classes.namedRule}>named module</p>
+        <p className={scopedClasses.scopedModuleRule}>scoped module</p>
+      </div>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let {} = $props()
+  </script>
+
+  <div class="blocks">
+    <p class="global-rule">global</p>
+    <p class="scoped-rule">scoped</p>
+    <p class={$style.moduleRule}>module</p>
+    <p class={$classes.namedRule}>named module</p>
+    <p class={$scopedClasses.scopedModuleRule}>scoped module</p>
+  </div>
+</svelte>
+
+<style>
+.global-rule {
+  color: rgb(10, 20, 30);
+}
+</style>
+
+<style scoped>
+.scoped-rule {
+  color: rgb(40, 50, 60);
+}
+</style>
+
+<style module>
+.moduleRule {
+  color: rgb(70, 80, 90);
+}
+</style>
+
+<style module="classes">
+.namedRule {
+  color: rgb(100, 110, 120);
+}
+</style>
+
+<style module="scopedClasses" scoped>
+.scopedModuleRule {
+  color: rgb(130, 140, 150);
+}
+</style>
