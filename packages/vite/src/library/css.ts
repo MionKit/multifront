@@ -3,7 +3,7 @@ import MagicString from 'magic-string';
 import {isCSSRequest} from 'vite';
 import type {Plugin, Rolldown} from 'vite';
 import {splitId} from '../ids.ts';
-import {fileOf, outputName, shownFile} from './names.ts';
+import {fileKey, fileOf, outputName, shownFile} from './names.ts';
 
 const STYLES = 'styles.css';
 
@@ -40,8 +40,15 @@ export function libraryCss(root: string, src: string): Plugin {
       for (const id of this.getModuleIds()) {
         if (!isStyleId(id) || !isCSSRequest(id)) continue;
         const file = fileOf(id);
-        if (cssName(file, src) === STYLES) {
+        const name = cssName(file, src);
+        if (name === STYLES) {
           this.error(`buildLibrary: ${shown(file)} would be written as ${STYLES}, the name of the combined CSS file`);
+        }
+        if (fileKey(name) === fileKey(STYLES)) {
+          this.error(
+            `buildLibrary: ${shown(file)} would be written as ${name}, which macOS and Windows see as ${STYLES}, ` +
+              'the combined CSS file'
+          );
         }
         styled.add(file);
       }

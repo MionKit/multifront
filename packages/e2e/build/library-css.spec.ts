@@ -175,6 +175,16 @@ describe('buildLibrary() CSS errors', () => {
     });
   });
 
+  it('fails on a component whose CSS file name differs only by case from styles.css', async () => {
+    const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8');
+    await withEditedLibrary([{file: 'src/Styles.ucf', content: icon}], async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(
+        'buildLibrary: src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, ' +
+          'the combined CSS file'
+      );
+    });
+  });
+
   it('fails on a plain CSS file imported from code', async () => {
     const cx = readFileSync(join(LIBRARY_DIR, 'src', 'utils', 'cx.ts'), 'utf8');
     const edits = [
