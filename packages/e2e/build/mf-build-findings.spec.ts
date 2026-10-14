@@ -86,6 +86,46 @@ describe('mf-build on a type-only module whose name differs only by case from a 
   });
 });
 
+describe('mf-build on a type-only module of another script kind beside a component', () => {
+  const frameworks = ['react', 'vue'] as const;
+  const cardTitle = 'export interface CardTitle {\n  title: string;\n}\n';
+
+  // React only: the fixture's tsconfig sets no `jsx`, so vue-tsc rejects any .tsx module.
+  it.each(['react'] as const)('writes card.tsx as card.d.ts: a name-clash in the %s build', async (framework) => {
+    const edits = [
+      {file: 'src/Card.ucf', content: typedCard('./card.js')},
+      {file: 'src/card.tsx', content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', framework, '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(report(run.stdout).findings).toEqual([
+        expect.objectContaining({
+          code: 'name-clash',
+          message:
+            'src/Card.ucf and src/card.tsx would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file',
+        }),
+      ]);
+    });
+  });
+
+  it.each(frameworks)('writes card.mts as card.d.mts, no clash in the %s build', async (framework) => {
+    const edits = [
+      {file: 'src/Card.ucf', content: typedCard('./card.mjs')},
+      {file: 'src/card.mts', content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', framework]);
+      expect(run).toMatchObject({code: 0, stderr: ''});
+      expect(
+        readdirSync(join(root, 'dist', framework))
+          .filter((file) => /^card\.d\./i.test(file))
+          .sort()
+      ).toEqual(['Card.d.ts', 'card.d.mts']);
+    });
+  });
+});
+
 describe("mf-build on a type-only module with a component's exact name (M6 6.1 build errors)", () => {
   const edits = [
     {file: 'src/Card.ucf', content: typedCard('./Card.js')},
