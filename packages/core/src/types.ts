@@ -1,3 +1,4 @@
+import type {ParseArgsOptionDescriptor} from 'node:util';
 import type * as CompilerSfc from '@vue/compiler-sfc';
 import type * as SvelteCompilerModule from 'svelte/compiler';
 import type {ROOT_PROPS} from './react/reactApis.ts';
@@ -102,22 +103,18 @@ export interface Diagnostic {
 }
 
 /** One problem as a command reports it; line and column 1-based, always in the file the user wrote. */
-export interface Finding {
+export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
   file?: string; // absolute; printers show it relative to the cwd
   line?: number;
   column?: number;
   end?: {line: number; column: number}; // just past the last character
   code: string; // ours, a tool's (`TS2322`) or a plugin's (`vite:vue`)
-  severity: 'error' | 'warning';
-  message: string;
   block?: BlockTag; // the .ucf block the position falls in
   framework?: Target; // the framework build or check that reported it
 }
 
 /** One option of a command; `value` names a string option's argument in the help: `<folder>`. */
-export interface CommandOption {
-  type: 'string' | 'boolean';
-  multiple?: boolean;
+export interface CommandOption extends Pick<ParseArgsOptionDescriptor, 'type' | 'multiple'> {
   value?: string;
   description: string;
 }
