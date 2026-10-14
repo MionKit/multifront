@@ -151,4 +151,5 @@ export default function Page() {
 | `shared/tokens.ts is outside src` | Move the file into `src`. |
 | `package.json has no name; set packages.vue.name` | Name the library, or set that package's `name`. |
 | `src/Badge.ts and src/Badge.ucf would both be written as Badge.js` | Rename one of the two files. |
-| `src/styles.ucf would be written as styles.css, the name of the combined CSS file` | Rename the component. |
+| `src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, which macOS and Windows see as one file`, or the same with names like `Child.svelte` and `child.svelte`, or `Icon.svelte.d.ts` and `icon.svelte.d.ts` | Rename one of the two files, so their names differ by more than case. |
+| `src/styles.ucf would be written as styles.css, the name of the combined CSS file`, or `src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, …` | Rename the component. |

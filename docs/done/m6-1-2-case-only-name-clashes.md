@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-14
 milestone: 6.1
 step: 6.1.2
