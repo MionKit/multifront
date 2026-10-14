@@ -30,14 +30,18 @@ export const FUZZ_DIR = join(TMP_DIR, 'svelte-fuzz');
 export const CHILD_FILE = 'Child.svelte';
 export const PARENT_FILE = 'Parent.ucf';
 
-// Renders every case as a stamped child, so its scope reaches the case as a prop, as from any scoped parent.
+// What the parent passes every case besides its scope: a forwarded root merges both.
+export const PARENT_CLASS = 'fuzz-extra';
+export const PARENT_STYLE = '--fuzz: 1';
+
+// Renders every case as a stamped child, so its scope, class and style reach the case as props, as from any parent.
 export const PARENT_SOURCE = `<svelte>
   <script lang="ts">
     import type {Component} from 'svelte'
 
     let {Case, Child}: {Case: Component<Record<string, unknown>>; Child: unknown} = $props()
   </script>
-  <Case {Child} />
+  <Case {Child} class="${PARENT_CLASS}" style="${PARENT_STYLE}" />
 </svelte>
 
 <style scoped>

@@ -17,7 +17,9 @@ import {
   CHILD_FILE,
   FUZZ_DIR,
   PARENT_FILE,
+  PARENT_CLASS,
   PARENT_SOURCE,
+  PARENT_STYLE,
   SCRIPT_LAYOUTS,
   VOID,
   buildCase,
@@ -155,16 +157,21 @@ async function checkAlone(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
 // --- the rules ---------------------------------------------------------------------------------------------------
 
 function startTags(html: string) {
-  const tags: {name: string; attributes: string[]; top: boolean}[] = [];
+  const tags: {name: string; attributes: string[]; classes: string[]; style: string; top: boolean}[] = [];
   let depth = 0;
   // Not parse5, which drops a repeated attribute; XML mode reads the tags as written, with no `<p>` the HTML rules imply.
   const parser = new Parser(
     {
       onopentagname: (name) => {
-        tags.push({name, attributes: [], top: depth === 0});
+        tags.push({name, attributes: [], classes: [], style: '', top: depth === 0});
         if (!VOID.has(name)) depth++;
       },
-      onattribute: (name) => void tags.at(-1)!.attributes.push(name),
+      onattribute: (name, value) => {
+        const tag = tags.at(-1)!;
+        tag.attributes.push(name);
+        if (name === 'class') tag.classes.push(...value.split(/\s+/));
+        if (name === 'style') tag.style = value;
+      },
       onclosetag: (name) => {
         if (!VOID.has(name)) depth--;
       },
@@ -196,10 +203,19 @@ const normalizeHead = (head: string) => head.replace(/<!--[0-9a-z]+-->/g, '<!--h
 // Svelte's server render adds these to an `<img>` or other load-event element with a spread, as a forwarded root has.
 const LOAD_REPLAY = / on(?:load|error)="this\.__e=event"/g;
 
+// The parent's class and style, which the `forwards` rule checks: a plain root spreading its props gets them too.
+const withoutParentProps = (html: string) =>
+  html
+    .replaceAll(` class="${PARENT_CLASS}"`, '')
+    .replaceAll(` ${PARENT_CLASS}"`, '"')
+    .replaceAll(` style="${PARENT_STYLE}"`, '')
+    .replaceAll(`; ${PARENT_STYLE}"`, '"');
+
 function checkSameHtml(ucf: Html, plain: Html, stamp: string, parent: string): Violation[] {
   const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '').replaceAll(` ${parent}=""`, '');
   for (const part of ['head', 'body'] as const) {
     const [ours, theirs] = [strip(ucf[part]), plain[part]]
+      .map(withoutParentProps)
       .map((html) => html.replaceAll(LOAD_REPLAY, ''))
       .map(part === 'head' ? normalizeHead : (html: string) => html);
     if (ours !== theirs)
@@ -208,12 +224,19 @@ function checkSameHtml(ucf: Html, plain: Html, stamp: string, parent: string): V
   return [];
 }
 
+// Each of the parent's scope, class and style.
 function checkForwards(html: Html, parent: string, forwarded: Forwarded): Violation[] {
-  for (const {name, attributes, top} of startTags(html.body)) {
-    const count = attributes.filter((attribute) => attribute === parent).length;
+  for (const {name, attributes, classes, style, top} of startTags(html.body)) {
     const allowed = !top ? [0] : forwarded === 'root' ? [1] : forwarded === 'maybe-root' ? [0, 1] : [0];
-    if (!allowed.includes(count))
-      return [{rule: 'forwards', message: `${top ? 'root' : 'inner'} <${name}> carries ${parent} ${count} times (${forwarded})`}];
+    const carried: [string, number][] = [
+      [parent, attributes.filter((attribute) => attribute === parent).length],
+      [`class ${PARENT_CLASS}`, classes.filter((value) => value === PARENT_CLASS).length],
+      [`style ${PARENT_STYLE}`, style.split(/;\s*/).filter((value) => value === PARENT_STYLE).length],
+    ];
+    for (const [what, count] of carried) {
+      if (!allowed.includes(count))
+        return [{rule: 'forwards', message: `${top ? 'root' : 'inner'} <${name}> carries ${what} ${count} times (${forwarded})`}];
+    }
   }
   return [];
 }
@@ -420,7 +443,7 @@ describe('svelte scope stamping fuzz', () => {
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const STAMP = / data-v-[0-9a-f]{8}=""/;
-    const SPREAD = / \{\.\.\.__ucfScopeAttrs\(\w+\)\}/;
+    const SPREAD = / \{\.\.\.__ucfScopeAttrs\(\w+(?:, '\w+')*\)\}/;
     const spreadOnLastStamp = (code: string) => {
       const spread = SPREAD.exec(code)?.[0];
       const last = [...code.matchAll(new RegExp(STAMP.source, 'g'))].at(-1);
@@ -444,6 +467,12 @@ describe('svelte scope stamping fuzz', () => {
       ['a dropped forward', 'forwards', {pre: (code) => code.replace(SPREAD, '')}],
       // On the last stamped element, an inner one when the root has children.
       ['a forward on an inner element', 'forwards', {pre: (code) => spreadOnLastStamp(code)}],
+      // The root reads `klass`, which the parent never passes: its class merge and its added class get nothing.
+      [
+        "the parent's class dropped",
+        'forwards',
+        {pre: (code) => code.replaceAll(/(\w)\.class\)/g, '$1.klass)').replaceAll(", 'class'", ", 'klass'")},
+      ],
     ];
 
     it.each(BROKEN)(
