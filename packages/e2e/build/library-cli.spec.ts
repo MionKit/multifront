@@ -7,7 +7,7 @@ import {normalizePath} from 'vite';
 import {describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, LIBRARY_DIR, copyLibrary, readComponent, removeLibrary} from '../fixtures/index.ts';
 import {locate, offsetAt} from '../editor/lib/tsserver.ts';
-import {edited, runMfBuild, withEditedLibrary} from './lib/library.ts';
+import {edited, report, runMfBuild, withEditedLibrary} from './lib/library.ts';
 
 const ANGULAR_CONFIG = "export default {frameworks: ['angular']};\n";
 const UNKNOWN_ANGULAR = "mf-build: buildLibrary: unknown framework 'angular'; use vue, react, svelte\n";
@@ -36,17 +36,6 @@ const CARD = read('src/Card.ucf');
 const CX = read('src/utils/cx.ts');
 const INDEX = read('src/index.ts');
 const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.ucf'\n";
-
-interface Report {
-  findings: Finding[];
-  errorCount: number;
-  warningCount: number;
-  packages: {framework: string; name: string; outDir: string; files: number; skipped: string[]}[];
-}
-
-function report(stdout: string): Report {
-  return JSON.parse(stdout) as Report;
-}
 
 function filesUnder(dir: string): number {
   return readdirSync(dir, {recursive: true, withFileTypes: true}).filter((entry) => entry.isFile()).length;
