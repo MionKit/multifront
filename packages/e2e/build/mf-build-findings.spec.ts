@@ -111,7 +111,8 @@ describe('mf-build on a type-only module of another script kind beside a compone
 
   it.each(frameworks)('writes card.mts as card.d.mts, no clash in the %s build', async (framework) => {
     const edits = [
-      {file: 'src/Card.ucf', content: typedCard('./card.mjs')},
+      // Not `./card.mjs`: the floor compiler-sfc (3.5.15) finds no `.mts` behind it for `defineProps<CardTitle>()`.
+      {file: 'src/Card.ucf', content: typedCard('./card.mts')},
       {file: 'src/card.mts', content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
