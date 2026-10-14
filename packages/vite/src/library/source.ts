@@ -183,14 +183,9 @@ export function librarySource(job: LibrarySourceJob): Plugin {
       }
       if (!helper) return;
       const taken = Object.keys(bundle).find((fileName) => fileKey(fileName) === fileKey(LIBRARY_SCOPE_HELPER));
-      if (taken === LIBRARY_SCOPE_HELPER) {
-        this.error(`buildLibrary: ${LIBRARY_SCOPE_HELPER} is the name of the shipped scope helper; rename that file in src`);
-      }
       if (taken !== undefined) {
-        this.error(
-          `buildLibrary: ${taken}, which macOS and Windows see as ${LIBRARY_SCOPE_HELPER}, ` +
-            'is the name of the shipped scope helper; rename that file in src'
-        );
+        const seen = taken === LIBRARY_SCOPE_HELPER ? '' : `, which macOS and Windows see as ${LIBRARY_SCOPE_HELPER},`;
+        this.error(`buildLibrary: ${taken}${seen} is the name of the shipped scope helper; rename that file in src`);
       }
       this.emitFile({type: 'asset', fileName: LIBRARY_SCOPE_HELPER, source: scopeHelperCode(false)});
     },

@@ -180,7 +180,7 @@ describe('buildLibrary() CSS errors', () => {
     await withEditedLibrary([{file: 'src/Styles.ucf', content: icon}], async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
         'buildLibrary: src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, ' +
-          'the combined CSS file'
+          'the name of the combined CSS file'
       );
     });
   });

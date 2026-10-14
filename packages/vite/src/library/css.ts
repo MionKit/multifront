@@ -41,14 +41,9 @@ export function libraryCss(root: string, src: string): Plugin {
         if (!isStyleId(id) || !isCSSRequest(id)) continue;
         const file = fileOf(id);
         const name = cssName(file, src);
-        if (name === STYLES) {
-          this.error(`buildLibrary: ${shown(file)} would be written as ${STYLES}, the name of the combined CSS file`);
-        }
         if (fileKey(name) === fileKey(STYLES)) {
-          this.error(
-            `buildLibrary: ${shown(file)} would be written as ${name}, which macOS and Windows see as ${STYLES}, ` +
-              'the combined CSS file'
-          );
+          const seen = name === STYLES ? '' : `, which macOS and Windows see as ${STYLES}`;
+          this.error(`buildLibrary: ${shown(file)} would be written as ${name}${seen}, the name of the combined CSS file`);
         }
         styled.add(file);
       }
