@@ -311,7 +311,7 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
       // TypeScript even for a JS component: svelte2tsx writes type declarations into it.
       const copy = `${file}.ts`;
       // tsc and consumers resolve `./Icon.svelte` and `./Icon.svelte.js` alike: to `Icon.svelte.d.ts`.
-      const module = staged.get(fileKey(copy));
+      const module = [copy, `${file}.js`].map((path) => staged.get(fileKey(path))).find((path) => path !== undefined);
       if (module !== undefined) {
         const declaration = `${module.slice(0, -'.ts'.length)}.d.ts`;
         throw new Error(clashMessage(shown.get(file)!, `${file}.d.ts`, shown.get(module)!, declaration));
