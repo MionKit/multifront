@@ -20,7 +20,7 @@ const PROPERTIES = [
   'margin',
 ];
 
-// Hand-read from the fixtures, so two unstyled elements cannot pass as equal. Keyed by selector inside the case.
+// Hand-read from the fixtures, so two unstyled elements cannot pass as equal.
 const EXPECTED = {
   blocks: {
     '.global-rule': {color: 'rgb(10, 20, 30)'},
