@@ -49,7 +49,7 @@ Rules:
   - `<vue>`: the inner content of a normal `.vue` SFC (`<script>`, `<script setup>`, `<template>`). It must not contain its own `<style>` blocks; styles live at the root.
   - `<react>`: a TSX module. It **must** export default the component.
   - `<svelte>`: the content of a normal `.svelte` file, without `<style>`.
-- **`<style>` attributes** follow Vue semantics: `scoped`, `module` / `module="name"`, `lang` (scss/less/stylus/postcss). `v-bind()` in CSS is supported for the Vue target only in v1.
+- **`<style>` attributes** follow Vue semantics: `scoped`, `module` / `module="name"`, `lang` (scss/less/stylus/postcss). `v-bind()` in CSS and `:slotted()` in a scoped style work for the Vue target only in v1: a file with a `<react>` or `<svelte>` block that uses them is an error (`vue-only-style`), since those targets would render without them. Every feature by framework: 3.8.
 - **`$style`** is available in every target block when a `<style module>` exists (named modules use their name). For React and Svelte it is auto-imported; an explicit import is not needed.
 
 ## 3. Architecture
@@ -77,7 +77,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - Scan only for top-level opening tags `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Take content as **raw text** up to the matching closing tag (browser `<script>` semantics: the first `</react>` closes it).
 - Output per block: `{ type, attrs, content, start, end, contentStart, contentEnd, index }`, used for source maps; `index` is the block's position among blocks of its type.
 - Errors with exact locations (offsets, line and column): duplicate target block, unknown root tag, unclosed block, missing target block, text outside a block. The splitter keeps going after an error, so every readable block still comes back.
-- `checkBlocks(split)` adds the block rules of section 2, each block checked by its kind, with the same locations: `<react>` without a default export, a `<react>` block that does not parse, a `framework` attribute on an import inside `<react>`, a `<style>` at the top level of `<vue>` or `<svelte>`, an unknown style `lang`, two `<style>` blocks injecting the same module name. It returns the splitter errors too, in source order: the one call hosts make.
+- `checkBlocks(split)` adds the block rules of section 2, each block checked by its kind, with the same locations: `<react>` without a default export, a `<react>` block that does not parse, a `framework` attribute on an import inside `<react>`, a `<style>` at the top level of `<vue>` or `<svelte>`, an unknown style `lang`, two `<style>` blocks injecting the same module name, a `v-bind()` or a scoped `:slotted()` in a file with a `<react>` or `<svelte>` block (found as compiler-sfc finds them: comments skipped, `::slotted()` left alone). The React and Svelte style modules report this last one, so the Vue target of the same file still builds. It returns the splitter errors too, in source order: the one call hosts make.
 
 ### 3.3 Style pipeline
 
@@ -162,6 +162,27 @@ Svelte does the same through its props rest (3.6). It is pinned by browser tests
 
 - Generate a declaration per `.ucf` file with the exact class names, for example `.ucf/types/Card.ucf.d.ts`, so `$style.card` autocompletes and typos fail in all three targets.
 - `$style` is typed per block by the per-target virtual scripts of section 5.
+
+### 3.8 Style features in every framework
+
+Each feature, checked in a browser in all three frameworks, from an app and a dev server:
+
+| Feature | Vue | React | Svelte |
+| --- | --- | --- | --- |
+| Global `<style>`, `<style scoped>`, `<style module>`, named and scoped modules | works | works | works (`$name`) |
+| `lang`: scss, sass, stylus, postcss | works | works | works |
+| `lang`: less | same path as the others; not rendered here, the repo keeps less uninstalled to test the missing-preprocessor error | same | same |
+| `@import` in a style | works | works | works |
+| CSS variables: `var()`, a parent's custom properties through `style` | works | works | works, and Svelte's own `--name` props |
+| `:deep()`, `:global()` | works | works | works |
+| `:slotted()` in a scoped style | works | `vue-only-style` error | `vue-only-style` error |
+| `v-bind()` in CSS | works | `vue-only-style` error | `vue-only-style` error |
+| A parent's scoped style on a child's root | works | works (3.5.1) | works (3.6) |
+| A parent's `class` / `style` on a child's root | works | works (`className`, 3.5 item 5) | works (3.6) |
+| A parent's scoped style on content it passes in (slot, children, snippet) | works | works | works |
+| The child's own scoped style on that content | no | no | no; `:deep()` reaches it in all three |
+
+Props, element refs (`ref`, a template ref, `bind:this`) and slots / children / snippets keep each framework's own way; only the styling above is made the same.
 
 ## 4. Imports
 
@@ -349,6 +370,6 @@ Requirements:
 ## 12. Open questions
 
 - Should a target block be allowed to `<style>` locally for target-only overrides?
-- `v-bind()` in CSS for React/Svelte: drop, or implement via CSS variables on the forwarded root?
+- `v-bind()` in CSS for React/Svelte: answered, not in v1. It is a `vue-only-style` error there (2); setting the variables on the forwarded roots stays possible later.
 - Shared types between targets (props interfaces): a root `<types lang="ts">` block imported by every target?
 - Should forwarding of scope attributes be opt-out per component?

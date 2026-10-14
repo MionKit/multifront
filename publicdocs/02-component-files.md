@@ -99,5 +99,6 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 - `<style>` sits at the top level, never inside `<vue>` or `<svelte>`.
 - `lang` is `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`.
 - Two `<style module>` blocks need two names, for example `module` and `module="classes"`.
+- `v-bind()` and the `:slotted()` of a `<style scoped>` need a file with no `<react>` or `<svelte>` block.
 
 > **Tip:** `</react>` in the `<react>` code ends the block, even inside a string. Write `<\/react>` there instead.

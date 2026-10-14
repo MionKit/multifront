@@ -4,7 +4,7 @@ The `<style>` blocks of a `.ucf` file style every framework block in it.
 
 ## Style Blocks
 
-Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style), with `scoped`, `module` and `lang`. In `<vue>` they work exactly as in a `.vue` file, and `v-bind()` works there only.
+Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style), with `scoped`, `module` and `lang`, `:deep()` and `:global()`, the same in every framework. In `<vue>` they work exactly as in a `.vue` file.
 
 `AllBlocks.ucf`
 
@@ -33,6 +33,22 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 | `<style scoped>` | Styles only the elements this file renders |
 | `<style module>` | Class names in `$style` |
 | `<style module="classes">` | Class names in `classes`, or `$classes` in `<svelte>` |
+
+## Vue-Only Features
+
+`v-bind()` in CSS and `:slotted()` in a `<style scoped>` work in `<vue>` only. A file with a `<react>` or `<svelte>` block that uses them fails to build for those frameworks ([`vue-only-style`](07-errors.md#component-file-errors)), so no framework renders without them.
+
+Use a CSS variable in their place. `Vars.ucf`:
+
+```html
+<style scoped>
+.vars {
+  color: var(--accent, rgb(1, 2, 3));
+}
+</style>
+```
+
+> **Tip:** A parent sets the variable through `style`: `style="--accent: rgb(200, 0, 0)"`, or `style={{ '--accent': 'rgb(200, 0, 0)' }}` in `<react>`.
 
 ## Same Look in Every Framework
 

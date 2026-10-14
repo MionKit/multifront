@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-14
 milestone: 6.1
 step: 6.1.4
@@ -88,8 +88,9 @@ All run on this host and in CI's `check` job (Chromium already there). No new in
 3. Editor: the `listComponents('invalid')` cases of `packages/e2e/editor/lib/cases.ts` take the new fixture.
 4. Browser, new app `packages/e2e/fixtures/apps/style-features/` (`Parent.ucf` with three blocks; children per group:
    `Blocks.ucf`, `Langs.ucf`, `Vars.ucf`, `Frame.ucf`, `VueFeatures.ucf` (`<vue>` only, Vue parent only), `Api.ucf`),
-   new `packages/e2e/browser/style-features.spec.ts`, build + preview and dev: per group every element's computed
-   styles equal Vue's, element by element, plus hand-read anchors; Svelte's `svelte-css-wrapper` case on its own; Vue
+   new `packages/e2e/browser/style-features.spec.ts`, build + preview and dev: per case (`blocks`, `langs`, `vars`,
+   `fallback`, `frame`) every element's computed styles equal Vue's, element by element, plus hand-read anchors in all
+   three; Svelte's `svelte-css-wrapper` case on its own; Vue
    `:slotted` / `v-bind` values; no console problem. Props, refs, slots: one `it` per framework on the rendered text.
 
 ## Docs
@@ -97,7 +98,8 @@ All run on this host and in CI's `check` job (Chromium already there). No new in
 - `docs/spec.md`: section 2 (`v-bind()` and `:slotted()` Vue only, `vue-only-style` otherwise), 3.2 (the new
   `checkBlocks` rule), new 3.8 (the table), section 12 (`v-bind()` answered).
 - `docs/plan.md` open question 2: answered.
-- `publicdocs/03-styles.md`, `02-component-files.md` Block Rules, `07-errors.md` (a `vue-only-style` row).
+- `publicdocs/03-styles.md` (`:deep()` / `:global()` in every framework, a "Vue-Only Features" section with the CSS
+  variable in their place), `02-component-files.md` Block Rules, `07-errors.md` (a `vue-only-style` row).
 - `docs/architecture.md`: none, no structure change.
 - Milestone doc: `- Status: done`.
 

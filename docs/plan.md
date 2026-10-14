@@ -188,6 +188,6 @@ Comes after every target exists, so the per-target table is designed once for Re
 ## Open questions
 
 1. Target-only `<style>` inside a target block?
-2. `v-bind()` in CSS for React / Svelte: drop, or CSS variables on the forwarded root?
+2. `v-bind()` in CSS for React / Svelte: answered, not in v1 (a `vue-only-style` error, spec 2); CSS variables on the forwarded root stay possible later.
 3. Shared prop types: a root `<types lang="ts">` block?
 4. Opt-out of scope attribute forwarding per component?

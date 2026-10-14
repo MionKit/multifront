@@ -24,6 +24,7 @@ These mark a `.ucf` file that breaks a [block rule](02-component-files.md#block-
 | `unknown-style-lang` | Use `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`. |
 | `duplicate-style-module` | Give each `<style module>` its own name. |
 | `style-compile-error` | Fix the CSS or preprocessor error the message names, inside that `<style>` block. |
+| `vue-only-style` | `v-bind()` and `:slotted()` work in `<vue>` only. Pass a CSS variable through the `style` prop instead of `v-bind()`; use `:deep()`, or style the content from the parent, instead of `:slotted()`. |
 
 ## Import Errors
 
