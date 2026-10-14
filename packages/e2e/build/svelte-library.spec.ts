@@ -335,22 +335,34 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
-  it.each([['src/icon.svelte.ts', 'export const iconState: {size: number} = $state({size: 16});\n', 'icon.svelte.d.ts']])(
-    'fails on %s, a runes module whose declaration differs only by case from a component types',
-    async (file, content, dts) => {
-      const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
-      const edits = [
-        {file, content},
-        {file: 'src/index.ts', content: `${index}export {iconState} from './icon.svelte.js';\n`},
-      ];
-      await withEditedLibrary(edits, async (root) => {
-        await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-          `buildLibrary: src/Icon.ucf and ${file} would be written as Icon.svelte.d.ts and ${dts}, ` +
-            'which macOS and Windows see as one file'
-        );
-      });
-    }
-  );
+  const caseOnly = 'which macOS and Windows see as one file';
+  it.each([
+    [
+      'src/icon.svelte.ts',
+      'export const iconState: {size: number} = $state({size: 16});\n',
+      `src/Icon.ucf and src/icon.svelte.ts would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
+    ],
+    [
+      'src/icon.svelte.js',
+      'export const iconState = $state({size: 16});\n',
+      `src/Icon.ucf and src/icon.svelte.js would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
+    ],
+    [
+      'src/Icon.svelte.js',
+      'export const iconState = $state({size: 16});\n',
+      'src/Icon.ucf and src/Icon.svelte.js would both be written as Icon.svelte.d.ts',
+    ],
+  ])('fails on %s, a runes module whose declaration is a component types in any case', async (file, content, message) => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const specifier = `./${file.slice('src/'.length, -'.ts'.length)}.js`;
+    const edits = [
+      {file, content},
+      {file: 'src/index.ts', content: `${index}export {iconState} from '${specifier}';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(`buildLibrary: ${message}`);
+    });
+  });
 
   it('fails on a .svelte.ts module reached by a type-only import whose declaration is a component types', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
