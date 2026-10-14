@@ -176,7 +176,7 @@ describe('buildLibrary(): the Svelte package', () => {
         './*.css': './*.css',
         './package.json': './package.json',
       },
-      peerDependencies: {svelte: '^5.0.0'},
+      peerDependencies: {svelte: '^5.16.0'},
     };
     const packageJson = JSON.parse(read('package.json')) as Record<string, unknown>;
     expect(packageJson).toEqual(expected);
