@@ -1,0 +1,13 @@
+<react>
+  export default function StylusPlain({ label }: { label: string }) {
+    return <span className="chip">{label}</span>
+  }
+</react>
+
+<style scoped lang="stylus">
+pad = 0.25rem
+
+.chip
+  padding pad
+  border 1px solid currentColor
+</style>
