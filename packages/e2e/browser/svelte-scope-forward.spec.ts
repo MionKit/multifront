@@ -48,6 +48,7 @@ const FORWARDED: [string, string][] = [
   ['PropsOnlyRoot:only', 'props'],
   ['ShadowRoot:only', 'shadow'],
   ['StoreDerivedRoot:only', '2 1'],
+  ['HelperClashRoot:only', 'clash own'],
 ];
 // No element root: nothing to forward, no warning.
 const SILENT = ['TextRoot'];

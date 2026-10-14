@@ -17,9 +17,11 @@ const LEGACY = ['is a legacy-mode Svelte component', 'Use $props() to make it a 
 
 // Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches.
 // `renders`: the props of each server render, `html`: what it holds; a `problem` row warns, `svelteError` is Svelte's.
+// `helper`: the local the spread calls, when the block already uses the helper's name.
 type RootShape = {
   fixture: string;
   from?: string;
+  helper?: string;
   roots?: number;
   problem?: string[];
   unchanged?: true;
@@ -43,6 +45,8 @@ const ROOT_SHAPES: RootShape[] = (
       renders: [{}],
       html: ['title="a &amp; b"', 'data-html="&lt;div>"', 'data-quote="&quot;quoted&quot;"', 'data-mixed="&amp; escaped"'],
     },
+    // Declares `__ucfScopeAttrs`: the helper is imported under the next free name.
+    {fixture: 'HelperClashRoot.ucf', from: '__ucfRest', helper: '__ucfScopeAttrs1', roots: 1, renders: [{}], html: ['clash own']},
     // A comment before the trailing comma of its `$props()` pattern, a `{@const}` beside a root.
     {fixture: 'IfElseRoot.ucf', from: '__ucfRest', roots: 3, renders: [{branch: 'a'}, {branch: 'b'}, {branch: 'c'}]},
     {fixture: 'LegacyRoot.ucf', problem: LEGACY, renders: [{}]},
@@ -78,7 +82,7 @@ it('has a row for every svelte/roots/ fixture', () => {
 });
 
 describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) => {
-  const {fixture, from, roots, problem, unchanged, svelteError, renders, html} = row;
+  const {fixture, from, helper = '__ucfScopeAttrs', roots, problem, unchanged, svelteError, renders, html} = row;
   const dev = await svelteBuild(fixture);
   const production = await svelteBuild(fixture, true);
   const name = basename(fixture, '.ucf');
@@ -114,8 +118,8 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
   } else {
     it(`spreads the parent's scope from ${from} on each of its ${roots} roots, in dev and in production`, () => {
       for (const {file} of [dev, production]) {
-        expect(file!.code.split(`{...__ucfScopeAttrs(${from})}`)).toHaveLength(roots! + 1);
-        expect(file!.code.match(/__ucfScopeAttrs\(/g)).toHaveLength(roots!);
+        expect(file!.code.split(`{...${helper}(${from})}`)).toHaveLength(roots! + 1);
+        expect(file!.code.split(`${helper}(`)).toHaveLength(roots! + 1);
         expect(file!.code).not.toContain('__ucfWarnFragment');
       }
     });

@@ -1,0 +1,8 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs as __ucfScopeAttrs1} from "virtual:multifront/scope-attrs";
+    // Named like the build's helpers: the build imports them under other names.
+    const __ucfScopeAttrs = 'own'
+    let { label = 'clash', ...__ucfRest }: { label?: string } = $props()
+  </script>
+  <p {...__ucfScopeAttrs1(__ucfRest)} class="shape"><span class="inner">{label} {__ucfScopeAttrs}</span></p>
