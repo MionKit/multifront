@@ -39,6 +39,7 @@ const SCOPED: {fixture: string; unstamped?: string[]}[] = [
   {fixture: 'invalid/CssSyntaxError.ucf'},
   {fixture: 'langs/PostcssPlain.ucf'},
   {fixture: 'langs/SassIndented.ucf'},
+  {fixture: 'langs/StylusPlain.ucf'},
   {fixture: 'react/ScopedPanel.ucf'},
   {fixture: 'react/forwarding/ClassRoot.ucf'},
   {fixture: 'react/fuzz-found/ConstFragment.ucf', unstamped: ['Fragment']},
