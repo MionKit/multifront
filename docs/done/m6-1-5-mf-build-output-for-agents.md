@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-14
 milestone: 6.1
 step: 6.1.5
@@ -132,7 +132,10 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
     Rolldown keeps `meta` and `pluginCode` on each error of a `BundleError` (checked). `message` unchanged.
   - New `findingError(message, finding)`: `{message, pluginCode: finding.code, meta: {findings: [finding]}}`.
   - `plugin.ts:52` and `:200` pass their `split`; `plugin.ts:158` (`resolveTarget` errors) and `:163`
-    (`missing-target-block`) use `findingError`, the importer as `file`.
+    (`missing-target-block`) use `findingError` with `importFinding(importer, code, message)`: the importer as `file`,
+    the block holding the import as `block`, the message `<specifier>: <message>` without the absolute importer path.
+  - `attributes.ts` (an import attribute error, positioned in the importer): the error gets `pluginCode` and
+    `meta.message`, the short message a finding prints; the foreign path below reads both.
 - `src/library/errors.ts` (new):
   - `class LibraryError extends Error {findings: Finding[]}`, its `message` the exact text thrown today.
   - `libraryFinding(code, file, message)`.
@@ -143,9 +146,11 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
       target of a virtual id (`Card.ucf.svelte.svelte` → `svelte`).
     - Column + 1, except plugin-vue whose `loc.column` is already 1-based (`vue-sourcemaps.spec.ts:200`).
     - `code` = `pluginCode`, else the plugin name for `PLUGIN_ERROR` (`vite:vue`), else Rolldown's `code`.
-    - `message` = the first line.
+    - `message` = `meta.message`, else the first line.
+    - `block` = the block the module id names (`importerFromId(id).block`).
 - Library throw sites keep their messages and add findings (`file` absolute; a clash names the first of its two
-  files, sorted):
+  files, sorted). `clashMessage()` returns the bare text; `libraryError()` / `libraryRollupError()` add the
+  `buildLibrary: ` prefix, so `not-a-peer` and `outside-src` now carry it too:
   - `name-clash`: `build.ts:144`, `css.ts:46`, `source.ts:178`, `source.ts:188`, `dts.ts:317`.
   - `not-a-peer`: `build.ts:95` (the importer). `outside-src`: `build.ts:106`. `css-outside-style`: `css.ts:59`.
     `svelte-import`: `source.ts:156`.
@@ -158,7 +163,8 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
   compile:\n...` unchanged.
 - `build.ts` `buildLibrary`: the per-framework loop catches what `buildOne` throws. A `LibraryError` or any error
   with an `errors` array → rethrown as `LibraryError` (same message, `cause` = original), every finding with
-  `framework` = that build's target. Anything else rethrown as is: the config errors (`build.ts:65`, `75`, `193`,
+  `framework` = that build's target (`frameworkError()`); one with no finding read from it becomes a plain error.
+  Anything else rethrown as is: the config errors (`build.ts:65`, `75`, `193`,
   `198`, `201`, `207`, `209`) and the missing types tool (`dts.ts:54`) stay plain, so exit 2. `LibraryError` is not
   in the package index.
 
@@ -204,11 +210,13 @@ Rewritten `packages/e2e/build/library-cli.spec.ts`, real `mf-build` bin on fixtu
    diagnostic's text, `block: 'react'`, `framework: 'react'`; the readable run gives the same two lines.
 6. `it.each`, one row per other path, edits from the existing library specs, `--format json`, exit 1, finding exact:
    `not-a-peer` (`left-pad` in `utils/cx.ts`), `outside-src` (`../shared/tokens.js`), `css-outside-style`
-   (`cx.css`), `name-clash` (`src/Styles.ucf`; a plain Svelte case clash), `svelte-import` (a `~/` import in a plain
-   `.svelte` file), `missing-target-block` (a `<react>` component importing `./VueOnly.ucf`, importer as `file`),
+   (`cx.css`), `name-clash` (`src/Styles.ucf`; a plain Svelte case clash; `src/_ucf/scopeattrs.ts`; `icon.svelte.ts`
+   beside `Icon.ucf`), `svelte-import` (a `~/` alias import in Card's `<svelte>` block, the alias set in
+   `multifront.config.ts`), `missing-target-block` (a `<react>` component importing `./VueOnly.ucf`, importer as `file`),
+   `target-not-enabled` (`with {framework: 'vue'}` in `utils/cx.ts` in the react build, at the specifier),
    `vite:vue` (`vue/TemplateError.ucf` in `src`: position at `<span>`, 1-based, `block: 'vue'`), `TS2322` in
    `src/Card.ucf` (no position) and in `src/utils/cx.ts` (tsc's position), `framework: 'react'`.
-7. Exit 2, stdout `''`, stderr one exact line, no `dist`: `--outdir x` (names every option), `src`, `--format xml`,
+7. Exit 2, stdout `''`, stderr one exact line, no `dist`: `--outdir x` and `-x` (names every option), `src`, `--format xml`,
    `--root` with no value, the five config cases, `--framework angular`; one of them with `--format json`.
 8. `--help` and `-h`: exit 0, stdout exactly the help, stderr `''`.
 

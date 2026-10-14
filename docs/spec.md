@@ -335,7 +335,19 @@ Requirements:
 - **One styling rule for every framework:** a parent passes a class and a style to any component's root, the same in apps and in the library. Vue does it natively (attribute fallthrough); the compiler makes every React root accept and merge `className` and `style` and forward `ref` (React 19 and later, where `ref` is a prop), and every forwarded Svelte root accept and merge `class` and `style`. A component that handles one of these props itself keeps its own handling (3.5, item 5; 3.6). Theming through CSS variables, identical across targets.
 - **Peer dependencies only:** react/react-dom, vue, or svelte. Zero runtime dependencies otherwise.
 - `exports` map per package with types.
-- **One command:** `mf-build` reads `multifront.config.ts` (`defineLibrary({...})`) and writes every package.
+- **One command:** `mf-build` reads `multifront.config.ts` (`defineLibrary({...})`) and writes every package. It follows the command rules of 8.1.
+
+### 8.1 Command rules
+
+Every multifront command (`mf-build`, and `mf-tsc`, `mf-lint`, `mf-fmt` once they exist) works the same way, so a coding agent can run it, read it and act on it. One runner in `@multifront/core` (`runCommand`) applies these rules.
+
+- **Readable by default:** one line per finding, `src/Card.ucf:7:1: error duplicate-target (react): <react> appears more than once; keep one`, then one summary line. A clean run prints the summary line only.
+- **`--format json`:** one JSON document on stdout and nothing else: `{"findings": [...], "errorCount": n, "warningCount": n}` plus the command's own data (`mf-build`: `packages`).
+- **One finding shape** (`Finding`): `file`, `line`, `column`, `end` (`{line, column}`, just past the last character), `code`, `severity` (`error` or `warning`), `message`, plus `block` (the `.ucf` block the position falls in) and `framework` (the build or check that reported it) when they apply. Paths are relative to the current folder. Line and column are 1-based, like `tsc` and oxlint print them. A position is always in the file the user wrote, never in generated code: an error the tools only know in generated code (a type error inside a `.ucf` block, for `mf-build`) names the file with no position.
+- **Codes:** ours (the `DiagnosticCode` union of `@multifront/core`), a tool's (`TS2322`) or a plugin's (`vite:vue`).
+- **Exit codes:** 0 no errors; 1 errors found in the user's files; 2 the command could not run (bad usage, bad config, a missing tool). On exit 2, one plain line goes to stderr and stdout stays empty, whatever `--format` says: an unknown option is found before `--format` is read, as `tsc` and `vue-tsc` print usage errors as plain text in every output mode.
+- **`--help` / `-h`:** the options with a one-line description each, an example and the exit codes.
+- **An unknown option** names the real ones: `mf-build: unknown option '--outdir'; use --root, --framework, --out-dir, --no-dts, --format or --help`.
 
 ## 9. Milestones
 
