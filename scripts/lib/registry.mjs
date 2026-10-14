@@ -8,7 +8,7 @@ export const COMMANDS = [
   {name: 'format', summary: 'oxfmt over packages/**/*.ts and packages/**/*.md', flags: [['--check', 'report unformatted files, change nothing']]},
   {name: 'test', args: '[vitest args…]', summary: 'run every vitest project (extra args go to vitest)'},
   {name: 'agent-docs', summary: 'fail if an AGENTS.md, CLAUDE.md, skill or .agents/ file is over 100 lines or 120 chars per line'},
-  {name: 'check', summary: 'everything CI runs: format --check, lint, agent-docs, test, build'},
+  {name: 'check', summary: 'everything CI runs: format --check, lint, agent-docs, test, the core tests again from packages/core, build'},
   {name: 'commitlint', args: '[commitlint args…]', summary: 'check commit messages against Conventional Commits (args go to commitlint, e.g. --from <ref> --to <ref>)'},
   {name: 'clean', summary: 'delete every dist/, coverage/ and *.tsbuildinfo', flags: [['--deps', 'also delete every node_modules'], ['--dry-run', 'list, delete nothing']]},
   {name: 'docs-images', args: '[names…]', summary: 'render docs/ and publicdocs/ assets/src/*.html to assets/*.png with Playwright'},

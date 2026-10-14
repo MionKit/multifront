@@ -51,6 +51,10 @@ jobs:
       # Verbose: the log names every test that ran, so a skipped one shows. The consumer job runs the consumer area.
       - name: Test
         run: pnpm devx test --reporter verbose --exclude 'consumer/**'
+      # Again from the package folder, as `pnpm devx check` does: a test that depends on the cwd fails here.
+      - name: Core tests from packages/core
+        working-directory: packages/core
+        run: pnpm exec vitest run --reporter verbose
       - name: Build
         run: pnpm devx build
 

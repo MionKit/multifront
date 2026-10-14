@@ -78,6 +78,8 @@ const handlers = {
     handlers.lint();
     handlers['agent-docs']();
     handlers.test([]);
+    // Again from its own folder: a test that depends on the cwd fails here.
+    run(bin('vitest'), ['run'], {cwd: join(REPO_ROOT, 'packages', 'core')});
     handlers.build([]);
   },
   clean(args) {
