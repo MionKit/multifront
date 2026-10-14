@@ -1,4 +1,7 @@
-import type {Plugin, ResolvedConfig} from 'vite';
+import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
+import type {SourceMapInput} from '@jridgewell/trace-mapping';
+import type {Plugin, ResolvedConfig, Rolldown} from 'vite';
+import {splitId, virtualTarget} from './ids.ts';
 
 // plugin-svelte's marker plugin, there for other plugins to detect it.
 const SVELTE_PLUGIN_NAME = 'vite-plugin-svelte';
@@ -28,16 +31,39 @@ function withMember<Target extends object>(target: Target, key: keyof Target, va
   });
 }
 
+// plugin-svelte's error: its message starts with the compiled file's name and position.
+type SvelteRollupError = Error & {loc?: {line: number; column: number}};
+
+const GENERATED_PREFIX = /^\S*\.ucf\.svelte\.svelte(?::\d+:\d+)? /;
+
+/** A Svelte compiler error at its place in the `.ucf` file: an agent cannot open the compiled `Card.ucf.svelte.svelte`. */
+function compileErrorInUcf(context: Rolldown.TransformPluginContext, id: string, err: SvelteRollupError): Rolldown.RollupError {
+  const file = virtualTarget(splitId(id).path)!.file;
+  const message = String(err.message ?? err)
+    .split('\n')[0]!
+    .replace(GENERATED_PREFIX, '');
+  const at = err.loc;
+  const original = at && originalPositionFor(new TraceMap(context.getCombinedSourcemap() as SourceMapInput), at);
+  const loc = original && original.line !== null ? {file, line: original.line, column: original.column} : undefined;
+  return {message, ...(loc && {loc}), meta: {message}, cause: err};
+}
+
 /** plugin-svelte merges our `load` map via `getCombinedSourcemap()`, then Vite applies it again: every mapping lost. */
 function wrapCompile(config: ResolvedConfig): void {
   const transform = config.plugins.find((plugin) => plugin.name === COMPILE_PLUGIN_NAME)?.transform;
   // A restart runs `configResolved` again on the same plugin-svelte instance.
   if (!transform || typeof transform === 'function' || wrappedHandlers.has(transform.handler)) return;
   const handler = transform.handler;
-  transform.handler = function (code, id, ...rest) {
+  transform.handler = async function (code, id, ...rest) {
     if (!SVELTE_ID.test(id)) return handler.call(this, code, id, ...rest);
     const context = withMember(this, 'getCombinedSourcemap', () => null);
-    return handler.call(context, code, id, ...rest);
+    try {
+      return await handler.call(context, code, id, ...rest);
+    } catch (err) {
+      // Vite's dev server maps positions back itself; a `loc` would get mapped twice.
+      if (this.environment.mode === 'dev') throw err;
+      return this.error(compileErrorInUcf(this, id, err as SvelteRollupError));
+    }
   };
   wrappedHandlers.add(transform.handler);
 }
