@@ -31,7 +31,7 @@ function withMember<Target extends object>(target: Target, key: keyof Target, va
   });
 }
 
-// plugin-svelte starts its message with the compiled file's name, which may hold spaces, and position.
+// plugin-svelte prefixes its message with the compiled file's name (may hold spaces) and position.
 const GENERATED_PREFIX = /^.*?\.ucf\.svelte\.svelte(?::\d+:\d+)? /;
 
 /** A Svelte compiler error at its place in the `.ucf` file: an agent cannot open the compiled `Card.ucf.svelte.svelte`. */

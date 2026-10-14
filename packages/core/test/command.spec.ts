@@ -43,7 +43,7 @@ describe('findingOf', () => {
 });
 
 describe('runCommand', () => {
-  // A command of its own, its options typed with core's exported `CommandOption`.
+  // The child types its options with core's exported `CommandOption`.
   const script = fileURLToPath(new URL('command.child.ts', import.meta.url));
   const run = (...args: string[]) => {
     const {status, stdout, stderr} = spawnSync(process.execPath, [script, ...args], {encoding: 'utf8', timeout: 30_000});

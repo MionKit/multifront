@@ -39,7 +39,7 @@ export function ${WARN_FRAGMENT}(props, name, problem = 'renders a fragment root
 }
 `;
 
-// Root props (spec 3.5): no incoming prop keeps the root's own; style is React object or Svelte text; Svelte flattens class arrays.
+// Root props (spec 3.5): style is a React object or Svelte text; Svelte flattens any class value.
 const ROOT_PROPS_CODE = `export function ${MERGE_CLASS}(own, extra) {
   return extra ? (own ? \`\${own} \${extra}\` : extra) : own;
 }
