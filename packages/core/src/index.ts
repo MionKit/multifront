@@ -6,6 +6,7 @@ export type {
   BlockTag,
   BuildContext,
   BuildContextOptions,
+  CommandOption,
   CommandResult,
   CommandSpec,
   CommandValues,
