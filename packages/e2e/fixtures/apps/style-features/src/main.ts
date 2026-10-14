@@ -1,12 +1,8 @@
-import {createElement} from 'react';
-import {createRoot} from 'react-dom/client';
-import {mount} from 'svelte';
-import {createApp} from 'vue';
-import ReactParent from '../Parent.ucf' with {framework: 'react'};
-import SvelteParent from '../Parent.ucf' with {framework: 'svelte'};
-import VueParent from '../Parent.ucf' with {framework: 'vue'};
+// One framework per page (`?framework=react`), so a page holds only the CSS that framework's build imports.
+const mounts: Record<string, () => Promise<unknown>> = {
+  vue: () => import('./vue.ts'),
+  react: () => import('./react.ts'),
+  svelte: () => import('./svelte.ts'),
+};
 
-// One parent per framework, each rendering the same children the same way.
-createApp(VueParent).mount('#vue');
-createRoot(document.getElementById('react')!).render(createElement(ReactParent));
-mount(SvelteParent, {target: document.getElementById('svelte')!});
+void mounts[new URLSearchParams(location.search).get('framework') ?? '']?.();

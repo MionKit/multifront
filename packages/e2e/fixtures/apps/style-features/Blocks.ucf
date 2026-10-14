@@ -26,9 +26,7 @@
 </react>
 
 <svelte>
-  <script lang="ts">
-    let {} = $props()
-  </script>
+  <svelte:options runes />
 
   <div class="blocks">
     <p class="global-rule">global</p>
