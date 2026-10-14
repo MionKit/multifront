@@ -335,7 +335,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
-  // The build's chunks of two plain files already clash, before their shipped names are known.
+  // Their chunk names clash first, before the shipped names are known.
   it.each([
     [
       'two plain .svelte files',

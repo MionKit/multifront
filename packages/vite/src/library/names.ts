@@ -17,7 +17,7 @@ export function shownFile(root: string, file: string): string {
   return normalizePath(relative(root, file));
 }
 
-/** Names with one key are one file on macOS, which ignores case and Unicode normalization; Windows ignores case only. */
+/** Names with one key are one file: macOS ignores case and Unicode normalization, Windows case only. */
 export function fileKey(name: string): string {
   return name.normalize('NFC').toLowerCase();
 }

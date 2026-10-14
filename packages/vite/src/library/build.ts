@@ -130,7 +130,7 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
   const {target, row, root, src, outDir, entries} = job;
   const modules = new Set<string>();
   const owners = new Map<string, string>();
-  // Rolldown would silently rename a second module of the same name, in any case, to `Card2.js`.
+  // Rolldown would silently rename a same-name second module, in any letter case, to `Card2.js`.
   const fileName = (chunk: Rolldown.PreRenderedChunk) => {
     const id = chunk.facadeModuleId ?? chunk.moduleIds[0]!;
     const name = `${outputName(id, src)}.js`;
