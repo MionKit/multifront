@@ -6,11 +6,17 @@ export type {
   BlockTag,
   BuildContext,
   BuildContextOptions,
+  CommandOption,
+  CommandResult,
+  CommandSpec,
+  CommandValues,
   CompiledStyle,
   Diagnostic,
   DiagnosticCode,
+  Finding,
   GrammarScope,
   Importer,
+  LibraryErrorCode,
   LibraryMode,
   ReactPropsSite,
   ReactRootProps,
@@ -32,6 +38,7 @@ export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/inde
 export {reactRootProps} from './blocks/react.ts';
 export {svelteEditorSource} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';
+export {findingOf, runCommand} from './command.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';
 export {DiagnosticsError, locate} from './diagnostics.ts';

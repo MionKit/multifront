@@ -81,7 +81,11 @@ export type DiagnosticCode =
   | 'missing-target-block'
   | 'mixed-frameworks'
   | 'framework-attribute-not-literal'
+  | LibraryErrorCode
   | TargetErrorCode;
+
+/** The errors of a library build's layout: names, imports and files a package cannot ship. */
+export type LibraryErrorCode = 'name-clash' | 'not-a-peer' | 'outside-src' | 'css-outside-style' | 'svelte-import';
 
 /** The errors `resolveTarget` can return. */
 export type TargetErrorCode = 'framework-in-block' | 'unknown-framework' | 'no-target' | 'target-not-enabled';
@@ -95,6 +99,44 @@ export interface Diagnostic {
   end: number;
   line: number; // 1-based line of start
   column: number; // 0-based column of start (the Rollup / Vite `loc` convention)
+}
+
+/** One problem as a command reports it; line and column 1-based, always in the file the user wrote. */
+export interface Finding {
+  file?: string; // absolute; printers show it relative to the cwd
+  line?: number;
+  column?: number;
+  end?: {line: number; column: number}; // just past the last character
+  code: string; // ours, a tool's (`TS2322`) or a plugin's (`vite:vue`)
+  severity: 'error' | 'warning';
+  message: string;
+  block?: BlockTag; // the .ucf block the position falls in
+  framework?: Target; // the framework build or check that reported it
+}
+
+/** One option of a command; `value` names a string option's argument in the help: `<folder>`. */
+export interface CommandOption {
+  type: 'string' | 'boolean';
+  multiple?: boolean;
+  value?: string;
+  description: string;
+}
+
+/** A command's name, help lines and options; `runCommand` adds `--format` and `--help`. */
+export interface CommandSpec {
+  name: string;
+  summary: string[];
+  options: Record<string, CommandOption>;
+  example: string;
+}
+
+export type CommandValues = Record<string, string | boolean | (string | boolean)[] | undefined>;
+
+/** What a command's run found; `data` joins the JSON document. */
+export interface CommandResult {
+  findings: Finding[];
+  summary: string;
+  data?: Record<string, unknown>;
 }
 
 /** The @vue/compiler-sfc parts multifront calls; hosts pass the one their Vue ships. */
