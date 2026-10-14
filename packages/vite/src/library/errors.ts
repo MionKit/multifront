@@ -36,18 +36,19 @@ const TAGGED = /^\[([^\]\s]+)\] (.*)$/;
 // Vite's CSS plugin, on a `<vue>` component's style.
 const VITE_MISSING_PREPROCESSOR = /^Preprocessor dependency "([^"]+)" not found\./;
 
-/** Vite's error for a missing preprocessor, as core reports it for the other frameworks. */
+/** Vite's error for a missing preprocessor on a `<style>` block, as core reports it for the other frameworks. */
 function missingPreprocessor(error: Rolldown.RollupError, firstLine: string): Finding | undefined {
   const name = error.plugin === 'vite:css' ? VITE_MISSING_PREPROCESSOR.exec(firstLine)?.[1] : undefined;
   if (name === undefined || error.id === undefined) return undefined;
   const {path, query} = splitId(error.id);
+  // Only a `.ucf` block's id carries its lang; a plain `.less` file is no `<style>` block.
   const lang = [...query.keys()].find((key) => key.startsWith('lang.'))?.slice('lang.'.length);
-  const tag = lang ? `<style lang="${lang}">` : '<style>';
+  if (!lang) return undefined;
   return {
     file: path,
     code: 'missing-preprocessor',
     severity: 'error',
-    message: `${tag} needs ${name}; install it`,
+    message: `<style lang="${lang}"> needs ${name}; install it`,
     block: 'style',
   };
 }
@@ -91,8 +92,8 @@ export function frameworkError(err: unknown, framework: Target, root: string): u
   // A missing tool is no error in the library's files: `mf-build` exits 2.
   const missing = findings.find((finding) => finding.code === 'missing-preprocessor');
   if (missing) {
-    const file = missing.file === undefined ? '' : `${shownFile(root, missing.file)}: `;
-    return new Error(`buildLibrary: ${file}${missing.message}`, {cause: err});
+    // Core's finding and Vite's both name the `.ucf` file.
+    return new Error(`buildLibrary: ${shownFile(root, missing.file!)}: ${missing.message}`, {cause: err});
   }
   const message = err instanceof Error ? err.message : String(err);
   // Output with no line we can read, from a crashed tsc say: nothing to point at.
