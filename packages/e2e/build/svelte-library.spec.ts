@@ -440,4 +440,18 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
       );
     });
   });
+
+  it('fails on a file of src whose name differs only by case from the scope helper', async () => {
+    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_ucf/scopeattrs.js'\n`);
+    const edits = [
+      {file: 'src/_ucf/scopeattrs.ts', content: "console.info('loaded');\n"},
+      {file: 'src/Card.ucf', content: card},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
+        'buildLibrary: _ucf/scopeattrs.js, which macOS and Windows see as _ucf/scopeAttrs.js, ' +
+          'is the name of the shipped scope helper; rename that file in src'
+      );
+    });
+  });
 });
