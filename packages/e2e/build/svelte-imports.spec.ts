@@ -279,4 +279,31 @@ describe('.svelte importer errors', () => {
       });
     });
   });
+
+  it("points a .ucf component's Svelte compiler error into the .ucf file, mapped once in the build and the dev server", async () => {
+    const source = `<svelte>
+  <script lang="ts">
+    let count = $state(0)
+    const doubled = $derived(count * 2)
+    doubled = 3
+  </script>
+
+  <p>{doubled}</p>
+</svelte>
+`;
+    await withImport('Bad', "'./Bad.ucf'", async (root) => {
+      const file = join(root, 'src', 'Bad.ucf');
+      await writeFile(file, source);
+      const loc = {file, ...locate(source, source.indexOf('doubled = 3'))};
+      const built = await rejection<Rolldown.BundleError>(buildImporter(root));
+      expect(built.errors?.[0]).toMatchObject({plugin: 'vite-plugin-svelte:compile', loc});
+      expect(built.errors?.[0]?.message).not.toMatch(/\.ucf\.svelte\.svelte/);
+      await withDevServer(root, {}, async (server) => {
+        const err = await rejection<Rolldown.RollupError>(
+          server.environments.client.transformRequest('/src/Bad.ucf.svelte.svelte')
+        );
+        expect(err).toMatchObject({plugin: 'vite-plugin-svelte:compile', loc});
+      });
+    });
+  });
 });
