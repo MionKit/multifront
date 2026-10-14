@@ -25,6 +25,7 @@ import {FIXTURES_DIR, TMP_DIR, componentPath, readComponent} from '../../../e2e/
 
 const compiler = loadVueCompiler(import.meta.dirname);
 export const svelte = createRequire(import.meta.url)('svelte/compiler') as typeof SvelteCompilerModule;
+const REPO_ROOT = join(FIXTURES_DIR, '..', '..', '..');
 
 export async function svelteBuild(name: string, production = false) {
   const {filename, source} = readComponent(name);
@@ -60,7 +61,8 @@ export async function loadServerModule(name: string, code: string): Promise<unkn
 
 /** Imports point at what the Vite plugin would serve; CSS imports are dropped. */
 async function serverModule(file: VirtualFile, ctx: BuildContext, name: string): Promise<unknown> {
-  const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`});
+  // Svelte hashes the `<svelte:head>` marker from the filename relative to `rootDir`, the cwd by default.
+  const {js} = svelte.compile(file.code, {generate: 'server', filename: `${ctx.filename}.svelte.svelte`, rootDir: REPO_ROOT});
   const text = new MagicString(js.code);
   for (const node of parseSync('Shape.js', js.code, {sourceType: 'module'}).program.body) {
     if (node.type !== 'ImportDeclaration') continue;
