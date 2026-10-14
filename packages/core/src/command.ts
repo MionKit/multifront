@@ -24,13 +24,11 @@ export function findingOf(diagnostic: Diagnostic, split: Pick<SplitResult, 'sour
   return {file: filename, ...position, code, severity, message, ...(block && {block})};
 }
 
-function optionName(name: string, option: CommandOption): string {
-  const flag = name === 'help' ? '-h, --help' : `--${name}`;
-  return option.value ? `${flag} ${option.value}` : flag;
-}
-
 function helpText(spec: CommandSpec, options: Record<string, CommandOption>): string {
-  const rows = Object.entries(options).map(([name, option]) => [optionName(name, option), option.description] as const);
+  const rows = Object.entries(options).map(([name, {value, description}]) => {
+    const flag = name === 'help' ? '-h, --help' : `--${name}`;
+    return [value ? `${flag} ${value}` : flag, description] as const;
+  });
   const width = Math.max(...rows.map(([flag]) => flag.length)) + 3;
   return [
     `Usage: ${spec.name} [options]`,
@@ -80,16 +78,12 @@ function count(findings: Finding[], severity: Finding['severity']): number {
 
 function compareFindings(one: Finding, other: Finding): number {
   const keys = (finding: Finding) => [finding.file ?? '', finding.line ?? 0, finding.column ?? 0, finding.code] as const;
-  const [a, b] = [keys(one), keys(other)];
-  for (let index = 0; index < a.length; index++) {
-    if (a[index]! < b[index]!) return -1;
-    if (a[index]! > b[index]!) return 1;
+  const [ours, theirs] = [keys(one), keys(other)];
+  for (let index = 0; index < ours.length; index++) {
+    if (ours[index]! < theirs[index]!) return -1;
+    if (ours[index]! > theirs[index]!) return 1;
   }
   return 0;
-}
-
-function shown(finding: Finding, cwd: string): Finding {
-  return finding.file === undefined ? finding : {...finding, file: rootRelativePath(cwd, finding.file)};
 }
 
 function findingLine({file, line, column, severity, code, framework, message}: Finding): string {
@@ -113,7 +107,9 @@ export async function runCommand(
     }
     const result = await run(values);
     const cwd = process.cwd();
-    const findings = result.findings.map((finding) => shown(finding, cwd)).sort(compareFindings);
+    const findings = result.findings
+      .map((finding) => (finding.file === undefined ? finding : {...finding, file: rootRelativePath(cwd, finding.file)}))
+      .sort(compareFindings);
     if (values.format === 'json') {
       const errorCount = count(findings, 'error');
       const document = {findings, errorCount, warningCount: count(findings, 'warning'), ...result.data};
