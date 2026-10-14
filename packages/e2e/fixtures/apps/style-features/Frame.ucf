@@ -1,0 +1,57 @@
+<!-- Slot content from the parent, and the selectors that reach into it. -->
+<vue>
+  <template>
+    <div class="frame">
+      <p class="own">own</p>
+      <slot />
+      <footer><slot name="footer" /></footer>
+    </div>
+  </template>
+</vue>
+
+<react>
+  import type {ReactNode} from 'react'
+
+  export default function Frame({children, footer}: {children?: ReactNode; footer?: ReactNode}) {
+    return (
+      <div className="frame">
+        <p className="own">own</p>
+        {children}
+        <footer>{footer}</footer>
+      </div>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    import type {Snippet} from 'svelte'
+
+    let {children, footer}: {children?: Snippet; footer?: Snippet} = $props()
+  </script>
+
+  <div class="frame">
+    <p class="own">own</p>
+    {@render children?.()}
+    <footer>{@render footer?.()}</footer>
+  </div>
+</svelte>
+
+<style scoped>
+.frame {
+  padding: 3px;
+}
+.own {
+  color: rgb(31, 32, 33);
+}
+/* The parent's elements carry the parent's scope, not this one: never reaches them. */
+.from-parent {
+  font-weight: 900;
+}
+:deep(.deep-target) {
+  text-decoration: underline;
+}
+.frame :global(.global-target) {
+  letter-spacing: 3px;
+}
+</style>

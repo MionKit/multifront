@@ -1,0 +1,22 @@
+<!-- The style features that work in <vue> only: a file with another block fails to build. -->
+<vue>
+  <script setup lang="ts">
+  const color = 'rgb(10, 120, 60)'
+  </script>
+
+  <template>
+    <div class="vue-features">
+      <p class="bound">bound</p>
+      <slot />
+    </div>
+  </template>
+</vue>
+
+<style scoped>
+.bound {
+  color: v-bind(color);
+}
+:slotted(.slotted-target) {
+  font-style: italic;
+}
+</style>

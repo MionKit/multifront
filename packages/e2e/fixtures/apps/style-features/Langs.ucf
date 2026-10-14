@@ -1,0 +1,70 @@
+<!-- One element per style lang, and a plain CSS @import. -->
+<vue>
+  <template>
+    <div class="langs">
+      <p class="scss">scss</p>
+      <p class="sass">sass</p>
+      <p class="stylus">stylus</p>
+      <p class="pcss">postcss</p>
+      <p class="imported">imported</p>
+    </div>
+  </template>
+</vue>
+
+<react>
+  export default function Langs() {
+    return (
+      <div className="langs">
+        <p className="scss">scss</p>
+        <p className="sass">sass</p>
+        <p className="stylus">stylus</p>
+        <p className="pcss">postcss</p>
+        <p className="imported">imported</p>
+      </div>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let {} = $props()
+  </script>
+
+  <div class="langs">
+    <p class="scss">scss</p>
+    <p class="sass">sass</p>
+    <p class="stylus">stylus</p>
+    <p class="pcss">postcss</p>
+    <p class="imported">imported</p>
+  </div>
+</svelte>
+
+<style scoped lang="scss">
+$color: rgb(11, 12, 13);
+
+.langs {
+  .scss {
+    color: $color;
+  }
+}
+</style>
+
+<style scoped lang="sass">
+.sass
+  color: rgb(14, 15, 16)
+</style>
+
+<style scoped lang="stylus">
+.stylus
+  color rgb(17, 18, 19)
+</style>
+
+<style scoped lang="postcss">
+.pcss {
+  color: rgb(20, 21, 22);
+}
+</style>
+
+<style>
+@import './imported.css';
+</style>

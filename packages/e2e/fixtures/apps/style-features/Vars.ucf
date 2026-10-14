@@ -1,0 +1,30 @@
+<!-- CSS variables a parent sets, with fallbacks for the ones it does not. -->
+<vue>
+  <template>
+    <p class="vars"><em class="inner">inner</em></p>
+  </template>
+</vue>
+
+<react>
+  export default function Vars() {
+    return <p className="vars"><em className="inner">inner</em></p>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let {} = $props()
+  </script>
+
+  <p class="vars"><em class="inner">inner</em></p>
+</svelte>
+
+<style scoped>
+.vars {
+  color: var(--accent, rgb(1, 2, 3));
+  padding: var(--pad, 1px);
+}
+.inner {
+  background-color: var(--accent, rgb(4, 5, 6));
+}
+</style>
