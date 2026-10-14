@@ -78,7 +78,6 @@ export function handledRootProps(root: AST.Root, declaration: SveltePropsDeclara
   return found;
 }
 
-/** The root props this root takes, none when it spreads the props. */
 export function rootTakes(node: SvelteNode, {handled, spreads}: HandledRootProps): SvelteRootProp[] {
   const attributes = node.attributes as SvelteNode[];
   if (attributes.some(({type, expression}) => type === 'SpreadAttribute' && namedIn(expression, spreads))) return [];
@@ -150,7 +149,7 @@ export function mergeRootProps(
   return {added, rewritten};
 }
 
-/** `{class?: …; style?: …}` for the props some root takes, else undefined. */
+/** `{class?: …; style?: …}` for the props some root takes. */
 export function rootPropsType(taken: Set<SvelteRootProp>): string | undefined {
   const members = SVELTE_ROOT_PROPS.filter((prop) => taken.has(prop)).map((prop) => MEMBER_TYPES[prop]);
   return members.length > 0 ? `{${members.join('; ')}}` : undefined;
@@ -196,7 +195,7 @@ export function typePropsDeclaration(
   text.appendLeft(offset + comment.start + 2 + found.end, `) & ${type}`);
 }
 
-/** The `$props()` line the build adds when the block has none, typed when some root takes a prop. */
+/** The `$props()` line the build adds when the block has none. */
 export function propsLine(name: string, type: string | undefined, lang: SvelteScriptLang): string {
   if (!type) return `let {...${name}} = $props();`;
   return lang === 'ts' ? `let {...${name}}: ${type} = $props();` : `/** @type {${type}} */ let {...${name}} = $props();`;

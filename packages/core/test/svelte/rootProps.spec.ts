@@ -18,9 +18,8 @@ type RootProp = keyof typeof PARENT;
 type State = 'added' | 'merged' | 'author' | 'none';
 type Node = AST.BaseNode & Record<string, unknown>;
 
-// Hand-read from the fixtures. `roots`: per forwarded root in source order; `typed`: the `$props()` text of the library
-// build and the editor source; `renders`: the props of each server render over the parent's (none with
-// `parent: false`), and the root's class list and style.
+// Hand-read from the fixtures. `roots`: each forwarded root in source order; `typed`: the library and editor `$props()`.
+// `renders`: each server render's props over the parent's (none with `parent: false`), and the root's classes and style.
 type Render = {props?: Record<string, unknown>; parent?: false; classes: string[]; style?: string};
 type Row = {fixture: string; roots: Record<RootProp, State>[]; typed: string; renders: Render[]};
 

@@ -170,7 +170,7 @@ function rootsOf(root: AST.Root): Roots {
 const forwards = (found: Roots, mode: SvelteMode): boolean =>
   mode === 'runes' && found.elements.length > 0 && !found.many && !found.each;
 
-/** The root props each root takes; `typed`: their type goes into the `$props()` annotation, else `type` is unset. */
+/** The root props each root takes; `typed`: their type goes into the `$props()` annotation. */
 function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: SvelteScriptLang, typed: boolean) {
   const declaration = propsDeclaration(root.instance);
   const handled = handledRootProps(root, declaration);
@@ -197,7 +197,7 @@ export function typeRootProps(
   return lines;
 }
 
-/** Spreads the parent's `data-v-*` props on every root, else warns in dev; `helpers`: import specifiers, `lines` end the instance script. */
+/** Spreads the parent's `data-v-*` props on every root, else warns in dev; `lines` end the instance script. */
 export function forwardScope(
   text: MagicString,
   root: AST.Root,
