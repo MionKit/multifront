@@ -2,7 +2,7 @@
 
 Every error in a `.ucf` file or an import has a code and a one-line message that names the problem. The build prints the file, line and column, and ends the message with the code: `(react-no-default-export)`.
 
-> **Note:** Library build errors have no code. [Fixing a Failed Build](06-building-a-library.md#fixing-a-failed-build) lists them.
+> **Note:** Library build errors have their own codes, `name-clash` say. [Fixing a Failed Build](06-building-a-library.md#fixing-a-failed-build) lists them.
 
 ## Component File Errors
 

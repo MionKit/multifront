@@ -26,13 +26,50 @@ The library installs what an app needs for each framework it builds ([Getting St
 
 ## Running the Build
 
-Run `mf-build` in the library folder. It reads `multifront.config.ts` (or `.js`, `.mjs`), writes one package per framework under `dist/` and prints a line for each.
+Run `mf-build` in the library folder. It reads `multifront.config.ts` (or `.js`, `.mjs`), writes one package per framework under `dist/` and prints one line.
 
 ```bash
 pnpm exec mf-build
 ```
 
-A component with no block for a framework is left out of that package, and the line names it: `react: 49 files in dist/react (@mf-fixture/ui-react), skipped VueOnly.ucf`.
+```
+mf-build: built 3 packages in dist: vue 66 files, react 49 files (skipped VueOnly.ucf), svelte 31 files (skipped Badge.ucf, VueOnly.ucf)
+```
+
+A component with no block for a framework is left out of that package, and the line names it. `mf-build --help` lists every option.
+
+### Output for Scripts and Coding Agents
+
+`--format json` prints one JSON document instead, and nothing else on stdout:
+
+```json
+{
+  "findings": [
+    {
+      "file": "src/Twice.ucf",
+      "line": 7,
+      "column": 1,
+      "end": {"line": 7, "column": 8},
+      "code": "duplicate-target",
+      "severity": "error",
+      "message": "<react> appears more than once; keep one",
+      "block": "react",
+      "framework": "react"
+    }
+  ],
+  "errorCount": 1,
+  "warningCount": 0,
+  "packages": []
+}
+```
+
+Each finding has the file, the code, the severity and the message. Line and column count from 1 and always point into the file you wrote. `block` names the `.ucf` block, `framework` the build that failed. A clean run has no findings and lists each package's `framework`, `name`, `outDir`, file count and `skipped` components.
+
+| Exit code | Means |
+| --- | --- |
+| `0` | Every package was built. |
+| `1` | Errors in the library's files: each is a finding. |
+| `2` | `mf-build` could not run: an unknown option, a bad config or a missing tool. One line on stderr, nothing on stdout, whatever `--format` says. |
 
 ## Build Options
 
@@ -137,20 +174,22 @@ export default function Page() {
 
 ## Fixing a Failed Build
 
-`mf-build` stops at the first problem and prints it after `mf-build:`.
+`mf-build` stops at the first framework whose build fails and prints every error of that build: the errors of [Errors](07-errors.md), and the library errors below. A type error prints with its TypeScript code, `TS2322` say, and points into a `.ucf` file without a line.
+
+| Code | Message | Fix |
+| --- | --- | --- |
+| `not-a-peer` | `"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of …` | Add the package to `packages.<framework>.peers`, so the app installs it, or drop the import. |
+| `css-outside-style` | `src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only` | Move the CSS into a `<style>` block. |
+| `svelte-import` | `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only`, or the same for a plain `src/Child.svelte` | Import the file by its relative path. |
+| `outside-src` | `shared/tokens.ts is outside src` | Move the file into `src`. |
+| `name-clash` | `src/Child.ucf and src/Child.svelte would both be written as Child.svelte`, `src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts`, or `src/Badge.ts and src/Badge.ucf would both be written as Badge.js` | Rename one of the two files. |
+| `name-clash` | `src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, which macOS and Windows see as one file`, or the same with names like `Child.svelte` and `child.svelte`, or `Icon.svelte.d.ts` and `icon.svelte.d.ts` | Rename one of the two files, so their names differ by more than case. |
+| `name-clash` | `src/Café.ts and src/Café.ucf would be written as Café.js and Café.js, which macOS sees as one file` | The two names have the same letters, with an accent typed two ways. Rename one of the two files. |
+| `name-clash` | `src/styles.ucf would be written as styles.css, the name of the combined CSS file`, or `src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, …` | Rename the component. |
+
+These are setup errors: `mf-build` exits with code 2 and prints the message after `mf-build:`.
 
 | Message | Fix |
 | --- | --- |
-| `"left-pad" is imported by src/utils/cx.ts, but it is not a peer dependency of …` | Add the package to `packages.<framework>.peers`, so the app installs it, or drop the import. |
 | `the react types need typescript; install it, or set dts: false` | Install the package the message names in the library. |
-| `the react types do not compile: src/Card.ucf: error TS2322 …` | Fix the type error in that file. |
-| `src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only` | Move the CSS into a `<style>` block. |
-| `src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only`, or the same for a plain `src/Child.svelte` | Import the file by its relative path. |
-| `src/Child.ucf and src/Child.svelte would both be written as Child.svelte` | Rename one of the two files. |
-| `src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts` | Rename one of the two files. |
-| `shared/tokens.ts is outside src` | Move the file into `src`. |
 | `package.json has no name; set packages.vue.name` | Name the library, or set that package's `name`. |
-| `src/Badge.ts and src/Badge.ucf would both be written as Badge.js` | Rename one of the two files. |
-| `src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, which macOS and Windows see as one file`, or the same with names like `Child.svelte` and `child.svelte`, or `Icon.svelte.d.ts` and `icon.svelte.d.ts` | Rename one of the two files, so their names differ by more than case. |
-| `src/Café.ts and src/Café.ucf would be written as Café.js and Café.js, which macOS sees as one file` | The two names have the same letters, with an accent typed two ways. Rename one of the two files. |
-| `src/styles.ucf would be written as styles.css, the name of the combined CSS file`, or `src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, …` | Rename the component. |
