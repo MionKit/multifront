@@ -101,6 +101,46 @@ describe('mf-build on a type-only module whose name differs only by case from a 
   });
 });
 
+describe("mf-build on a type-only module with a component's exact name (M6 6.1 build errors)", () => {
+  const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+  const typed = card
+    .replace(
+      "  import Icon from './Icon.ucf'\n",
+      "  import Icon from './Icon.ucf'\n  import type { CardTitle } from './Card.js'\n"
+    )
+    .replace('defineProps<{ title: string }>()', 'defineProps<CardTitle>()')
+    .replace(
+      "  import type { ReactNode } from 'react'\n",
+      "  import type { ReactNode } from 'react'\n  import type { CardTitle } from './Card.js'\n"
+    )
+    .replace('{ title: string; children?: ReactNode }', 'CardTitle & { children?: ReactNode }');
+  const edits = [
+    {file: 'src/Card.ucf', content: typed},
+    {file: 'src/Card.ts', content: 'export interface CardTitle {\n  title: string;\n}\n'},
+  ];
+
+  it.each(['react', 'vue'] as const)(
+    'fails the %s build with a name-clash, not a lost or tsc-reported Card.d.ts',
+    async (framework) => {
+      expect(typed.match(/CardTitle/g)).toHaveLength(4);
+      await withEditedLibrary(edits, async (root) => {
+        const run = await runMfBuild(root, ['--framework', framework, '--format', 'json']);
+        expect(run.stderr).toBe('');
+        expect(run.code).toBe(1);
+        expect(report(run.stdout).findings).toEqual([
+          {
+            file: 'src/Card.ts',
+            code: 'name-clash',
+            severity: 'error',
+            message: 'src/Card.ts and src/Card.ucf would both be written as Card.d.ts',
+            framework,
+          },
+        ]);
+      });
+    }
+  );
+});
+
 describe('mf-build on a Svelte compiler error (spec 8.1: never a position in generated code)', () => {
   const bad = `<svelte>
   <script lang="ts">
