@@ -35,12 +35,14 @@ Vue, React and Svelte:
 ### 1. New check `vue-only-style` (core, no compiler)
 
 - `packages/core/src/types.ts:65-83`: add `'vue-only-style'` to `DiagnosticCode`.
-- `packages/core/src/blocks/style.ts:19` `check()`: when the file has a `<react>` or `<svelte>` block
+- `packages/core/src/blocks/style.ts` `check()`: when the file has a `<react>` or `<svelte>` block
   (`split.targets`), one error per spot:
-  - `v-bind(`: Vue's own rule (compiler-sfc `parseCssVars`): `/v-bind\s*\(/g` over the block content, with
-    `/\*[\s\S]*?\*\/|\/\/.*/` comments blanked to spaces so offsets hold. Any style block.
-  - `:slotted(` / `::v-slotted(`: only in `scoped` blocks (Vue rewrites them only there),
-    `/(?<!:):slotted\(|::v-slotted\(/g`, same comment blanking. The shadow DOM `::slotted()` is left alone.
+  - One regex, `/v-bind\s*\(|(?<!:):slotted\(|::v-slotted\(/g`, over the block content with
+    `/\*[\s\S]*?\*\/|\/\/.*/` comments blanked to spaces so offsets hold (compiler-sfc `parseCssVars`'s comment
+    rule). `v-bind(` in any style block; `:slotted(` / `::v-slotted(` only in `scoped` ones (Vue rewrites them only
+    there). The shadow DOM `::slotted()` is left alone.
+  - Known limit, accepted: a `:slotted(` Vue leaves as written (inside `:deep()` / `:global()`, or in a string) is
+    flagged too; such selectors mean almost nothing.
   - Span = the matched text. Messages, one line, `orList` of the blocks the file has:
     `v-bind() in <style> works in <vue> only, not in <react> or <svelte>; set a CSS variable through the style prop instead`
     and `:slotted() in <style scoped> works in <vue> only, not in <react> or <svelte>; use :deep() or style the content from the parent`.
@@ -72,6 +74,8 @@ Orchestrator's answers to the plan:
    less stays missing for the missing-preprocessor test; the table's less cell says why it is not rendered.
 3. No fuzz: the rule is Vue's own regex, pinned by the compare-to-Vue assertion.
 4. An error, not a warning: a mixed file must not ship a React or Svelte target that looks different from Vue's.
+5. After review: the error counts as "fixed here" for `:slotted()` as for `v-bind()`; no todo for making `:slotted()`
+   work in React / Svelte (spec 2 keeps it Vue-only in v1). The milestone's step text and Out of scope say so.
 
 ## Tests
 
@@ -79,16 +83,18 @@ All run on this host and in CI's `check` job (Chromium already there). No new in
 
 1. Core, `packages/core/test/check.spec.ts`: new fixture `components/invalid/VueOnlyStyle.ucf` (vue + react + svelte;
    `<style scoped>` with `v-bind(color)`, `:slotted(.a)`, `::v-slotted(.b)`, `::slotted(.c)`, and `v-bind(` /
-   `:slotted(` in a comment; plain `<style>` with `v-bind(size)` and `:slotted(.e)`): exactly 4 errors at exact line /
-   column; the v-binds' texts equal compiler-sfc's `descriptor.cssVars` of its `<vue>` SFC code. `vue/VBind.ucf`: no
+   `:slotted(` in a comment; plain `<style>` with `v-bind(size)` and `:slotted(.e)`; `<style scoped lang="scss">` with
+   a `// v-bind(size)` line comment and `v-bind (size)`): exactly 5 errors at exact line / column; the v-binds' names
+   equal compiler-sfc's `descriptor.cssVars` of its `<vue>` SFC code. `vue/VBind.ucf`: no
    error. Rows wherever invalid fixtures are listed.
 2. Build, new `packages/e2e/build/vue-only-style.spec.ts`: a real Vite build per framework importing
-   `invalid/VueOnlyStyle.ucf`: react and svelte fail with `(vue-only-style)` at the first spot; vue builds, its CSS holds
+   `invalid/VueOnlyStyle.ucf`: react and svelte fail with `(vue-only-style)` at one of its spots (the style module that loads first); vue builds, its CSS holds
    the `var(--…)` and `[data-v-…-s]` rules.
 3. Editor: the `listComponents('invalid')` cases of `packages/e2e/editor/lib/cases.ts` take the new fixture.
 4. Browser, new app `packages/e2e/fixtures/apps/style-features/` (`Parent.ucf` with three blocks; children per group:
    `Blocks.ucf`, `Langs.ucf`, `Vars.ucf`, `Frame.ucf`, `VueFeatures.ucf` (`<vue>` only, Vue parent only), `Api.ucf`),
-   new `packages/e2e/browser/style-features.spec.ts`, build + preview and dev: per case (`blocks`, `langs`, `vars`,
+   new `packages/e2e/browser/style-features.spec.ts`, build + preview and dev, one page per framework
+   (`?framework=…`, so a page holds only that framework's CSS): per case (`blocks`, `langs`, `vars`,
    `fallback`, `frame`) every element's computed styles equal Vue's, element by element, plus hand-read anchors in all
    three; Svelte's `svelte-css-wrapper` case on its own; Vue
    `:slotted` / `v-bind` values; no console problem. Props, refs, slots: one `it` per framework on the rendered text.
