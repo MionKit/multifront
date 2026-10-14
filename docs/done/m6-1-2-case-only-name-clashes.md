@@ -29,33 +29,39 @@ Two related gaps found while checking (same kind of name check):
 - Reserved names, exact match only: `src/Styles.ucf` gives `Styles.css` beside `styles.css` (`css.ts:42-44`), and
   `src/_ucf/scopeattrs.ts` ships `_ucf/scopeattrs.js` beside the scope helper `_ucf/scopeAttrs.js`
   (`source.ts:184-186`). Both build green on Linux.
+- Unicode normalization: macOS (APFS) also ignores it, so `Café.ucf` (NFC) beside `Café.ts` (NFD) is one file
+  there. Windows does not ignore it.
 
 ## Plan
 
 All in `packages/vite/src/library/`.
 
 1. `names.ts`: two shared helpers.
-   - `fileKey(name)` → `name.toLowerCase()`: names with one key are one file on macOS and Windows.
+   - `fileKey(name)` → `name.normalize('NFC').toLowerCase()`: names with one key are one file on macOS (case and
+     normalization) and, when only the case differs, on Windows.
    - `clashMessage(first, firstName, second, secondName)`: equal names →
      `buildLibrary: <first> and <second> would both be written as <firstName>` (unchanged text); case-only →
-     `buildLibrary: <first> and <second> would be written as <firstName> and <secondName>, which macOS and Windows see as one file`.
-2. `build.ts` (`buildOne`, the chunk `fileName` hook): `owners` keyed by `fileKey(name)`, value `{id, name}`. On a
-   clash the two `[shownFile, name]` pairs are sorted by shown path, then `clashMessage(...)` is thrown. Sorting fixes
-   the order (the old test accepted either).
+     `buildLibrary: <first> and <second> would be written as <firstName> and <secondName>, which macOS and Windows see as one file`;
+     any other key match (normalization) → the same ending with `which macOS sees as one file`.
+2. `build.ts` (`buildOne`, the chunk `fileName` hook): `owners` keyed by `fileKey(name)`, value the module id. On a
+   clash the two ids' `{name, shown}` are sorted by shown path, then `clashMessage(...)` is thrown. Sorting fixes the
+   order (the old test accepted either). This check also catches two plain Svelte files or runes modules of one key
+   (`Plain.svelte` / `plain.svelte`, `State.svelte.js` / `state.svelte.ts`): their build chunks clash, so the
+   message names the chunks (`Plain.svelte.js`).
 3. `source.ts` (`librarySource`, `generateBundle`): `written` keyed by `fileKey(fileName)`, value `{fileName, file}`.
    A plain file whose key is taken fails with `clashMessage`, component first.
 4. `dts.ts` (`emitSvelteTypes`): an index `fileKey(stagedPath) → stagedPath` over the staged files. Each staged
    `.svelte` root `file` looks up `${file}.ts`, then `${file}.js`; a hit fails with `clashMessage` on
    `${file}.d.ts` and the module's `.d.ts` name. Covers `.svelte.ts` and `.svelte.js`, any case.
-5. Reserved names, any case:
+5. Reserved names, any case, one `if` each:
    - `css.ts`: `fileKey(cssName(file, src)) === fileKey(STYLES)`. Exact: today's message. Case-only:
-     `buildLibrary: src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, the combined CSS file`.
+     `buildLibrary: src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, the name of the combined CSS file`.
    - `source.ts`: a bundle key with `fileKey(key) === fileKey(LIBRARY_SCOPE_HELPER)`. Exact: today's message.
      Case-only: `buildLibrary: _ucf/scopeattrs.js, which macOS and Windows see as _ucf/scopeAttrs.js, is the name of the shipped scope helper; rename that file in src`.
 
 Commits: `docs(todos)`; `fix(vite)` case-insensitive pair checks (1 to 4, `.ts` modules); `fix(vite)` `.svelte.js`
-modules in the types check; `fix(vite)` reserved names ignoring case; normalization todo; docs; review fixes;
-`chore(comments)`.
+modules in the types check; `fix(vite)` reserved names ignoring case; `fix(vite)` Unicode normalization; review
+fixes (`refactor(vite)`, `test(e2e)`); docs; `chore(comments)`.
 
 ## Decisions
 
@@ -63,8 +69,9 @@ modules in the types check; `fix(vite)` reserved names ignoring case; normalizat
   one file`: it shows both names, so the case difference and the Linux-green build make sense.
 - The `.svelte.js` types check and the `styles.css` / `_ucf/scopeAttrs.js` reserved names are fixed here, each its
   own commit and test (AGENTS.md: a related issue is fixed in the same PR).
-- Unicode normalization clashes (NFC vs NFD) are not fixed here: filed as a guidelines todo in this PR. The step is
-  about case only, and the cross-OS wording does not hold for normalization on Windows.
+- Unicode normalization clashes (NFC vs NFD) are fixed here too, own commit and test. First filed as a todo (the step
+  is about case only); reversed after review: the gap sits in `fileKey()`, which this step adds, so it is related.
+  A normalization-only clash says `which macOS sees as one file`: Windows does not fold it.
 
 ## Tests
 
@@ -73,13 +80,16 @@ Build area, real `buildLibrary()` on `withEditedLibrary()` fixture copies. This 
 extensions differ), so the copies work on a case-insensitive host too.
 
 - `packages/e2e/build/library.spec.ts`: `src/badge.ts` exported from `index.ts` → the case-only message
-  for `src/Badge.ucf` / `src/badge.ts`, `Badge.js` / `badge.js`. The existing exact test asserts the exact message
+  for `src/Badge.ucf` / `src/badge.ts`, `Badge.js` / `badge.js`. `src/Café.ucf` (NFC) beside `src/Café.ts` (NFD) →
+  the macOS-only message. The existing exact test asserts the exact message
   `buildLibrary: src/Badge.ts and src/Badge.ucf would both be written as Badge.js`.
 - `packages/e2e/build/svelte-library.spec.ts`:
   - `src/plain.svelte` beside `src/Plain.ucf`, rendered by Card → the case-only message, `Plain.svelte` /
     `plain.svelte`.
   - `it.each` over `src/icon.svelte.ts`, `src/icon.svelte.js` (case-only) and `src/Icon.svelte.js` (exact), each
     exported from `index.ts`, types on → each exact message.
+  - `it.each` over two plain `.svelte` files (`Plain.svelte` renders `plain.svelte`) and two runes modules
+    (`State.svelte.js`, `state.svelte.ts`) → the case-only message from the chunk check.
   - `src/_ucf/scopeattrs.ts` imported by Card → the case-only helper message.
 - `packages/e2e/build/library-css.spec.ts`: `src/Styles.ucf` → the case-only styles message.
 
@@ -87,8 +97,8 @@ extensions differ), so the copies work on a case-insensitive host too.
 
 - `docs/milestones/m6-library-build.md`: 6.1 build errors, 6.2 `styles.css` error, 6.8 plain file and `.d.ts`
   clashes.
-- `publicdocs/06-building-a-library.md`, "Fixing a Failed Build": a row for the case-only message; the `styles.ucf`
-  row names the case-only form.
+- `publicdocs/06-building-a-library.md`, "Fixing a Failed Build": a row for the case-only and normalization-only
+  messages; the `styles.ucf` row names the case-only form.
 - `docs/milestones/m6.1-before-full-editor.md` step 6.1.2: Build text records the decisions; `- Status: done`.
 - `docs/spec.md`, `docs/architecture.md`: none, neither lists library build errors. `docs/plan.md` 6.1 already says it.
 
@@ -98,14 +108,13 @@ Not a candidate: the rule is one string compare. Fixture copies pin each check.
 
 ## Out of scope
 
-- Unicode normalization clashes (own todo).
 - Hand-written `.d.ts` files in `src` against generated declarations.
 - `mf-build` output format (6.1.5).
 - The Windows CI job: the check is a string compare, not file system behaviour.
 
 ## Done when
 
-- Every case-only clash above fails its build with its exact message on any OS; exact clashes keep today's messages
+- Every case-only and normalization-only clash above fails its build with its exact message on any OS; exact clashes keep today's messages
   (the exact `.svelte.js` one now gets ours instead of TS5056).
 - The new tests pass in `pnpm devx check`.
 - m6 doc, public docs table and the m6.1 step text match what shipped; the step has `- Status: done`.
