@@ -1,0 +1,10 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    type Props = { label?: string; class?: string; style?: string }
+
+    let props: Props = $props()
+    const extra = $derived((props as Props).class)
+  </script>
+  <!-- Reads both itself, through `as` and `!`: neither is merged. -->
+  <p {...__ucfScopeAttrs(props)} class={['own', extra]} style={props!.style}>{props.label ?? 'cast'}</p>

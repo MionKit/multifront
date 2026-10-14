@@ -1,6 +1,7 @@
 import type * as CompilerSfc from '@vue/compiler-sfc';
 import type * as SvelteCompilerModule from 'svelte/compiler';
 import type {ROOT_PROPS} from './react/reactApis.ts';
+import type {SVELTE_ROOT_PROPS} from './svelte/rootProps.ts';
 
 /** The frameworks a component file can hold one implementation for. */
 export type Target = 'vue' | 'react' | 'svelte';
@@ -111,13 +112,33 @@ export type SvelteNode = SvelteCompilerModule.AST.BaseNode & Record<string, unkn
 export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse' | 'preprocess' | 'VERSION'>;
 
 /** What a forwarded Svelte root accepts and merges, as React roots do `className` and `style`. */
-export type SvelteRootProp = 'class' | 'style';
+export type SvelteRootProp = (typeof SVELTE_ROOT_PROPS)[number];
+
+/** Svelte reads every script of a block as TypeScript or as JavaScript. */
+export type SvelteScriptLang = 'ts' | 'js';
+
+type SvelteDeclarator = Extract<
+  SvelteCompilerModule.AST.Script['content']['body'][number],
+  {type: 'VariableDeclaration'}
+>['declarations'][number];
+
+/** The instance script's `$props()` declarator, and the declaration that holds it. */
+export interface SveltePropsDeclaration {
+  declaration: SvelteNode;
+  declarator: SvelteDeclarator;
+}
+
+/** The root props a component handles itself, and the names whose spread on a root hands it every prop. */
+export interface HandledProps<Prop extends string> {
+  handled: Set<Prop>;
+  spreads: Set<string>;
+}
 
 /** A `<svelte>` block as the editor types it: `build()`'s class map rename, `$props()` edits and root-prop types. */
 export interface SvelteEditorSource<Module> {
   code: string; // the block content only
   locals: Map<Module, string>; // each module used, and the local name its uses got
-  lang: 'ts' | 'js'; // of the block's scripts, or of the one added
+  lang: SvelteScriptLang; // of the block's scripts, or of the one added
   mappings: string; // a v3 source map's, back into the .ucf file
 }
 

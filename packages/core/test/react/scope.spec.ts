@@ -419,7 +419,7 @@ const loadHelper = (code: string) => import(`data:text/javascript,${encodeURICom
 it('serves the fragment warning in the dev helper only, and the other helpers in both', async () => {
   const dev = await loadHelper(scopeHelperCode(true));
   const production = await loadHelper(scopeHelperCode(false));
-  const shared = ['__ucfClass', '__ucfRef', '__ucfScopeAttrs', '__ucfStyle'];
+  const shared = ['__ucfClass', '__ucfRef', '__ucfScopeAttrs', '__ucfStyle', '__ucfSvelteClass'];
   expect(Object.keys(dev).sort()).toEqual([...shared, '__ucfWarnFragment']);
   expect(Object.keys(production).sort()).toEqual(shared);
   expect(production.__ucfScopeAttrs({'data-v-12345678': '', className: 'card', 'data-test': 'x'})).toEqual({

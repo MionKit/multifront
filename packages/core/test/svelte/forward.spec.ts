@@ -20,11 +20,12 @@ const LEGACY = ['is a legacy-mode Svelte component', 'Use $props() to make it a 
 
 // Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches.
 // `renders`: the props of each server render, `html`: what it holds; a `problem` row warns, `svelteError` is Svelte's.
-// `helper`: the local the spread calls, when the block already uses the helper's name.
+// `helper`, `warn`: the local the spread or the warning calls, when the block already uses the helper's name.
 type RootShape = {
   fixture: string;
   from?: string;
   helper?: string;
+  warn?: string;
   roots?: number;
   problem?: string[];
   unchanged?: true;
@@ -77,6 +78,8 @@ const ROOT_SHAPES: RootShape[] = (
     {fixture: 'SvelteElementRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}, {tag: 'aside'}], html: ['title="a &amp; b"']},
     // No element root: nothing to forward to, nothing to warn about.
     {fixture: 'TextRoot.ucf', unchanged: true, renders: []},
+    // Declares `__ucfWarnFragment`: the warning is imported under the next free name.
+    {fixture: 'WarnClashRoot.ucf', problem: ['renders more than one root'], warn: '__ucfWarnFragment1', renders: [{}]},
   ] satisfies RootShape[]
 ).map((row) => ({...row, fixture: `${ROOTS_DIR}/${row.fixture}`}));
 
@@ -85,7 +88,18 @@ it('has a row for every svelte/roots/ fixture', () => {
 });
 
 describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) => {
-  const {fixture, from, helper = '__ucfScopeAttrs', roots, problem, unchanged, svelteError, renders, html} = row;
+  const {
+    fixture,
+    from,
+    helper = '__ucfScopeAttrs',
+    warn = '__ucfWarnFragment',
+    roots,
+    problem,
+    unchanged,
+    svelteError,
+    renders,
+    html,
+  } = row;
   const dev = await svelteBuild(fixture);
   const production = await svelteBuild(fixture, true);
   const name = basename(fixture, '.ucf');
@@ -114,9 +128,10 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
     it('forwards nothing, and warns in dev only, naming the file, why and the fix', () => {
       const props = problem === LEGACY ? '$$props' : '__ucfRest';
       const args = [name, ...problem].map((part) => JSON.stringify(part)).join(', ');
-      expect(dev.file!.code).toContain(`__ucfWarnFragment(${props}, ${args})`);
+      expect(dev.file!.code).toContain(`${warn}(${props}, ${args})`);
       for (const {file} of [dev, production]) expect(file!.code).not.toContain('__ucfScopeAttrs');
-      expect(production.file!.code).not.toMatch(/scope-attrs|__ucfRest|__ucfWarnFragment/);
+      expect(production.file!.code).not.toMatch(/scope-attrs|__ucfRest/);
+      expect(production.file!.code).not.toContain(`${warn}(`);
     });
   } else {
     it(`spreads the parent's scope from ${from} on each of its ${roots} roots, in dev and in production`, () => {

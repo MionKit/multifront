@@ -19,6 +19,7 @@
     import StoreDerivedRoot from '../../components/svelte/roots/StoreDerivedRoot.ucf'
     import SvelteElementRoot from '../../components/svelte/roots/SvelteElementRoot.ucf'
     import TextRoot from '../../components/svelte/roots/TextRoot.ucf'
+    import WarnClashRoot from '../../components/svelte/roots/WarnClashRoot.ucf'
   </script>
 
   <!-- Each root shape once per branch; `data-case` names the shape and branch the test reads. StringHandlerRoot
@@ -47,6 +48,7 @@
     <div data-case="MultiRoot:only"><MultiRoot /></div>
     <div data-case="LegacyRoot:only"><LegacyRoot /></div>
     <div data-case="LegacyStoreRoot:only"><LegacyStoreRoot /></div>
+    <div data-case="WarnClashRoot:only"><WarnClashRoot /></div>
   </main>
 </svelte>
 

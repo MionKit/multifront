@@ -20,7 +20,6 @@ export type {
   SplitResult,
   StyleModule,
   SvelteCompiler,
-  SvelteRootProp,
   Target,
   TargetChoice,
   TargetErrorCode,

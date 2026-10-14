@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    let props: { label?: string; class?: string; style?: string } = $props()
+  </script>
+  <!-- Reads both itself, optionally and by a computed key: neither is merged. -->
+  <p class={['own', props?.class]} style={props['style']}>{props.label ?? 'optional'}</p>
+</svelte>

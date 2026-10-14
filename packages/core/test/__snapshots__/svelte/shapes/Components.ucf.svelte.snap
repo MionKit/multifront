@@ -2,14 +2,14 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/Components.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/Components.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
     import type {Component} from 'svelte'
 
     let {Child, ...__ucfRest}: {Child: Component<Record<string, unknown>>} = $props()
     const ui = $derived({Child})
   </script>
   {#snippet extra()}<em data-v-c906b34f="" class={__ucfStyle.note}>Snippet prop</em>{/snippet}
-  <div data-v-c906b34f="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(__ucfStyle.list, __ucfRest.class)}>
+  <div data-v-c906b34f="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(__ucfStyle.list, __ucfRest.class)}>
     <Child data-v-c906b34f="" label="Plain" />
     <Child data-v-c906b34f="" label="With children"><span data-v-c906b34f="" class={__ucfStyle.note}>Child content</span></Child>
     <ui.Child data-v-c906b34f="" label="Dotted" />

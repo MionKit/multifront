@@ -57,6 +57,7 @@ const LEGACY_FIX = 'Use $props() to make it a runes-mode component.';
 const WARNED: [string, string, string][] = [
   ['EachRoot', 'renders an {#each} block as its root', ''],
   ['MultiRoot', 'renders more than one root', 'Render one root element instead.'],
+  ['WarnClashRoot', 'renders more than one root', 'Render one root element instead.'],
   ['LegacyRoot', 'is a legacy-mode Svelte component', LEGACY_FIX],
   ['LegacyStoreRoot', 'is a legacy-mode Svelte component', LEGACY_FIX],
 ];

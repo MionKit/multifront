@@ -41,7 +41,7 @@ async function expectParity(url: string): Promise<void> {
   try {
     const messages = collectConsole(page);
     await page.goto(url);
-    for (const name of ['button', 'note']) {
+    for (const name of ['button', 'note', 'item']) {
       const [vue, ...others] = await Promise.all(FRAMEWORKS.map((framework) => root(page, framework, name)));
       // The parent's class and its scoped `.extra` rule reach the root, and its color beats the child's own.
       expect((await attributesOf(vue!)).classes).toContain('extra');
@@ -53,6 +53,7 @@ async function expectParity(url: string): Promise<void> {
     }
     expect(await computed(await root(page, 'svelte', 'button'), 'font-weight')).toBe('700');
     expect(await computed(await root(page, 'svelte', 'note'), 'padding')).toBe('6px');
+    expect(await computed(await root(page, 'svelte', 'item'), 'padding')).toBe('6px');
     expect(consoleProblems(messages)).toEqual([]);
   } finally {
     await page.close();

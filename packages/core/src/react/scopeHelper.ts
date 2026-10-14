@@ -13,6 +13,8 @@ export const MERGE_CLASS = '__ucfClass';
 
 export const MERGE_STYLE = '__ucfStyle';
 
+export const MERGE_SVELTE_CLASS = '__ucfSvelteClass';
+
 export const MERGE_REF = '__ucfRef';
 
 // `keys`: root props a Svelte root lacks, passed on only when given: beside a spread, `class={undefined}` renders `class=""`.
@@ -38,8 +40,11 @@ export function ${WARN_FRAGMENT}(props, name, problem = 'renders a fragment root
 `;
 
 // Root props (spec 3.5, item 5): with no incoming prop, the root's own value comes back unchanged.
-// Strings are React's className and Svelte's style text; an array is a Svelte class value, flattened by Svelte.
+// A style is React's object or Svelte's text; Svelte's class may be any class value, flattened by Svelte.
 const ROOT_PROPS_CODE = `export function ${MERGE_CLASS}(own, extra) {
+  return extra ? (own ? \`\${own} \${extra}\` : extra) : own;
+}
+export function ${MERGE_SVELTE_CLASS}(own, extra) {
   if (!extra) return own;
   if (!own) return extra;
   return typeof own === 'string' && typeof extra === 'string' ? \`\${own} \${extra}\` : [own, extra];
@@ -47,7 +52,7 @@ const ROOT_PROPS_CODE = `export function ${MERGE_CLASS}(own, extra) {
 export function ${MERGE_STYLE}(own, extra) {
   if (!extra) return own;
   if (!own) return extra;
-  return typeof own === 'string' && typeof extra === 'string' ? \`\${own}; \${extra}\` : {...own, ...extra};
+  return typeof own === 'object' && typeof extra === 'object' ? {...own, ...extra} : \`\${own}; \${extra}\`;
 }
 // One merged ref per pair, so stable refs are not detached and attached again on every render.
 const mergedRefs = new WeakMap();

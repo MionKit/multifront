@@ -2,10 +2,10 @@
   <script module lang="ts">
 import "<fixtures>/components/svelte/shapes/BothScripts.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/BothScripts.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
     export const moduleClass: string = __ucfStyle.text
   </script>
   <script lang="ts">
     let {label = 'Both', ...__ucfRest}: {label?: string} = $props()
   </script>
-  <p data-v-77aa89a0="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(moduleClass, __ucfRest.class)}><b data-v-77aa89a0="" class={__ucfStyle.text}>{label}</b></p>
+  <p data-v-77aa89a0="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(moduleClass, __ucfRest.class)}><b data-v-77aa89a0="" class={__ucfStyle.text}>{label}</b></p>
