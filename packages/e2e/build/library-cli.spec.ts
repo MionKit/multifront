@@ -498,7 +498,8 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
           file: 'src/Icon.ucf',
           code: 'vite:css',
           severity: 'error',
-          message: "[postcss] ENOENT: no such file or directory, open './missing.css'",
+          // postcss's own text: Windows names the absolute path it tried, Linux the one written.
+          message: expect.stringMatching(/^\[postcss\] ENOENT: no such file or directory, open '.*missing\.css'$/),
           block: 'style',
           framework: 'vue',
         },
