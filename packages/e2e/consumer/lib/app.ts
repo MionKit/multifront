@@ -144,6 +144,7 @@ export function freePort(): Promise<number> {
 }
 
 const READY_TIMEOUT = 30_000;
+const CLOSE_TIMEOUT = 10_000;
 
 /** `command` must listen on `port`; resolves once the page answers. */
 export async function serveApp(app: ConsumerApp, command: Command, port: number) {
@@ -154,19 +155,32 @@ export async function serveApp(app: ConsumerApp, command: Command, port: number)
   child.stdout.on('data', (chunk) => (output += chunk));
   child.stderr.on('data', (chunk) => (output += chunk));
   let running = true;
-  const kill = () => {
+  const kill = (signal: NodeJS.Signals = 'SIGTERM') => {
     try {
-      process.kill(-child.pid!, 'SIGTERM');
+      process.kill(-child.pid!, signal);
     } catch {
       // Already gone.
     }
   };
+  // At most CLOSE_TIMEOUT: a zombie no init reaps keeps a group alive.
+  const groupGone = async () => {
+    for (const deadline = Date.now() + CLOSE_TIMEOUT; Date.now() < deadline;) {
+      try {
+        process.kill(-child.pid!, 0);
+      } catch {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return false;
+  };
   // A detached group outlives its parent: an interrupted run must not leave the server listening.
-  process.once('exit', kill);
+  const onExit = () => kill();
+  process.once('exit', onExit);
   const exited = new Promise<void>((resolve) =>
     child.once('exit', () => {
       running = false;
-      process.off('exit', kill);
+      process.off('exit', onExit);
       resolve();
     })
   );
@@ -174,6 +188,10 @@ export async function serveApp(app: ConsumerApp, command: Command, port: number)
     if (!running) return;
     kill();
     await exited;
+    // `pnpm exec` exits before the server it started, which still writes to the app (`.next/dev`) while it stops.
+    if (await groupGone()) return;
+    kill('SIGKILL');
+    await groupGone();
   };
   const url = `http://localhost:${port}/`;
   const deadline = Date.now() + READY_TIMEOUT;
