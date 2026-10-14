@@ -8,7 +8,7 @@ import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {multifront} from '../plugin.ts';
 import type {LibraryComponent, LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
-import {fileOf, filesIn, insideDir, isPeer, outputName, shownFile} from './names.ts';
+import {clashMessage, fileKey, fileOf, filesIn, insideDir, isPeer, outputName, shownFile} from './names.ts';
 import {writePackageJson} from './packageJson.ts';
 import {librarySource} from './source.ts';
 import {libraryTargets} from './targets.ts';
@@ -129,16 +129,19 @@ function writtenModules(src: string, modules: Set<string>): Plugin {
 async function buildOne(job: TargetJob, options: LibraryOptions): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
   const modules = new Set<string>();
-  const owners = new Map<string, string>();
-  // Rolldown would silently rename a same-name second module to `Card2.js`.
+  const owners = new Map<string, {id: string; name: string}>();
+  // Rolldown would silently rename a second module of the same name, in any case, to `Card2.js`.
   const fileName = (chunk: Rolldown.PreRenderedChunk) => {
     const id = chunk.facadeModuleId ?? chunk.moduleIds[0]!;
     const name = `${outputName(id, src)}.js`;
-    const owner = owners.get(name) ?? id;
-    owners.set(name, owner);
-    if (owner !== id) {
-      const [first, second] = [owner, id].map((other) => shownFile(root, fileOf(other)));
-      throw new Error(`buildLibrary: ${first} and ${second} would both be written as ${name}`);
+    const owner = owners.get(fileKey(name)) ?? {id, name};
+    owners.set(fileKey(name), owner);
+    if (owner.id !== id) {
+      // Sorted: Rolldown's naming order is not the source order.
+      const [first, second] = [owner, {id, name}]
+        .map((other) => ({...other, shown: shownFile(root, fileOf(other.id))}))
+        .sort((one, other) => (one.shown < other.shown ? -1 : 1));
+      throw new Error(clashMessage(first!.shown, first!.name, second!.shown, second!.name));
     }
     return name;
   };

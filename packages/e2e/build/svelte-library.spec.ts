@@ -307,6 +307,20 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
+  it('fails on a plain .svelte file whose name differs only by case from a component', async () => {
+    const edits = [
+      {file: 'src/Plain.ucf', content: '<svelte>\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
+      {file: 'src/Card.ucf', content: cardUsing('PlainFile', './plain.svelte')},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false})).rejects.toThrow(
+        'buildLibrary: src/Plain.ucf and src/plain.svelte would be written as Plain.svelte and plain.svelte, ' +
+          'which macOS and Windows see as one file'
+      );
+    });
+  });
+
   // Icon.ucf and Icon.svelte.ts would both emit Icon.svelte.d.ts: one would be lost.
   it('fails on a .svelte.ts module whose declaration is written where a component types ship', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
@@ -320,6 +334,23 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
       );
     });
   });
+
+  it.each([['src/icon.svelte.ts', 'export const iconState: {size: number} = $state({size: 16});\n', 'icon.svelte.d.ts']])(
+    'fails on %s, a runes module whose declaration differs only by case from a component types',
+    async (file, content, dts) => {
+      const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+      const edits = [
+        {file, content},
+        {file: 'src/index.ts', content: `${index}export {iconState} from './icon.svelte.js';\n`},
+      ];
+      await withEditedLibrary(edits, async (root) => {
+        await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
+          `buildLibrary: src/Icon.ucf and ${file} would be written as Icon.svelte.d.ts and ${dts}, ` +
+            'which macOS and Windows see as one file'
+        );
+      });
+    }
+  );
 
   it('fails on a .svelte.ts module reached by a type-only import whose declaration is a component types', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');

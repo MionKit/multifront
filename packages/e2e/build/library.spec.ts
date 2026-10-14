@@ -292,7 +292,21 @@ describe('buildLibrary() errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        /src\/Badge\.(ucf|ts) and src\/Badge\.(ucf|ts) would both be written as Badge\.js/
+        'buildLibrary: src/Badge.ts and src/Badge.ucf would both be written as Badge.js'
+      );
+    });
+  });
+
+  it('fails on two modules whose file names differ only by case', async () => {
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: 'src/badge.ts', content: "export const tone = 'info';\n"},
+      {file: 'src/index.ts', content: `${index}export {tone} from './badge.js';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(
+        'buildLibrary: src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, ' +
+          'which macOS and Windows see as one file'
       );
     });
   });

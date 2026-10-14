@@ -16,7 +16,7 @@ import type {Preprocessor, PreprocessorGroup} from 'svelte/compiler';
 import {parseAst, transformWithOxc} from 'vite';
 import type {Plugin} from 'vite';
 import type {LibraryComponent, LibraryPackageJob, LibraryTarget, LibraryTypesJob} from '../types.ts';
-import {fileOf, isPeer, outputName, shownFile} from './names.ts';
+import {clashMessage, fileKey, fileOf, isPeer, outputName, shownFile} from './names.ts';
 import {rewriteScript, rewriteSpecifiers} from './specifiers.ts';
 
 // A plain Svelte component or runes module of `src`: shipped as its source, like a component.
@@ -160,21 +160,22 @@ export function librarySource(job: LibrarySourceJob): Plugin {
         }
       };
       const preprocess = await sveltePreprocess(root);
-      const written = new Map<string, string>();
+      // Keyed by `fileKey()` of the shipped name.
+      const written = new Map<string, {fileName: string; file: string}>();
       for (const [index, {split}] of job.components.entries()) {
         const file = await shippedSource(split, root, src, target);
         const fileName = `${names[index]}${file.ext}`;
         const {code} = await compiler.preprocess(file.code, preprocess, {filename: `${src}/${fileName}`});
         checkImports(split.filename, code, true, ` in its <${target}> block`);
-        written.set(fileName, split.filename);
+        written.set(fileKey(fileName), {fileName, file: split.filename});
         this.emitFile({type: 'asset', fileName, source: code});
       }
       for (const file of [...plain].sort()) {
         const component = file.endsWith('.svelte');
         const fileName = component ? outputName(file, src) : `${outputName(file, src)}.js`;
-        const owner = written.get(fileName);
+        const owner = written.get(fileKey(fileName));
         if (owner !== undefined) {
-          this.error(`buildLibrary: ${shownFile(root, owner)} and ${shownFile(root, file)} would both be written as ${fileName}`);
+          this.error(clashMessage(shownFile(root, owner.file), owner.fileName, shownFile(root, file), fileName));
         }
         const code = component ? await shippedSvelte(file, compiler, preprocess) : await shippedModule(file);
         checkImports(file, code, component);
