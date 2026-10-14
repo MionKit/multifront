@@ -116,7 +116,7 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
 
   it.each(APPS)(
     '$template: type checks, builds, serves, renders Card, Counter and Button, counts a click, no console problem',
-    async ({template, target, check, build, serve, hydrates}) => {
+    async ({template, check, build, serve, hydrates}) => {
       const app = installed.get(template)!;
       expect(readdirSync(join(app.dir, 'node_modules', '.pnpm')).filter((name) => name.startsWith('@multifront+'))).toEqual([]);
       for (const command of check) {
@@ -135,11 +135,9 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
           async (page) => {
             const button = page.locator('button', {hasText: 'Go'});
             await button.waitFor();
-            // The caller's class and style reach Button's root; Svelte's page passes neither.
-            if (target !== 'svelte') {
-              expect((await button.getAttribute('class'))!.split(' ')).toContain('extra');
-              expect(await computed(button, 'color')).toBe('rgb(255, 0, 0)');
-            }
+            // The caller's class and style reach Button's root.
+            expect((await button.getAttribute('class'))!.split(' ')).toContain('extra');
+            expect(await computed(button, 'color')).toBe('rgb(255, 0, 0)');
             if (template === 'consumer-vite-react')
               await expect.poll(() => page.locator('#button-ref').textContent()).toBe('BUTTON');
             const scope = await page

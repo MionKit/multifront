@@ -13,6 +13,6 @@
   <Card title="Hello">
     <Counter />
   </Card>
-  <Button label="Go" onclick={() => clicks++} />
+  <Button label="Go" class="extra" style="color: red" onclick={() => clicks++} />
   <output id="clicks">{clicks}</output>
 </main>
