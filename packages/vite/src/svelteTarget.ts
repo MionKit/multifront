@@ -31,13 +31,15 @@ function withMember<Target extends object>(target: Target, key: keyof Target, va
   });
 }
 
-// plugin-svelte's error: its message starts with the compiled file's name and position.
-type SvelteRollupError = Error & {loc?: {line: number; column: number}};
-
-const GENERATED_PREFIX = /^\S*\.ucf\.svelte\.svelte(?::\d+:\d+)? /;
+// plugin-svelte starts its message with the compiled file's name, which may hold spaces, and position.
+const GENERATED_PREFIX = /^.*?\.ucf\.svelte\.svelte(?::\d+:\d+)? /;
 
 /** A Svelte compiler error at its place in the `.ucf` file: an agent cannot open the compiled `Card.ucf.svelte.svelte`. */
-function compileErrorInUcf(context: Rolldown.TransformPluginContext, id: string, err: SvelteRollupError): Rolldown.RollupError {
+function compileErrorInUcf(
+  context: Rolldown.TransformPluginContext,
+  id: string,
+  err: Rolldown.RollupError
+): Rolldown.RollupError {
   const file = virtualTarget(splitId(id).path)!.file;
   const message = String(err.message ?? err)
     .split('\n')[0]!
@@ -62,7 +64,7 @@ function wrapCompile(config: ResolvedConfig): void {
     } catch (err) {
       // Vite's dev server maps positions back itself; a `loc` would get mapped twice.
       if (this.environment.mode === 'dev') throw err;
-      return this.error(compileErrorInUcf(this, id, err as SvelteRollupError));
+      return this.error(compileErrorInUcf(this, id, err as Rolldown.RollupError));
     }
   };
   wrappedHandlers.add(transform.handler);
