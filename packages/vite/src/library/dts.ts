@@ -190,16 +190,16 @@ function compileError(job: LibraryTypesJob, output: string, shown: Map<string, s
     const match = TSC_LINE.exec(line);
     if (!match) {
       lines.push(line);
-      // An indented line goes on with the message above it.
+      // Any other line, tsc's indented follow-ups, goes on with the message above it.
       const last = findings.at(-1);
       if (last) last.message += ` ${line.trim()}`;
       continue;
     }
     const [, staged, row, column, severity, code, message] = match;
     const source = staged === undefined ? undefined : shown.get(normalizePath(staged));
-    const position = source === undefined || source.endsWith('.ucf') ? undefined : {line: Number(row), column: Number(column)};
-    const head = source === undefined ? line : `${source}${position ? `(${row},${column})` : ''}: `;
-    lines.push(source === undefined ? line : head + line.slice(line.indexOf(`${severity} ${code}: `)));
+    const unplaced = source === undefined || row === undefined || source.endsWith('.ucf');
+    const position = unplaced ? undefined : {line: Number(row), column: Number(column)};
+    lines.push(source === undefined ? line : `${source}${position ? `(${row},${column})` : ''}: ${severity} ${code}: ${message}`);
     const file = source && `${job.root}/${source}`;
     findings.push({...(file && {file}), ...position, code: code!, severity: severity as Finding['severity'], message: message!});
   }

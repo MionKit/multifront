@@ -13,10 +13,10 @@ export function importErrorMessage(specifier: string, importerFile: string | und
 
 /** For `this.error`: Rolldown keeps `meta`, where `mf-build` reads what to print. */
 export function findingError(message: string, finding: Finding): Rolldown.RollupError {
-  return {message, pluginCode: finding.code, meta: {findings: [finding]}};
+  return {message, meta: {findings: [finding]}};
 }
 
-/** An import's error, on its importer and the block that holds the import. */
+/** An error on one file, or on an import: on its importer and the block that holds the import. */
 export function importFinding(importer: Importer | undefined, code: DiagnosticCode, message: string): Finding {
   const block = importer?.block;
   return {...(importer && {file: importer.fileName}), code, severity: 'error', message, ...(block && {block})};
@@ -33,7 +33,6 @@ export function rollupError(diagnostics: Diagnostic[], split: Pick<SplitResult, 
     message: describeDiagnostic(first) + more.join(''),
     id: first.filename,
     loc: {file: first.filename, line: first.line, column: first.column},
-    pluginCode: first.code,
     meta: {findings: diagnostics.map((diagnostic) => findingOf(diagnostic, split))},
   };
 }

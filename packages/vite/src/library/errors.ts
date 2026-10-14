@@ -1,8 +1,9 @@
 import {isAbsolute} from 'node:path';
+import {stripVTControlCharacters} from 'node:util';
 import {importerFromId} from '@multifront/core';
 import type {Finding, LibraryErrorCode, Target} from '@multifront/core';
 import type {Rolldown} from 'vite';
-import {findingError} from '../diagnostics.ts';
+import {findingError, importFinding} from '../diagnostics.ts';
 import {splitId, virtualTarget} from '../ids.ts';
 import {fileOf} from './names.ts';
 
@@ -17,36 +18,38 @@ export class LibraryError extends Error {
   }
 }
 
-function libraryFinding(code: LibraryErrorCode, file: string, message: string): Finding {
-  return {file, code, severity: 'error', message};
-}
-
 export function libraryError(code: LibraryErrorCode, file: string, message: string): LibraryError {
-  return new LibraryError(`buildLibrary: ${message}`, [libraryFinding(code, file, message)]);
+  return new LibraryError(`buildLibrary: ${message}`, [importFinding({fileName: file}, code, message)]);
 }
 
 /** For a library plugin's `this.error`. */
 export function libraryRollupError(code: LibraryErrorCode, file: string, message: string): Rolldown.RollupError {
-  return findingError(`buildLibrary: ${message}`, libraryFinding(code, file, message));
+  return findingError(`buildLibrary: ${message}`, importFinding({fileName: file}, code, message));
 }
 
 // plugin-vue passes Vue's 1-based columns on; Rollup's `loc` convention is 0-based.
 const ONE_BASED_COLUMNS = new Set(['vite:vue']);
 
-/** Another plugin's error: positioned only in a real file, never in code a compiler generated. */
+// Rolldown's own plugins name themselves in the message only: `[builtin:vite-transform] Only string literals ...`.
+const TAGGED = /^\[([^\]\s]+)\] (.*)$/;
+
+/** Another plugin's error: positioned only where its `loc` names a real file, never in code a compiler generated. */
 function foreignFinding(error: Rolldown.RollupError): Finding {
-  const own = typeof error.pluginCode === 'string' ? error.pluginCode : undefined;
-  const code = own ?? (error.code === 'PLUGIN_ERROR' && error.plugin ? error.plugin : error.code) ?? 'error';
-  const message = (error.meta as {message?: string} | undefined)?.message ?? error.message.split('\n')[0]!;
+  // Vite sets `pluginCode` to the module's source: our own code and message come in `meta`.
+  const meta = error.meta as {code?: string; message?: string} | undefined;
+  const firstLine = stripVTControlCharacters(error.message).split('\n')[0]!;
+  const tagged = error.plugin === undefined ? TAGGED.exec(firstLine) : null;
+  const code = meta?.code ?? error.plugin ?? tagged?.[1] ?? error.code ?? 'error';
+  const message = meta?.message ?? tagged?.[2] ?? firstLine;
   const source = error.loc?.file ?? error.id;
   if (source === undefined) return {code, severity: 'error', message};
   const {path, query} = splitId(source);
-  const real = isAbsolute(path) && query.size === 0 && !virtualTarget(path);
-  const loc = real ? error.loc : undefined;
-  const column = loc && loc.column + (ONE_BASED_COLUMNS.has(error.plugin ?? '') ? 0 : 1);
-  const position = loc && {line: loc.line, column};
-  // The module id names the block: the bare `.ucf` path is the Vue target's, `Card.ucf.react.tsx` the React one's.
-  const block = importerFromId(error.id ?? source).block;
+  // A `loc` with no file is relative to whatever the plugin parsed: a Vue `<script>` alone, say.
+  const loc = error.loc?.file && isAbsolute(path) && query.size === 0 && !virtualTarget(path) ? error.loc : undefined;
+  const position = loc && {line: loc.line, column: loc.column + (ONE_BASED_COLUMNS.has(error.plugin ?? '') ? 0 : 1)};
+  // The module id names the block: a style query, the bare `.ucf` path (the Vue target) or `Card.ucf.react.tsx`.
+  const id = error.id ?? source;
+  const block = splitId(id).query.get('type') === 'style' ? 'style' : importerFromId(id).block;
   return {file: fileOf(source), ...position, code, severity: 'error', message, ...(block && {block})};
 }
 

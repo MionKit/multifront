@@ -6,6 +6,7 @@ import type {Finding} from '@multifront/core';
 import {normalizePath} from 'vite';
 import {describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, LIBRARY_DIR, copyLibrary, readComponent, removeLibrary} from '../fixtures/index.ts';
+import {locate, offsetAt} from '../editor/lib/tsserver.ts';
 import {edited, runMfBuild, withEditedLibrary} from './lib/library.ts';
 
 const ANGULAR_CONFIG = "export default {frameworks: ['angular']};\n";
@@ -57,20 +58,8 @@ function cardImporting(line: string): string {
 
 // 1-based line and column of `search` in `text`.
 function positionOf(text: string, search: string): {line: number; column: number} {
-  const before = text.slice(0, text.indexOf(search)).split('\n');
-  return {line: before.length, column: before.at(-1)!.length + 1};
-}
-
-// 1-based line and column back to an offset, from the text alone.
-function offsetOf(text: string, line: number, column: number): number {
-  return (
-    text
-      .split('\n')
-      .slice(0, line - 1)
-      .reduce((offset, row) => offset + row.length + 1, 0) +
-    column -
-    1
-  );
+  const {line, offset} = locate(text, search);
+  return {line, column: offset};
 }
 
 describe('mf-build on a clean library', () => {
@@ -217,8 +206,8 @@ describe('mf-build on errors in the library files', () => {
           code: 'duplicate-target',
           message: '<react> appears more than once; keep one',
         });
-        const text = twice.source.slice(offsetOf(twice.source, line!, column!), offsetOf(twice.source, end!.line, end!.column));
-        expect(text).toBe('<react>');
+        const from = offsetAt(twice.source, {line: line!, offset: column!});
+        expect(twice.source.slice(from, offsetAt(twice.source, {line: end!.line, offset: end!.column}))).toBe('<react>');
       }
       const run = await runMfBuild(root, ['--framework', 'react', '--no-dts']);
       expect(run.code).toBe(1);
@@ -437,6 +426,39 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       ],
     },
     {
+      name: "a Vue <script> error, whose position is the script's own, with no position",
+      edits: [
+        {
+          file: 'src/Card.ucf',
+          content: CARD.replace("  import Icon from './Icon.ucf'\n", "  import Icon from './Icon.ucf' with {framework: kind}\n"),
+        },
+      ],
+      args: ['--framework', 'vue', '--no-dts'],
+      findings: [
+        {
+          file: 'src/Card.ucf',
+          code: 'vite:vue',
+          severity: 'error',
+          message: '[vue/compiler-sfc] Only string literals are allowed as module attribute values. (2:49)',
+          block: 'vue',
+          framework: 'vue',
+        },
+      ],
+    },
+    {
+      name: 'an error of a Rolldown plugin that names no module',
+      edits: [{file: 'src/utils/cx.ts', content: `${CX}const kind = 'vue';\n${cxAttribute.replace("'vue'}", 'kind}')}`}],
+      args: ['--framework', 'react', '--no-dts'],
+      findings: [
+        {
+          code: 'builtin:vite-transform',
+          severity: 'error',
+          message: 'Only string literals are allowed as module attribute values.',
+          framework: 'react',
+        },
+      ],
+    },
+    {
       name: 'type errors, positioned in a plain file only',
       edits: [
         {file: 'src/Card.ucf', content: typeErrorCard},
@@ -463,6 +485,40 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       ],
     },
   ];
+
+  it("keeps Vite's own error logs on stderr", async () => {
+    const icon = read('src/Icon.ucf').replace('<style scoped>\n', "<style scoped>\n@import './missing.css';\n");
+    await withEditedLibrary([{file: 'src/Icon.ucf', content: icon}], async (root) => {
+      const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts', '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(run.stderr).toContain('Unable to resolve `@import "./missing.css"`');
+      expect(run.stderr).not.toContain('Build failed');
+      expect(report(run.stdout).findings).toEqual([
+        {
+          file: 'src/Icon.ucf',
+          code: 'vite:css',
+          severity: 'error',
+          message: "[postcss] ENOENT: no such file or directory, open './missing.css'",
+          block: 'style',
+          framework: 'vue',
+        },
+      ]);
+    });
+  });
+
+  it('prints a type error with no file, its follow-up lines joined', async () => {
+    const options = '"strict": true, "module": "esnext", "moduleResolution": "bundler", "types": ["nonexistent"]';
+    const tsconfig = `{"compilerOptions": {${options}}}\n`;
+    await withEditedLibrary([{file: 'tsconfig.json', content: tsconfig}], async (root) => {
+      const run = await runMfBuild(root, ['--framework', 'react']);
+      expect(run.stderr).toBe('');
+      expect(run.code).toBe(1);
+      expect(run.stdout).toBe(
+        "error TS2688 (react): Cannot find type definition file for 'nonexistent'. The file is in the program because: " +
+          "Entry point of type library 'nonexistent' specified in compilerOptions\nmf-build: 1 error in the react build\n"
+      );
+    });
+  });
 
   it.each(cases)('prints $name as findings', async ({edits, args, findings}) => {
     await withEditedLibrary(edits, async (root) => {
@@ -511,6 +567,7 @@ describe('mf-build when it cannot run', () => {
     {args: ['src'], error: "mf-build: unexpected argument 'src'; mf-build takes options only\n"},
     {args: ['--format', 'xml'], error: "mf-build: unknown format 'xml'; use text or json\n"},
     {args: ['--root'], error: "mf-build: Option '--root <value>' argument missing\n"},
+    {args: ['--no-dts=yes'], error: "mf-build: Option '--no-dts' does not take an argument\n"},
     {args: ['--framework', 'vue', '--framework', 'angular', '--out-dir', 'out'], error: UNKNOWN_ANGULAR},
     {args: ['--framework', 'angular', '--format', 'json'], error: UNKNOWN_ANGULAR},
     {args: ['--format', 'json', '--outdir', 'x'], error: `mf-build: unknown option '--outdir'; use ${OPTIONS}\n`},
