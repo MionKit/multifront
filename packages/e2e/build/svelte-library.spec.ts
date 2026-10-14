@@ -335,6 +335,37 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     });
   });
 
+  // The build's chunks of two plain files already clash, before their shipped names are known.
+  it.each([
+    [
+      'two plain .svelte files',
+      [
+        {file: 'src/Plain.svelte', content: "<script>\n  import Lower from './plain.svelte'\n</script>\n\n<Lower />\n"},
+        {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
+        {file: 'src/Card.ucf', content: cardUsing('Upper', './Plain.svelte')},
+      ],
+      'src/Plain.svelte and src/plain.svelte would be written as Plain.svelte.js and plain.svelte.js',
+    ],
+    [
+      'two runes modules',
+      [
+        {file: 'src/State.svelte.js', content: 'export const upper = $state({value: 0});\n'},
+        {file: 'src/state.svelte.ts', content: 'export const lower = $state({value: 0});\n'},
+        {
+          file: 'src/index.ts',
+          content: `${readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8')}export {upper} from './State.svelte.js';\nexport {lower} from './state.svelte.ts';\n`,
+        },
+      ],
+      'src/State.svelte.js and src/state.svelte.ts would be written as State.svelte.js and state.svelte.js',
+    ],
+  ])('fails on %s whose names differ only by case', async (_kind, edits, message) => {
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false})).rejects.toThrow(
+        `buildLibrary: ${message}, which macOS and Windows see as one file`
+      );
+    });
+  });
+
   const caseOnly = 'which macOS and Windows see as one file';
   it.each([
     [
