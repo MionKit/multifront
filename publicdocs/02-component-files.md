@@ -43,9 +43,9 @@ Each block holds what you would write in that framework's own file. Write only t
 | `<svelte>` | The inside of a `.svelte` file, no `<style>` |
 | `<style>` | CSS for every block. `scoped`, `module` and `lang` work as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style) |
 
-## Class, Style and Ref on React Components
+## Class, Style and Ref on Components
 
-Every `<react>` component passes the `className`, `style` and `ref` its parent gives on to its root element, the same root a parent's [scoped style](03-styles.md#styling-a-child-component) reaches. The editor and a [library's](06-building-a-library.md) `.d.ts` files type them, `ref` for the root's tag.
+Every `<react>` component passes the `className`, `style` and `ref` its parent gives on to its root element, and every `<svelte>` component the `class` and `style`: the same root a parent's [scoped style](03-styles.md#styling-a-child-component) reaches. The editor and a [library's](06-building-a-library.md) `.d.ts` files type them, `ref` for the root's tag. A Vue component does the same on its own.
 
 `Button.ucf`
 
@@ -78,11 +78,11 @@ export default function App() {
 
 | Prop | On the root |
 | --- | --- |
-| `className` | Joins the root's own classes |
+| `className` (React), `class` (Svelte) | Joins the root's own classes |
 | `style` | Merges with the root's own style; the parent's values win |
-| `ref` | Gets the root element, as does the root's own `ref` |
+| `ref` (React) | Gets the root element, as does the root's own `ref` |
 
-> **Tip:** To place one of these props yourself, read it from the props, as in `({ label, className })`. multifront then leaves that prop to you.
+> **Tip:** To place one of these props yourself, read it from the props, as in `({ label, className })` or `let { label, class: klass } = $props()`. multifront then leaves that prop to you.
 
 ## Block Rules
 
