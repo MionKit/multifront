@@ -30,11 +30,12 @@ suite from `packages/core`: only this one fails).
   byte unchanged. Svelte turns `\` into `/` in both the filename and `rootDir`, so the relative path, and the hash,
   are the same on Windows.
 - The other `svelte.compile` calls in core tests (`blocks/svelte.spec.ts:74,134,214,267`, `svelte/forward.spec.ts:89`)
-  check only warnings, a throw or `css === null`: no output that depends on the folder. Left as they are.
+  check only warnings, a throw or `css === null`, or (214, `Child.svelte`, rendered into the snapshot) have no
+  `<svelte:head>`: no output that depends on the folder. Left as they are.
 - Regression guard (see Decisions): the core suite also runs from `packages/core`, in CI and in `pnpm devx check`.
-  - `.github/workflows/ci.yml`, `check` job: a step right after "Test", `pnpm exec vitest run` with
-    `working-directory: packages/core`.
-  - `scripts/devx.mjs`, `check`: runs the same command from `packages/core` after `test`.
+  - `.github/workflows/ci.yml`, `check` job: a step right after "Test", `pnpm exec vitest run --reporter verbose`
+    with `working-directory: packages/core` (verbose like the "Test" step, so the log names every test that ran).
+  - `scripts/devx.mjs`, `check`: runs `vitest run` from `packages/core` after `test`.
   - `scripts/lib/registry.mjs`: the `check` summary names the new part.
 
 ## Tests
@@ -58,9 +59,12 @@ Not a candidate: a one-option fix in a test helper, no feature.
 
 ## Decisions
 
-- Guard: a `check` job step after "Test" running `pnpm exec vitest run` in `packages/core`, and `pnpm devx check` runs
-  the same, its registry summary and the SETUP.md line updated (orchestrator: the milestone exit test names that
-  command; `check` = "everything CI runs", so both run it).
+- Guard: a `check` job step after "Test" running `pnpm exec vitest run --reporter verbose` in `packages/core`, and
+  `pnpm devx check` runs the core suite from there too, its registry summary and the SETUP.md line updated
+  (orchestrator: the milestone exit test names that command; `check` = "everything CI runs", so both run it).
+- No test of its own for `devx check`'s new step (review finding, dropped): a real one runs `devx check` inside
+  `devx test`, which recurses on the real repo and needs made-up repo content on a temp one. No other `check` step has
+  one either; the CI step itself runs the core suite from `packages/core` on every PR.
 
 ## Out of scope
 
