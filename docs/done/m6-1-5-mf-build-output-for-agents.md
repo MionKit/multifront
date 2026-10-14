@@ -58,24 +58,23 @@ Types in `packages/core/src/types.ts`, exported from the index:
 
 ```ts
 /** One problem as a command reports it; line and column 1-based, always in the file the user wrote. */
-export interface Finding {
+export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
   file?: string; // absolute; printers show it relative to the cwd, '/' separators
   line?: number;
   column?: number;
   end?: {line: number; column: number}; // just past the last character
   code: string;
-  severity: 'error' | 'warning';
-  message: string;
   block?: BlockTag;
   framework?: Target;
 }
-export interface CommandOption {type: 'string' | 'boolean'; multiple?: boolean; value?: string; description: string}
+export interface CommandOption extends Pick<ParseArgsOptionDescriptor, 'type' | 'multiple'> {value?: string; description: string}
 export interface CommandSpec {name: string; summary: string[]; options: Record<string, CommandOption>; example: string}
-export type CommandValues = Record<string, string | boolean | string[] | undefined>;
+export type CommandValues = Record<string, string | boolean | (string | boolean)[] | undefined>;
 export interface CommandResult {findings: Finding[]; summary: string; data?: Record<string, unknown>}
 ```
 
-`DiagnosticCode` gains `'name-clash' | 'not-a-peer' | 'outside-src' | 'css-outside-style' | 'svelte-import'`.
+`DiagnosticCode` gains `LibraryErrorCode` = `'name-clash' | 'not-a-peer' | 'outside-src' | 'css-outside-style' |
+'svelte-import'`, also exported. `CommandOption` stays internal to core.
 
 Functions, exported from `@multifront/core`:
 
@@ -129,25 +128,30 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
 
 - `src/diagnostics.ts`:
   - `rollupError(diagnostics, split)` also sets `meta: {findings: diagnostics.map((d) => findingOf(d, split))}`.
-    Rolldown keeps `meta` and `pluginCode` on each error of a `BundleError` (checked). `message` unchanged.
-  - New `findingError(message, finding)`: `{message, pluginCode: finding.code, meta: {findings: [finding]}}`.
+    Rolldown keeps `meta` on each error of a `BundleError` (checked). `message` unchanged. No `pluginCode`: Vite
+    fills it with the module's source code, so nothing reads it.
+  - New `findingError(message, finding)`: `{message, meta: {findings: [finding]}}`, and `importFinding(importer,
+    code, message)`: the file as `file`, the importer's block (the one holding an import) as `block`.
   - `plugin.ts:52` and `:200` pass their `split`; `plugin.ts:158` (`resolveTarget` errors) and `:163`
-    (`missing-target-block`) use `findingError` with `importFinding(importer, code, message)`: the importer as `file`,
-    the block holding the import as `block`, the message `<specifier>: <message>` without the absolute importer path.
-  - `attributes.ts` (an import attribute error, positioned in the importer): the error gets `pluginCode` and
-    `meta.message`, the short message a finding prints; the foreign path below reads both.
+    (`missing-target-block`) use `findingError` with `importFinding`, the importer as `file`. Messages: `resolveTarget`
+    errors become `<specifier>: <message>` (no absolute importer path); `missing-target-block` keeps
+    `missingTargetBlockMessage()`, which already names both files.
+  - `attributes.ts` (an import attribute error, positioned in the importer): the error gets `meta.code` and
+    `meta.message`, the short `<specifier>: <message>` a finding prints; the foreign path below reads both.
 - `src/library/errors.ts` (new):
   - `class LibraryError extends Error {findings: Finding[]}`, its `message` the exact text thrown today.
-  - `libraryFinding(code, file, message)`.
-  - `buildErrorFindings(err)`: a `BundleError`'s sub-errors → their `meta.findings`, or our thrown `LibraryError`'s
-    `findings`, or one finding from a foreign error:
-    - `file` = `fileOf(id ?? loc.file)`.
-    - Position only when the id is the real file with no query; else none (generated code), and `block` = the
-      target of a virtual id (`Card.ucf.svelte.svelte` → `svelte`).
+  - `libraryError(code, file, message)` / `libraryRollupError(...)`, both through `importFinding({fileName: file})`.
+  - `buildFindings(err)`: a `BundleError`'s sub-errors → their `meta.findings`, or our thrown `LibraryError`'s
+    `findings`, or one finding from a foreign error (`foreignFinding()`):
+    - `file` = `fileOf(loc.file ?? id)`; none when neither is set.
+    - Position only when `loc.file` is set and names a real file (absolute, no query, not a virtual id). plugin-vue
+      sets `loc.file` only on its compiler errors (template, SFC parse), whose positions are in the file; a Vue
+      `<script>` (babel) error has a `loc` relative to the script alone and no `loc.file`, so it gets no position.
     - Column + 1, except plugin-vue whose `loc.column` is already 1-based (`vue-sourcemaps.spec.ts:200`).
-    - `code` = `pluginCode`, else the plugin name for `PLUGIN_ERROR` (`vite:vue`), else Rolldown's `code`.
-    - `message` = `meta.message`, else the first line.
-    - `block` = the block the module id names (`importerFromId(id).block`).
+    - `code` = `meta.code`, else the plugin name (`vite:vue`, `vite:css`), else the `[name]` a Rolldown builtin
+      plugin starts its message with (`builtin:vite-transform`), else Rolldown's `code`.
+    - `message` = `meta.message`, else the first line without terminal colors (and without that `[name] ` tag).
+    - `block` = `style` for a style query, else the block the module id names (`importerFromId(id).block`).
 - Library throw sites keep their messages and add findings (`file` absolute; a clash names the first of its two
   files, sorted). `clashMessage()` returns the bare text; `libraryError()` / `libraryRollupError()` add the
   `buildLibrary: ` prefix, so `not-a-peer` and `outside-src` now carry it too:
@@ -158,8 +162,9 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
     `LibraryError`.
 - `dts.ts` `compileError()` → `LibraryError`: each tsc line
   `/^(?:(.+?)(?:\((\d+),(\d+)\))?: )?(error|warning) (TS\d+): (.*)$/` is one finding, code `TS2322`... A `.ucf` file
-  gets no position (generated code, today's rule); a plain file keeps tsc's 1-based line and column. Indented
-  continuation lines join the previous message with a space. Message `buildLibrary: the react types do not
+  gets no position (generated code, today's rule); a plain file keeps tsc's 1-based line and column; a path that is
+  not a staged source (a broken library `tsconfig.json`) gives a finding with no file. Any other line (tsc's indented
+  follow-ups) joins the previous finding's message with a space. Message `buildLibrary: the react types do not
   compile:\n...` unchanged.
 - `build.ts` `buildLibrary`: the per-framework loop catches what `buildOne` throws. A `LibraryError` or any error
   with an `errors` array → rethrown as `LibraryError` (same message, `cause` = original), every finding with
@@ -173,8 +178,9 @@ run (bad usage, bad config, a missing tool). For mf-build: a failure inside one 
 - `runMfBuild(args)` = `runCommand(MF_BUILD, args, run)`. `run`:
   - loads the config as today (a load failure throws: exit 2, `mf-build: cannot load <file>: <message>`), merges
     the options as today;
-  - passes `vite.customLogger`: Vite's `createLogger(config.vite?.logLevel ?? 'warn')` with `error` silenced, so
-    `✗ Build failed in ...` goes and Vite's warnings stay on stderr;
+  - passes `vite.customLogger`: the config's own `vite.customLogger`, else Vite's
+    `createLogger(config.vite?.logLevel ?? 'warn')`, wrapped (through its prototype) so only the
+    `✗ Build failed in ...` line goes; every other log, `Unable to resolve @import ...` say, stays on stderr;
   - returns `{findings: [], summary, data: {packages}}`; on a `LibraryError` its findings and
     `2 errors in the react build`; any other error goes on to `runCommand` (exit 2).
 - Success summary, one line: `mf-build: built 3 packages in dist: vue 66 files, react 49 files (skipped VueOnly.ucf),
@@ -214,11 +220,27 @@ Rewritten `packages/e2e/build/library-cli.spec.ts`, real `mf-build` bin on fixtu
    beside `Icon.ucf`), `svelte-import` (a `~/` alias import in Card's `<svelte>` block, the alias set in
    `multifront.config.ts`), `missing-target-block` (a `<react>` component importing `./VueOnly.ucf`, importer as `file`),
    `target-not-enabled` (`with {framework: 'vue'}` in `utils/cx.ts` in the react build, at the specifier),
-   `vite:vue` (`vue/TemplateError.ucf` in `src`: position at `<span>`, 1-based, `block: 'vue'`), `TS2322` in
-   `src/Card.ucf` (no position) and in `src/utils/cx.ts` (tsc's position), `framework: 'react'`.
-7. Exit 2, stdout `''`, stderr one exact line, no `dist`: `--outdir x` and `-x` (names every option), `src`, `--format xml`,
-   `--root` with no value, the five config cases, `--framework angular`; one of them with `--format json`.
-8. `--help` and `-h`: exit 0, stdout exactly the help, stderr `''`.
+   `vite:vue` (`vue/TemplateError.ucf` in `src`: position at `<span>`, 1-based, `block: 'vue'`), a Vue `<script>`
+   error (a non-literal attribute: `vite:vue`, no position), a Rolldown builtin error naming no module (the same in
+   `utils/cx.ts`: `builtin:vite-transform`, no file), `TS2322` in `src/Card.ucf` (no position) and in
+   `src/utils/cx.ts` (tsc's position), `framework: 'react'`.
+7. An unresolved `@import` in Icon's `<style>`: Vite's `Unable to resolve` log stays on stderr, `Build failed` does
+   not; the finding is `vite:css`, `block: 'style'`.
+8. A library `tsconfig.json` with `types: ["nonexistent"]`: readable stdout exactly `error TS2688 (react): ...`, no
+   file, tsc's follow-up lines joined.
+9. Exit 2, stdout `''`, stderr one exact line, no `dist`: `--outdir x` and `-x` (names every option), `src`,
+   `--format xml`, `--root` with no value, `--no-dts=yes`, the five config cases, `--framework angular`; one of them
+   with `--format json`.
+10. `--help` and `-h`: exit 0, stdout exactly the help, stderr `''`.
+
+`packages/e2e/build/library.spec.ts` pins the `buildLibrary: ` prefix `not-a-peer` and `outside-src` now carry.
+Both new specs read positions with `locate` / `offsetAt` of `packages/e2e/editor/lib/tsserver.ts`.
+
+Not covered, as no `mf-build` path reaches them today: a finding with severity `warning` (exit 0 on warnings only;
+the first warning comes with M7's `mf-lint`), `importFinding` with no importer (a library entry always has the
+block it is built for), a failed framework build with no finding read from it (exit 2), and the first branch of
+`attributes.ts` `importError` (`framework-attribute-not-literal`: Vite's transform and Vue's compiler reject a
+non-literal attribute first, tests 6 above; app builds keep its test in `build/imports.spec.ts`).
 
 New `packages/core/test/command.spec.ts`: every `fixtures/components/invalid/*.ucf` through `splitBlocks` +
 `checkBlocks` + `findingOf`; each finding's line/column maps back to `start`, its end to `end` (offsets recomputed
