@@ -17,6 +17,20 @@ export function shownFile(root: string, file: string): string {
   return normalizePath(relative(root, file));
 }
 
+/** Names with one key are one file on a case-insensitive file system (macOS, Windows). */
+export function fileKey(name: string): string {
+  return name.toLowerCase();
+}
+
+/** Two files of `src` given one output file, by name or by case. */
+export function clashMessage(first: string, firstName: string, second: string, secondName: string): string {
+  if (firstName === secondName) return `buildLibrary: ${first} and ${second} would both be written as ${firstName}`;
+  return (
+    `buildLibrary: ${first} and ${second} would be written as ${firstName} and ${secondName}, ` +
+    'which macOS and Windows see as one file'
+  );
+}
+
 /** `child` relative to `dir`, or undefined unless below it; both are Vite's posix ids. */
 export function insideDir(dir: string, child: string): string | undefined {
   const relative = posix.relative(dir, child);

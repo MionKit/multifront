@@ -11,7 +11,7 @@ import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {Lang, LibraryTypesJob} from '../types.ts';
 import {rewriteScript, rewriteSpecifiers, ucfRenamer} from './specifiers.ts';
-import {filesIn, shownFile} from './names.ts';
+import {clashMessage, fileKey, filesIn, shownFile} from './names.ts';
 import {shippedSource, svelteShipped} from './source.ts';
 
 /** How one framework turns a staged `src/` into `.d.ts` files. */
@@ -304,14 +304,17 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
     const {shown, roots, components} = await stageSources(job, tool, stage);
     // tsc lists what a `.svelte` file reaches through svelte2tsx's script of it, written beside it for that run only.
     const copies = new Map<string, string>();
+    const staged = new Map([...shown.keys()].map((path) => [fileKey(path), path]));
     for (const file of roots.filter((path) => path.endsWith('.svelte'))) {
       const filename = join(stage, file);
       const code = await readFile(filename, 'utf8');
       // TypeScript even for a JS component: svelte2tsx writes type declarations into it.
       const copy = `${file}.ts`;
       // tsc and consumers resolve `./Icon.svelte` and `./Icon.svelte.js` alike: to `Icon.svelte.d.ts`.
-      if (shown.has(copy)) {
-        throw new Error(`buildLibrary: ${shown.get(file)} and ${shown.get(copy)} would both be written as ${file}.d.ts`);
+      const module = staged.get(fileKey(copy));
+      if (module !== undefined) {
+        const declaration = `${module.slice(0, -'.ts'.length)}.d.ts`;
+        throw new Error(clashMessage(shown.get(file)!, `${file}.d.ts`, shown.get(module)!, declaration));
       }
       const script = svelte2tsx.svelte2tsx(code, {
         filename,
