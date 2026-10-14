@@ -19,6 +19,7 @@ import type {
   SvelteMode,
   SvelteNode,
   SvelteEditorSource,
+  SvelteScriptLang,
   VirtualFile,
 } from '../types.ts';
 
@@ -246,12 +247,12 @@ function renameUses<Module>(
 }
 
 // Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
-function scriptLang(block: Block): 'ts' | 'js' | undefined {
+function scriptLang(block: Block): SvelteScriptLang | undefined {
   const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
   return lang === undefined ? undefined : lang === 'ts' ? 'ts' : 'js';
 }
 
-// After the instance script's last statement, else in a script of their own at the block's start.
+// After the instance script's last statement (`$props()` before a warning reads it), else in a new script.
 function addLines(text: MagicString, root: AST.Root, block: Block, lines: string[], tag: string): void {
   if (lines.length === 0) return;
   if (!root.instance) {
@@ -287,21 +288,13 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
       ];
   // Module script imports also reach the instance script and markup; not the reverse.
   const script = root.module ?? root.instance;
-  const added: string[] = [];
   if (script) {
     // Svelte sets `start` on the script's Program (right after the opening tag); its estree type leaves it out.
     const {start} = script.content as unknown as AST.BaseNode;
     text.appendLeft(block.contentStart + start, imports.map((line) => `\n${line}`).join(''));
-  } else added.push(...imports);
-  if (lines.length > 0 && root.instance) {
-    // After the last statement, so `$props()` is declared before the warning reads it.
-    const content = root.instance.content as unknown as AST.BaseNode & {body: AST.BaseNode[]};
-    const end = content.body.at(-1)?.end ?? content.start;
-    text.appendLeft(block.contentStart + end, lines.map((line) => `\n${line}`).join(''));
-  } else added.push(...lines);
+  }
   // svelte2tsx types a script-less JS component with an unimported `SvelteComponent`: the package `.d.ts` breaks.
-  const tag = library ? '<script lang="ts">' : '<script>';
-  if (added.length > 0) text.prependRight(block.contentStart, `${tag}\n${added.join('\n')}\n</script>`);
+  addLines(text, root, block, script ? lines : [...imports, ...lines], library ? '<script lang="ts">' : '<script>');
   const {sources, sourcesContent, names, mappings} = text.generateMap({source: ctx.filename, hires: true, includeContent: true});
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }

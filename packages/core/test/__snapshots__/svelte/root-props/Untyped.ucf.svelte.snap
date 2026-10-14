@@ -1,6 +1,6 @@
 
   <script lang="ts">
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
     let { label = 'untyped', ...__ucfRest } = $props()
   </script>
-  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass("own", __ucfRest.class)}>{label}</p>
+  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(`own`, __ucfRest.class)}>{label}</p>

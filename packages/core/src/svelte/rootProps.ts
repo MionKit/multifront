@@ -1,12 +1,12 @@
 import type MagicString from 'magic-string';
 import type {AST} from 'svelte/compiler';
-import {MERGE_CLASS, MERGE_STYLE} from '../react/scopeHelper.ts';
-import type {Block, SvelteNode, SvelteRootProp} from '../types.ts';
+import {MERGE_STYLE, MERGE_SVELTE_CLASS} from '../react/scopeHelper.ts';
+import type {Block, HandledProps, SvelteNode, SveltePropsDeclaration, SvelteRootProp, SvelteScriptLang} from '../types.ts';
 import {isNode, walk} from './ast.ts';
 
-export const SVELTE_ROOT_PROPS: readonly SvelteRootProp[] = ['class', 'style'];
+export const SVELTE_ROOT_PROPS = ['class', 'style'] as const;
 
-export const SVELTE_MERGE: Record<SvelteRootProp, string> = {class: MERGE_CLASS, style: MERGE_STYLE};
+export const SVELTE_MERGE: Record<SvelteRootProp, string> = {class: MERGE_SVELTE_CLASS, style: MERGE_STYLE};
 
 // Svelte's own types for the attributes, from `svelte/elements`.
 const MEMBER_TYPES: Record<SvelteRootProp, string> = {
@@ -14,15 +14,9 @@ const MEMBER_TYPES: Record<SvelteRootProp, string> = {
   style: 'style?: string | null',
 };
 
-type Declarator = Extract<AST.Script['content']['body'][number], {type: 'VariableDeclaration'}>['declarations'][number];
+type HandledRootProps = HandledProps<SvelteRootProp>;
 
-/** The instance script's `$props()` declarator, and the declaration that holds it. */
-export interface PropsDeclaration {
-  declaration: SvelteNode;
-  declarator: Declarator;
-}
-
-export function propsDeclaration(instance: AST.Script | null): PropsDeclaration | undefined {
+export function propsDeclaration(instance: AST.Script | null): SveltePropsDeclaration | undefined {
   for (const statement of instance?.content.body ?? []) {
     if (statement.type !== 'VariableDeclaration') continue;
     const declarator = statement.declarations.find(
@@ -33,26 +27,16 @@ export function propsDeclaration(instance: AST.Script | null): PropsDeclaration 
   return undefined;
 }
 
-/** The root props the component handles itself, and the names whose spread on a root hands it every prop. */
-export interface HandledRootProps {
-  handled: Set<SvelteRootProp>;
-  spreads: Set<string>;
-}
-
 function isRootProp(name: unknown): name is SvelteRootProp {
   return (SVELTE_ROOT_PROPS as readonly unknown[]).includes(name);
 }
 
-// `props!` and `(props as Props)` are still the props object.
-function unwrap(node: SvelteNode): SvelteNode {
-  while (node.type === 'TSNonNullExpression' || node.type === 'TSAsExpression' || node.type === 'TSSatisfiesExpression')
-    node = node.expression as SvelteNode;
-  return node;
-}
-
 function namedIn(node: unknown, names: Set<string>): boolean {
   if (!isNode(node)) return false;
-  const inner = unwrap(node);
+  let inner = node;
+  // `props!` and `(props as Props)` are still the props object.
+  while (inner.type === 'TSNonNullExpression' || inner.type === 'TSAsExpression' || inner.type === 'TSSatisfiesExpression')
+    inner = inner.expression as SvelteNode;
   return inner.type === 'Identifier' && names.has(inner.name as string);
 }
 
@@ -74,7 +58,7 @@ function readPattern(pattern: SvelteNode, found: HandledRootProps): void {
 }
 
 /** What the author handles: a `$props()` key, or a read of the props object anywhere, shadowed names too. */
-export function handledRootProps(root: AST.Root, declaration: PropsDeclaration | undefined): HandledRootProps {
+export function handledRootProps(root: AST.Root, declaration: SveltePropsDeclaration | undefined): HandledRootProps {
   const found: HandledRootProps = {handled: new Set(), spreads: new Set()};
   const id = declaration?.declarator.id as unknown as SvelteNode | undefined;
   if (id?.type === 'Identifier') found.spreads.add(id.name as string);
@@ -84,13 +68,12 @@ export function handledRootProps(root: AST.Root, declaration: PropsDeclaration |
     if (node.type === 'MemberExpression' && namedIn(node.object, found.spreads)) {
       const name = keyOf(node.property as SvelteNode, node.computed);
       if (isRootProp(name)) found.handled.add(name);
-    } else if (
-      node.type === 'VariableDeclarator' &&
-      isNode(node.id) &&
-      node.id.type === 'ObjectPattern' &&
-      namedIn(node.init, found.spreads)
-    )
-      readPattern(node.id, found);
+    } else if (node.type === 'VariableDeclarator' && isNode(node.id) && node.id.type === 'ObjectPattern') {
+      const init = node.init as SvelteNode | null;
+      // `const {style} = $derived(props)` keeps the read live, as Svelte asks.
+      const derived = init?.type === 'CallExpression' && namedIn(init.callee, new Set(['$derived']));
+      if (namedIn(derived ? (init.arguments as unknown[])[0] : init, found.spreads)) readPattern(node.id, found);
+    }
   });
   return found;
 }
@@ -146,14 +129,8 @@ export function mergeRootProps(
       }
       continue;
     }
+    // Text and tags: the template Svelte makes of them, each tag's source kept in place; `data` has entities decoded.
     const parts = value as SvelteNode[];
-    if (parts.every(({type}) => type === 'Text')) {
-      // Svelte decodes entities in `data`; JSON keeps it one string.
-      const string = JSON.stringify(parts.map(({data}) => data as string).join(''));
-      text.overwrite(offset + own.start, offset + own.end, `${prop}={${local}(${string}, ${extra})}`);
-      continue;
-    }
-    // Text and tags: the template Svelte makes of them, each tag's source kept in place.
     const first = parts[0]!;
     const last = parts.at(-1)!;
     text.overwrite(offset + own.start, offset + first.start, `${prop}={${local}(\``);
@@ -196,9 +173,9 @@ function jsDocType(value: string): {start: number; end: number} | undefined {
 export function typePropsDeclaration(
   text: MagicString,
   block: Block,
-  declaration: PropsDeclaration,
+  declaration: SveltePropsDeclaration,
   type: string,
-  lang: 'ts' | 'js'
+  lang: SvelteScriptLang
 ): void {
   const offset = block.contentStart;
   const annotation = (declaration.declarator.id as unknown as SvelteNode).typeAnnotation as SvelteNode | undefined;
@@ -210,7 +187,7 @@ export function typePropsDeclaration(
   }
   if (lang !== 'js') return;
   const comment = (
-    declaration.declaration.leadingComments as {type: string; value: string; start: number}[] | undefined
+    declaration.declaration.leadingComments as {type: 'Line' | 'Block'; value: string; start: number}[] | undefined
   )?.findLast(({type: kind, value}) => kind === 'Block' && value.startsWith('*'));
   const found = comment && jsDocType(comment.value);
   if (!comment || !found) return;
@@ -220,7 +197,7 @@ export function typePropsDeclaration(
 }
 
 /** The `$props()` line the build adds when the block has none, typed when some root takes a prop. */
-export function propsLine(name: string, type: string | undefined, lang: 'ts' | 'js'): string {
+export function propsLine(name: string, type: string | undefined, lang: SvelteScriptLang): string {
   if (!type) return `let {...${name}} = $props();`;
   return lang === 'ts' ? `let {...${name}}: ${type} = $props();` : `/** @type {${type}} */ let {...${name}} = $props();`;
 }

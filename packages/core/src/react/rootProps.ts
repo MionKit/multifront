@@ -1,6 +1,6 @@
 import type MagicString from 'magic-string';
 import type {ArrayPattern, Expression, JSXAttribute, JSXOpeningElement, Node, ObjectPattern, StringLiteral} from 'oxc-parser';
-import type {RootProp} from '../types.ts';
+import type {HandledProps as HandledRootProps, RootProp} from '../types.ts';
 import {children, scopeNames} from '../ast.ts';
 import {keyName, literalValue} from '../imports/rewrite.ts';
 import {ROOT_PROPS} from './reactApis.ts';
@@ -8,11 +8,7 @@ import {MERGE_CLASS, MERGE_REF, MERGE_STYLE} from './scopeHelper.ts';
 
 const MERGE: Record<RootProp, string> = {className: MERGE_CLASS, style: MERGE_STYLE, ref: MERGE_REF};
 
-/** The root props the component handles itself, and the names whose spread on a root hands it every prop. */
-interface HandledProps {
-  handled: Set<RootProp>;
-  spreads: Set<string>;
-}
+type HandledProps = HandledRootProps<RootProp>;
 
 function isRootProp(name: string | undefined): name is RootProp {
   return (ROOT_PROPS as readonly string[]).includes(name ?? '');

@@ -24,12 +24,14 @@ const PROBES: {fixture: string; markup: string; errors: number[]}[] = [
   {fixture: 'components/svelte/root-props/JsDoc.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
   {fixture: 'components/svelte/root-props/Untyped.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
   {fixture: 'components/svelte/roots/NoPropsRoot.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/JsNoProps.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/JsNoProps.ucf', markup: '<Probe style={1} />', errors: [2322]},
   {fixture: 'components/svelte/roots/OptionsRoot.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/ComponentRoot.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/MergesOnComponent.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
   // The author's own types for what the author handles.
-  {fixture: 'components/svelte/root-props/ReadsProps.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/ReadsProps.ucf', markup: `<Probe class={['a']} />`, errors: [2322]},
-  {fixture: 'components/svelte/root-props/Destructures.ucf', markup: '<Probe style={1} />', errors: [2322]},
+  {fixture: 'components/svelte/root-props/ReadsClass.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/ReadsClass.ucf', markup: `<Probe class={['a']} />`, errors: [2322]},
+  {fixture: 'components/svelte/root-props/DestructuresClass.ucf', markup: '<Probe style={1} />', errors: [2322]},
   // No forwarding: the props type is the author's alone.
   {fixture: 'components/svelte/roots/MultiRoot.ucf', markup: '<Probe class="a" />', errors: [2353]},
   {fixture: 'components/svelte/roots/LegacyRoot.ucf', markup: '<Probe class="a" />', errors: [2353]},

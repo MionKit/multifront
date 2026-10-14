@@ -1,0 +1,8 @@
+<svelte>
+  <svelte:options runes />
+  <script>
+    let count = $state(1)
+  </script>
+  <!-- A JS script with no `$props()`: a library build types the line it adds in JSDoc. -->
+  <p class="own">{count}</p>
+</svelte>

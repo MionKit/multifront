@@ -205,7 +205,7 @@ function undoBuild(code: string, ctx: BuildContext): string {
       .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
       .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
       .replaceAll(new RegExp(String.raw`: \(([\s\S]*?)\) & ${ROOT_PROPS_TYPE}`, 'g'), ': $1')
-      .replaceAll(/(class|style)=\{__ucf(?:Class|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
+      .replaceAll(/(class|style)=\{__ucf(?:SvelteClass|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
       .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
       .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
       .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local)
@@ -388,7 +388,7 @@ describe('svelte.build of the other fixtures', () => {
     const {file} = await svelteBuild(`${SHAPES_DIR}/Elements.ucf`);
     expect(file!.code).toMatch(/^import __ucfStyle1 from /m);
     expect(file!.code).toContain("const __ucfStyle = 'own'");
-    expect(file!.code).toContain('class={__ucfClass(__ucfStyle1.card, __ucfRest.class)}');
+    expect(file!.code).toContain('class={__ucfSvelteClass(__ucfStyle1.card, __ucfRest.class)}');
   });
 
   it('leaves a block with nothing to import or stamp, and no rune or legacy syntax, as written', async () => {

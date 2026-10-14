@@ -2,10 +2,10 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/AwaitBlock.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/AwaitBlock.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
     let {value = Promise.resolve(1), ready = 2, ...__ucfRest}: {value?: Promise<number>; ready?: number} = $props()
   </script>
-  <div data-v-050f2746="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfClass(__ucfStyle.box, __ucfRest.class)}>
+  <div data-v-050f2746="" {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(__ucfStyle.box, __ucfRest.class)}>
     {#await value}
       <p data-v-050f2746="" class={__ucfStyle.state}>Pending</p>
     {:then result}

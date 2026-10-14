@@ -2,7 +2,7 @@
 import {basename} from 'node:path';
 import {afterAll, describe, expect, it} from 'vitest';
 import {svelteEditorSource} from '@multifront/core';
-import type {SvelteRootProp} from '@multifront/core';
+import type {AST} from 'svelte/compiler';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, componentPath, listComponents} from '../../../e2e/fixtures/index.ts';
 import {removeRendered, renderBuild, startTags, svelte, svelteBuild} from './render.ts';
@@ -13,30 +13,21 @@ const ROOT_PROPS_DIR = 'svelte/root-props';
 const PARENT = {class: 'parent-extra', style: 'color: red'};
 const TYPE = "{class?: import('svelte/elements').ClassValue | null; style?: string | null}";
 
+type RootProp = keyof typeof PARENT;
 // How the build left a root's `class` or `style`.
 type State = 'added' | 'merged' | 'author' | 'none';
-type Node = Record<string, unknown> & {type: string; start: number; end: number};
+type Node = AST.BaseNode & Record<string, unknown>;
 
 // Hand-read from the fixtures. `roots`: per forwarded root in source order; `typed`: the `$props()` text of the library
-// build and the editor source; `renders`: the props of each server render, and the root's class list and style.
-type Row = {
-  fixture: string;
-  roots: Record<SvelteRootProp, State>[];
-  typed?: string;
-  renders: {props?: Record<string, unknown>; classes: string[]; style?: string}[];
-};
+// build and the editor source; `renders`: the props of each server render over the parent's (none with
+// `parent: false`), and the root's class list and style.
+type Render = {props?: Record<string, unknown>; parent?: false; classes: string[]; style?: string};
+type Row = {fixture: string; roots: Record<RootProp, State>[]; typed: string; renders: Render[]};
 
 const ROWS: Row[] = (
   [
     {
-      fixture: 'ComponentRoot.ucf',
-      roots: [{class: 'merged', style: 'merged'}],
-      typed: `let { tag = 'aside', ...__ucfRest }: ({ tag?: string }) & ${TYPE} = $props()`,
-      // SvelteElementRoot merges again: its own class first, then the one this root passed on.
-      renders: [{classes: ['shape', 'own', 'parent-extra'], style: 'padding: 1px; color: red'}],
-    },
-    {
-      fixture: 'Destructures.ucf',
+      fixture: 'DestructuresClass.ucf',
       roots: [{class: 'author', style: 'author'}],
       typed: "let { class: klass = '', style, ...__ucfRest }: { class?: string; style?: string } = $props()",
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
@@ -48,26 +39,74 @@ const ROWS: Row[] = (
       renders: [{classes: ['own', 'parent-extra'], style: 'padding: 1px; color: red'}],
     },
     {
+      fixture: 'JsNoProps.ucf',
+      roots: [{class: 'merged', style: 'added'}],
+      typed: `/** @type {${TYPE}} */ let {...__ucfRest} = $props();`,
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
       fixture: 'Merges.ucf',
       roots: [
         {class: 'merged', style: 'merged'},
         {class: 'merged', style: 'merged'},
         {class: 'merged', style: 'merged'},
         {class: 'merged', style: 'added'},
+        {class: 'merged', style: 'added'},
       ],
       typed: `let { branch, tone = 'calm', ...__ucfRest }: ({ branch: string; tone?: string }) & ${TYPE} = $props()`,
       renders: [
         {props: {branch: 'text'}, classes: ['own', 'text', 'parent-extra'], style: 'padding: 4px;; color: red'},
+        // A class value Svelte flattens, as on an element.
+        {
+          props: {branch: 'text', class: ['x', {y: true, z: false}]},
+          classes: ['own', 'text', 'x', 'y'],
+          style: 'padding: 4px;; color: red',
+        },
+        // An object is no Svelte style: the root keeps its own.
+        {
+          props: {branch: 'text', style: {padding: '6px'}},
+          classes: ['own', 'text', 'parent-extra'],
+          style: 'padding: 4px;; [object Object]',
+        },
         {props: {branch: 'mixed'}, classes: ['own', 'calm', 'parent-extra'], style: 'margin: 1px; color: red'},
         {props: {branch: 'expression'}, classes: ['own', 'calm', 'parent-extra'], style: 'padding: 2px; color: red'},
+        {props: {branch: 'escaped'}, classes: ['a\\b', '`c`', '${d', 'calm', 'parent-extra'], style: 'color: red'},
         // Svelte's `style:` directive wins over the parent's style.
         {props: {branch: 'directive'}, classes: ['own-calm', 'parent-extra'], style: 'color: blue;'},
+        // With no parent's style, an added one leaves no attribute.
+        {props: {branch: 'directive'}, parent: false, classes: ['own-calm'], style: 'color: blue;'},
+        {props: {branch: 'escaped'}, parent: false, classes: ['a\\b', '`c`', '${d', 'calm']},
       ],
     },
     {
-      fixture: 'ReadsProps.ucf',
+      fixture: 'MergesOnComponent.ucf',
+      roots: [{class: 'merged', style: 'merged'}],
+      typed: `let { tag = 'aside', ...__ucfRest }: ({ tag?: string }) & ${TYPE} = $props()`,
+      // SvelteElementRoot merges again: its own class first, then the one this root passed on.
+      renders: [{classes: ['shape', 'own', 'parent-extra'], style: 'padding: 1px; color: red'}],
+    },
+    {
+      fixture: 'ReadsCast.ucf',
+      roots: [{class: 'author', style: 'author'}],
+      typed: 'let props: Props = $props()',
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'ReadsClass.ucf',
       roots: [{class: 'author', style: 'added'}],
       typed: 'let props: ({ label?: string; class?: string }) & {style?: string | null} = $props()',
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'ReadsDestructure.ucf',
+      roots: [{class: 'author', style: 'author'}],
+      typed: "let { label = 'destructure', ...rest }: { label?: string; class?: string; style?: string } = $props()",
+      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+    },
+    {
+      fixture: 'ReadsOptional.ucf',
+      roots: [{class: 'author', style: 'author'}],
+      typed: 'let props: { label?: string; class?: string; style?: string } = $props()',
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
@@ -80,10 +119,13 @@ const ROWS: Row[] = (
       fixture: 'Untyped.ucf',
       roots: [{class: 'merged', style: 'added'}],
       typed: "let { label = 'untyped', ...__ucfRest } = $props()",
-      renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
+      renders: [
+        {classes: ['own', 'parent-extra'], style: 'color: red'},
+        {parent: false, classes: ['own']},
+      ],
     },
     {
-      fixture: 'Valueless.ucf',
+      fixture: 'ValuelessClass.ucf',
       roots: [{class: 'author', style: 'merged'}],
       typed: `let { label = 'valueless', ...__ucfRest }: ({ label?: string }) & {style?: string | null} = $props()`,
       // Left as written; beside the scope spread, Svelte renders a `class` with no value as `class="true"`.
@@ -117,12 +159,12 @@ function forwardedRoots(code: string): {root: Node; props: string; added: string
   return found;
 }
 
-function state(code: string, {root, props, added}: ReturnType<typeof forwardedRoots>[number], prop: SvelteRootProp): State {
+function state(code: string, {root, props, added}: ReturnType<typeof forwardedRoots>[number], prop: RootProp): State {
   if (added.includes(prop)) return 'added';
   const own = (root.attributes as Node[]).find(({type, name}) => type === 'Attribute' && name === prop);
   if (!own) return 'none';
   const value = code.slice(own.start, own.end);
-  const merge = prop === 'class' ? '__ucfClass' : '__ucfStyle';
+  const merge = prop === 'class' ? '__ucfSvelteClass' : '__ucfStyle';
   return new RegExp(String.raw`^${prop}=\{${merge}\d*\(.*, ${props}\.${prop}\)\}$`, 's').test(value) ? 'merged' : 'author';
 }
 
@@ -165,8 +207,9 @@ describe.each(ROWS)('svelte.build root props of $fixture', async ({fixture, root
   });
 
   it.each(renders)("renders the parent's class and style on the root: %o", async (row) => {
-    const {props, classes, style} = row;
-    const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(row)}`, {...props, ...PARENT});
+    const {props, parent, classes, style} = row;
+    const passed = {...(parent === false ? {} : PARENT), ...props};
+    const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(row)}`, passed);
     const [root] = startTags(body, 'data-none');
     expect({classes: root!.classes, style: root!.style}).toEqual({classes, style});
   });

@@ -2,10 +2,10 @@
   <script lang="ts">
 import "<fixtures>/components/svelte/shapes/SvelteElement.ucf?ucf&type=style&index=0&lang.css";
 import __ucfStyle from "<fixtures>/components/svelte/shapes/SvelteElement.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
     let {tag = 'section', ...__ucfRest}: {tag?: string} = $props()
   </script>
-  <svelte:element data-v-6c8d21fe="" {...__ucfScopeAttrs(__ucfRest, 'style')} this={tag} class={__ucfClass(__ucfStyle.box, __ucfRest.class)}>
+  <svelte:element data-v-6c8d21fe="" {...__ucfScopeAttrs(__ucfRest, 'style')} this={tag} class={__ucfSvelteClass(__ucfStyle.box, __ucfRest.class)}>
     <svelte:element data-v-6c8d21fe="" this={'h3'} class={__ucfStyle.title}>Title</svelte:element>
     <p data-v-6c8d21fe="" class={__ucfStyle.title}>Body</p>
   </svelte:element>

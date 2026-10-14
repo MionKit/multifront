@@ -4,4 +4,4 @@ import {__ucfScopeAttrs, __ucfStyle} from "virtual:multifront/scope-attrs";
     let { label = 'valueless', ...__ucfRest }: { label?: string } = $props()
   </script>
   <!-- A `class` with no value is left as written. -->
-  <div {...__ucfScopeAttrs(__ucfRest)} class style={__ucfStyle("padding: 1px", __ucfRest.style)}>{label}</div>
+  <div {...__ucfScopeAttrs(__ucfRest)} class style={__ucfStyle(`padding: 1px`, __ucfRest.style)}>{label}</div>

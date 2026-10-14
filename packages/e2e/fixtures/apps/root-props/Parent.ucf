@@ -2,12 +2,14 @@
   <script setup lang="ts">
   import Button from '../../library/src/Button.ucf'
   import Note from '../../components/Note.ucf'
+  import PanelItem from '../../components/PanelItem.ucf'
   </script>
 
   <template>
     <section class="parent">
       <div data-case="button"><Button label="Press" class="extra" style="color: red; font-weight: 700" /></div>
       <div data-case="note"><Note class="extra" style="padding: 6px" /></div>
+      <div data-case="item"><PanelItem label="Item" class="extra" style="padding: 6px" /></div>
     </section>
   </template>
 </vue>
@@ -15,12 +17,14 @@
 <react>
   import Button from '../../library/src/Button.ucf'
   import Note from '../../components/Note.ucf'
+  import PanelItem from '../../components/PanelItem.ucf'
 
   export default function Parent() {
     return (
       <section className="parent">
         <div data-case="button"><Button label="Press" className="extra" style={{ color: 'red', fontWeight: 700 }} /></div>
         <div data-case="note"><Note className="extra" style={{ padding: 6 }} /></div>
+        <div data-case="item"><PanelItem label="Item" className="extra" style={{ padding: 6 }} /></div>
       </section>
     )
   }
@@ -30,11 +34,14 @@
   <script lang="ts">
     import Button from '../../library/src/Button.ucf'
     import Note from '../../components/Note.ucf'
+  import PanelItem from '../../components/PanelItem.ucf'
   </script>
 
   <section class="parent">
     <div data-case="button"><Button label="Press" class="extra" style="color: red; font-weight: 700" /></div>
     <div data-case="note"><Note class="extra" style="padding: 6px" /></div>
+    <!-- PanelItem's root has no style of its own: the parent's is added. -->
+    <div data-case="item"><PanelItem label="Item" class="extra" style="padding: 6px" /></div>
   </section>
 </svelte>
 

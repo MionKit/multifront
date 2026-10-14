@@ -3,7 +3,15 @@ import type MagicString from 'magic-string';
 import type {AST} from 'svelte/compiler';
 import {freshName} from '../ast.ts';
 import {SCOPE_ATTRS, WARN_FRAGMENT} from '../react/scopeHelper.ts';
-import type {Block, BuildContext, SvelteMode, SvelteNode, SvelteRootProp} from '../types.ts';
+import type {
+  Block,
+  BuildContext,
+  SvelteMode,
+  SvelteNode,
+  SveltePropsDeclaration,
+  SvelteRootProp,
+  SvelteScriptLang,
+} from '../types.ts';
 import {isNode, patternNames} from './ast.ts';
 import type {Pattern} from './ast.ts';
 import {
@@ -16,9 +24,6 @@ import {
   rootTakes,
   typePropsDeclaration,
 } from './rootProps.ts';
-import type {PropsDeclaration} from './rootProps.ts';
-
-type Lang = 'ts' | 'js';
 
 /** The elements and components the stamp goes on; as a root, each takes the parent's scope. */
 export const ELEMENTS: ReadonlySet<string> = new Set([
@@ -94,12 +99,12 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
 /** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `$props()` line typed `type`. */
 function propsName(
   text: MagicString,
-  declaration: PropsDeclaration | undefined,
+  declaration: SveltePropsDeclaration | undefined,
   block: Block,
   used: Set<string>,
   lines: string[],
   type?: string,
-  lang: Lang = 'js'
+  lang: SvelteScriptLang = 'js'
 ): string {
   const id = declaration?.declarator.id;
   if (id?.type === 'Identifier') return id.name;
@@ -148,7 +153,7 @@ type Problem = [problem: string, fix?: string];
 const LEGACY: Problem = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
 /** A helper's local, never a name the block uses; `imports` gets its import specifier. */
-export function helperLocal(name: string, used: Set<string>, imports: string[]): string {
+function helperLocal(name: string, used: Set<string>, imports: string[]): string {
   const local = freshName(used, name);
   used.add(local);
   imports.push(local === name ? name : `${name} as ${local}`);
@@ -166,7 +171,7 @@ const forwards = (found: Roots, mode: SvelteMode): boolean =>
   mode === 'runes' && found.elements.length > 0 && !found.many && !found.each;
 
 /** The root props each root takes; `typed`: their type goes into the `$props()` annotation, else `type` is unset. */
-function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: Lang, typed: boolean) {
+function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: SvelteScriptLang, typed: boolean) {
   const declaration = propsDeclaration(root.instance);
   const handled = handledRootProps(root, declaration);
   const takes = new Map(found.elements.map(({node}) => [node, rootTakes(node, handled)]));
@@ -182,7 +187,7 @@ export function typeRootProps(
   block: Block,
   used: Set<string>,
   mode: SvelteMode,
-  lang: Lang
+  lang: SvelteScriptLang
 ): string[] {
   const found = rootsOf(root);
   if (!forwards(found, mode)) return [];
@@ -200,7 +205,7 @@ export function forwardScope(
   ctx: BuildContext,
   used: Set<string>,
   mode: SvelteMode,
-  lang: Lang
+  lang: SvelteScriptLang
 ) {
   const found = rootsOf(root);
   const lines: string[] = [];

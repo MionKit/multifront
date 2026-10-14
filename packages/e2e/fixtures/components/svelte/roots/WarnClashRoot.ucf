@@ -1,0 +1,9 @@
+<svelte>
+  <script lang="ts">
+    // Named like the build's warning: the build imports it under another name.
+    const __ucfWarnFragment = 'own'
+    let { label = 'warn clash' }: { label?: string } = $props()
+  </script>
+  <p class="shape"><span class="inner">{label} {__ucfWarnFragment}</span></p>
+  <p class="shape">second</p>
+</svelte>
