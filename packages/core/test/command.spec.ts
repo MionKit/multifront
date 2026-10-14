@@ -1,3 +1,5 @@
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {describe, expect, it} from 'vitest';
 import {checkBlocks, findingOf, splitBlocks} from '@multifront/core';
 // Relative path, not a dependency: @multifront/e2e depends on core.
@@ -38,4 +40,27 @@ describe('findingOf', () => {
       }
     }
   );
+});
+
+describe('runCommand', () => {
+  // A command of its own, its options typed with core's exported `CommandOption`.
+  const script = fileURLToPath(new URL('command.child.ts', import.meta.url));
+  const run = (...args: string[]) => {
+    const {status, stdout, stderr} = spawnSync(process.execPath, [script, ...args], {encoding: 'utf8', timeout: 30_000});
+    return {status, stdout, stderr};
+  };
+
+  it("lists the spec's own option beside --format and --help", () => {
+    const {status, stdout, stderr} = run('--help');
+    expect({status, stderr}).toEqual({status: 0, stderr: ''});
+    expect(stdout).toContain('\n  --name <name>       who to greet\n  --format <format>   text or json (default: text)\n');
+  });
+
+  it('names every option on an unknown one, exit 2 and nothing on stdout', () => {
+    expect(run('--nope')).toEqual({
+      status: 2,
+      stdout: '',
+      stderr: "greet: unknown option '--nope'; use --name, --format or --help\n",
+    });
+  });
 });
