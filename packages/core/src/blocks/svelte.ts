@@ -7,7 +7,7 @@ import {frameworkInBlock} from '../imports/rewrite.ts';
 import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import {topLevelTags} from '../scan.ts';
 import {isNode, patternNames, walk} from '../svelte/ast.ts';
-import {ELEMENTS, forwardScope} from '../svelte/forward.ts';
+import {ELEMENTS, forwardScope, typeRootProps} from '../svelte/forward.ts';
 import {libraryImports, shipUcfImports} from '../svelte/library.ts';
 import type {
   Block,
@@ -18,7 +18,7 @@ import type {
   SvelteCompiler,
   SvelteMode,
   SvelteNode,
-  SvelteStyleRename,
+  SvelteEditorSource,
   VirtualFile,
 } from '../types.ts';
 
@@ -245,6 +245,24 @@ function renameUses<Module>(
   return {text, locals};
 }
 
+// Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
+function scriptLang(block: Block): 'ts' | 'js' | undefined {
+  const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
+  return lang === undefined ? undefined : lang === 'ts' ? 'ts' : 'js';
+}
+
+// After the instance script's last statement, else in a script of their own at the block's start.
+function addLines(text: MagicString, root: AST.Root, block: Block, lines: string[], tag: string): void {
+  if (lines.length === 0) return;
+  if (!root.instance) {
+    text.prependRight(block.contentStart, `${tag}\n${lines.join('\n')}\n</script>`);
+    return;
+  }
+  const content = root.instance.content as unknown as AST.BaseNode & {body: AST.BaseNode[]};
+  const end = content.body.at(-1)?.end ?? content.start;
+  text.appendLeft(block.contentStart + end, lines.map((line) => `\n${line}`).join(''));
+}
+
 // The compiler rules run here, not in `check`: core checks never load a compiler.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const root = parseBlock(block, ctx);
@@ -253,9 +271,11 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
 
   const {text, locals} = renameUses(ctx.split, block, uses, used);
   if (ctx.hasScoped) stampScope(text, root, block, ctx);
-  const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode);
-
   const {library} = ctx;
+  // A script the build adds is `<script lang="ts">` in a library.
+  const lang = scriptLang(block) ?? (library && !root.instance ? 'ts' : 'js');
+  const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode, lang);
+
   if (library) shipUcfImports(text, root, block.contentStart);
   // JSON quoting keeps any path a valid string.
   const imports = library
@@ -286,13 +306,13 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   return {ext: '.svelte', code: text.toString(), map: {version: 3, sources, sourcesContent, names, mappings}};
 }
 
-/** `build()`'s class map rename alone, for editor types: no stamps, imports or forwarding; syntax errors never throw. */
-export function renameSvelteStyles<Module>(
+/** The block the editor types: `build()`'s rename, `$props()` edits and root-prop types; syntax errors never throw. */
+export function svelteEditorSource<Module>(
   block: Block,
   split: SplitResult,
   compiler: SvelteCompiler,
   modules: Record<string, Module>
-): SvelteStyleRename<Module> {
+): SvelteEditorSource<Module> {
   let root: AST.Root | undefined;
   try {
     // Loose, as Svelte's own editor parses a block mid-edit.
@@ -300,15 +320,23 @@ export function renameSvelteStyles<Module>(
   } catch (err) {
     if (!isCompileError(err)) throw err;
   }
-  const {uses, names, unreadable} = root
+  const {uses, names, unreadable, mode} = root
     ? styleUses(root, block, split, modules)
-    : {uses: [] as StyleUse<Module>[], names: new Set<string>(), unreadable: [{start: 0, end: block.content.length}]};
+    : {
+        uses: [] as StyleUse<Module>[],
+        names: new Set<string>(),
+        unreadable: [{start: 0, end: block.content.length}],
+        mode: 'undecided' as const,
+      };
   uses.push(...lexicalUses(block, unreadable, modules));
   const {text, locals} = renameUses(split, block, uses, names);
-  // Svelte reads every script in the first `lang` it finds, and only `ts` as TypeScript.
-  const lang = topLevelTags(block.content, nests).find(({name, attrs}) => name === 'script' && attrs.lang)?.attrs.lang;
+  // A script added here is TypeScript, as a library's is: the editor types what the library's `.d.ts` does.
+  const own = scriptLang(block);
+  const lines = root ? typeRootProps(text, root, block, names, mode, own ?? (root.instance ? 'js' : 'ts')) : [];
+  if (root) addLines(text, root, block, lines, '<script lang="ts">');
+  const lang = own ?? (lines.length > 0 && !root?.instance ? 'ts' : 'js');
   const {mappings} = text.generateMap({source: split.filename, hires: true});
-  return {code: text.toString(), locals, lang: lang === 'ts' ? 'ts' : 'js', mappings};
+  return {code: text.toString(), locals, lang, mappings};
 }
 
 // An `import()` in markup is left to the post rewrite of the compiled module.

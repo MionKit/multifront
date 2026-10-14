@@ -1,0 +1,17 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs, __ucfClass as __ucfClass1, __ucfStyle} from "virtual:multifront/scope-attrs";
+    // Named like the class merge: the build imports it under another name.
+    const __ucfClass = 'own-merge'
+    const style = 'padding: 2px'
+    let { branch, tone = 'calm', ...__ucfRest }: ({ branch: string; tone?: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
+  </script>
+  {#if branch === 'text'}
+    <section {...__ucfScopeAttrs(__ucfRest)} class={__ucfClass1("own text", __ucfRest.class)} style={__ucfStyle("padding: 4px;", __ucfRest.style)}>text</section>
+  {:else if branch === 'mixed'}
+    <p {...__ucfScopeAttrs(__ucfRest)} class={__ucfClass1(`own ${(tone) ?? ''}`, __ucfRest.class)} style={__ucfStyle(`margin: ${(tone === 'calm' ? 1 : 2) ?? ''}px`, __ucfRest.style)}>mixed</p>
+  {:else if branch === 'expression'}
+    <div {...__ucfScopeAttrs(__ucfRest)} class={__ucfClass1(['own', tone], __ucfRest.class)} style={__ucfStyle(style, __ucfRest.style)}>{__ucfClass}</div>
+  {:else}
+    <span {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass1(`own-${(tone) ?? ''}`, __ucfRest.class)} style:color="blue">directive</span>
+  {/if}

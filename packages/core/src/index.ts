@@ -20,6 +20,7 @@ export type {
   SplitResult,
   StyleModule,
   SvelteCompiler,
+  SvelteRootProp,
   Target,
   TargetChoice,
   TargetErrorCode,
@@ -30,7 +31,7 @@ export type {
 } from './types.ts';
 export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {reactRootProps} from './blocks/react.ts';
-export {renameSvelteStyles} from './blocks/svelte.ts';
+export {svelteEditorSource} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';

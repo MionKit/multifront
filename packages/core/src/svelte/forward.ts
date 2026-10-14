@@ -3,9 +3,22 @@ import type MagicString from 'magic-string';
 import type {AST} from 'svelte/compiler';
 import {freshName} from '../ast.ts';
 import {SCOPE_ATTRS, WARN_FRAGMENT} from '../react/scopeHelper.ts';
-import type {Block, BuildContext, SvelteMode, SvelteNode} from '../types.ts';
+import type {Block, BuildContext, SvelteMode, SvelteNode, SvelteRootProp} from '../types.ts';
 import {isNode, patternNames} from './ast.ts';
 import type {Pattern} from './ast.ts';
+import {
+  SVELTE_MERGE,
+  addRootProps,
+  handledRootProps,
+  propsDeclaration,
+  propsLine,
+  rootPropsType,
+  rootTakes,
+  typePropsDeclaration,
+} from './rootProps.ts';
+import type {PropsDeclaration} from './rootProps.ts';
+
+type Lang = 'ts' | 'js';
 
 /** The elements and components the stamp goes on; as a root, each takes the parent's scope. */
 export const ELEMENTS: ReadonlySet<string> = new Set([
@@ -78,13 +91,17 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
   }
 }
 
-/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `$props()` line. */
-function propsName(text: MagicString, instance: AST.Script | null, block: Block, used: Set<string>, lines: string[]): string {
-  const {id} =
-    (instance?.content.body ?? [])
-      .flatMap((statement) => (statement.type === 'VariableDeclaration' ? statement.declarations : []))
-      .find(({init}) => init?.type === 'CallExpression' && init.callee.type === 'Identifier' && init.callee.name === '$props') ??
-    {};
+/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `$props()` line typed `type`. */
+function propsName(
+  text: MagicString,
+  declaration: PropsDeclaration | undefined,
+  block: Block,
+  used: Set<string>,
+  lines: string[],
+  type?: string,
+  lang: Lang = 'js'
+): string {
+  const id = declaration?.declarator.id;
   if (id?.type === 'Identifier') return id.name;
   const properties = id?.type === 'ObjectPattern' ? id.properties : [];
   const rest = properties.find((property) => property.type === 'RestElement');
@@ -93,7 +110,7 @@ function propsName(text: MagicString, instance: AST.Script | null, block: Block,
   used.add(name);
   if (id?.type !== 'ObjectPattern') {
     // Destructured: svelte2tsx types `let rest = $props()` with a props type it never declares.
-    lines.push(`let {...${name}} = $props();`);
+    lines.push(propsLine(name, type, lang));
     return name;
   }
   const {start} = id as unknown as AST.BaseNode;
@@ -110,9 +127,10 @@ function propsName(text: MagicString, instance: AST.Script | null, block: Block,
 
 // Beside a spread, Svelte 5.57.0's SSR escapes a text attribute twice (`<b>` → `&amp;lt;b>`), an expression once.
 // `on…` stays text, for Svelte's own error.
-function escapeOnce(text: MagicString, node: SvelteNode, block: Block): void {
+function escapeOnce(text: MagicString, node: SvelteNode, block: Block, rewritten: Set<SvelteNode>): void {
   if (node.type !== 'RegularElement' && node.type !== 'SvelteElement') return;
   for (const attribute of node.attributes as SvelteNode[]) {
+    if (rewritten.has(attribute)) continue;
     const parts = attribute.type === 'Attribute' && Array.isArray(attribute.value) ? (attribute.value as SvelteNode[]) : [];
     if (parts.length === 0 || parts.some((part) => part.type !== 'Text')) continue;
     if ((attribute.name as string).startsWith('on') || !parts.some((part) => /[&<"]/.test(part.raw as string))) continue;
@@ -137,6 +155,43 @@ export function helperLocal(name: string, used: Set<string>, imports: string[]):
   return local;
 }
 
+function rootsOf(root: AST.Root): Roots {
+  const found: Roots = {elements: [], many: false, each: false};
+  branchRoots(root.fragment.nodes as unknown as SvelteNode[], found);
+  return found;
+}
+
+// A runes-mode component with at most one root per branch: every root gets the forwarding.
+const forwards = (found: Roots, mode: SvelteMode): boolean =>
+  mode === 'runes' && found.elements.length > 0 && !found.many && !found.each;
+
+/** The root props each root takes, and their type written into the `$props()` annotation. */
+function planRootProps(text: MagicString, root: AST.Root, block: Block, found: Roots, lang: Lang) {
+  const declaration = propsDeclaration(root.instance);
+  const handled = handledRootProps(root, declaration);
+  const takes = new Map(found.elements.map(({node}) => [node, rootTakes(node, handled)]));
+  const type = rootPropsType(new Set([...takes.values()].flat()));
+  if (declaration && type) typePropsDeclaration(text, block, declaration, type, lang);
+  return {takes, type, declaration};
+}
+
+/** The editor's half of forwarding: the build's `$props()` edits and root-prop types; returns the lines to add. */
+export function typeRootProps(
+  text: MagicString,
+  root: AST.Root,
+  block: Block,
+  used: Set<string>,
+  mode: SvelteMode,
+  lang: Lang
+): string[] {
+  const found = rootsOf(root);
+  if (!forwards(found, mode)) return [];
+  const {type, declaration} = planRootProps(text, root, block, found, lang);
+  const lines: string[] = [];
+  propsName(text, declaration, block, used, lines, type, lang);
+  return lines;
+}
+
 /** Spreads the parent's `data-v-*` props on every root, else warns in dev; `helpers`: import specifiers, `lines` end the instance script. */
 export function forwardScope(
   text: MagicString,
@@ -144,16 +199,17 @@ export function forwardScope(
   block: Block,
   ctx: BuildContext,
   used: Set<string>,
-  mode: SvelteMode
+  mode: SvelteMode,
+  lang: Lang
 ) {
-  const found: Roots = {elements: [], many: false, each: false};
-  branchRoots(root.fragment.nodes as unknown as SvelteNode[], found);
+  const found = rootsOf(root);
   const lines: string[] = [];
   const helpers: string[] = [];
   // An undecided block compiles either way: `$props()` would make it runes, `$$props` would break it as runes.
   if ((found.elements.length === 0 && !found.each) || mode === 'undecided') return {helpers: [], lines};
-  if (mode === 'runes' && !found.many && !found.each) {
-    let props = propsName(text, root.instance, block, used, lines);
+  if (forwards(found, mode)) {
+    const {takes, type, declaration} = planRootProps(text, root, block, found, lang);
+    let props = propsName(text, declaration, block, used, lines, type, lang);
     if (found.elements.some(({bound}) => bound.has(props))) {
       // `{:then props}` around a root hides the props; a `$derived` alias reads them without Svelte's warning.
       const alias = freshName(used, '__ucfProps');
@@ -162,11 +218,14 @@ export function forwardScope(
       props = alias;
     }
     const scopeAttrs = helperLocal(SCOPE_ATTRS, used, helpers);
+    const merges: Partial<Record<SvelteRootProp, string>> = {};
+    const merge = (prop: SvelteRootProp): string => (merges[prop] ??= helperLocal(SVELTE_MERGE[prop], used, helpers));
     for (const {node} of found.elements) {
       // Same offset as the stamp, so the spread lands after it.
       const nameEnd = block.contentStart + node.start + 1 + (node.name as string).length;
       text.appendLeft(nameEnd, ` {...${scopeAttrs}(${props})}`);
-      escapeOnce(text, node, block);
+      const rewritten = addRootProps(text, block, node, takes.get(node)!, nameEnd, props, merge);
+      escapeOnce(text, node, block, rewritten);
     }
     return {helpers, lines};
   }
@@ -178,7 +237,7 @@ export function forwardScope(
   const warn = helperLocal(WARN_FRAGMENT, used, helpers);
   if (mode === 'legacy') lines.push(`;${warn}($$props, ${name}, ${args});`);
   else {
-    const props = propsName(text, root.instance, block, used, lines);
+    const props = propsName(text, propsDeclaration(root.instance), block, used, lines);
     // Called at top level, Svelte warns that the read captures only the initial props.
     lines.push(`;(() => ${warn}(${props}, ${name}, ${args}))();`);
   }

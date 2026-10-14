@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
-import {renameSvelteStyles} from '@multifront/core';
+import {svelteEditorSource} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import type {CodeInformation, CodeMapping, VirtualCode} from '@volar/language-core';
 import {svelte2tsx} from 'svelte2tsx';
@@ -17,7 +17,7 @@ const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, 
 
 let installedTypesRoot: string | undefined;
 
-type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof renameSvelteStyles>, 'lang'>;
+type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof svelteEditorSource>, 'lang'>;
 
 // A renamed use ends the gap between two mapped runs: its local in the renamed code, its `$name` in the `.ucf` file.
 function renamedUses(mappings: CodeMapping[], source: string, renamed: string, locals: Set<string>): CodeMapping[] {
@@ -50,7 +50,7 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
 export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
   if (!compiler) return undefined;
-  const {code: svelte, locals, lang, mappings: renameMappings} = renameSvelteStyles(block, ctx.split, compiler, ctx.modules);
+  const {code: svelte, locals, lang, mappings: renameMappings} = svelteEditorSource(block, ctx.split, compiler, ctx.modules);
   let script: ReturnType<typeof svelte2tsx>;
   try {
     script = svelte2tsx(svelte, {

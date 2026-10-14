@@ -110,11 +110,14 @@ export type SvelteNode = SvelteCompilerModule.AST.BaseNode & Record<string, unkn
 /** Loaded from the project's own Svelte. */
 export type SvelteCompiler = Pick<typeof SvelteCompilerModule, 'parse' | 'preprocess' | 'VERSION'>;
 
-/** A `<svelte>` block with its class map uses renamed, as `build()` renames them. */
-export interface SvelteStyleRename<Module> {
+/** What a forwarded Svelte root accepts and merges, as React roots do `className` and `style`. */
+export type SvelteRootProp = 'class' | 'style';
+
+/** A `<svelte>` block as the editor types it: `build()`'s class map rename, `$props()` edits and root-prop types. */
+export interface SvelteEditorSource<Module> {
   code: string; // the block content only
   locals: Map<Module, string>; // each module used, and the local name its uses got
-  lang: 'ts' | 'js'; // of the block's scripts
+  lang: 'ts' | 'js'; // of the block's scripts, or of the one added
   mappings: string; // a v3 source map's, back into the .ucf file
 }
 

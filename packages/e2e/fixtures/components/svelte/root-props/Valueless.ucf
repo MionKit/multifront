@@ -1,0 +1,7 @@
+<svelte>
+  <script lang="ts">
+    let { label = 'valueless' }: { label?: string } = $props()
+  </script>
+  <!-- A `class` with no value is left as written. -->
+  <div class style="padding: 1px">{label}</div>
+</svelte>

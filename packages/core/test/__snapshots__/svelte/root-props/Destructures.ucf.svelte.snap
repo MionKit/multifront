@@ -1,0 +1,6 @@
+
+  <script lang="ts">
+import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
+    let { class: klass = '', style, ...__ucfRest }: { class?: string; style?: string } = $props()
+  </script>
+  <p {...__ucfScopeAttrs(__ucfRest)} class="own {klass}" {style}>destructures</p>

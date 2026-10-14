@@ -36,11 +36,16 @@ export function ${WARN_FRAGMENT}(props, name, problem = 'renders a fragment root
 `;
 
 // Root props (spec 3.5, item 5): with no incoming prop, the root's own value comes back unchanged.
+// Strings are React's className and Svelte's style text; an array is a Svelte class value, flattened by Svelte.
 const ROOT_PROPS_CODE = `export function ${MERGE_CLASS}(own, extra) {
-  return extra ? (own ? \`\${own} \${extra}\` : extra) : own;
+  if (!extra) return own;
+  if (!own) return extra;
+  return typeof own === 'string' && typeof extra === 'string' ? \`\${own} \${extra}\` : [own, extra];
 }
 export function ${MERGE_STYLE}(own, extra) {
-  return extra ? (own ? {...own, ...extra} : extra) : own;
+  if (!extra) return own;
+  if (!own) return extra;
+  return typeof own === 'string' && typeof extra === 'string' ? \`\${own}; \${extra}\` : {...own, ...extra};
 }
 // One merged ref per pair, so stable refs are not detached and attached again on every render.
 const mergedRefs = new WeakMap();

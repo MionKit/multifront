@@ -3,7 +3,7 @@ import {basename, sep} from 'node:path';
 import {TraceMap, originalPositionFor} from '@jridgewell/trace-mapping';
 import type {AST} from 'svelte/compiler';
 import {afterAll, describe, expect, it} from 'vitest';
-import {checkBlocks, classMapId, locate, renameSvelteStyles, splitBlocks} from '@multifront/core';
+import {checkBlocks, classMapId, locate, svelteEditorSource, splitBlocks} from '@multifront/core';
 import type {BuildContext, Diagnostic} from '@multifront/core';
 // A relative path, not a package dependency: @multifront/e2e depends on core.
 import {FIXTURES_DIR, componentPath, listComponents, readComponent} from '../../../e2e/fixtures/index.ts';
@@ -183,8 +183,11 @@ function offsetOf(text: string, line: number, column: number): number {
 const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&[^"\n]*)";`;
 
 // The forwarding edits: the helper import, the spread, the added rest, the dev warning.
-const HELPER_IMPORT = String.raw`import \{__ucf\w+(?:, __ucf\w+)*\} from "virtual:multifront/scope-attrs";`;
-const FORWARD_LINE = String.raw`(?:let \{\.\.\.__ucfRest\d*\} = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
+const HELPER = String.raw`__ucf\w+(?: as __ucf\w+)?`;
+const HELPER_IMPORT = String.raw`import \{${HELPER}(?:, ${HELPER})*\} from "virtual:multifront/scope-attrs";`;
+// The root-prop type the build writes into a `$props()` annotation or its added line.
+const ROOT_PROPS_TYPE = String.raw`\{(?:class|style)\?[^{}\n]*\}`;
+const FORWARD_LINE = String.raw`(?:(?:/\*\* @type \{${ROOT_PROPS_TYPE}\} \*/ )?let \{\.\.\.__ucfRest\d*\}(?:: ${ROOT_PROPS_TYPE})? = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
 
 function undoBuild(code: string, ctx: BuildContext): string {
   const names = new Map<string, string>();
@@ -201,6 +204,9 @@ function undoBuild(code: string, ctx: BuildContext): string {
       .replace(new RegExp(String.raw`^<script>\n(?:${line}\n)*${line}\n</script>`), '')
       .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
       .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
+      .replaceAll(new RegExp(String.raw`: \(([\s\S]*?)\) & ${ROOT_PROPS_TYPE}`, 'g'), ': $1')
+      .replaceAll(/ (?:class|style)=\{\w+\.(?:class|style)\}/g, '')
+      .replaceAll(/(class|style)=\{__ucf(?:Class|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
       .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
       .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
       .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local)
@@ -314,7 +320,11 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
     namedNodes(output).forEach(({node}, index) => {
       const [attribute] = stampsOf(node);
       if (!attribute) return;
-      const spread = /^ \{\.\.\.__ucfScopeAttrs\(\w+\)\}/.exec(file!.code.slice(attribute.end))?.[0] ?? '';
+      // The spread, then the root props it adds.
+      const spread =
+        /^ \{\.\.\.__ucfScopeAttrs\d*\(\w+\)\}(?: (?:class|style)=\{\w+\.(?:class|style)\})*/.exec(
+          file!.code.slice(attribute.end)
+        )?.[0] ?? '';
       const original = originalPositionFor(map, locate(file!.code, attribute.end + spread.length));
       const {node: from} = before[index]!;
       const nameEnd = block.contentStart + from.start + 1 + (from.name as string).length;
@@ -381,7 +391,7 @@ describe('svelte.build of the other fixtures', () => {
     const {file} = await svelteBuild(`${SHAPES_DIR}/Elements.ucf`);
     expect(file!.code).toMatch(/^import __ucfStyle1 from /m);
     expect(file!.code).toContain("const __ucfStyle = 'own'");
-    expect(file!.code).toContain('class={__ucfStyle1.card}');
+    expect(file!.code).toContain('class={__ucfClass(__ucfStyle1.card, __ucfRest.class)}');
   });
 
   it('leaves a block with nothing to import or stamp, and no rune or legacy syntax, as written', async () => {
@@ -399,7 +409,7 @@ describe('svelte.build of the other fixtures', () => {
 });
 
 // The editor's script (M5 5.9) and the library build reuse this rename, so it must match build()'s.
-describe('renameSvelteStyles matches the rename of build()', () => {
+describe('svelteEditorSource matches the rename of build()', () => {
   const FIXTURES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
     .filter((name) => name.endsWith('.ucf') && !name.startsWith('invalid/'))
@@ -434,7 +444,7 @@ describe('renameSvelteStyles matches the rename of build()', () => {
   it.each(FIXTURES)('%s', async (name) => {
     const {split, source, ctx, file: built} = await svelteBuild(name);
     if (!built) return expect(REJECTED).toContain(name);
-    const renamed = renameSvelteStyles(split.targets.svelte!, split, svelte, ctx.modules);
+    const renamed = svelteEditorSource(split.targets.svelte!, split, svelte, ctx.modules);
 
     const ids = new Set(Object.values(ctx.modules).map(({id}) => id));
     const imported = [...built.code.matchAll(/^import (__ucf\w+) from "([^"]+)";$/gm)].filter(([, , id]) => ids.has(id!));

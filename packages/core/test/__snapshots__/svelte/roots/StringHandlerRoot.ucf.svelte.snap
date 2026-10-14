@@ -1,7 +1,7 @@
 
   <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let { label = 'handler', ...__ucfRest }: { label?: string } = $props()
+import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
+    let { label = 'handler', ...__ucfRest }: ({ label?: string }) & {class?: import('svelte/elements').ClassValue | null; style?: string | null} = $props()
   </script>
   <!-- Svelte rejects a text event attribute; forwarding must leave it for that error. -->
-  <button {...__ucfScopeAttrs(__ucfRest)} class="shape" onclick="go('<a>')">{label}</button>
+  <button {...__ucfScopeAttrs(__ucfRest)} style={__ucfRest.style} class={__ucfClass("shape", __ucfRest.class)} onclick="go('<a>')">{label}</button>

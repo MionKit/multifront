@@ -13,6 +13,9 @@ const ROOTS_PARENT = join(FIXTURES_DIR, 'apps', 'all-targets', 'Roots.ucf');
 // The scope prop Roots.ucf's stamp passes each child, in dev.
 const PARENT_SCOPE = `data-v-${scopeId(rootRelativePath(FIXTURES_DIR, ROOTS_PARENT), readFileSync(ROOTS_PARENT, 'utf8'), false)}`;
 
+const PARENT_CLASS = 'parent-extra';
+const PARENT_STYLE = 'color: red';
+
 const LEGACY = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
 // Hand-read from the fixtures: `from` is the props name each root spreads, `roots` its element roots in all branches.
@@ -125,11 +128,25 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
     });
   }
 
-  it.each(renders)(`renders the parent's scope ${problem ? 'nowhere' : 'on the root only'}, with props %o`, async (props) => {
-    const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(props)}`, {...props, [PARENT_SCOPE]: ''});
-    const tags = startTags(body, PARENT_SCOPE);
-    expect(tags.length).toBeGreaterThan(0);
-    for (const {name: tag, top, stamps} of tags) expect({tag, top, stamps}).toEqual({tag, top, stamps: top && !problem ? 1 : 0});
-    for (const attribute of html ?? []) expect(body).toContain(attribute);
-  });
+  it.each(renders)(
+    `renders the parent's scope, class and style ${problem ? 'nowhere' : 'on the root only'}, with props %o`,
+    async (props) => {
+      const parent = {[PARENT_SCOPE]: '', class: PARENT_CLASS, style: PARENT_STYLE};
+      const {body} = await renderBuild(dev.file!, dev.ctx, `${name}.${renders.indexOf(props)}`, {...props, ...parent});
+      const tags = startTags(body, PARENT_SCOPE);
+      expect(tags.length).toBeGreaterThan(0);
+      for (const {name: tag, top, stamps, classes, style = ''} of tags) {
+        const reached = top && !problem;
+        expect({tag, top, stamps}).toEqual({tag, top, stamps: reached ? 1 : 0});
+        // The parent's class joins the root's own; its style comes last, so its keys win.
+        expect({tag, top, extra: classes.filter((name) => name === PARENT_CLASS).length}).toEqual({
+          tag,
+          top,
+          extra: reached ? 1 : 0,
+        });
+        expect({tag, top, style: style.endsWith(PARENT_STYLE)}).toEqual({tag, top, style: reached});
+      }
+      for (const attribute of html ?? []) expect(body).toContain(attribute);
+    }
+  );
 });

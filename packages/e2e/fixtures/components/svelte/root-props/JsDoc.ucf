@@ -1,0 +1,7 @@
+<svelte>
+  <script>
+    /** @type {{ label?: string }} */
+    let { label = 'jsdoc' } = $props()
+  </script>
+  <p class="own" style="padding: 1px">{label}</p>
+</svelte>
