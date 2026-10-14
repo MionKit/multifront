@@ -162,7 +162,7 @@ export async function serveApp(app: ConsumerApp, command: Command, port: number)
       // Already gone.
     }
   };
-  // At most CLOSE_TIMEOUT: a zombie no init reaps keeps a group alive.
+  // Bounded: a zombie no init reaps keeps the group alive.
   const groupGone = async () => {
     for (const deadline = Date.now() + CLOSE_TIMEOUT; Date.now() < deadline;) {
       try {
@@ -188,7 +188,7 @@ export async function serveApp(app: ConsumerApp, command: Command, port: number)
     if (!running) return;
     kill();
     await exited;
-    // `pnpm exec` exits before the server it started, which still writes to the app (`.next/dev`) while it stops.
+    // `pnpm exec` exits before its server, which still writes `.next/dev` while stopping.
     if (await groupGone()) return;
     kill('SIGKILL');
     await groupGone();
