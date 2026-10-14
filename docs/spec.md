@@ -257,7 +257,11 @@ TypeScript gives one type per resolved file and never looks at import attributes
 
 - **Per-target virtual scripts.** For `Card.ucf` the language plugin (section 6) exposes one TypeScript file per target: `Card.ucf.react.tsx` (the `<react>` block itself, with the root props of 3.5, item 5 in its props type), `Card.ucf.vue.ts` (from `@vue/language-core`) and `Card.ucf.svelte.ts` (from `svelte2tsx`, with the root props of 3.6 in its props type). Each exports that framework's component type: a React function component, a Vue `DefineComponent`, a Svelte `Component`.
 - **Attribute-aware resolution.** A TypeScript plugin overrides module resolution (`resolveModuleNameLiterals`). It reads the import's `framework` attribute, or the importer's framework, or the default target, and resolves `./Card.ucf` to the matching virtual script. Same rules as 4.2, in one shared function in `@multifront/core`, so the editor and the build cannot disagree.
-- **Where it runs:** in VS Code through the TypeScript plugin, on the command line through `mf-tsc` (a `tsc` wrapper like `vue-tsc`). Plain `tsc` sees no `.ucf` types.
+- **Where it runs:** in VS Code through the TypeScript plugin, on the command line through `mf-tsc [paths…]` (like `vue-tsc`, with the output and exit codes of 8.1). Plain `tsc` sees no `.ucf` types.
+  - `-p, --project <file>` names the tsconfig; without it, the nearest `tsconfig.json` above each path (above the current folder with no path).
+  - It builds the tsconfig's whole program, as `tsc` does, and asks TypeScript for the diagnostics of the given files only, as tsserver does for one open file. A folder means its files; no path means the whole project.
+  - `--framework <name>` (repeatable) checks `.ucf` files only in those frameworks: one framework of one file is `mf-tsc src/Card.ucf --framework svelte`.
+  - Check only: it never emits and takes no `tsc` flags.
 - **`mf-tsc` checks every target** of every `.ucf` file, so a block that breaks only for one framework still fails.
 - **Library output:** each target package gets real `.d.ts` files from its own virtual scripts. Consumers need none of this tooling.
 
@@ -297,10 +301,11 @@ Order:
 
 The same tools as the rest of the repo: oxlint and oxfmt, reading the project's own `.oxlintrc.json` and `.oxfmtrc.json`. No new config.
 
-- **Formatting:** oxfmt has a JS API, `format(fileName, source, options)`. We split the file, format each block as its own language and put the blocks back. Today oxfmt formats TSX, Vue SFC code and CSS / SCSS, but not Svelte, so `<svelte>` blocks stay as written until oxfmt supports them.
+- **Formatting:** `mf-fmt [--check] [paths…]`. oxfmt has a JS API, `format(fileName, source, options)`. We split the file, format each block as its own language and put the blocks back. Today oxfmt formats TSX, Vue SFC code and CSS / SCSS, but not Svelte, so `<svelte>` blocks stay as written until oxfmt supports them.
 - **Linting:** oxlint already lints the script blocks of `.vue` and `.svelte` files, but it skips unknown extensions like `.ucf`. Two ways:
   1. Upstream: add `.ucf` to oxc's block extraction, next to the `.vue` / `.svelte` one. Best result, needs oxc maintainers to accept it.
-  2. Ours: `mf-lint` writes each block as a temporary `.tsx` / `.vue` / `.svelte` file, runs oxlint with JSON output and maps the positions back to the `.ucf` file.
+  2. Ours: `mf-lint [--deny-warnings] [paths…]` writes each block as a temporary `.tsx` / `.vue` / `.svelte` file, runs oxlint with JSON output and maps the positions back to the `.ucf` file.
+- **Commands:** `mf-fmt` and `mf-lint` take `.ucf` files or folders (none: every `.ucf` file under the current folder), read the config nearest above each file, and follow the command rules of 8.1.
 - **Editor:** the language server runs the same formatter and linter, so VS Code shows the same results as the command line.
 
 ## 7. Vite plugin
@@ -346,6 +351,7 @@ Every multifront command (`mf-build`, and `mf-tsc`, `mf-lint`, `mf-fmt` once the
 - **One finding shape** (`Finding`): `file`, `line`, `column`, `end` (`{line, column}`, just past the last character), `code`, `severity` (`error` or `warning`), `message`, plus `block` (the `.ucf` block the position falls in) and `framework` (the build or check that reported it) when they apply. Paths are relative to the current folder. Line and column are 1-based, like `tsc` and oxlint print them. A position is always in the file the user wrote, never in generated code: an error the tools only know in generated code (a type error inside a `.ucf` block, for `mf-build`) names the file with no position.
 - **Codes:** ours (the `DiagnosticCode` union of `@multifront/core`), a tool's (`TS2322`) or a plugin's (`vite:vue`).
 - **Exit codes:** 0 no errors; 1 errors found in the user's files; 2 the command could not run (bad usage, bad config, a missing tool). On exit 2, one plain line goes to stderr and stdout stays empty, whatever `--format` says: an unknown option is found before `--format` is read, as `tsc` and `vue-tsc` print usage errors as plain text in every output mode.
+- **One file or folder:** a command that checks files takes paths, files or folders; none means the whole project. A path it cannot check (missing, not part of the project, a file type it does not handle) is exit 2.
 - **`--help` / `-h`:** the options with a one-line description each, an example and the exit codes.
 - **An unknown option** names the real ones: `mf-build: unknown option '--outdir'; use --root, --framework, --out-dir, --no-dts, --format or --help`.
 

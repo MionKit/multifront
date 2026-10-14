@@ -178,6 +178,8 @@ Comes after every target exists, so the per-target table is designed once for Re
 ### 7. Full editor support
 
 - `mf-tsc` over every target, Svelte markup completions.
+- Every command follows the command rules of 6.1 (spec 8.1): one file, a folder or the whole project, `--format json`,
+  exit codes 0 / 1 / 2. `mf-tsc` checks the given files inside the tsconfig's whole program.
 - oxfmt and oxlint for `.ucf` (spec 6.1): `mf-fmt` through oxfmt's `format()` API, block by block; `mf-lint` through temporary per-block files and oxlint's JSON output, while proposing `.ucf` support to oxc upstream. Both wired into the language server.
 
 ## Alongside every milestone

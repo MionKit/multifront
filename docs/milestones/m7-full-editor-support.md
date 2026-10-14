@@ -10,8 +10,9 @@ A `.ucf` file gets the same checks as any other source file, on the command line
 - `mf-lint` lints each block with oxlint and maps every finding back to the right line of the `.ucf` file.
 - The language server runs the same formatter and linter, so VS Code shows what the command line shows (format on save, diagnostics).
 - The VS Code extension is packaged with `language-tools` bundled and published to the VS Code Marketplace and Open VSX.
+- Every command follows the command rules (spec 8.1): it checks one file, a folder or the whole project, prints `Finding`s readably or with `--format json`, and exits 0 / 1 / 2. A coding agent runs it on what it just changed and acts on the result.
 
-Spec: sections 5, 6 and 6.1. Plan: milestone 7.
+Spec: sections 5, 6, 6.1 and 8.1. Plan: milestone 7.
 
 ### Decision: the commands in this repo's CI
 
@@ -23,6 +24,58 @@ Spec: sections 5, 6 and 6.1. Plan: milestone 7.
 ### Decision: lint and format read the block's own text
 
 architecture.md says oxlint and oxfmt run on the `build` file. The build file of `<react>` carries the scope stamp and the injected `$style` import. Formatting that and writing it back would put generated code into the user's file. Linting it gives findings on code the user never wrote. So `mf-fmt` and `mf-lint` read the **block's own text** and give it the **file ending of its build file** (`.tsx`, `.vue`, `.svelte`), or the `lang` ending for a `<style>` block (`.css`, `.scss`, `.less`). Step 7.6 updates the one line in architecture.md.
+
+### Decision: every command follows the command rules
+
+Decided in M6.1 (6.1.6). `mf-tsc`, `mf-lint` and `mf-fmt` run through `runCommand` and print `Finding`s (spec 8.1), as `mf-build` does. Positions are always in the file the user wrote, the `.ucf` file, never a block file or a virtual script.
+
+Shared by the three:
+
+- **Paths:** each takes files or folders after the options; none means the whole project (`mf-tsc`) or every `.ucf` file under the current folder (`mf-fmt`, `mf-lint`). A path that does not exist is exit 2. `mf-fmt` and `mf-lint` take `.ucf` files and folders only; any other file is exit 2: `mf-lint: src/main.ts is not a .ucf file; lint it with oxlint`. A folder means its files below it, `node_modules` left out.
+- **Config:** each finds the config nearest above each path (`tsconfig.json`, `.oxfmtrc.json`, `.oxlintrc.json`), as Vue's language tools and tsserver find the nearest tsconfig per file.
+- **A missing tool is exit 2:** `typescript`, `oxlint` or `oxfmt` that cannot be loaded from the project gives one line, `mf-lint: oxlint is not installed in <root>; add it to devDependencies`. So does oxlint exiting with anything but 0 or 1 (its first stderr line).
+- **A `.ucf` file whose blocks do not split** gives core's `splitBlocks` codes through `findingOf`, never a silent skip.
+- **`runCommand` grows here**, each part with the step that first needs it: `CommandSpec.paths` (the help text of the paths argument; when set, positionals are allowed, passed as `run(values, paths)`, and the usage line reads `Usage: <name> [options] [paths...]`; without it `mf-build` keeps "takes options only") and `CommandOption.short` (help prints `-p, --project <file>`) in 7.1, `CommandResult.warningsFail` (exit 1 on warnings too) in 7.8.
+- **New codes** in core's `DiagnosticCode`: `unformatted` and `format-error` (7.6). `mf-tsc` reports TypeScript's (`TS2322`), `mf-lint` oxlint's (`eslint(no-debugger)`).
+
+**`mf-tsc`: how it checks one file.** `tsc` cannot check one file with the project's settings: `tsc a.ts` drops the tsconfig, and `tsc -p tsconfig.json a.ts` fails with TS5042. Checking only the given files (them as the program's root names) loses the tsconfig's other files (`env.d.ts`, globals) and gives false errors; checking everything and reporting only the given files is no faster. So `mf-tsc` loads the tsconfig and builds the whole program, as `tsc` does, then asks TypeScript for the diagnostics of the given files only (syntactic and semantic per file, plus the program's global and options diagnostics), as tsserver does for one open file. On `packages/vite` (493 program files, measured in 6.1.6): creating the program takes about 1.0 s, checking every file 1.6 to 1.8 s, checking one file 0.4 to 0.6 s.
+
+- **No `runTsc`.** The `tsc` CLI cannot print `Finding`s. `mf-tsc` builds its program itself with `proxyCreateProgram(ts, ts.createProgram, ...)` from `@volar/typescript` (the proxy `runTsc` puts into `tsc`), our language plugin and `resolveUcfImport`. It takes no `tsc` flags and never emits; the tsconfig's emit options are ignored.
+- **Which tsconfig:** `-p, --project <file>`; else the nearest `tsconfig.json` above each path (`ts.findConfigFile` from the path's folder, `references` not followed); with no path, the one above the current folder. Paths are grouped by tsconfig, one program each. A path with no tsconfig, or not a file of its program, is exit 2: `mf-tsc: src/Foo.ucf is not part of tsconfig.json; add it to "include" or pass -p`.
+- **Config errors are exit 2:** reading the tsconfig fails (missing file, bad JSON, unknown compiler option, TS18003 no inputs) → one stderr line, `mf-tsc: tsconfig.json:3:5: error TS5023: Unknown compiler option 'foo'.`, plus ` (and N more)`. The program's global and options diagnostics (TS2688 for `types: ["nonexistent"]`) are findings with no file, exit 1, as in `mf-build`.
+- **One framework of one file:** `--framework <name>` (repeatable, as in `mf-build`) limits the `.ucf` checks to those frameworks' scripts: the file's own script for `react` (`MAIN_SCRIPT_TARGET`), `targetScriptName(file, target)` for the others. Files that are not `.ucf` are checked as usual. Any other value is exit 2: `unknown framework 'angular'; use vue, react or svelte`.
+- **Output:** `types-broken/ReactBreaks.ucf:4:17: error TS2322 (react): Type 'number' is not assignable to type 'string'.`, then `mf-tsc: checked 3 files with tsconfig.json: 1 error` (`..., no errors` when clean). JSON data: `projects: [{tsconfig, files}]`, paths relative to the cwd. A `.ucf` finding carries `block` and `framework` (the script's target); a `.ts`, `.tsx` or `.vue` file carries neither. The message is TypeScript's chain flattened, levels joined with a space. Error and Warning categories map to `error` and `warning`; suggestions are not reported, as in `tsc`.
+
+**`mf-fmt`:** write mode prints `mf-fmt: formatted 2 of 5 files`. `--check` writes nothing and gives one `unformatted` error per file, at the first character that differs, its `block` set, message `not formatted; run mf-fmt <path>`, then `mf-fmt: 2 of 5 files not formatted`. JSON data: `{files, changed}` (written, or would change). oxfmt errors for a block give `format-error` at their `.ucf` position, and that file stays unchanged. Folders skip dot folders and the config's `ignorePatterns`, which apply to named files too.
+
+**`mf-lint`:** a finding is oxlint's `code`, `message`, severity (`advice` becomes `warning`) and position, with `block` and `framework` set to the block's tag. oxlint's `help` and `url` stay out of the CLI output (spec 8.1, one finding shape); `lintUcf` keeps them for the server (7.11). Summary `mf-lint: linted 5 files: 2 errors, 1 warning` (`..., no problems` when clean). JSON data: `{files}`. `--deny-warnings` sets `warningsFail`. Folders skip dot folders and oxlint's `ignorePatterns`.
+
+**Help texts.** Each command's test pins its help exactly. `mf-tsc` once 7.3 is in (7.1 has no `--framework` line, and its first summary line names `.ts and .tsx` only):
+
+```
+Usage: mf-tsc [options] [paths...]
+
+Type-checks .ucf files in every framework, with the .ts, .tsx and .vue files that import them.
+Paths are files or folders of the project; none checks the whole project.
+
+Options:
+  -p, --project <file>   the tsconfig.json to use (default: the nearest one above each path)
+  --framework <name>     check .ucf files only in this framework: vue, react or svelte; repeat for more
+  --format <format>      text or json (default: text)
+  -h, --help             show this help
+
+Example:
+  mf-tsc src/Card.ucf --framework svelte --format json
+
+Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
+```
+
+`mf-fmt` and `mf-lint` follow the same layout:
+
+- `mf-fmt`: summary `Formats each block of .ucf files with oxfmt and the project's .oxfmtrc.json.` / `Paths are .ucf files or folders; none formats every .ucf file under the current folder.`; option `--check` "write nothing; list the files that are not formatted"; example `mf-fmt --check src/Card.ucf`.
+- `mf-lint`: summary `Lints each block of .ucf files with oxlint and the project's .oxlintrc.json.` / `Paths are .ucf files or folders; none lints every .ucf file under the current folder.`; option `--deny-warnings` "exit 1 on warnings too"; example `mf-lint src/Card.ucf --format json`.
+
+**Speed.** 7.12's gate spec times the real `mf-tsc` on `Card.ucf`, on one fixture folder and on the whole `tsconfig.fixtures.json`, and `mf-lint` on one file and on every fixture: median of 5 fresh runs each, printed in the test log, no time assertion. 7.12 writes the CI numbers into this document. If one `mf-tsc` file takes over 2 s, or over half the whole run, 7.12 adds reuse between runs: `mf-tsc` keeps TypeScript's build info when the tsconfig sets `incremental` (its `tsBuildInfoFile`, as `tsc --noEmit` does), through `ts.createIncrementalProgram` on the proxied `createProgram`. Build info lets an unchanged file keep its last diagnostics; it does not skip parsing, so a whole-project re-run then costs about one file.
 
 ## Needs from earlier milestones
 
@@ -65,9 +118,15 @@ From M6 (library build):
 
 - The pack-and-install helper of `packages/e2e/consumer/` (packs a workspace package into a tarball and installs it into a fresh real project). Step 7.12 reuses it for `@multifront/language-tools`.
 
+From M6.1 (fixes and groundwork):
+
+- The command rules of spec 8.1 in `packages/core/src/command.ts`, exported from `@multifront/core`: `Finding` (`file`, `line`, `column`, `end`, `code`, `severity`, `message`, `block?`, `framework?`; 1-based), `findingOf(diagnostic, split)`, `runCommand(spec, args, run)` with `CommandSpec`, `CommandOption`, `CommandResult` and `CommandValues`. It adds `--format text|json` and `-h, --help`, prints the findings and a summary line or one JSON document, and returns 0 / 1 / 2.
+- `mf-build` on it (`packages/vite/src/library/cli.ts`) and its test `packages/e2e/build/library-cli.spec.ts`: the model for each command and its test.
+- Svelte roots that take `class` and `style`, with their types in the Svelte virtual script (7.5 and `mf-tsc` see them).
+
 Outside the milestones (new pinned devDependencies, added in the step that needs them, subject to the 30-day release age rule):
 
-- `@volar/typescript` (its `runTsc`, the same entry `vue-tsc` uses), `volar-service-html`, `@vscode/vsce`, `ovsx`, `@vscode/test-electron`.
+- `volar-service-html`, `@vscode/vsce`, `ovsx`, `@vscode/test-electron`. `@volar/typescript` is already a dependency of `@multifront/language-tools`; `mf-tsc` uses its `proxyCreateProgram`.
 - `oxfmt` and `oxlint` as optional `peerDependencies` of `@multifront/language-tools` (ranges), so a project's own versions are used.
 - A VS Code Marketplace publisher and an Open VSX namespace with the same id, and the repository secrets `VSCE_PAT` and `OVSX_PAT` (step 7.14). A maintainer creates these once by hand.
 
@@ -75,21 +134,29 @@ Outside the milestones (new pinned devDependencies, added in the step that needs
 
 ### 7.1 `mf-tsc` for the React target and its importers
 
-- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`). It calls `runTsc` from `@volar/typescript` with `extraSupportedExtensions: ['.ucf']`, our Volar language plugin, and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). Check only: an emit flag (`--declaration`, `--outDir` without `--noEmit`) is an error that points to the library build of M6. Output and exit codes are the same as `tsc`.
-- Deliverable: `mf-tsc -p tsconfig.json` type-checks `.ts` / `.tsx` files that import `.ucf` files, and the `<react>` block of every `.ucf` file the tsconfig includes. Errors print with `.ucf` lines and columns.
-- Test: area Editor, `packages/e2e/editor/tsc/react.spec.ts`. New fixture app `packages/e2e/fixtures/apps/types-every-target/` (valid) and `packages/e2e/fixtures/apps/types-broken/` with `ReactBreaks.ucf` (a `<react>` block that passes a number to a `string` prop) and `main.tsx` passing a wrong prop to a valid `.ucf`. The test spawns the real `mf-tsc` on both: exit 0 on the valid app; on the broken one, exit 1 and the exact `file(line,col): error TSxxxx` lines. Each reported position is checked against the fixture text (the slice at that line and column is the bad expression).
+- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`), on `runCommand` as "Decision: every command follows the command rules" says. It builds the program with `proxyCreateProgram(ts, ts.createProgram, ...)` from `@volar/typescript`, our Volar language plugin (`.ucf` as an extra extension), and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). It never emits and takes no `tsc` flags. Paths, `-p, --project`, the tsconfig lookup and its exit 2 cases as decided above. `tscFinding(diagnostic, framework?)` in `packages/language-tools/src/tsc/findings.ts` turns a TypeScript diagnostic, as Volar maps it back to the `.ucf` text, into a `Finding`. `runCommand` gains `CommandSpec.paths` and `CommandOption.short`.
+- Deliverable: `mf-tsc [paths]` type-checks `.ts` / `.tsx` files that import `.ucf` files, and the `<react>` block of every `.ucf` file: the whole project, one file or one folder, readable or `--format json`, exit 0 / 1 / 2. Findings carry `.ucf` lines and columns.
+- Test: area Editor, `packages/e2e/editor/tsc/react.spec.ts`. New fixture app `packages/e2e/fixtures/apps/types-every-target/` (valid) and `packages/e2e/fixtures/apps/types-broken/` with `ReactBreaks.ucf` (a `<react>` block that passes a number to a `string` prop) and `pages/main.tsx` passing a wrong prop to a valid `.ucf`. The test spawns the real `mf-tsc`:
+  1. Whole project, from a temp copy of each app: exit 0 and the summary line only on the valid app; on the broken one, exit 1 and the exact readable lines and summary.
+  2. `--format json` on the broken app: the exact document. Each finding's line and column to `end` is the bad expression in the fixture text.
+  3. One file: `mf-tsc ReactBreaks.ucf` reports only its finding. One folder: `mf-tsc pages` reports only `main.tsx`'s.
+  4. The same file from the repo root, with the tsconfig found above it, and again with `-p`.
+  5. A temp copy whose tsconfig sets `types: ["nonexistent"]`: a TS2688 finding with no file, exit 1.
+  6. A temp copy with `components/invalid/DuplicateReact.ucf` added: its `duplicate-target` findings.
+  7. Exit 2, stdout empty, one stderr line: an unknown option (names the real ones), `--format xml`, a missing path, a file the tsconfig does not hold, `-p` to a missing file, a tsconfig with an unknown compiler option.
+  8. `--help` and `-h`: exit 0, the exact help.
 
 ### 7.2 `mf-tsc` checks every target of every `.ucf` file
 
-- Build: the language plugin's `typescript.getExtraServiceScripts` returns every target's virtual script of a `.ucf` file (`Card.ucf.vue.ts`, `Card.ucf.svelte.ts`, plus whichever M2 did not make the main script), so `tsc` checks them all. A diagnostic in a generated part with no mapping is reported on the block's opening tag, never dropped.
-- Deliverable: one `mf-tsc` run fails when any one target of any file is broken, even when nothing imports that target.
-- Test: area Editor, `packages/e2e/editor/tsc/every-target.spec.ts`. Adds to `types-broken/`: `VueBreaks.ucf` (valid `<react>` and `<svelte>`, a template type error in `<vue>`), `SvelteBreaks.ucf` (same, error in `<svelte>` markup), `OnlyReactExport.ucf` plus `main.ts` importing its named export `with { framework: 'vue' }` (spec 11, "Different exports per target"). Real `mf-tsc`: each error lands inside the right block, on the right line. The valid `types-every-target/` app (all three targets) still exits 0. The same broken files opened in the real tsserver with our plugin (M2 harness, hybrid mode) give the same codes at the same positions.
+- Build: the language plugin's `typescript.getExtraServiceScripts` returns every target's virtual script of a `.ucf` file (`Card.ucf.vue.ts`, `Card.ucf.svelte.ts`, plus whichever M2 did not make the main script), so `tsc` checks them all. A diagnostic in a generated part with no mapping is reported on the block's opening tag, never dropped. `mf-tsc` gains `--framework <name>` (repeatable): the `.ucf` checks cover only those frameworks' scripts.
+- Deliverable: one `mf-tsc` run fails when any one target of any file is broken, even when nothing imports that target. `mf-tsc <file> --framework <name>` checks one framework of one file.
+- Test: area Editor, `packages/e2e/editor/tsc/every-target.spec.ts`. Adds to `types-broken/`: `VueBreaks.ucf` (valid `<react>` and `<svelte>`, a template type error in `<vue>`), `SvelteBreaks.ucf` (same, error in `<svelte>` markup), `OnlyReactExport.ucf` plus `main.ts` importing its named export `with { framework: 'vue' }` (spec 11, "Different exports per target"). Real `mf-tsc`: each error lands inside the right block, on the right line. The valid `types-every-target/` app (all three targets) still exits 0. The same broken files opened in the real tsserver with our plugin (M2 harness, hybrid mode) give the same codes at the same positions. One framework: `mf-tsc SvelteBreaks.ucf --framework svelte --format json` gives only the Svelte finding, with `block` and `framework` set to `svelte`; `--framework react` on the same file exits 0; `--framework angular` exits 2 with one stderr line.
 
 ### 7.3 `mf-tsc` also checks `.vue` importers
 
-- Build: `mf-tsc` adds `@vue/language-core`'s language plugin for `.vue` files (already a dependency since M4), so a `Page.vue` that imports `./Card.ucf` is checked in the same program. One command replaces `vue-tsc` in a project that uses `.ucf` files.
+- Build: `mf-tsc` adds `@vue/language-core`'s language plugin for `.vue` files (already a dependency since M4), so a `Page.vue` that imports `./Card.ucf` is checked in the same program. One command replaces `vue-tsc` in a project that uses `.ucf` files. The help's first summary line names `.vue` files.
 - Deliverable: `mf-tsc` type-checks `.vue` files, and their `.ucf` imports resolve to the Vue target.
-- Test: area Editor, `packages/e2e/editor/tsc/vue-importer.spec.ts`. Adds `Page.vue` to `types-every-target/` (valid) and `BadPage.vue` to `types-broken/` (passes a wrong prop to a `.ucf` component in its template). Real `mf-tsc`: the valid app exits 0; the broken one reports the error in `BadPage.vue` at the prop.
+- Test: area Editor, `packages/e2e/editor/tsc/vue-importer.spec.ts`. Adds `Page.vue` to `types-every-target/` (valid) and `BadPage.vue` to `types-broken/` (passes a wrong prop to a `.ucf` component in its template). Real `mf-tsc`: the valid app exits 0; the broken one reports the error in `BadPage.vue` at the prop. `mf-tsc BadPage.vue` reports only that finding. The help test of 7.1 now pins the final help.
 
 ### 7.4 Svelte markup completions: tags, Svelte elements, directives, blocks
 
@@ -105,14 +172,19 @@ Outside the milestones (new pinned devDependencies, added in the step that needs
 
 ### 7.6 `mf-fmt`: oxfmt's `format()` block by block
 
-- Build: `packages/language-tools/src/format/index.ts` exports `formatUcf(fileName, source, config)`, and the bin `mf-fmt [--check] [paths…]`. Steps per file: `splitBlocks`, then for each block call oxfmt's `format(blockFileName, block.content, config)`, then replace only the text between `contentStart` and `contentEnd`. Text outside the blocks stays byte for byte. `blockFile(block)` in `packages/language-tools/src/blocks/blockFile.ts` names the block file `Card.ucf.<tag><ext>`: the ending of the kind's build file (`.tsx`, `.vue`, `.svelte`), or the `<style lang>` ending (`.css`, `.scss`, `.less`). Only endings oxfmt formats are sent (`.tsx`, `.vue`, `.css`, `.scss`, `.less`); any other block stays as written. Block text is written flush left, one newline after the opening tag and one before the closing tag. Config is the project's own: the nearest `.oxfmtrc.json` / `.oxfmtrc.jsonc` (and `.editorconfig`), `overrides` matched against the block file path, `ignorePatterns` against the real `.ucf` path. A block that fails to parse leaves the whole file unchanged and prints the error at its `.ucf` position.
-- Deliverable: `mf-fmt` formats `.ucf` files in place; `mf-fmt --check` lists unformatted files and exits 1.
+- Build: `packages/language-tools/src/format/index.ts` exports `formatUcf(fileName, source, config)`, and the bin `mf-fmt [--check] [paths…]`. Steps per file: `splitBlocks`, then for each block call oxfmt's `format(blockFileName, block.content, config)`, then replace only the text between `contentStart` and `contentEnd`. Text outside the blocks stays byte for byte. `blockFile(block)` in `packages/language-tools/src/blocks/blockFile.ts` names the block file `Card.ucf.<tag><ext>`: the ending of the kind's build file (`.tsx`, `.vue`, `.svelte`), or the `<style lang>` ending (`.css`, `.scss`, `.less`). Only endings oxfmt formats are sent (`.tsx`, `.vue`, `.css`, `.scss`, `.less`); any other block stays as written. Block text is written flush left, one newline after the opening tag and one before the closing tag. Config is the project's own: the nearest `.oxfmtrc.json` / `.oxfmtrc.jsonc` (and `.editorconfig`), `overrides` matched against the block file path, `ignorePatterns` against the real `.ucf` path. A block that fails to parse leaves the whole file unchanged and gives a `format-error` finding at its `.ucf` position. The bin runs on `runCommand` as "Decision: every command follows the command rules" says: paths, `--check` findings (`unformatted`), summary, JSON data, help. The codes `unformatted` and `format-error` join core's `DiagnosticCode`. oxfmt is loaded from the project; if it cannot be, exit 2.
+- Deliverable: `mf-fmt` formats `.ucf` files in place, one file, a folder or every `.ucf` file under the current folder; `mf-fmt --check` reports unformatted files and exits 1.
 - Test: area Editor, `packages/e2e/editor/format/mf-fmt.spec.ts`. New fixture app `packages/e2e/fixtures/apps/lint-format/` with its own `.oxfmtrc.json` and `Messy.ucf` (unformatted `<react>`, `<vue>`, `<svelte>`, `<style lang="scss">`). On a temp copy, the real `mf-fmt`:
   1. Each formatted block equals what the real oxfmt CLI prints for the same text (`oxfmt --stdin-filepath <block file path>` in the same folder), so our config handling matches the CLI.
   2. The `<svelte>` block and everything outside the blocks are unchanged.
   3. A second run changes nothing, and `--check` exits 0.
   4. The formatted copy still passes the real `mf-tsc`, and the real Vite build of each target (M3, M4, M5 plugins) still succeeds.
   5. `--check` on the untouched fixture exits 1 and names `Messy.ucf`.
+  6. `--check --format json` on the untouched fixture: the exact document, one `unformatted` finding at the first character that differs, its `block` set, `changed: ['Messy.ucf']`.
+  7. One file and one folder: the copy also holds `Messy.ucf` under `nested/`; `mf-fmt nested` changes only that one, `mf-fmt Messy.ucf` only the other.
+  8. A block that does not parse (a temp edit): exit 1, `format-error` at its `.ucf` position, the file unchanged.
+  9. Exit 2, stdout empty, one stderr line: an unknown option, a `.ts` file as a path, a missing path, and a copy outside the repo (`os.tmpdir()`) with no oxfmt to load.
+  10. `--help`: exit 0, the exact help.
 
   A loop over `BLOCK_KINDS` checks that `blockFile` names a file for every tag, so a new block kind cannot skip it.
 
@@ -126,17 +198,22 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 
 ### 7.8 `mf-lint`: per-block files through oxlint, positions mapped back
 
-- Build: `packages/language-tools/src/lint/index.ts` exports `lintUcf(files, {root})`, and the bin `mf-lint [--format default|json] [--deny-warnings] [paths…]`. oxlint has no stdin mode, so per run:
+- Build: `packages/language-tools/src/lint/index.ts` exports `lintUcf(files, {root})`, and the bin `mf-lint [--deny-warnings] [--format text|json] [paths…]`. oxlint has no stdin mode, so per run:
   1. Make a temp folder (`os.tmpdir()`), and write each target block's text there as `<relative path>/Card.ucf.<tag><ext>` (from `blockFile`), keeping the path relative to the project root so the config's `overrides` globs still match. `<style>` blocks are skipped: oxlint does not lint CSS.
   2. Write a wrapper `.oxlintrc.json` in the temp folder: `{"extends": ["<the project's nearest .oxlintrc.json>"], "globals": {"$style": "readonly"}}`, plus each named module (`<style module="classes">` adds `classes`). The project config is never changed.
   3. Run the project's own `oxlint -c <wrapper> -f json` once over all block files, from the temp folder.
   4. Map each finding back: `.ucf` offset = block `contentStart` + `labels[].span.offset`; line and column are recomputed on the `.ucf` text. For `.vue` and `.svelte` block files oxlint already reports offsets from the start of the file, so the same sum holds.
   5. Delete the temp folder in a `finally`.
 
-  JSON output keeps oxlint's shape (`diagnostics[]` with `message`, `code`, `severity`, `url`, `help`, `filename`, `labels[].span`), with `filename` set to the `.ucf` path. Exit 1 on any error (or any warning with `--deny-warnings`), like oxlint. A splitter error is printed at its position and counts as an error.
+  `lintUcf` returns oxlint's diagnostics (`message`, `code`, `severity` with `advice`, `url`, `help`), each with the `.ucf` path and its span in `.ucf` offsets: what the server needs (7.11). The bin runs on `runCommand` as "Decision: every command follows the command rules" says and turns each diagnostic into a `Finding`: oxlint's `code`, `message`, severity (`advice` becomes `warning`) and position, `block` and `framework` set to the block's tag, no `help` or `url`. Exit 1 on any error, or on any warning with `--deny-warnings`, through the new `CommandResult.warningsFail`. A splitter error is a finding at its position (`findingOf`). oxlint that cannot be loaded from the project, or exits with anything but 0 or 1, is exit 2.
 
-- Deliverable: `mf-lint` reports oxlint findings for every target block, at the right `.ucf` line and column.
-- Test: area Editor, `packages/e2e/editor/lint/mf-lint.spec.ts`. Adds `.oxlintrc.json` (with `no-debugger` and `no-undef` as errors, and an `overrides` entry for `**/*.tsx`) and `Lint.ucf` to `packages/e2e/fixtures/apps/lint-format/`: a `debugger;` and an unused variable in each target block, and `$style.card` used in `<react>` and `<svelte>`. Real `mf-lint --format json`: exactly the expected rule codes, and for each one the `.ucf` text at the reported offset and length is the offending code (`debugger;`, the variable name). No `no-undef` for `$style`. The `overrides` rule applies to the `<react>` block only. After the run, no temp file is left. `Clean.ucf` in the same app gives no findings and exit 0.
+- Deliverable: `mf-lint` reports oxlint findings for every target block, at the right `.ucf` line and column, for one file, a folder or every `.ucf` file under the current folder.
+- Test: area Editor, `packages/e2e/editor/lint/mf-lint.spec.ts`. Adds `.oxlintrc.json` (with `no-debugger` and `no-undef` as errors, and an `overrides` entry for `**/*.tsx`) and `Lint.ucf` to `packages/e2e/fixtures/apps/lint-format/`: a `debugger;` and an unused variable in each target block, and `$style.card` used in `<react>` and `<svelte>`. Real `mf-lint --format json`: exactly the expected rule codes, and for each one the `.ucf` text from its `line` and `column` to its `end` is the offending code (`debugger;`, the variable name). No `no-undef` for `$style`. The `overrides` rule applies to the `<react>` block only. After the run, no temp file is left. `Clean.ucf` in the same app gives no findings and exit 0. The command rules, on temp copies:
+  1. The readable output and the `--format json` document, exact (`block` and `framework` on each finding).
+  2. One file: `mf-lint Clean.ucf` gives only the summary line. One folder: a copy of `Lint.ucf` under `nested/`, `mf-lint nested` reports only its findings.
+  3. A copy with the `debugger;` lines removed (warnings only) exits 0, and 1 with `--deny-warnings`.
+  4. Exit 2, stdout empty, one stderr line: an unknown option, a `.ts` file as a path, a missing path, a copy outside the repo (`os.tmpdir()`) with no oxlint to load, and an `.oxlintrc.json` that is not JSON (oxlint's own message).
+  5. `--help`: exit 0, the exact help.
 
 ### 7.9 Propose `.ucf` support to oxc, with a canary test
 
@@ -154,16 +231,17 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 
 - Build: a Volar service plugin `multifront-lint` gives `provideDiagnostics` for the root `.ucf` document through `lintUcf`, fed the in-memory text, not the file on disk. It runs on open and on change (Volar's diagnostic debounce), and again when `.oxlintrc.json` changes (`workspace/didChangeWatchedFiles`). Findings become LSP diagnostics with `source: 'oxlint'`, `code`, and `codeDescription.href` from the oxlint `url`; severity error / warning / advice maps to 1 / 2 / 3. oxlint is loaded from the workspace folder, like oxfmt.
 - Deliverable: oxlint findings show in VS Code in every target block, live, matching `mf-lint`.
-- Test: area Editor, `packages/e2e/editor/server/lint.spec.ts`. Real server over LSP: open `Lint.ucf`, pull diagnostics. They match the real `mf-lint --format json` output on the same file (code, range, severity). Then a real `didChange` removes the `debugger;` from `<vue>` and that one diagnostic goes away, without saving. Then the test edits `.oxlintrc.json` on disk to turn `no-debugger` off and the remaining ones go away.
+- Test: area Editor, `packages/e2e/editor/server/lint.spec.ts`. Real server over LSP: open `Lint.ucf`, pull diagnostics. They match the real `mf-lint --format json` findings on the same file (`code`; `line`, `column` and `end` as the range; `severity`). Then a real `didChange` removes the `debugger;` from `<vue>` and that one diagnostic goes away, without saving. Then the test edits `.oxlintrc.json` on disk to turn `no-debugger` off and the remaining ones go away.
 
 ### 7.12 The three commands in CI, and from the packed package
 
 - Build:
   - `packages/e2e/fixtures/tsconfig.fixtures.json`: includes every valid fixture component and app, leaves out `types-broken/`, `lint-format/`, `lint-format-svelte/`, `components/invalid/` and `components/react/fuzz-found/`.
-  - `packages/e2e/editor/gate.spec.ts`: runs the real `mf-tsc -p packages/e2e/fixtures/tsconfig.fixtures.json` and the real `mf-lint` over the same valid fixtures with the repo's `.oxlintrc.json`. Both must exit 0; on failure the test prints the tool output. A type or lint error found in an earlier milestone's fixture is fixed in this PR (AGENTS.md: found issues are fixed). A fixture that breaks a lint rule on purpose (a splitter edge case in `TsxEdges.ucf`, say) is left out by name, with a one-line reason, instead of being changed.
-  - `packages/e2e/consumer/language-tools.spec.ts`: packs `@multifront/language-tools` with M6's helper, installs it with `oxlint`, `oxfmt` and `typescript` into a fresh real project holding a copy of `types-every-target/` and `lint-format/`, and runs the installed `mf-tsc`, `mf-lint` and `mf-fmt --check` bins from `node_modules/.bin`.
-- Deliverable: every PR fails when a fixture breaks one target or gets an oxlint error, and the three bins are proven to work from the published package, not only from source.
-- Test: the two spec files above (areas Editor and Consumer). The gate spec also runs both commands on a temp copy of the fixtures with `ReactBreaks.ucf` added and checks exit 1, so the gate cannot pass silently.
+  - `packages/e2e/editor/gate.spec.ts`: runs the real `mf-tsc -p packages/e2e/fixtures/tsconfig.fixtures.json --format json` and the real `mf-lint --format json` over the same valid fixtures with the repo's `.oxlintrc.json`. Both must exit 0 with `errorCount: 0`; on failure the test prints the readable output. A type or lint error found in an earlier milestone's fixture is fixed in this PR (AGENTS.md: found issues are fixed). A fixture that breaks a lint rule on purpose (a splitter edge case in `TsxEdges.ucf`, say) is left out by name, with a one-line reason, instead of being changed.
+  - Speed, in the gate spec: it times the real `mf-tsc` on `Card.ucf`, on one fixture folder and on the whole `tsconfig.fixtures.json`, and the real `mf-lint` on one file and on every fixture, median of 5 fresh runs each, and prints the numbers in the test log (no time assertion). The step writes the CI numbers into this document. If one `mf-tsc` file takes over 2 s, or over half the whole run, this step adds reuse between runs as "Decision: every command follows the command rules" says (the tsconfig's own `incremental`, `ts.createIncrementalProgram` on the proxied `createProgram`), with its test: a second run after breaking one file reports that error, and fixing the file clears it.
+  - `packages/e2e/consumer/language-tools.spec.ts`: packs `@multifront/language-tools` with M6's helper, installs it with `oxlint`, `oxfmt` and `typescript` into a fresh real project holding a copy of `types-every-target/` and `lint-format/`, and runs the installed `mf-tsc`, `mf-lint` and `mf-fmt --check` bins from `node_modules/.bin`. Each bin also answers `--help` (exit 0) and an unknown option (exit 2, stdout empty).
+- Deliverable: every PR fails when a fixture breaks one target or gets an oxlint error, the three bins are proven to work from the published package, not only from source, and the one-file speed is measured.
+- Test: the two spec files above (areas Editor and Consumer). The gate spec also runs both commands on a temp copy of the fixtures with `ReactBreaks.ucf` added and checks exit 1, so the gate cannot pass silently. That copy lies under `packages/e2e/.tmp/`, which the repo's `.oxlintrc.json` ignores (`**/.tmp/**`): the copy gets its own `.oxlintrc.json` with the repo's rules and no `ignorePatterns`.
 
 ### 7.13 Package the VS Code extension
 
@@ -183,7 +261,9 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
 
 M7 is the last planned milestone. These are what it leaves for every release after v1, and for any new block kind (a Solid target, a `<types>` block):
 
-- Bins of `@multifront/language-tools`: `mf-tsc`, `mf-lint`, `mf-fmt`. Used by library authors in their own CI.
+- Bins of `@multifront/language-tools`: `mf-tsc`, `mf-lint`, `mf-fmt`, on the command rules of spec 8.1. Used by library authors in their own CI and by coding agents on one file at a time.
+- What `runCommand` gains here: `CommandSpec.paths`, `CommandOption.short`, `CommandResult.warningsFail`. The codes `unformatted` and `format-error` in core's `DiagnosticCode`. `tscFinding(diagnostic, framework?)` in `packages/language-tools/src/tsc/findings.ts`. Any later command reuses them.
+- Reuse between `mf-tsc` runs through the tsconfig's `incremental`, if 7.12's speed measure adds it.
 - Functions exported from `@multifront/language-tools`: `formatUcf(fileName, source, config)`, `lintUcf(files, {root})`. Used by the server, and by any other editor setup (WebStorm, Neovim) that loads the server from npm.
 - `blockFile(block)` in `packages/language-tools/src/blocks/blockFile.ts`. A new block kind must give its file ending here; the registry loop of 7.6 fails otherwise.
 - The language plugin's `getExtraServiceScripts` returning every target's virtual script. A new target row is checked by `mf-tsc` once its `types()` script exists.
@@ -197,7 +277,7 @@ M7 is the last planned milestone. These are what it leaves for every release aft
 `packages/e2e/editor/vscode/exit.spec.ts` (area Editor), on a copy of `fixtures/components/Card.ucf` (all three targets) inside a small project with `.oxlintrc.json`, `.oxfmtrc.json` and a tsconfig:
 
 1. Real `mf-tsc`, `mf-lint` and `mf-fmt --check` all exit 0.
-2. The test edits only the `<svelte>` block to pass a number to a `string` prop and adds `debugger;` to the `<vue>` script. Real `mf-tsc` now fails with one error inside the `<svelte>` block; real `mf-lint` reports `no-debugger` at the `<vue>` line.
+2. The test edits only the `<svelte>` block to pass a number to a `string` prop and adds `debugger;` to the `<vue>` script. Real `mf-tsc` now fails with one error inside the `<svelte>` block; real `mf-lint` reports `no-debugger` at the `<vue>` line. The agent's view of the same: `mf-tsc Card.ucf --framework svelte --format json` gives exactly that one finding, with `block` and `framework` set to `svelte`, and `--framework react` on the same file exits 0; `mf-lint Card.ucf --format json` gives the `no-debugger` finding with `block: 'vue'`.
 3. A real VS Code with the packed `.vsix` installed opens the same file and shows the same two findings at the same ranges.
 4. Format Document in that VS Code gives byte for byte what `mf-fmt` writes on a second copy.
 5. In that VS Code, completion after `<input bi` in the `<svelte>` markup lists `bind:value`, and after `<Icon ` (the test adds the `Icon.ucf` of 7.5 next to the copy and imports it) lists `name` and `size`.
@@ -212,7 +292,8 @@ Risks:
 - **oxfmt and oxlint are young.** oxfmt is 0.x and oxlint's JSON shape is not a promised contract. Both are exact-pinned in the repo, and the parity tests (7.6, 7.8, 7.11) fail on any change in a bump. Users bring their own versions through the peer ranges.
 - **Svelte formatting depends on install layout.** oxfmt loads `svelte/compiler` from its own location. With pnpm's strict layout this works only when `svelte` is installed so pnpm links it as oxfmt's peer. 7.7 warns and skips instead of failing.
 - **Linting a block alone.** Block files sit in a temp folder, so rules that follow imports (`import/no-cycle`) do not see across files, and type-aware linting (`--type-aware`, tsgolint) is not supported. Upstream support (7.9) would fix both.
-- **`runTsc` patches TypeScript's JS.** Same approach as `vue-tsc`, through `@volar/typescript`. The native TypeScript port (TypeScript 7) has no such JS to patch. `vue-tsc` faces the same problem; we follow Volar's answer when it comes.
+- **`mf-tsc` builds on TypeScript's JS API.** It creates its program through Volar's `proxyCreateProgram`, the proxy `vue-tsc` gets through `runTsc`. The native TypeScript port (TypeScript 7) has no such API to proxy. `vue-tsc` faces the same problem; we follow Volar's answer when it comes.
+- **One file still parses the whole project.** A one-file `mf-tsc` check costs program creation (every file parsed and bound) plus that file's check. Build info (7.12) does not remove the parsing; a long-lived process would, and is out of scope.
 - **`svelte2tsx` output shape.** Prop completions (7.5) map into the props object `svelte2tsx` generates. Its shape can change between versions; it is pinned, and the 7.5 test catches a change.
 - **Packaging.** `vsce` and pnpm workspaces clash on dependencies, hence `--no-dependencies` and a full bundle. The TypeScript plugin folder under the extension's `node_modules` must survive packing; the 7.13 test checks the unzipped file. Real VS Code tests need a display (M2's harness starts Xvfb) and a pinned VS Code download, cached in CI.
 - **Store accounts.** Marketplace tokens expire (Azure DevOps PATs); Open VSX needs the namespace claimed and the Eclipse publisher agreement signed. A maintainer does this once by hand.
@@ -233,6 +314,7 @@ Open questions:
 - Range formatting and format on type.
 - Formatting `<style lang="stylus">` or any language oxfmt does not format (stays as written).
 - `mf-tsc` emitting files. Declarations come from the library build (M6).
+- `mf-tsc --watch`, or any long-lived check process.
 - oxlint and oxfmt configs written in JS or TS (`oxfmt.config.ts`). Only JSON / JSONC configs are read.
 - Type-aware lint rules.
 - Packaging for other editors (WebStorm, Neovim). They can load the server and the TypeScript plugin from the npm package.
