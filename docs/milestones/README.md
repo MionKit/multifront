@@ -12,6 +12,7 @@ What we build: [../spec.md](../spec.md). How the pieces fit: [../architecture.md
 | 4. Vue target | [m4-vue-target.md](m4-vue-target.md) |
 | 5. Svelte target | [m5-svelte-target.md](m5-svelte-target.md) |
 | 6. Library build | [m6-library-build.md](m6-library-build.md) |
+| 6.1 Fixes and groundwork before full editor support | [m6.1-before-full-editor.md](m6.1-before-full-editor.md) |
 | 7. Full editor support | [m7-full-editor-support.md](m7-full-editor-support.md) |
 
 ## Testing rules
