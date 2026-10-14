@@ -6,11 +6,12 @@ import {dirname, isAbsolute, join, posix} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import MagicString from 'magic-string';
 import {buildTarget, createBuildContext, loadSvelteCompiler, loadVueCompiler, splitBlocks} from '@multifront/core';
-import type {Target, VueCompiler} from '@multifront/core';
+import type {Finding, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {Lang, LibraryTypesJob} from '../types.ts';
 import {rewriteScript, rewriteSpecifiers, ucfRenamer} from './specifiers.ts';
+import {LibraryError, libraryError} from './errors.ts';
 import {clashMessage, fileKey, filesIn, shownFile} from './names.ts';
 import {shippedSource, svelteShipped} from './source.ts';
 
@@ -176,27 +177,39 @@ function runTool(bin: string, stage: string, args: string[] = []): Promise<{code
   });
 }
 
+// `file(line,col): error TS2322: message`, file and position each optional.
+const TSC_LINE = /^(?:(.+?)(?:\((\d+),(\d+)\))?: )?(error|warning) (TS\d+): (.*)$/;
+
 /** Staged paths become source paths; a position in a generated `.ucf` script is not one in the `.ucf` file. */
-function compileError(target: Target, output: string, shown: Map<string, string>): Error {
-  const lines = output
-    .trim()
-    .split('\n')
+function compileError(job: LibraryTypesJob, output: string, shown: Map<string, string>): LibraryError {
+  const lines: string[] = [];
+  const findings: Finding[] = [];
+  for (const line of output.trim().split(/\r?\n/)) {
     // The listing run's file list: only its diagnostics count.
-    .filter((line) => !isAbsolute(line.trim()))
-    .map((line) => {
-      const match = /^(.+?)\((\d+),(\d+)\): /.exec(line);
-      const source = match && shown.get(normalizePath(match[1]!));
-      if (!match || !source) return line;
-      const position = source.endsWith('.ucf') ? '' : `(${match[2]},${match[3]})`;
-      return `${source}${position}: ${line.slice(match[0].length)}`;
-    });
-  return new Error(`buildLibrary: the ${target} types do not compile:\n${lines.join('\n')}`);
+    if (isAbsolute(line.trim())) continue;
+    const match = TSC_LINE.exec(line);
+    if (!match) {
+      lines.push(line);
+      // An indented line goes on with the message above it.
+      const last = findings.at(-1);
+      if (last) last.message += ` ${line.trim()}`;
+      continue;
+    }
+    const [, staged, row, column, severity, code, message] = match;
+    const source = staged === undefined ? undefined : shown.get(normalizePath(staged));
+    const position = source === undefined || source.endsWith('.ucf') ? undefined : {line: Number(row), column: Number(column)};
+    const head = source === undefined ? line : `${source}${position ? `(${row},${column})` : ''}: `;
+    lines.push(source === undefined ? line : head + line.slice(line.indexOf(`${severity} ${code}: `)));
+    const file = source && `${job.root}/${source}`;
+    findings.push({...(file && {file}), ...position, code: code!, severity: severity as Finding['severity'], message: message!});
+  }
+  return new LibraryError(`buildLibrary: the ${job.target} types do not compile:\n${lines.join('\n')}`, findings);
 }
 
 /** Every staged file the program reaches: tsc emits nothing for one under `node_modules` unless it is a root. */
-async function reachedRoots(bin: string, stage: string, target: Target, shown: Map<string, string>): Promise<string[]> {
+async function reachedRoots(bin: string, stage: string, job: LibraryTypesJob, shown: Map<string, string>): Promise<string[]> {
   const {code, output} = await runTool(bin, stage, ['--listFilesOnly']);
-  if (code !== 0) throw compileError(target, output, shown);
+  if (code !== 0) throw compileError(job, output, shown);
   // tsc prints the real path, past any symlink in the library root.
   const stageDir = normalizePath(await realpath(stage));
   return output
@@ -223,9 +236,9 @@ async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[
   return withStage(job, async (stage) => {
     const {shown, roots, components} = await stageSources(job, tool, stage);
     await writeTsconfig(job, tool, stage, roots);
-    await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job.target, shown));
+    await writeTsconfig(job, tool, stage, await reachedRoots(bin, stage, job, shown));
     const {code, output} = await runTool(bin, stage);
-    if (code !== 0) throw compileError(job.target, output, shown);
+    if (code !== 0) throw compileError(job, output, shown);
     return components;
   });
 }
@@ -314,7 +327,8 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
       const module = [copy, `${file}.js`].map((path) => staged.get(fileKey(path))).find((path) => path !== undefined);
       if (module !== undefined) {
         const declaration = `${module.slice(0, -'.ts'.length)}.d.ts`;
-        throw new Error(clashMessage(shown.get(file)!, `${file}.d.ts`, shown.get(module)!, declaration));
+        const message = clashMessage(shown.get(file)!, `${file}.d.ts`, shown.get(module)!, declaration);
+        throw libraryError('name-clash', `${job.root}/${shown.get(file)!}`, message);
       }
       const script = svelte2tsx.svelte2tsx(code, {
         filename,
@@ -328,7 +342,7 @@ export async function emitSvelteTypes(job: LibraryTypesJob): Promise<void> {
     }
     await writeTsconfig(job, tool, stage, [...roots.map((root) => copies.get(root) ?? root), shims]);
     const scripts = new Map([...copies].map(([file, copy]) => [copy, file]));
-    const reached = (await reachedRoots(bin, stage, job.target, shown)).map((file) => scripts.get(file) ?? file);
+    const reached = (await reachedRoots(bin, stage, job, shown)).map((file) => scripts.get(file) ?? file);
     for (const copy of copies.values()) await rm(join(stage, copy));
     await writeTsconfig(job, tool, stage, reached);
     await svelte2tsx.emitDts({

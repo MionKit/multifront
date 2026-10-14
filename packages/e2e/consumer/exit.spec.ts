@@ -75,7 +75,7 @@ beforeAll(() => {
   setup = (async () => {
     root = await copyLibrary();
     built = await runMfBuild(root);
-    if (built.code !== 0) throw new Error(`mf-build failed:\n${built.stderr}`);
+    if (built.code !== 0) throw new Error(`mf-build failed:\n${built.stdout}${built.stderr}`);
     tarballs = await packLibrary(join(root, 'dist'));
     // One failed install must not leave the others landing after afterAll has run.
     const installs = await Promise.allSettled(
@@ -100,9 +100,9 @@ afterAll(async () => {
 describe('M6 exit: mf-build, packed, in four fresh apps', () => {
   it('builds every framework with the real mf-build bin', () => {
     expect(built!.stderr).toBe('');
-    expect(built!.stdout).toMatch(/^react: \d+ files in dist\/react \(@mf-fixture\/ui-react\)/m);
-    expect(built!.stdout).toMatch(/^vue: \d+ files in dist\/vue \(@mf-fixture\/ui-vue\)/m);
-    expect(built!.stdout).toMatch(/^svelte: \d+ files in dist\/svelte \(@mf-fixture\/ui-svelte\)/m);
+    expect(built!.stdout).toMatch(
+      /^mf-build: built 3 packages in dist: vue \d+ files, react \d+ files \(skipped VueOnly\.ucf\), svelte \d+ files \(skipped Badge\.ucf, VueOnly\.ucf\)\n$/
+    );
   });
 
   it.each(['react', 'vue', 'svelte'] as const)('packs %s into a tarball that passes publint and attw', async (target) => {

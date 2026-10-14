@@ -21,7 +21,7 @@ import {createUcfCache} from './cache.ts';
 import {ucfHotUpdate} from './hmr.ts';
 import {JS_LIKE, TARGET_SUFFIX, VUE_INCLUDE, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin, importersPlugin} from './attributes.ts';
-import {describeDiagnostic, importErrorMessage, rollupError} from './diagnostics.ts';
+import {describeDiagnostic, findingError, importErrorMessage, importFinding, rollupError} from './diagnostics.ts';
 import type {MultifrontOptions, UcfEntry, UcfModuleMeta} from './types.ts';
 import {getVueCompiler, hasVuePlugin, vuePluginApi} from './vueCompiler.ts';
 import {SVELTE_PLUGIN_MISSING, composeSveltePlugin, hasSveltePlugin, svelteCompiledPlugin} from './svelteTarget.ts';
@@ -49,7 +49,7 @@ function built(context: Rolldown.PluginContext, {split, ctx}: UcfEntry, target: 
     const {code, map} = buildTarget(split, ctx, target);
     return {code, map};
   } catch (err) {
-    if (err instanceof DiagnosticsError) context.error(rollupError(err.diagnostics));
+    if (err instanceof DiagnosticsError) context.error(rollupError(err.diagnostics, split));
     throw err;
   }
 }
@@ -155,12 +155,16 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         // The scan skips what it cannot follow; the real pipeline reports it.
         const unscanned = 'error' in choice || choice.target === 'svelte' || (choice.target === 'vue' && !vuePlugin);
         if (scan && unscanned) return {id: file, external: true};
-        if ('error' in choice) this.error(importErrorMessage(path, from?.fileName, describeDiagnostic(choice.error)));
+        if ('error' in choice) {
+          const message = importErrorMessage(path, from?.fileName, describeDiagnostic(choice.error));
+          this.error(findingError(message, importFinding(from, choice.error.code, `${path}: ${choice.error.message}`)));
+        }
         const {target} = choice;
         if (!(await cache.splitUcf(file)).targets[target]) {
           if (scan) return {id: file, external: true};
           const message = from ? missingTargetBlockMessage(from.fileName, file, target) : `${file} has no <${target}> block`;
-          this.error(describeDiagnostic({code: 'missing-target-block', message}));
+          const error = {code: 'missing-target-block', message} as const;
+          this.error(findingError(describeDiagnostic(error), importFinding(from, error.code, message)));
         }
         if (target === 'vue' && !vuePlugin) this.error(importErrorMessage(path, from?.fileName, VUE_PLUGIN_MISSING));
         if (target === 'svelte' && !hasSveltePlugin(config!.plugins)) {
@@ -197,7 +201,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
           if (!style || !block) return undefined;
           if (query.has('module')) return `export default ${JSON.stringify(style.classes ?? {})};`;
           const errors = [...getBlockKind('style').check(block, split), ...style.errors];
-          if (errors.length > 0) this.error(rollupError(errors));
+          if (errors.length > 0) this.error(rollupError(errors, split));
           return {code: style.code, map: style.map};
         }
         const own =

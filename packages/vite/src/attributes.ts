@@ -14,13 +14,13 @@ type Rewrite = ReturnType<typeof rewriteImportAttributes>;
 function importError(result: Rewrite, importer: Importer, options: MultifrontOptions) {
   // No readable framework there; its target rules would only add a second error.
   const [error] = result.errors;
-  if (error) return {offset: error.start, message: describeDiagnostic(error)};
+  if (error) return {offset: error.start, code: error.code, message: describeDiagnostic(error), short: error.message};
   // Rolldown gives `resolveId` no position; here the error can point at the import.
   for (const entry of result.imports) {
     const choice = resolveTarget(importer, entry.framework, options);
     if ('error' in choice) {
       const message = importErrorMessage(entry.specifier, importer.fileName, describeDiagnostic(choice.error));
-      return {offset: entry.start, message};
+      return {offset: entry.start, code: choice.error.code, message, short: `${entry.specifier}: ${choice.error.message}`};
     }
   }
   return undefined;
@@ -29,14 +29,16 @@ function importError(result: Rewrite, importer: Importer, options: MultifrontOpt
 type ImportError = NonNullable<ReturnType<typeof importError>>;
 
 /** Spec 4.4: points the error into the importer's own source. */
-function failAtImport(context: Rolldown.TransformPluginContext, code: string, id: string, {offset, message}: ImportError): never {
+function failAtImport(context: Rolldown.TransformPluginContext, code: string, id: string, error: ImportError): never {
+  const {offset, message} = error;
   // Vite's dev server maps positions back itself; a `loc` would get mapped twice.
   if (context.environment.mode === 'dev') return context.error(message, offset);
   const at = locate(code, offset);
   const original = originalPositionFor(new TraceMap(context.getCombinedSourcemap() as SourceMapInput), at);
   const loc =
     original.line === null ? {file: id, ...at} : {file: original.source ?? id, line: original.line, column: original.column};
-  return context.error({message, loc});
+  // `mf-build` prints `short`: the code and importer are fields of its findings.
+  return context.error({message, loc, pluginCode: error.code, meta: {message: error.short}});
 }
 
 interface RawScript {

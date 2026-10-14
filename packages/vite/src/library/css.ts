@@ -3,6 +3,7 @@ import MagicString from 'magic-string';
 import {isCSSRequest} from 'vite';
 import type {Plugin, Rolldown} from 'vite';
 import {splitId} from '../ids.ts';
+import {libraryRollupError} from './errors.ts';
 import {fileKey, fileOf, outputName, shownFile} from './names.ts';
 
 const STYLES = 'styles.css';
@@ -43,7 +44,8 @@ export function libraryCss(root: string, src: string): Plugin {
         const name = cssName(file, src);
         if (fileKey(name) === fileKey(STYLES)) {
           const seen = name === STYLES ? '' : `, which macOS and Windows see as ${STYLES}`;
-          this.error(`buildLibrary: ${shown(file)} would be written as ${name}${seen}, the name of the combined CSS file`);
+          const message = `${shown(file)} would be written as ${name}${seen}, the name of the combined CSS file`;
+          this.error(libraryRollupError('name-clash', file, message));
         }
         styled.add(file);
       }
@@ -56,7 +58,8 @@ export function libraryCss(root: string, src: string): Plugin {
         if (!isStyleId(facade)) {
           const importer = this.getModuleInfo(facade)?.importers[0];
           const by = importer === undefined ? '' : ` is imported by ${shown(fileOf(importer))}`;
-          this.error(`buildLibrary: ${shown(fileOf(facade))}${by}: a library package ships CSS from .ucf <style> blocks only`);
+          const message = `${shown(fileOf(facade))}${by}: a library package ships CSS from .ucf <style> blocks only`;
+          this.error(libraryRollupError('css-outside-style', fileOf(facade), message));
         }
         const index = Number(splitId(facade).query.get('index') ?? 0);
         for (const name of css) blocks.set(name, {file: fileOf(facade), index});

@@ -16,6 +16,7 @@ import type {Preprocessor, PreprocessorGroup} from 'svelte/compiler';
 import {parseAst, transformWithOxc} from 'vite';
 import type {Plugin} from 'vite';
 import type {LibraryComponent, LibraryPackageJob, LibraryTarget, LibraryTypesJob} from '../types.ts';
+import {libraryRollupError} from './errors.ts';
 import {clashMessage, fileKey, fileOf, isPeer, outputName, shownFile} from './names.ts';
 import {rewriteScript, rewriteSpecifiers} from './specifiers.ts';
 
@@ -153,10 +154,10 @@ export function librarySource(job: LibrarySourceJob): Plugin {
       const checkImports = (file: string, code: string, svelte: boolean, where = '') => {
         for (const specifier of bareImports(code, file, svelte, compiler)) {
           if (isPeer(peers, specifier)) continue;
-          this.error(
-            `buildLibrary: ${shownFile(root, file)} imports "${specifier}"${where}: ` +
-              `a shipped ${target} file can import relative files and peers only`
-          );
+          const message =
+            `${shownFile(root, file)} imports "${specifier}"${where}: ` +
+            `a shipped ${target} file can import relative files and peers only`;
+          this.error(libraryRollupError('svelte-import', file, message));
         }
       };
       const preprocess = await sveltePreprocess(root);
@@ -175,7 +176,8 @@ export function librarySource(job: LibrarySourceJob): Plugin {
         const fileName = component ? outputName(file, src) : `${outputName(file, src)}.js`;
         const owner = written.get(fileKey(fileName));
         if (owner !== undefined) {
-          this.error(clashMessage(shownFile(root, owner.file), owner.fileName, shownFile(root, file), fileName));
+          const message = clashMessage(shownFile(root, owner.file), owner.fileName, shownFile(root, file), fileName);
+          this.error(libraryRollupError('name-clash', owner.file, message));
         }
         const code = component ? await shippedSvelte(file, compiler, preprocess) : await shippedModule(file);
         checkImports(file, code, component);
@@ -185,7 +187,10 @@ export function librarySource(job: LibrarySourceJob): Plugin {
       const taken = Object.keys(bundle).find((fileName) => fileKey(fileName) === fileKey(LIBRARY_SCOPE_HELPER));
       if (taken !== undefined) {
         const seen = taken === LIBRARY_SCOPE_HELPER ? '' : `, which macOS and Windows see as ${LIBRARY_SCOPE_HELPER},`;
-        this.error(`buildLibrary: ${taken}${seen} is the name of the shipped scope helper; rename that file in src`);
+        const message = `${taken}${seen} is the name of the shipped scope helper; rename that file in src`;
+        const output = bundle[taken]!;
+        const facade = output.type === 'chunk' ? output.facadeModuleId : null;
+        this.error(libraryRollupError('name-clash', facade ? fileOf(facade) : `${src}/${taken}`, message));
       }
       this.emitFile({type: 'asset', fileName: LIBRARY_SCOPE_HELPER, source: scopeHelperCode(false)});
     },
