@@ -180,8 +180,29 @@ function onlyFile(map: Pick<SourceMap, 'file' | 'sources' | 'names' | 'mappings'
   };
 }
 
+// The package compiler-sfc loads for each preprocessor lang.
+const PREPROCESSOR_PACKAGES: Record<(typeof PREPROCESS_LANGS)[number], string> = {
+  scss: 'sass',
+  sass: 'sass',
+  less: 'less',
+  styl: 'stylus',
+  stylus: 'stylus',
+};
+
+function missingPreprocessor(err: Error, block: Block): string | undefined {
+  const lang = PREPROCESS_LANGS.find((candidate) => candidate === block.attrs.lang);
+  const name = lang && PREPROCESSOR_PACKAGES[lang];
+  const missing = (err as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND';
+  return name && missing && err.message.startsWith(`Cannot find module '${name}'`) ? name : undefined;
+}
+
 function compileError(err: Error, block: Block, {filename, source}: CompileStylesOptions): Diagnostic {
   const tag = typeof block.attrs.lang === 'string' ? `<style lang="${block.attrs.lang}">` : '<style>';
+  const preprocessor = missingPreprocessor(err, block);
+  if (preprocessor) {
+    const message = `${tag} needs ${preprocessor}; install it`;
+    return createDiagnostic({filename, source}, 'missing-preprocessor', block.start, block.contentStart, message);
+  }
   const report = (start: number, end: number, reason: string) =>
     createDiagnostic({filename, source}, 'style-compile-error', start, end, `${tag} does not compile: ${reason}`);
   const {span, sassMessage} = err as Partial<SassError>;

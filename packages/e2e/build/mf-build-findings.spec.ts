@@ -196,4 +196,27 @@ describe('mf-build when a style preprocessor is not installed (spec 8.1: a missi
       expect(run.stderr).toMatch(/^mf-build: .*less.*\n$/);
     });
   });
+
+  const everyFramework = `<vue>
+  <template><div class="a">x</div></template>
+</vue>
+
+<svelte>
+  <div class="a">x</div>
+</svelte>
+
+${lessy}`;
+
+  it.each(['react', 'vue', 'svelte'] as const)('names the file and the package to install in the %s build', async (framework) => {
+    await withEditedLibrary([{file: 'src/Lessy.ucf', content: everyFramework}], async (root) => {
+      for (const format of ['text', 'json']) {
+        const run = await runMfBuild(root, ['--framework', framework, '--no-dts', '--format', format]);
+        expect(run).toEqual({
+          code: 2,
+          stdout: '',
+          stderr: 'mf-build: buildLibrary: src/Lessy.ucf: <style lang="less"> needs less; install it\n',
+        });
+      }
+    });
+  });
 });
