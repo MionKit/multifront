@@ -311,6 +311,22 @@ describe('buildLibrary() errors', () => {
     });
   });
 
+  it('fails on two modules whose file names differ only by Unicode normalization', async () => {
+    const [composed, decomposed] = ['Café', 'Café'];
+    const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
+    const edits = [
+      {file: `src/${composed}.ucf`, content: readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8')},
+      {file: `src/${decomposed}.ts`, content: "export const tone = 'info';\n"},
+      {file: 'src/index.ts', content: `${index}export {tone} from './${decomposed}.js';\n`},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      await expect(buildFixtureLibrary(root)).rejects.toThrow(
+        `buildLibrary: src/${decomposed}.ts and src/${composed}.ucf would be written as ${decomposed}.js and ` +
+          `${composed}.js, which macOS sees as one file`
+      );
+    });
+  });
+
   it('fails on an index that does not exist', async () => {
     await withEditedLibrary([], async (root) => {
       await expect(buildFixtureLibrary(root, {index: 'src/missing.ts'})).rejects.toThrow(
