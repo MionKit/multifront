@@ -129,17 +129,17 @@ function writtenModules(src: string, modules: Set<string>): Plugin {
 async function buildOne(job: TargetJob, options: LibraryOptions): Promise<LibraryResult> {
   const {target, row, root, src, outDir, entries} = job;
   const modules = new Set<string>();
-  const owners = new Map<string, {id: string; name: string}>();
+  const owners = new Map<string, string>();
   // Rolldown would silently rename a second module of the same name, in any case, to `Card2.js`.
   const fileName = (chunk: Rolldown.PreRenderedChunk) => {
     const id = chunk.facadeModuleId ?? chunk.moduleIds[0]!;
     const name = `${outputName(id, src)}.js`;
-    const owner = owners.get(fileKey(name)) ?? {id, name};
+    const owner = owners.get(fileKey(name)) ?? id;
     owners.set(fileKey(name), owner);
-    if (owner.id !== id) {
+    if (owner !== id) {
       // Sorted: Rolldown's naming order is not the source order.
-      const [first, second] = [owner, {id, name}]
-        .map((other) => ({...other, shown: shownFile(root, fileOf(other.id))}))
+      const [first, second] = [owner, id]
+        .map((other) => ({name: `${outputName(other, src)}.js`, shown: shownFile(root, fileOf(other))}))
         .sort((one, other) => (one.shown < other.shown ? -1 : 1));
       throw new Error(clashMessage(first!.shown, first!.name, second!.shown, second!.name));
     }
