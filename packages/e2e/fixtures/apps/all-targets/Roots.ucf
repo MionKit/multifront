@@ -4,6 +4,7 @@
     import EmptyPropsRoot from '../../components/svelte/roots/EmptyPropsRoot.ucf'
     import EmptyScriptRoot from '../../components/svelte/roots/EmptyScriptRoot.ucf'
     import EscapedRoot from '../../components/svelte/roots/EscapedRoot.ucf'
+    import HelperClashRoot from '../../components/svelte/roots/HelperClashRoot.ucf'
     import IfElseRoot from '../../components/svelte/roots/IfElseRoot.ucf'
     import LegacyRoot from '../../components/svelte/roots/LegacyRoot.ucf'
     import LegacyStoreRoot from '../../components/svelte/roots/LegacyStoreRoot.ucf'
@@ -40,6 +41,7 @@
     <div data-case="PropsOnlyRoot:only"><PropsOnlyRoot label="props" /></div>
     <div data-case="ShadowRoot:only"><ShadowRoot /></div>
     <div data-case="StoreDerivedRoot:only"><StoreDerivedRoot /></div>
+    <div data-case="HelperClashRoot:only"><HelperClashRoot /></div>
     <div data-case="TextRoot:only"><TextRoot /></div>
     <div data-case="EachRoot:only"><EachRoot /></div>
     <div data-case="MultiRoot:only"><MultiRoot /></div>

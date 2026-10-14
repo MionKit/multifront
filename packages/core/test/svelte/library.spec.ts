@@ -66,7 +66,7 @@ describe.each(FIXTURES)('library mode: $filename', ({filename, library}) => {
     const depth = relative(library.src, filename).split(sep).length - 1;
     const helper = `${depth === 0 ? './' : '../'.repeat(depth)}_ucf/scopeAttrs.js`;
     expect(found.filter((specifier) => specifier.endsWith('scopeAttrs.js'))).toEqual(
-      file.code.includes('__ucfScopeAttrs(') ? [helper] : []
+      /__ucfScopeAttrs\d*\(/.test(file.code) ? [helper] : []
     );
     // One inlined map per class map the app build imports.
     const inlined = [...file.code.matchAll(/^const __ucf\w+ = (\{.*\});$/gm)].map(([, json]) => JSON.parse(json!) as unknown);

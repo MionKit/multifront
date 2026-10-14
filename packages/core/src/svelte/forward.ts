@@ -129,7 +129,15 @@ type Problem = [problem: string, fix?: string];
 
 const LEGACY: Problem = ['is a legacy-mode Svelte component', 'Use $props() to make it a runes-mode component.'];
 
-/** Spreads the parent's `data-v-*` props on every root, else warns in dev; `lines` end the instance script. */
+/** A helper's local, never a name the block uses; `imports` gets its import specifier. */
+export function helperLocal(name: string, used: Set<string>, imports: string[]): string {
+  const local = freshName(used, name);
+  used.add(local);
+  imports.push(local === name ? name : `${name} as ${local}`);
+  return local;
+}
+
+/** Spreads the parent's `data-v-*` props on every root, else warns in dev; `helpers`: import specifiers, `lines` end the instance script. */
 export function forwardScope(
   text: MagicString,
   root: AST.Root,
@@ -141,6 +149,7 @@ export function forwardScope(
   const found: Roots = {elements: [], many: false, each: false};
   branchRoots(root.fragment.nodes as unknown as SvelteNode[], found);
   const lines: string[] = [];
+  const helpers: string[] = [];
   // An undecided block compiles either way: `$props()` would make it runes, `$$props` would break it as runes.
   if ((found.elements.length === 0 && !found.each) || mode === 'undecided') return {helpers: [], lines};
   if (mode === 'runes' && !found.many && !found.each) {
@@ -152,24 +161,26 @@ export function forwardScope(
       lines.push(`const ${alias} = $derived(${props});`);
       props = alias;
     }
+    const scopeAttrs = helperLocal(SCOPE_ATTRS, used, helpers);
     for (const {node} of found.elements) {
       // Same offset as the stamp, so the spread lands after it.
       const nameEnd = block.contentStart + node.start + 1 + (node.name as string).length;
-      text.appendLeft(nameEnd, ` {...${SCOPE_ATTRS}(${props})}`);
+      text.appendLeft(nameEnd, ` {...${scopeAttrs}(${props})}`);
       escapeOnce(text, node, block);
     }
-    return {helpers: [SCOPE_ATTRS], lines};
+    return {helpers, lines};
   }
-  if (ctx.production) return {helpers: [], lines};
+  if (ctx.production) return {helpers, lines};
   const name = JSON.stringify(basename(ctx.filename, '.ucf'));
   const problem: Problem =
     mode === 'legacy' ? LEGACY : found.each ? ['renders an {#each} block as its root'] : ['renders more than one root'];
   const args = problem.map((part) => JSON.stringify(part)).join(', ');
-  if (mode === 'legacy') lines.push(`;${WARN_FRAGMENT}($$props, ${name}, ${args});`);
+  const warn = helperLocal(WARN_FRAGMENT, used, helpers);
+  if (mode === 'legacy') lines.push(`;${warn}($$props, ${name}, ${args});`);
   else {
     const props = propsName(text, root.instance, block, used, lines);
     // Called at top level, Svelte warns that the read captures only the initial props.
-    lines.push(`;(() => ${WARN_FRAGMENT}(${props}, ${name}, ${args}))();`);
+    lines.push(`;(() => ${warn}(${props}, ${name}, ${args}))();`);
   }
-  return {helpers: [WARN_FRAGMENT], lines};
+  return {helpers, lines};
 }
