@@ -36,8 +36,8 @@ export function computed(locator: Locator, property: string): Promise<string> {
 
 const RENDERED_PROPERTIES = ['color', 'padding', 'text-decoration-line', 'font-size'];
 
-export function renderedStyles(page: Page) {
-  return page.locator('#app *').evaluateAll(
+export function renderedStyles(page: Page, selector = '#app *', properties = RENDERED_PROPERTIES) {
+  return page.locator(selector).evaluateAll(
     (elements, names) =>
       elements.map((element) => {
         const style = element.ownerDocument.defaultView!.getComputedStyle(element);
@@ -47,6 +47,6 @@ export function renderedStyles(page: Page) {
           styles: names.map((name) => style.getPropertyValue(name)),
         };
       }),
-    RENDERED_PROPERTIES
+    properties
   );
 }
