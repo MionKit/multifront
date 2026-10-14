@@ -167,6 +167,13 @@ Comes after every target exists, so the per-target table is designed once for Re
 - API: `buildLibrary(options)` and `defineLibrary(options)` from `@multifront/vite`. Command: `mf-build` (a bin of `@multifront/vite`) loads `multifront.config.ts` (or `.js`, `.mjs`, `export default defineLibrary({...})`) from the root through Vite's native config loader, merges `--root`, `--framework` (repeatable), `--out-dir` and `--no-dts` over it, calls `buildLibrary` and prints one line per framework (file count, out dir, package name, skipped files). Exit code 1 on any error.
 - Exit check: the packed packages work in a fresh Next.js App Router app, fresh Vite React and Vue apps, and a fresh SvelteKit app.
 
+### 6.1 Fixes and groundwork before full editor support
+
+- Tests give the same result from any folder. A library output name clash that differs only by case is a build error.
+- Svelte roots take `class` and `style` like React and Vue roots; every style feature checked in all three frameworks.
+- Command rules for coding agents (one-file checks, `--format json`, exit codes 0 / 1 / 2, `--help`): `mf-build`
+  follows them, and milestone 7 plans `mf-tsc`, `mf-lint` and `mf-fmt` with them.
+
 ### 7. Full editor support
 
 - `mf-tsc` over every target, Svelte markup completions.
