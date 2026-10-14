@@ -4,6 +4,7 @@ import {cp, mkdir, mkdtemp, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
+import type {Finding} from '@multifront/core';
 import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
@@ -105,6 +106,18 @@ export function specifiersOf(file: string, code: string): string[] {
 /** Every string-literal specifier of a declaration file: imports, re-exports and `import()` types. */
 export function typeSpecifiersOf(file: string, code: string): string[] {
   return literalSpecifiers(parseOutput(file, code).program);
+}
+
+interface Report {
+  findings: Finding[];
+  errorCount: number;
+  warningCount: number;
+  packages: {framework: string; name: string; outDir: string; files: number; skipped: string[]}[];
+}
+
+/** `mf-build --format json`'s one document. */
+export function report(stdout: string): Report {
+  return JSON.parse(stdout) as Report;
 }
 
 /** `source` with its one `from`, which must be there, replaced. */

@@ -2,21 +2,19 @@
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {checkBlocks, findingOf, splitBlocks} from '@multifront/core';
-import type {Finding} from '@multifront/core';
 import {describe, expect, it} from 'vitest';
 import {LIBRARY_DIR, readComponent} from '../fixtures/index.ts';
 import {locate} from '../editor/lib/tsserver.ts';
-import {runMfBuild, withEditedLibrary} from './lib/library.ts';
+import {edited, report, runMfBuild, withEditedLibrary} from './lib/library.ts';
 
-interface Report {
-  findings: Finding[];
-  errorCount: number;
-  warningCount: number;
-  packages: unknown[];
-}
-
-function report(stdout: string): Report {
-  return JSON.parse(stdout) as Report;
+/** Card.ucf with both script blocks typing their props from `specifier`, by `import type` only: no chunk for it. */
+function typedCard(specifier: string): string {
+  const typeImport = `  import type { CardTitle } from '${specifier}'\n`;
+  let card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+  card = edited(card, "  import Icon from './Icon.ucf'\n", `  import Icon from './Icon.ucf'\n${typeImport}`);
+  card = edited(card, 'defineProps<{ title: string }>()', 'defineProps<CardTitle>()');
+  card = edited(card, "  import type { ReactNode } from 'react'\n", `  import type { ReactNode } from 'react'\n${typeImport}`);
+  return edited(card, '{ title: string; children?: ReactNode }', 'CardTitle & { children?: ReactNode }');
 }
 
 describe('mf-build on a vue-only-style component (6.1.4 through 6.1.5)', () => {
@@ -64,26 +62,13 @@ describe('mf-build on a vue-only-style component (6.1.4 through 6.1.5)', () => {
 });
 
 describe('mf-build on a type-only module whose name differs only by case from a component (6.1.2 goal)', () => {
-  const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
-  const typed = card
-    .replace(
-      "  import Icon from './Icon.ucf'\n",
-      "  import Icon from './Icon.ucf'\n  import type { CardTitle } from './card.js'\n"
-    )
-    .replace('defineProps<{ title: string }>()', 'defineProps<CardTitle>()')
-    .replace(
-      "  import type { ReactNode } from 'react'\n",
-      "  import type { ReactNode } from 'react'\n  import type { CardTitle } from './card.js'\n"
-    )
-    .replace('{ title: string; children?: ReactNode }', 'CardTitle & { children?: ReactNode }');
   const edits = [
-    {file: 'src/Card.ucf', content: typed},
+    {file: 'src/Card.ucf', content: typedCard('./card.js')},
     // Reached by type-only imports: no chunk, only tsc's card.d.ts beside Card.d.ts.
     {file: 'src/card.ts', content: 'export interface CardTitle {\n  title: string;\n}\n'},
   ];
 
   it.each(['react', 'vue'] as const)('fails the %s build instead of shipping Card.d.ts and card.d.ts', async (framework) => {
-    expect(typed.match(/CardTitle/g)).toHaveLength(4);
     await withEditedLibrary(edits, async (root) => {
       const run = await runMfBuild(root, ['--framework', framework, '--format', 'json']);
       const shipped = existsSync(join(root, 'dist', framework)) ? readdirSync(join(root, 'dist', framework)) : [];
@@ -102,27 +87,14 @@ describe('mf-build on a type-only module whose name differs only by case from a 
 });
 
 describe("mf-build on a type-only module with a component's exact name (M6 6.1 build errors)", () => {
-  const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
-  const typed = card
-    .replace(
-      "  import Icon from './Icon.ucf'\n",
-      "  import Icon from './Icon.ucf'\n  import type { CardTitle } from './Card.js'\n"
-    )
-    .replace('defineProps<{ title: string }>()', 'defineProps<CardTitle>()')
-    .replace(
-      "  import type { ReactNode } from 'react'\n",
-      "  import type { ReactNode } from 'react'\n  import type { CardTitle } from './Card.js'\n"
-    )
-    .replace('{ title: string; children?: ReactNode }', 'CardTitle & { children?: ReactNode }');
   const edits = [
-    {file: 'src/Card.ucf', content: typed},
+    {file: 'src/Card.ucf', content: typedCard('./Card.js')},
     {file: 'src/Card.ts', content: 'export interface CardTitle {\n  title: string;\n}\n'},
   ];
 
   it.each(['react', 'vue'] as const)(
     'fails the %s build with a name-clash, not a lost or tsc-reported Card.d.ts',
     async (framework) => {
-      expect(typed.match(/CardTitle/g)).toHaveLength(4);
       await withEditedLibrary(edits, async (root) => {
         const run = await runMfBuild(root, ['--framework', framework, '--format', 'json']);
         expect(run.stderr).toBe('');
