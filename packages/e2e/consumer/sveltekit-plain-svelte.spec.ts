@@ -69,7 +69,7 @@ async function plainLibraryTarballs() {
     };
     for (const [file, content] of Object.entries(edits)) await writeFile(join(root, file), content);
     mfBuild = await runMfBuild(root, ['--framework', 'svelte']);
-    if (mfBuild.code !== 0) throw new Error(`mf-build failed:\n${mfBuild.stderr}`);
+    if (mfBuild.code !== 0) throw new Error(`mf-build failed:\n${mfBuild.stdout}${mfBuild.stderr}`);
     return {tarballs: await packLibrary(join(root, 'dist')), remove: () => removeLibrary(root)};
   } catch (err) {
     await removeLibrary(root);

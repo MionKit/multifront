@@ -8,6 +8,7 @@ import type {InlineConfig, Plugin, Rolldown} from 'vite';
 import {multifront} from '../plugin.ts';
 import type {LibraryComponent, LibraryOptions, LibraryPackageJob, LibraryResult, LibraryTarget} from '../types.ts';
 import {libraryCss} from './css.ts';
+import {frameworkError, libraryError, libraryRollupError} from './errors.ts';
 import {clashMessage, fileKey, fileOf, filesIn, insideDir, isPeer, outputName, shownFile} from './names.ts';
 import {writePackageJson} from './packageJson.ts';
 import {librarySource} from './source.ts';
@@ -92,10 +93,10 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
           return resolved;
         }
         const by = importer === undefined ? 'an entry' : shown(fileOf(importer));
-        this.error(
+        const message =
           `"${id}" is imported by ${by}, but it is not a peer dependency of ${packageName}: ` +
-            `a library package has peer dependencies only. Add it to packages.${target}.peers to keep it external.`
-        );
+          `a library package has peer dependencies only. Add it to packages.${target}.peers to keep it external.`;
+        this.error(libraryRollupError('not-a-peer', importer === undefined ? id : fileOf(importer), message));
       },
     },
     load: {
@@ -103,7 +104,8 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
       handler(id) {
         const file = fileOf(id);
         if (insideDir(src, file) === undefined) {
-          this.error(`${shown(file)} is outside ${shown(src)}: a library package ships only the files of its src folder`);
+          const message = `${shown(file)} is outside ${shown(src)}: a library package ships only the files of its src folder`;
+          this.error(libraryRollupError('outside-src', file, message));
         }
       },
     },
@@ -139,9 +141,9 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
     if (owner !== id) {
       // Sorted: Rolldown's naming order is not the source order.
       const [first, second] = [owner, id]
-        .map((other) => ({name: `${outputName(other, src)}.js`, shown: shownFile(root, fileOf(other))}))
+        .map((other) => ({name: `${outputName(other, src)}.js`, file: fileOf(other), shown: shownFile(root, fileOf(other))}))
         .sort((one, other) => (one.shown < other.shown ? -1 : 1));
-      throw new Error(clashMessage(first!.shown, first!.name, second!.shown, second!.name));
+      throw libraryError('name-clash', first!.file, clashMessage(first!.shown, first!.name, second!.shown, second!.name));
     }
     return name;
   };
@@ -229,7 +231,13 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   });
   return asProduction(async () => {
     const results: LibraryResult[] = [];
-    for (const job of jobs) results.push(await buildOne(job, options));
+    for (const job of jobs) {
+      try {
+        results.push(await buildOne(job, options));
+      } catch (err) {
+        throw frameworkError(err, job.target);
+      }
+    }
     return results;
   });
 }

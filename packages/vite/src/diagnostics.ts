@@ -1,4 +1,5 @@
-import type {Diagnostic} from '@multifront/core';
+import {findingOf} from '@multifront/core';
+import type {Diagnostic, DiagnosticCode, Finding, Importer, SplitResult} from '@multifront/core';
 import type {Rolldown} from 'vite';
 
 export function describeDiagnostic({message, code}: Pick<Diagnostic, 'message' | 'code'>): string {
@@ -10,8 +11,19 @@ export function importErrorMessage(specifier: string, importerFile: string | und
   return `${specifier} (imported by ${importerFile ?? 'a build entry'}): ${message}`;
 }
 
+/** For `this.error`: Rolldown keeps `meta`, where `mf-build` reads what to print. */
+export function findingError(message: string, finding: Finding): Rolldown.RollupError {
+  return {message, pluginCode: finding.code, meta: {findings: [finding]}};
+}
+
+/** An import's error, on its importer and the block that holds the import. */
+export function importFinding(importer: Importer | undefined, code: DiagnosticCode, message: string): Finding {
+  const block = importer?.block;
+  return {...(importer && {file: importer.fileName}), code, severity: 'error', message, ...(block && {block})};
+}
+
 /** For `this.error`. */
-export function rollupError(diagnostics: Diagnostic[]): Rolldown.RollupError {
+export function rollupError(diagnostics: Diagnostic[], split: Pick<SplitResult, 'source' | 'blocks'>): Rolldown.RollupError {
   const [first, ...rest] = diagnostics;
   if (!first) return {message: 'multifront: no diagnostics'};
   const more = rest.map(
@@ -21,5 +33,7 @@ export function rollupError(diagnostics: Diagnostic[]): Rolldown.RollupError {
     message: describeDiagnostic(first) + more.join(''),
     id: first.filename,
     loc: {file: first.filename, line: first.line, column: first.column},
+    pluginCode: first.code,
+    meta: {findings: diagnostics.map((diagnostic) => findingOf(diagnostic, split))},
   };
 }

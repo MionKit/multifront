@@ -24,11 +24,9 @@ export function fileKey(name: string): string {
 
 /** Two files of `src` given one output file, by name, case or Unicode normalization. */
 export function clashMessage(first: string, firstName: string, second: string, secondName: string): string {
-  if (firstName === secondName) return `buildLibrary: ${first} and ${second} would both be written as ${firstName}`;
+  if (firstName === secondName) return `${first} and ${second} would both be written as ${firstName}`;
   const systems = firstName.toLowerCase() === secondName.toLowerCase() ? 'macOS and Windows see' : 'macOS sees';
-  return (
-    `buildLibrary: ${first} and ${second} would be written as ${firstName} and ${secondName}, ` + `which ${systems} as one file`
-  );
+  return `${first} and ${second} would be written as ${firstName} and ${secondName}, which ${systems} as one file`;
 }
 
 /** `child` relative to `dir`, or undefined unless below it; both are Vite's posix ids. */
