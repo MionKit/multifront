@@ -16,7 +16,7 @@ export function findingError(message: string, finding: Finding): Rolldown.Rollup
   return {message, meta: {findings: [finding]}};
 }
 
-/** An error on one file, or on an import: on its importer and the block that holds the import. */
+/** An error on a file, or on an import: on its importer and the block holding the import. */
 export function importFinding(importer: Importer | undefined, code: DiagnosticCode, message: string): Finding {
   const block = importer?.block;
   return {...(importer && {file: importer.fileName}), code, severity: 'error', message, ...(block && {block})};

@@ -1,7 +1,4 @@
-/**
- * The rules every multifront command follows: a readable default or `--format json`, the `Finding` shape, exit codes
- * 0 (clean), 1 (findings) and 2 (the command could not run), `--help`, and an unknown option naming the real ones.
- */
+/** Shared by every multifront command: text or `--format json`, `Finding`s, exit codes 0/1/2, `--help`, option errors. */
 import {parseArgs} from 'node:util';
 import type {ParseArgsOptionsConfig} from 'node:util';
 import {locate, orList} from './diagnostics.ts';
@@ -92,7 +89,6 @@ function findingLine({file, line, column, severity, code, framework, message}: F
   return `${where}${severity} ${code}${framework ? ` (${framework})` : ''}: ${message}`;
 }
 
-/** Parses `args`, runs the command and prints its findings; resolves with the exit code. */
 export async function runCommand(
   spec: CommandSpec,
   args: string[],
