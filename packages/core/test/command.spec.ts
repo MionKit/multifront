@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {checkBlocks, findingOf, splitBlocks} from '@multifront/core';
-// A relative path, not a package dependency: @multifront/e2e depends on core.
+// Relative path, not a dependency: @multifront/e2e depends on core.
 import {listComponents, readComponent} from '../../e2e/fixtures/index.ts';
 // tsserver's 1-based lines and offsets, worked out from the text alone.
 import {offsetAt} from '../../e2e/editor/lib/tsserver.ts';

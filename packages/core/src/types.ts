@@ -85,7 +85,7 @@ export type DiagnosticCode =
   | LibraryErrorCode
   | TargetErrorCode;
 
-/** The errors of a library build's layout: names, imports and files a package cannot ship. */
+/** Library build errors: names, imports and files a package cannot ship. */
 export type LibraryErrorCode = 'name-clash' | 'not-a-peer' | 'outside-src' | 'css-outside-style' | 'svelte-import';
 
 /** The errors `resolveTarget` can return. */
@@ -102,7 +102,7 @@ export interface Diagnostic {
   column: number; // 0-based column of start (the Rollup / Vite `loc` convention)
 }
 
-/** One problem as a command reports it; line and column 1-based, always in the file the user wrote. */
+/** A command's reported problem; line and column 1-based, always in the file the user wrote. */
 export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
   file?: string; // absolute; printers show it relative to the cwd
   line?: number;
@@ -113,13 +113,13 @@ export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
   framework?: Target; // the framework build or check that reported it
 }
 
-/** One option of a command; `value` names a string option's argument in the help: `<folder>`. */
+/** `value` names a string option's argument in the help: `<folder>`. */
 export interface CommandOption extends Pick<ParseArgsOptionDescriptor, 'type' | 'multiple'> {
   value?: string;
   description: string;
 }
 
-/** A command's name, help lines and options; `runCommand` adds `--format` and `--help`. */
+/** `runCommand` adds `--format` and `--help` to `options`. */
 export interface CommandSpec {
   name: string;
   summary: string[];
@@ -129,7 +129,7 @@ export interface CommandSpec {
 
 export type CommandValues = Record<string, string | boolean | (string | boolean)[] | undefined>;
 
-/** What a command's run found; `data` joins the JSON document. */
+/** `data` joins the JSON document. */
 export interface CommandResult {
   findings: Finding[];
   summary: string;

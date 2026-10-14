@@ -66,7 +66,7 @@ async function build(values: CommandValues): Promise<CommandResult> {
   if (values.framework) options.frameworks = values.framework as Target[];
   if (values['out-dir'] !== undefined) options.outDir = values['out-dir'] as string;
   if (values['no-dts']) options.dts = false;
-  // Only Vite's `✗ Build failed` line goes, the findings say what failed; its other logs stay on stderr.
+  // Drops only Vite's `✗ Build failed` line: the findings say what failed.
   const logger = config.vite?.customLogger ?? createLogger(config.vite?.logLevel ?? 'warn');
   const error: typeof logger.error = (message, logOptions) => {
     if (!message.includes('Build failed in')) logger.error(message, logOptions);

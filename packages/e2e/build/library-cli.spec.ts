@@ -56,7 +56,7 @@ function cardImporting(line: string): string {
   return edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  ${line}\n`);
 }
 
-// 1-based line and column of `search` in `text`.
+// 1-based line and column.
 function positionOf(text: string, search: string): {line: number; column: number} {
   const {line, offset} = locate(text, search);
   return {line, column: offset};
