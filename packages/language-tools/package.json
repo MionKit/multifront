@@ -31,7 +31,14 @@
       "default": "./dist/typescriptPlugin.js"
     }
   },
+  "imports": {
+    "#tsc": {
+      "source": "./src/tsc/index.ts",
+      "default": "./dist/tsc/index.js"
+    }
+  },
   "bin": {
+    "mf-tsc": "./bin/mf-tsc.js",
     "multifront-language-server": "./bin/multifront-language-server.js"
   },
   "files": [
