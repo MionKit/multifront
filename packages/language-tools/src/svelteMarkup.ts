@@ -106,6 +106,8 @@ export function scanMarkup(content: string): MarkupScan {
         pos++;
         continue;
       }
+      // `name = "x"`: the space before `=` is inside the attribute.
+      if (gaps.at(-1)?.end === pos) gaps.pop();
       let value = pos + 1;
       while (isSpace(content[value])) value++;
       const quote = content[value];

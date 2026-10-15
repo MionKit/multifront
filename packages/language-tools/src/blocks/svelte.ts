@@ -17,10 +17,7 @@ const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
 // Completion only: no HTML diagnostics, formatting, hover or links in Svelte markup.
 const MARKUP_FEATURES: CodeInformation = {completion: true};
-// A component start tag's whitespace: TypeScript completes its props there, nothing else reads it.
-const PROPS_FEATURES: CodeInformation = {completion: true};
 const PROPS_OBJECT = 'props: {';
-const ENSURE_COMPONENT = '__sveltets_2_ensureComponent(';
 
 let installedTypesRoot: string | undefined;
 
@@ -66,16 +63,16 @@ function propsMappings(block: Block, code: string, mappings: CodeMapping[]): Cod
     );
     if (!named) continue;
     const generatedName = named.generatedOffsets[0]! + nameAt - named.sourceOffsets[0]!;
+    // svelte2tsx writes the props object right after the name: `ensureComponent(Icon); new $$_C({…, props: {`.
     const props = code.indexOf(PROPS_OBJECT, generatedName);
-    const next = code.indexOf(ENSURE_COMPONENT, generatedName);
-    if (props === -1 || (next !== -1 && next < props)) continue;
+    if (props === -1) continue;
     for (const gap of gaps) {
       found.push({
         sourceOffsets: [block.contentStart + gap.start + 1],
         generatedOffsets: [props + PROPS_OBJECT.length],
         lengths: [gap.end - gap.start - 1],
         generatedLengths: [0],
-        data: PROPS_FEATURES,
+        data: MARKUP_FEATURES,
       });
     }
   }

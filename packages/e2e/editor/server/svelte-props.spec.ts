@@ -4,8 +4,8 @@ import {join} from 'node:path';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, readComponent} from '../../fixtures/index.ts';
-import {edit, PLUGIN} from '../lib/cases.ts';
-import {expectEveryItemParses, labels, markupCompletions, svelteParseError} from '../lib/markup.ts';
+import {PLUGIN} from '../lib/cases.ts';
+import {expectEveryItemParses, labels, markupCompletions, parseErrorMessage} from '../lib/markup.ts';
 import {startLanguageServer} from '../lib/lsp.ts';
 import type {LanguageServer} from '../lib/lsp.ts';
 import {offsetAt, open, startTsserver, tsLocation} from '../lib/tsserver.ts';
@@ -17,6 +17,10 @@ const ICON = readComponent(join('..', 'apps', 'svelte-markup', 'Icon.ucf'));
 const ANCHOR = '    <Icon name="search" />\n';
 // Icon's own two, and the `class` and `style` its single root element takes (spec 3.5.1).
 const PROPS = ['name', 'class', 'size', 'style'];
+const QUERY = "let query = $state('')";
+// Icon read through an object: `<ui.Icon />`.
+const DOTTED = TOOLBAR.source.replace(QUERY, `${QUERY}\n    const ui = { Icon }`);
+const END = '  </div>\n';
 
 let server: LanguageServer;
 let tsserver: Tsserver;
@@ -42,16 +46,28 @@ interface Typed {
   at: TsLocation;
 }
 
-/** `typed` (its `|` is the cursor) as an unsaved line after the fixture's `<Icon name="search" />`, undone after. */
-async function withTyped<Result>(typed: string, check: (edited: Typed) => Promise<Result>): Promise<Result> {
-  const text = typed.replace('|', '');
-  const revert = await edit(tsserver, TOOLBAR, ANCHOR, ANCHOR + text);
+const replaceText = (from: string, to: string) =>
+  tsserver.request('updateOpen', {
+    changedFiles: [
+      {fileName: TOOLBAR.filename, textChanges: [{start: {line: 1, offset: 1}, end: tsLocation(from, from.length), newText: to}]},
+    ],
+  });
+
+/** `typed` (its `|` is the cursor) typed unsaved right after `after` in `base`, undone after. */
+async function withTyped<Result>(
+  typed: string,
+  check: (edited: Typed) => Promise<Result>,
+  after = ANCHOR,
+  base = TOOLBAR.source
+): Promise<Result> {
+  const at = base.indexOf(after) + after.length;
+  const source = base.slice(0, at) + typed.replace('|', '') + base.slice(at);
+  const cursor = at + typed.indexOf('|');
+  await replaceText(TOOLBAR.source, source);
   try {
-    const source = TOOLBAR.source.replace(ANCHOR, ANCHOR + text);
-    const cursor = TOOLBAR.source.indexOf(ANCHOR) + ANCHOR.length + typed.indexOf('|');
     return await check({source, cursor, at: tsLocation(source, cursor)});
   } finally {
-    await revert();
+    await replaceText(source, TOOLBAR.source);
   }
 }
 
@@ -67,7 +83,8 @@ async function completionInfo(at: TsLocation): Promise<ts.server.protocol.Comple
 
 const entryNames = (info: ts.server.protocol.CompletionInfo | undefined): string[] => info?.entries.map(({name}) => name) ?? [];
 
-const completedIn = (typed: string) => withTyped(typed, async ({at}) => entryNames(await completionInfo(at)));
+const completedIn = (typed: string, after?: string, base?: string) =>
+  withTyped(typed, async ({at}) => entryNames(await completionInfo(at)), after, base);
 
 describe('tsserver with our plugin: props in a component start tag', () => {
   it('Toolbar.ucf as written has no diagnostic', async () => {
@@ -99,6 +116,22 @@ describe('tsserver with our plugin: props in a component start tag', () => {
     expect(await completedIn(typed)).toEqual(props);
   });
 
+  it('<Icon typed unclosed as the last markup lists its props', async () => {
+    expect(await completedIn('  <Icon |', END)).toEqual(PROPS);
+  });
+
+  it('<ui.Icon | /> (a dotted name) lists the same props', async () => {
+    expect(await completedIn('    <ui.Icon | />\n', ANCHOR, DOTTED)).toEqual(PROPS);
+  });
+
+  // Inside a value or before its `=`, the space is the attribute's, not the tag's.
+  it.each(['    <Icon name="a |b" />\n', '    <Icon size={1 + |2} name="x" />\n', '    <Icon name |= "x" />\n'])(
+    '%s lists no prop',
+    async (typed) => {
+      expect(await completedIn(typed)).not.toContain('size');
+    }
+  );
+
   it('each prop of <Icon | />, applied as VS Code applies it, parses', async () => {
     await withTyped('    <Icon | />\n', async ({source, cursor, at}) => {
       const info = await completionInfo(at);
@@ -106,7 +139,7 @@ describe('tsserver with our plugin: props in a component start tag', () => {
       const failures = info!.entries.flatMap(({name, insertText, replacementSpan}) => {
         const span = replacementSpan ?? info!.optionalReplacementSpan;
         const [start, end] = span ? [offsetAt(source, span.start), offsetAt(source, span.end)] : [cursor, cursor];
-        const error = svelteParseError(source.slice(0, start) + (insertText ?? name) + source.slice(end), TOOLBAR.filename);
+        const error = parseErrorMessage(source.slice(0, start) + (insertText ?? name) + source.slice(end), TOOLBAR.filename);
         return error ? [`${name}: ${error}`] : [];
       });
       expect(failures).toEqual([]);
@@ -142,6 +175,15 @@ describe('the language server in a component start tag', () => {
     const completed = await complete(ANCHOR, '    <Icon | />\n');
     expect(labels(completed).toSorted()).toEqual(['bind:', 'bind:this']);
     expectEveryItemParses(completed);
+  });
+
+  it('<ui.Icon | /> and <Icon | as the last markup list only bind: and bind:this', async () => {
+    expect(labels(await complete(ANCHOR, '    <ui.Icon | />\n', DOTTED)).toSorted()).toEqual(['bind:', 'bind:this']);
+    expect(labels(await complete(END, '  <Icon |')).toSorted()).toEqual(['bind:', 'bind:this']);
+  });
+
+  it('text after a component keeps its HTML items: &am lists &amp;', async () => {
+    expect(labels(await complete(ANCHOR, '    &am|\n'))).toContain('&amp;');
   });
 
   it('<input bi| /> still lists the element attributes and directives', async () => {
