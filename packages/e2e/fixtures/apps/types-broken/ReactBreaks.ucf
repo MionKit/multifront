@@ -1,0 +1,9 @@
+<react>
+  function Label({ text }: { text: string }) {
+    return <span>{text}</span>
+  }
+
+  export default function ReactBreaks() {
+    return <Label text={42} />
+  }
+</react>

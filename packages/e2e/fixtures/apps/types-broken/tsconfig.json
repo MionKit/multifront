@@ -1,0 +1,14 @@
+{
+  // Deliberate type errors for mf-tsc: every finding it prints here is pinned by its test.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
+  },
+  "include": ["*.ucf", "pages"]
+}

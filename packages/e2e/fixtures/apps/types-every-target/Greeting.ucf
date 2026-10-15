@@ -1,0 +1,31 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ name: string; count?: number }>()
+  </script>
+  <template>
+    <p :class="$style.greeting">Hello {{ name }}</p>
+  </template>
+</vue>
+
+<react>
+  import Badge from './Badge.ucf'
+
+  export default function Greeting({ name, count = 0 }: { name: string; count?: number }) {
+    return (
+      <p className={$style.greeting}>
+        Hello {name} <Badge label={String(count)} />
+      </p>
+    )
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { name, count = 0 }: { name: string; count?: number } = $props()
+  </script>
+  <p class={$style.greeting}>Hello {name} ({count})</p>
+</svelte>
+
+<style module>
+.greeting { margin: 0; }
+</style>

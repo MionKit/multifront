@@ -1,0 +1,14 @@
+{
+  // Every target of every file type-checks: mf-tsc on it exits 0.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
+  },
+  "include": ["."]
+}
