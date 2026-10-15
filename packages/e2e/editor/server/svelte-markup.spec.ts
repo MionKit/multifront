@@ -1,11 +1,11 @@
 // Completions in the <svelte> markup: HTML tags and attributes, Svelte elements, directives and blocks from our
 // language server; `{…}` expressions from tsserver with our plugin (hybrid mode). Every suggestion must parse.
-import {loadSvelteCompiler, splitBlocks} from '@multifront/core';
 import {join} from 'node:path';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, readComponent} from '../../fixtures/index.ts';
 import {edit, PLUGIN} from '../lib/cases.ts';
+import {expectEveryItemParses, labels, markupCompletions, newText} from '../lib/markup.ts';
 import {startLanguageServer} from '../lib/lsp.ts';
 import type {LanguageServer} from '../lib/lsp.ts';
 import {locate, open, startTsserver} from '../lib/tsserver.ts';
@@ -13,7 +13,6 @@ import type {Tsserver} from '../lib/tsserver.ts';
 
 const APP_DIR = join(FIXTURES_DIR, 'apps', 'svelte-markup');
 const TOOLBAR = readComponent(join('..', 'apps', 'svelte-markup', 'Toolbar.ucf'));
-const compiler = loadSvelteCompiler(FIXTURES_DIR)!;
 const META = ['svelte:window', 'svelte:document', 'svelte:body', 'svelte:head', 'svelte:options'];
 
 let server: LanguageServer;
@@ -34,70 +33,7 @@ afterAll(async () => {
   await tsserver?.stop();
 });
 
-type Completed = Awaited<ReturnType<typeof completeIn>>;
-type CompletionItem = Completed['items'][number];
-type Document = Completed['document'];
-
-async function completeIn(source: string, cursor: number) {
-  const document = await server.openTextDocument(TOOLBAR.filename, 'ucf');
-  const whole = (on: typeof document) => ({start: {line: 0, character: 0}, end: on.positionAt(on.getText().length)});
-  const edited = await server.updateTextDocument(document.uri, [{range: whole(document), newText: source}]);
-  try {
-    const list = await server.sendCompletionRequest(document.uri, edited.positionAt(cursor));
-    return {items: list?.items ?? [], document: edited, cursor};
-  } finally {
-    await server.updateTextDocument(document.uri, [{range: whole(edited), newText: TOOLBAR.source}]);
-  }
-}
-
-/** Types `typed` (its `|` is the cursor) right after `after` in `source`. */
-function complete(after: string, typed: string, source = TOOLBAR.source) {
-  const index = source.indexOf(after);
-  if (index < 0) throw new Error(`${after} not in the source`);
-  const at = index + after.length;
-  return completeIn(source.slice(0, at) + typed.replace('|', '') + source.slice(at), at + typed.indexOf('|'));
-}
-
-const labels = ({items}: Completed) => items.map(({label}) => label);
-const newText = ({items}: Completed, label: string) => {
-  const edit = items.find((item) => item.label === label)?.textEdit;
-  return edit && 'range' in edit ? edit.newText : undefined;
-};
-
-/** A snippet as the user finishes it: each tab stop holds its placeholder, or `x`; `$0` stays empty. */
-function fillSnippet(snippet: string): string {
-  return snippet
-    .replace(/\$\{\d+:([^}]*)\}/g, '$1')
-    .replace(/\$0/g, '')
-    .replace(/\$\d+/g, 'x');
-}
-
-/** `item` applied at `cursor`; `end` is just after the inserted text. */
-function applyCompletion(document: Document, item: CompletionItem, cursor: number): {text: string; end: number} {
-  const source = document.getText();
-  const edit = item.textEdit && 'range' in item.textEdit ? item.textEdit : undefined;
-  const [start, end] = edit ? [document.offsetAt(edit.range.start), document.offsetAt(edit.range.end)] : [cursor, cursor];
-  const raw = edit?.newText ?? item.insertText ?? item.label;
-  const inserted = item.insertTextFormat === 2 ? fillSnippet(raw) : raw;
-  return {text: source.slice(0, start) + inserted + source.slice(end), end: start + inserted.length};
-}
-
-/** Each item applied as the user finishes it (` />` after a tag name) leaves a block Svelte's parser accepts. */
-function expectEveryItemParses({items, document, cursor}: Completed, tag = false): void {
-  expect(items.length).toBeGreaterThan(0);
-  const failures = items.flatMap((item) => {
-    const {text, end} = applyCompletion(document, item, cursor);
-    const finished = tag ? `${text.slice(0, end)} />${text.slice(end)}` : text;
-    const block = splitBlocks(finished, TOOLBAR.filename).targets.svelte!;
-    try {
-      compiler.parse(block.content, {modern: true});
-      return [];
-    } catch (err) {
-      return [`${item.label}: ${(err as Error).message}`];
-    }
-  });
-  expect(failures).toEqual([]);
-}
+const {complete} = markupCompletions(() => server, TOOLBAR);
 
 describe('the language server: tags and Svelte elements', () => {
   it('<sv at the top level lists svelte:window, every Svelte element and div; each one parses', async () => {

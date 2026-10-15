@@ -1,11 +1,14 @@
 <svelte>
   <script lang="ts">
+    import Icon from './Icon.ucf'
+
     let { title, items = [], load }: { title: string; items?: string[]; load?: Promise<string> } = $props()
     let query = $state('')
   </script>
   <div class={$style.toolbar}>
     <h2>{title}</h2>
     <input type="search" bind:value={query} />
+    <Icon name="search" />
     {#if items.length > 0}
       <ul>
         {#each items as item}
