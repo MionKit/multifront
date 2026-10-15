@@ -39,8 +39,8 @@ async function loadConfig(root: string): Promise<LibraryOptions> {
   const file = CONFIG_FILES.map((name) => join(root, name)).find((path) => existsSync(path));
   if (file === undefined) return {};
   try {
-    // Natively, as Vite's `native` loader: Node resolves the config's imports, honouring `--conditions=source`.
-    // Top-level await makes the graph async: Node 26.12 prints a trace when a sync-run module throws a non-Error.
+    // Like Vite's `native` loader: Node resolves its imports, honouring `--conditions=source`.
+    // Async graph on purpose: Node 26.12 prints a trace when a sync module throws a non-Error.
     const wrapper = `import * as config from ${JSON.stringify(pathToFileURL(file).href)};\nawait 0;\nexport {config};\n`;
     const namespace = (await import(`data:text/javascript,${encodeURIComponent(wrapper)}`)) as {config: {default?: unknown}};
     const exported = namespace.config.default;
