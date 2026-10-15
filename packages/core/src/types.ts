@@ -85,6 +85,7 @@ export type DiagnosticCode =
   | 'framework-attribute-not-literal'
   | 'unformatted'
   | 'format-error'
+  | 'missing-svelte'
   | LibraryErrorCode
   | TargetErrorCode;
 
