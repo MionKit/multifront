@@ -262,6 +262,7 @@ TypeScript gives one type per resolved file and never looks at import attributes
   - It builds the tsconfig's whole program, as `tsc` does, and asks TypeScript for the diagnostics of the given files only, as tsserver does for one open file. A folder means its files; no path means the whole project.
   - `--framework <name>` (repeatable) checks `.ucf` files only in those frameworks: one framework of one file is `mf-tsc src/Card.ucf --framework svelte`.
   - Check only: it never emits and takes no `tsc` flags.
+  - `.vue` files are checked in the same program, through `@vue/language-core` with the tsconfig's `vueCompilerOptions`, and their `.ucf` imports take the Vue target. So in a project with `.ucf` files `mf-tsc` replaces `vue-tsc`.
 - **`mf-tsc` checks every target** of every `.ucf` file, so a block that breaks only for one framework still fails.
 - **Library output:** each target package gets real `.d.ts` files from its own virtual scripts. Consumers need none of this tooling.
 
