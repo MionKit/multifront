@@ -3,6 +3,7 @@ import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {rootRelativePath} from '@multifront/core';
+import type {Finding} from '@multifront/core';
 import ignore from 'ignore';
 import type {TypeScript} from './types.ts';
 
@@ -97,4 +98,14 @@ export function isIgnored(config: {file?: string; ignorePatterns: string[]}, fil
   if (!config.file || config.ignorePatterns.length === 0) return false;
   const path = rootRelativePath(dirname(config.file), fileName);
   return !path.startsWith('../') && ignore().add(config.ignorePatterns).ignores(path);
+}
+
+/** `3 files`, `1 file`. */
+export const counted = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** A summary's `2 errors, 1 warning`; empty when there is neither. */
+export function problems(findings: Finding[]): string {
+  const errors = findings.filter(({severity}) => severity === 'error').length;
+  const warnings = findings.length - errors;
+  return [errors && counted(errors, 'error'), warnings && counted(warnings, 'warning')].filter(Boolean).join(', ');
 }

@@ -6,7 +6,6 @@ export type {
   EditorStyleModule,
   EmitSvelteTypesOptions,
   FormattedUcf,
-  LintOptions,
   StyleClass,
   UcfFormatConfig,
   UcfImportOptions,

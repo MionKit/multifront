@@ -12,7 +12,7 @@ import {
   SENT,
   SENT_WITH_SVELTE,
   contents,
-  copyMessy,
+  copyInto,
   copyOxfmtWithoutSvelte,
   expectCliOutput,
   outsideBlocks,
@@ -65,7 +65,7 @@ describe('mf-fmt with the svelte option on', () => {
 
   it('resolves the option per block file: an override turning it off keeps that <svelte> block as written', async () => {
     await withCopy(LINT_FORMAT_SVELTE, async (root) => {
-      copyMessy(root, ['nested']);
+      copyInto(root, MESSY, ['nested']);
       editFile(
         root,
         '.oxfmtrc.json',
@@ -113,7 +113,7 @@ describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
       async (root) => {
         copyOxfmtWithoutSvelte(root);
         assertNotInstalled(root, 'svelte');
-        copyMessy(root, ['nested']);
+        copyInto(root, MESSY, ['nested']);
         // No global install either: Node also looks in NODE_PATH.
         const env = {NODE_PATH: undefined};
         expect(await runMfFmt(root, ['--check', '--format', 'json'], env).then(({stdout}) => report(stdout))).toEqual({

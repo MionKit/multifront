@@ -13,7 +13,7 @@ import {
   MESSY,
   ORIGINAL,
   contents,
-  copyMessy,
+  copyInto,
   expectCliOutput,
   fails,
   formatConfigsAbove,
@@ -156,7 +156,7 @@ describe('mf-fmt with other configs', () => {
             '',
           ].join('\n')
         );
-        copyMessy(root, ['nested']);
+        copyInto(root, MESSY, ['nested']);
         expect(await runMfFmt(root, [], {NODE_PATH: undefined})).toEqual({
           code: 0,
           stdout: 'mf-fmt: formatted 2 of 2 files\n',
@@ -177,7 +177,7 @@ describe('mf-fmt with other configs', () => {
 
   it('formats the files of a folder by their own .oxfmtrc.jsonc, inheriting nothing from the one above it', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      copyMessy(root, ['nested']);
+      copyInto(root, MESSY, ['nested']);
       writeFileSync(join(root, 'nested', '.oxfmtrc.jsonc'), '{\n  "printWidth": 40, // narrower than the app\n}\n');
       expect(await runMfFmt(root)).toEqual({code: 0, stdout: 'mf-fmt: formatted 2 of 2 files\n', stderr: ''});
       expectCliOutput(root, MESSY);
@@ -222,7 +222,7 @@ describe('mf-fmt --check', () => {
         files: 1,
         changed: [MESSY],
       });
-      copyMessy(root, ['nested']);
+      copyInto(root, MESSY, ['nested']);
       const both = await runMfFmt(root, ['--check', '--format', 'json']);
       const changed = [MESSY, 'nested/Messy.ucf'];
       expect(report(both.stdout)).toEqual({findings: changed.map(finding), errorCount: 2, warningCount: 0, files: 2, changed});
@@ -235,7 +235,7 @@ describe('mf-fmt --check', () => {
 describe('mf-fmt on one file or one folder', () => {
   it('formats only the named file or the files below the named folder, never a dot folder or an ignored one', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      copyMessy(root, ['nested', '.hidden', 'old']);
+      copyInto(root, MESSY, ['nested', '.hidden', 'old']);
       expect(await runMfFmt(root, ['nested'])).toEqual(FORMATTED_ONE);
       expect(read(root, MESSY)).toBe(ORIGINAL);
       // Under the app's config: the `./`-anchored override stays at the top, the `nested/*.vue` one reaches here.
@@ -333,7 +333,7 @@ describe('mf-fmt on blocks it cannot format', () => {
 describe('mf-fmt that cannot run', () => {
   it('names an unknown option, a file that is not .ucf, a missing path, a folder with nothing to format and an ignored file', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      copyMessy(root, ['old']);
+      copyInto(root, MESSY, ['old']);
       mkdirSync(join(root, 'empty'));
       expect(await runMfFmt(root, ['--nope'])).toEqual(fails("unknown option '--nope'; use --check, --format or --help"));
       expect(await runMfFmt(root, ['react.ts'])).toEqual(fails('react.ts is not a .ucf file; format it with oxfmt'));
@@ -378,7 +378,7 @@ describe('mf-fmt that cannot run', () => {
 
   it('writes no file when a later file has a config oxfmt rejects', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      copyMessy(root, ['nested']);
+      copyInto(root, MESSY, ['nested']);
       writeFileSync(join(root, 'nested', '.oxfmtrc.json'), '{"printWidth": 1000}\n');
       expect(await runMfFmt(root)).toEqual(fails(`nested/.oxfmtrc.json: ${INVALID_PRINT_WIDTH}`));
       expect(read(root, MESSY)).toBe(ORIGINAL);

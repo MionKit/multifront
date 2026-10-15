@@ -3,13 +3,13 @@ import {execFile} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {dirname, join, parse, sep} from 'node:path';
+import {dirname, join, parse, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import {findingOf, locate, moduleName, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
 import type {Block, CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
 import {blockFile} from '../blocks/blockFile.ts';
-import {isIgnored, nearestFile, parseJsonc, resolveInProject, slashed, ucfFiles} from '../files.ts';
-import type {LintOptions, UcfLintDiagnostic} from '../types.ts';
+import {counted, isIgnored, nearestFile, parseJsonc, problems, resolveInProject, slashed, ucfFiles} from '../files.ts';
+import type {UcfLintDiagnostic} from '../types.ts';
 
 const MF_LINT: CommandSpec = {
   name: 'mf-lint',
@@ -22,12 +22,7 @@ const MF_LINT: CommandSpec = {
 const CONFIG_NAMES = ['.oxlintrc.json', '.oxlintrc.jsonc'];
 const WRAPPER = '.oxlintrc.json';
 
-interface OxlintDiagnostic {
-  message: string;
-  code: string;
-  severity: UcfLintDiagnostic['severity'];
-  url?: string;
-  help?: string;
+interface OxlintDiagnostic extends Pick<UcfLintDiagnostic, 'message' | 'code' | 'severity' | 'url' | 'help'> {
   filename: string;
   labels: {span: {offset: number; length: number}}[];
 }
@@ -42,8 +37,8 @@ interface Written {
 function oxlintBin(root: string): string {
   const missing = `oxlint is not installed in ${root}; add it to devDependencies`;
   const manifest = resolveInProject(root, 'oxlint/package.json', missing).path;
-  const {bin} = JSON.parse(readFileSync(manifest, 'utf8')) as {bin: string | Record<string, string>};
-  return join(dirname(manifest), typeof bin === 'string' ? bin : bin.oxlint!);
+  const {bin} = JSON.parse(readFileSync(manifest, 'utf8')) as {bin: {oxlint: string}};
+  return join(dirname(manifest), bin.oxlint);
 }
 
 const lintConfig = (fileName: string) => nearestFile(dirname(fileName), CONFIG_NAMES);
@@ -65,22 +60,23 @@ function ignoringConfig(fileName: string, root: string): string | undefined {
 }
 
 // oxlint prints a bad config on stdout as a miette report: one line for spec 8.1's single stderr line.
-function oxlintFailure(stdout: string, stderr: string, root: string): Error {
+function oxlintFailure(stdout: string, stderr: string, root: string, config: string | undefined): Error {
   const lines = (stderr.trim() || stdout.trim())
     .split(/\r?\n/)
     .map((line) => line.replace(/^\s*(?:[x×|│]\s)?/, '').trim())
     .filter(Boolean);
-  return new Error(`oxlint: ${lines.join(' ').replaceAll(`${root}${sep}`, '')}`);
+  const message = lines.join(' ');
+  return new Error(`oxlint: ${config ? message.replaceAll(config, rootRelativePath(root, config)) : message}`);
 }
 
-async function runOxlint(bin: string, cwd: string, root: string): Promise<OxlintDiagnostic[]> {
+async function runOxlint(bin: string, cwd: string, root: string, config: string | undefined): Promise<OxlintDiagnostic[]> {
   const args = [bin, '-c', WRAPPER, '-f', 'json', '.'];
   let output: {stdout: string; stderr: string};
   try {
     output = await promisify(execFile)(process.execPath, args, {cwd, maxBuffer: Infinity, encoding: 'utf8'});
   } catch (err) {
     const {code, stdout = '', stderr = ''} = err as {code?: number | string; stdout?: string; stderr?: string};
-    if (code !== 1) throw oxlintFailure(stdout, stderr || String(err), root);
+    if (code !== 1) throw oxlintFailure(stdout || String(err), stderr, root, config);
     output = {stdout, stderr};
   }
   try {
@@ -89,8 +85,18 @@ async function runOxlint(bin: string, cwd: string, root: string): Promise<Oxlint
   } catch {
     // Not its JSON report: a bad config exits 1 with a plain message.
   }
-  throw oxlintFailure(output.stdout, output.stderr, root);
+  throw oxlintFailure(output.stdout, output.stderr, root, config);
 }
+
+// Without a config the path only has to be unique: the whole path, its drive or share as the first folder.
+function writtenPath(fileName: string, config: string | undefined): string {
+  if (config) return rootRelativePath(dirname(config), fileName);
+  const {root} = parse(fileName);
+  return slashed(join(root.replace(/[^A-Za-z0-9]/g, ''), fileName.slice(root.length)));
+}
+
+// A literal path as an oxlint `overrides` glob: `[slug]` would be a character class, `Card.tsx` any folder's.
+const literalGlob = (path: string) => `./${path.replace(/[*?[\]{}]/g, '[$&]')}`;
 
 async function lintGroup(bin: string, config: string | undefined, splits: SplitResult[], root: string) {
   const dir = await mkdtemp(join(tmpdir(), 'mf-lint-'));
@@ -99,24 +105,23 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
     const overrides: {files: string[]; globals: Record<string, 'readonly'>}[] = [];
     for (const split of splits) {
       // Relative to the config's folder, where oxlint anchors the `overrides` globs of the config it extends.
-      const relative = rootRelativePath(config ? dirname(config) : parse(split.filename).root, split.filename);
+      const path = writtenPath(resolve(root, split.filename), config);
       const files: string[] = [];
       for (const block of split.blocks.filter(({type}) => type !== 'style')) {
-        const file = slashed(blockFile(relative, block));
+        const file = slashed(blockFile(path, block));
         await mkdir(dirname(join(dir, file)), {recursive: true});
         await writeFile(join(dir, file), block.content);
         written.set(file, {split, block, bytes: Buffer.from(block.content)});
-        files.push(file);
+        files.push(literalGlob(file));
       }
       const modules = split.styles.flatMap((style) => moduleName(style) ?? []).filter((name) => name !== '$style');
       if (files.length > 0 && modules.length > 0) {
         overrides.push({files, globals: Object.fromEntries(modules.map((name) => [name, 'readonly' as const]))});
       }
     }
-    if (written.size === 0) return [];
     const wrapper = {...(config && {extends: [config]}), globals: {$style: 'readonly'}, overrides};
     await writeFile(join(dir, WRAPPER), JSON.stringify(wrapper));
-    return (await runOxlint(bin, dir, root)).map((diagnostic): UcfLintDiagnostic => {
+    return (await runOxlint(bin, dir, root, config)).map((diagnostic): UcfLintDiagnostic => {
       const hit = written.get(slashed(diagnostic.filename));
       if (!hit) throw new Error(`oxlint reported ${diagnostic.filename}, which mf-lint did not write`);
       const {split, block, bytes} = hit;
@@ -144,13 +149,14 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
   }
 }
 
-/** One oxlint run per nearest `.oxlintrc.json`; a split with errors, or one its config ignores, is not linted. */
-export async function lintUcf(files: SplitResult[], {root}: LintOptions): Promise<UcfLintDiagnostic[]> {
+/** One oxlint run per nearest `.oxlintrc.json`, loaded from `root`; a split with errors, or one its config ignores, is not linted. */
+export async function lintUcf(files: SplitResult[], root: string): Promise<UcfLintDiagnostic[]> {
   const bin = oxlintBin(root);
   const groups = new Map<string | undefined, SplitResult[]>();
   for (const split of files) {
-    if (split.errors.length > 0 || ignoringConfig(split.filename, root)) continue;
-    const config = lintConfig(split.filename);
+    const fileName = resolve(root, split.filename);
+    if (split.errors.length > 0 || ignoringConfig(fileName, root)) continue;
+    const config = lintConfig(fileName);
     groups.set(config, [...(groups.get(config) ?? []), split]);
   }
   const diagnostics: UcfLintDiagnostic[] = [];
@@ -190,16 +196,12 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     findings.push(...split.errors.map((error) => findingOf(error, split)));
     splits.set(file, split);
   }
-  for (const diagnostic of await lintUcf([...splits.values()], {root: cwd})) {
+  for (const diagnostic of await lintUcf([...splits.values()], cwd)) {
     findings.push(lintFinding(diagnostic, splits.get(diagnostic.file)!));
   }
-  const counted = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-  const errors = findings.filter(({severity}) => severity === 'error').length;
-  const warnings = findings.length - errors;
-  const problems = [errors && counted(errors, 'error'), warnings && counted(warnings, 'warning')].filter(Boolean).join(', ');
   return {
     findings,
-    summary: `linted ${counted(files.length, 'file')}: ${problems || 'no problems'}`,
+    summary: `linted ${counted(files.length, 'file')}: ${problems(findings) || 'no problems'}`,
     data: {files: files.length},
     warningsFail: values['deny-warnings'] === true,
   };

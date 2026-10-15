@@ -1,4 +1,4 @@
-// What the `mf-fmt` specs share: the real oxfmt CLI, the fixture app and its expected outputs.
+// What the `mf-fmt` and `mf-lint` specs share: the real oxfmt CLI, the fixture app and its expected outputs.
 import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync} from 'node:fs';
 import {dirname, join} from 'node:path';
@@ -43,10 +43,11 @@ export function contents(source: string): Partial<Record<BlockTag, string>> {
   return Object.fromEntries(splitBlocks(source, MESSY).blocks.map((block) => [block.type, block.content]));
 }
 
-export function copyMessy(root: string, folders: string[]): void {
+/** Copies of the app's `file` into each of `folders`. */
+export function copyInto(root: string, file: string, folders: string[]): void {
   for (const folder of folders) {
     mkdirSync(join(root, folder), {recursive: true});
-    cpSync(join(root, MESSY), join(root, folder, MESSY));
+    cpSync(join(root, file), join(root, folder, file));
   }
 }
 
