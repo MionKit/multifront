@@ -1,9 +1,7 @@
 import type {Target} from '@multifront/core';
 import type * as ts from 'typescript';
-import {resolveUcfImport} from './resolve.ts';
+import {isUcfSpecifier, resolveUcfImport} from './resolve.ts';
 import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
-
-export const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
 
 function ucfLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLiteralLike[] {
   const literals: ts.StringLiteralLike[] = [];

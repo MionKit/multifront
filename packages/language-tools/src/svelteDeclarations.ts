@@ -1,13 +1,12 @@
 // `.svelte` importers run Svelte's own TypeScript service, which never loads our plugin: they read declarations
 // of every `<svelte>` block instead, written to a mirror folder that `rootDirs` merges with the sources.
 import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
-import {createRequire} from 'node:module';
 import {dirname, join, relative, resolve} from 'node:path';
 import {loadSvelteCompiler, splitBlocks} from '@multifront/core';
 import type * as ts from 'typescript';
 import {svelteTypes} from './blocks/svelte.ts';
 import {createEditorContext, editorFiles} from './context.ts';
-import {filesUnder} from './files.ts';
+import {filesUnder, projectTypeScript, slashed} from './files.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {targetScriptName} from './targetScripts.ts';
 import type {EmitSvelteTypesOptions, TypeScript, UcfImportOptions} from './types.ts';
@@ -19,21 +18,6 @@ const ucfOf = (script: string): string | undefined =>
 const DECLARATION_SUFFIX = '.ucf.d.ts';
 
 type SvelteScript = NonNullable<ReturnType<typeof svelteTypes>>;
-// TypeScript names program files with `/`.
-const slashed = (fileName: string): string => fileName.replaceAll('\\', '/');
-
-function projectTypeScript(root: string): TypeScript {
-  const require = createRequire(join(root, 'package.json'));
-  let path: string;
-  try {
-    path = require.resolve('typescript');
-  } catch {
-    throw new Error('multifront: could not find typescript. Install typescript in your project.');
-  }
-  // Found but broken: its own error says why.
-  return require(path) as TypeScript;
-}
-
 function hasSvelteBlock(fileName: string): boolean {
   try {
     return !!splitBlocks(readFileSync(fileName, 'utf8'), fileName).targets.svelte;
@@ -74,7 +58,7 @@ export function emitSvelteTypes(options: EmitSvelteTypesOptions): string[] {
   const outDir = resolve(root, options.outDir ?? join('.ucf', 'svelte'));
   const {svelteTypesRoot} = options;
   const svelteCompiler = loadSvelteCompiler(root);
-  const ts = options.ts ?? projectTypeScript(root);
+  const ts = options.ts ?? projectTypeScript(root, 'multifront: could not find typescript. Install typescript in your project.');
   const sources = filesUnder(root, '.ucf', outDir).filter(hasSvelteBlock);
 
   // Built when TypeScript asks: an imported `.ucf` file outside `root` gets its script, but no output.
