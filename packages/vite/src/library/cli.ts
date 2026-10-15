@@ -35,19 +35,15 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Natively, as Vite's `native` loader does: Node resolves the config's imports, honouring `--conditions=source`. */
-async function importConfig(file: string): Promise<unknown> {
-  // Top-level await makes the graph async: Node 26.12 prints a trace when a sync-run module throws a non-Error.
-  const wrapper = `import * as config from ${JSON.stringify(pathToFileURL(file).href)};\nawait 0;\nexport {config};\n`;
-  const {config} = (await import(`data:text/javascript,${encodeURIComponent(wrapper)}`)) as {config: {default?: unknown}};
-  return config.default;
-}
-
 async function loadConfig(root: string): Promise<LibraryOptions> {
   const file = CONFIG_FILES.map((name) => join(root, name)).find((path) => existsSync(path));
   if (file === undefined) return {};
   try {
-    const exported = await importConfig(file);
+    // Natively, as Vite's `native` loader: Node resolves the config's imports, honouring `--conditions=source`.
+    // Top-level await makes the graph async: Node 26.12 prints a trace when a sync-run module throws a non-Error.
+    const wrapper = `import * as config from ${JSON.stringify(pathToFileURL(file).href)};\nawait 0;\nexport {config};\n`;
+    const namespace = (await import(`data:text/javascript,${encodeURIComponent(wrapper)}`)) as {config: {default?: unknown}};
+    const exported = namespace.config.default;
     const config: unknown = await (typeof exported === 'function' ? exported({command: 'build', mode: 'production'}) : exported);
     if (Object.prototype.toString.call(config) !== '[object Object]') throw new Error('config must export or return an object.');
     return config as LibraryOptions;
