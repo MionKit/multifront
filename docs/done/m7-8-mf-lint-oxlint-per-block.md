@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.8
@@ -52,6 +52,12 @@ Answers from the run-milestone orchestrator:
 5. No fuzz test.
 6. `lintUcf(files: SplitResult[], {root})` and `UcfLintDiagnostic` are the shipped shape; "Hands to later milestones"
    and 7.11's Build line follow.
+
+Found while building:
+
+- The oxlint config of `lint-format/` also ignores `Messy.ucf`: mf-fmt's fixture uses `defineProps`, `$props` and
+  `$state`, which `no-undef` flags (as for plain files), so whole-app runs would carry three findings on code the lint
+  tests do not own.
 
 ## Plan
 
@@ -113,7 +119,8 @@ Answers from the run-milestone orchestrator:
 
 - `.oxlintrc.json`: a one-line comment, `rules: {"no-debugger": "error", "no-undef": "error"}`,
   `overrides: [{"files": ["**/*.tsx"], "rules": {"no-debugger": "warn"}}]` (a `<react>`-only severity),
-  `ignorePatterns: ["old/**"]`.
+  `ignorePatterns: ["old/**", "Messy.ucf"]` (built: without `Messy.ucf`, its Vue macro and Svelte runes give `no-undef`
+  in every whole-app run).
 - `Lint.ucf`: `<react>`, `<vue>` (`<script setup>`, no macros), `<svelte>` (no runes), each with a `debugger;` and an
   unused variable, `'é ü'` before the `debugger;` (bytes differ from UTF-16); `$style.card` in `<react>` and the
   `<svelte>` script, `classes.wide` in `<react>`; `<style module>` (`.card`) and `<style module="classes">` (`.wide`).
@@ -127,7 +134,8 @@ Answers from the run-milestone orchestrator:
 ### 6. Test helpers
 
 - `runMfLint(cwd, args, env)` in `packages/e2e/editor/lib/commands.ts`.
-- `packages/e2e/editor/lib/lint.ts`: `LINT`, `CLEAN`, `fails()`, `report()`, `copyLint(root, folders)`.
+- `packages/e2e/editor/lib/lint.ts`: `LINT`, `CLEAN`, `LINT_SOURCE`, `fails()`, `report()`, `copyLint(root, folders)`,
+  `inBlock()`, `lintFinding()` and `lintFindings(file)` (the four expected `Lint.ucf` findings).
 
 ### 7. Env registry (`scripts/lib/env.mjs`)
 

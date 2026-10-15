@@ -34,7 +34,7 @@ Write one component file with a Vue, React and Svelte version, plus shared style
 | --- | --- |
 | [@multifront/core](packages/core/) | The compiler: splits the file, compiles the styles, transforms each target. |
 | [@multifront/vite](packages/vite/) | Vite plugin: hands each target to `@vitejs/plugin-vue`, `@vitejs/plugin-react` or `@sveltejs/vite-plugin-svelte`. Builds the per-framework packages (`mf-build`). |
-| [@multifront/language-tools](packages/language-tools/) | Editor tooling: the Volar language plugin for the TypeScript plugin and the language server, and the `mf-tsc` type-check and `mf-fmt` format commands. |
+| [@multifront/language-tools](packages/language-tools/) | Editor tooling: the Volar language plugin for the TypeScript plugin and the language server, and the `mf-tsc` type-check, `mf-lint` lint and `mf-fmt` format commands. |
 
 ## Develop
 
