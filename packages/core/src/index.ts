@@ -36,12 +36,12 @@ export type {
 } from './types.ts';
 export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {reactRootProps} from './blocks/react.ts';
-export {svelteEditorSource} from './blocks/svelte.ts';
+export {svelteEditorSource, svelteParseError} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';
 export {findingOf, runCommand} from './command.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';
-export {DiagnosticsError, locate} from './diagnostics.ts';
+export {DiagnosticsError, locate, orList} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
 export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTarget} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
