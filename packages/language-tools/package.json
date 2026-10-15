@@ -32,12 +32,17 @@
     }
   },
   "imports": {
+    "#fmt": {
+      "source": "./src/format/index.ts",
+      "default": "./dist/format/index.js"
+    },
     "#tsc": {
       "source": "./src/tsc/index.ts",
       "default": "./dist/tsc/index.js"
     }
   },
   "bin": {
+    "mf-fmt": "./bin/mf-fmt.js",
     "mf-tsc": "./bin/mf-tsc.js",
     "multifront-language-server": "./bin/multifront-language-server.js"
   },
@@ -61,6 +66,8 @@
     "@vue/language-core": "3.3.11",
     "@vue/language-service": "3.3.11",
     "@vue/typescript-plugin": "3.3.11",
+    "ignore": "7.0.9",
+    "minimatch": "10.2.6",
     "postcss": "8.5.28",
     "postcss-selector-parser": "7.1.6",
     "svelte2tsx": "0.7.61",
@@ -70,11 +77,15 @@
   },
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.15",
+    "oxfmt": ">=0.67.0 <1",
     "svelte": "^5.55.6",
     "typescript": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "@vue/compiler-sfc": {
+      "optional": true
+    },
+    "oxfmt": {
       "optional": true
     },
     "svelte": {
@@ -83,6 +94,7 @@
   },
   "devDependencies": {
     "@vue/compiler-sfc": "3.5.42",
+    "oxfmt": "0.67.0",
     "svelte": "5.57.0",
     "typescript": "6.0.3"
   }

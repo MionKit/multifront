@@ -2,6 +2,7 @@ import type {
   Block,
   BlockTag,
   Diagnostic,
+  Finding,
   ResolveTargetOptions,
   SplitResult,
   StyleModule,
@@ -137,4 +138,36 @@ export interface MarkupScan {
   hasScript: boolean; // a top-level instance `<script>`
   metas: Set<string>; // top-level `svelte:*` elements; Svelte takes each meta element once
   tags: MarkupTag[]; // every start tag, in order
+}
+
+/** oxfmt options as its config files write them; oxfmt validates them. */
+export type FormatOptions = Record<string, unknown>;
+
+/** One `overrides` entry of an `.oxfmtrc.json`. */
+export interface FormatOverride {
+  files: string[];
+  excludeFiles?: string[];
+  options: FormatOptions;
+}
+
+/** One `.editorconfig`: its `[glob]` sections in order, keys and values lower-cased. */
+export interface EditorConfigFile {
+  file: string;
+  sections: {glob: string; properties: Record<string, string>}[];
+}
+
+/** One `.ucf` file's oxfmt config, as the oxfmt CLI reads it; `formatUcf` resolves it per block file. */
+export interface UcfFormatConfig {
+  root: string; // oxfmt loads from here (the cwd, or the server's workspace folder)
+  file?: string; // the `.oxfmtrc.json` / `.oxfmtrc.jsonc`; undefined: oxfmt's defaults
+  options: FormatOptions; // its options, without `overrides`, `ignorePatterns` and `$schema`
+  overrides: FormatOverride[];
+  ignorePatterns: string[]; // against the `.ucf` path, relative to the config's folder
+  editorconfig?: EditorConfigFile; // the nearest at or above `root`, as the oxfmt CLI reads one
+}
+
+/** `text` is the source as is whenever there are findings. */
+export interface FormattedUcf {
+  text: string;
+  findings: Finding[];
 }
