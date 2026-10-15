@@ -304,6 +304,17 @@ describe('mf-fmt on blocks it cannot format', () => {
     expect(first.findings).toEqual([formatError('FirstLine.ucf', span(first.source, '</span>', 0), UNEXPECTED_SPAN)]);
   });
 
+  it('reports a <vue> <script> that does not parse at its span, past a generic holding `>` and text that is not ASCII', async () => {
+    const {source, findings} = await formatErrors((root) => {
+      editFile(root, MESSY, '<script setup lang="ts">', '<script setup lang="ts" generic="T extends Record<string, \'é\'>">');
+      editFile(root, MESSY, 'const count=ref(0)', "const count=ref('é ü'+)");
+      return MESSY;
+    });
+    expect(findings).toEqual([
+      formatError(MESSY, span(source, "'é ü'+)", 1, "'é ü'+".length), '<vue> does not parse: Unexpected token'),
+    ]);
+  });
+
   it("reports an error with no position at all on the block's opening tag", async () => {
     const {source, findings} = await formatErrors((root) => {
       addFile(root, 'Unclosed.ucf', '<vue>\n<template><p a="1></p></template>\n</vue>\n');

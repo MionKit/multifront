@@ -104,6 +104,26 @@ describe('mf-fmt with the svelte option on', () => {
       expect(read(root, MESSY)).toBe(source);
     });
   });
+
+  it('reports a <svelte> <script> that does not parse at its span, prints nothing on stderr and leaves the file as written', async () => {
+    await withCopy(LINT_FORMAT_SVELTE, async (root) => {
+      editFile(root, MESSY, 'let count=$state(0)', 'let count=$state(0)+');
+      const source = read(root, MESSY);
+      const run = await runMfFmt(root, [MESSY, '--format', 'json']);
+      expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
+      expect(report(run.stdout).findings).toEqual([
+        {
+          file: MESSY,
+          ...span(source, '</script>\n<button', 0),
+          code: 'format-error',
+          severity: 'error',
+          message: '<svelte> does not parse: Unexpected token',
+          block: 'svelte',
+        },
+      ]);
+      expect(read(root, MESSY)).toBe(source);
+    });
+  });
 });
 
 describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
