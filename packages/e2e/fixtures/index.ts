@@ -12,7 +12,17 @@ export const TMP_DIR = join(FIXTURES_DIR, '..', '.tmp');
 /** The shared `components/` go where the app's relative imports expect them. */
 export async function copyApp(name: string): Promise<string> {
   await mkdir(TMP_DIR, {recursive: true});
-  const copy = await mkdtemp(join(TMP_DIR, `${name}-`));
+  return copyAppInto(await mkdtemp(join(TMP_DIR, `${name}-`)), name);
+}
+
+const OUTSIDE_APP_PREFIX = 'mf-app-';
+
+/** A `copyApp()` copy outside the workspace, so no package resolves from the repo's node_modules. */
+export async function copyAppOutside(name: string): Promise<string> {
+  return copyAppInto(await mkdtemp(join(tmpdir(), OUTSIDE_APP_PREFIX)), name);
+}
+
+async function copyAppInto(copy: string, name: string): Promise<string> {
   const root = join(copy, 'apps', name);
   try {
     await cp(join(FIXTURES_DIR, 'apps', name), root, {recursive: true});
@@ -83,10 +93,11 @@ export async function saveFile(file: string, source: string): Promise<void> {
   await rename(temp, file);
 }
 
-/** Deletes a `copyApp()` copy, the components beside it included. */
+/** Deletes a `copyApp()` or `copyAppOutside()` copy, the components beside it included. */
 export async function removeApp(root: string): Promise<void> {
   const copy = resolve(root, '..', '..');
-  if (dirname(copy) !== TMP_DIR) throw new Error(`not a copyApp() copy: ${root}`);
+  const outside = dirname(copy) === tmpdir() && basename(copy).startsWith(OUTSIDE_APP_PREFIX);
+  if (dirname(copy) !== TMP_DIR && !outside) throw new Error(`not a copyApp() copy: ${root}`);
   await rm(copy, {recursive: true, force: true});
 }
 

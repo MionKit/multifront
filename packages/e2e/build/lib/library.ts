@@ -4,11 +4,12 @@ import {cp, mkdir, mkdtemp, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
-import type {Finding} from '@multifront/core';
 import {buildLibrary} from '@multifront/vite';
 import type {LibraryOptions, LibraryResult} from '@multifront/vite';
 import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
+import {runBin} from '../../editor/lib/commands.ts';
+import type {BinReport} from '../../editor/lib/commands.ts';
 import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, literalSpecifiers, removeLibrary} from '../../fixtures/index.ts';
 
 // Plain Svelte component, runes module and the `svelte.config.js` preprocessing them.
@@ -108,12 +109,7 @@ export function typeSpecifiersOf(file: string, code: string): string[] {
   return literalSpecifiers(parseOutput(file, code).program);
 }
 
-interface Report {
-  findings: Finding[];
-  errorCount: number;
-  warningCount: number;
-  packages: {framework: string; name: string; outDir: string; files: number; skipped: string[]}[];
-}
+type Report = BinReport<{packages: {framework: string; name: string; outDir: string; files: number; skipped: string[]}[]}>;
 
 /** `mf-build --format json`'s one document. */
 export function report(stdout: string): Report {
@@ -181,24 +177,6 @@ export async function buildInFreshNode(root: string, options: LibraryOptions): P
   }
 }
 
-interface CliRun {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-// Runs the bin's JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.
-// `source` runs `@multifront/vite`'s `src/`, else its built `dist/`.
-export async function runMfBuild(cwd: string, args: string[] = [], {source = true} = {}): Promise<CliRun> {
-  const dir = join(FIXTURES_DIR, '..', 'node_modules', '@multifront', 'vite');
-  const {bin} = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')) as {bin: Record<string, string>};
-  const node = source ? ['--conditions=source'] : [];
-  try {
-    const {stdout, stderr} = await promisify(execFile)(process.execPath, [...node, join(dir, bin['mf-build']!), ...args], {cwd});
-    return {code: 0, stdout, stderr};
-  } catch (err) {
-    const {code, stdout = '', stderr = ''} = err as {code?: number | string; stdout?: string; stderr?: string};
-    if (typeof code !== 'number') throw err;
-    return {code, stdout, stderr};
-  }
+export function runMfBuild(cwd: string, args: string[] = [], {source = true} = {}): ReturnType<typeof runBin> {
+  return runBin('@multifront/vite', 'mf-build', cwd, args, {source});
 }
