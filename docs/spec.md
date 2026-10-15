@@ -302,7 +302,7 @@ Order:
 
 The same tools as the rest of the repo: oxlint and oxfmt, reading the project's own `.oxlintrc.json` and `.oxfmtrc.json`. No new config.
 
-- **Formatting:** `mf-fmt [--check] [paths…]`. oxfmt has a JS API, `format(fileName, source, options)`. We split the file, format each block as its own language and put the blocks back. Today oxfmt formats TSX, Vue SFC code and CSS / SCSS, but not Svelte, so `<svelte>` blocks stay as written until oxfmt supports them.
+- **Formatting:** `mf-fmt [--check] [paths…]`. oxfmt has a JS API, `format(fileName, source, options)`. We split the file, format each block as its own language and put the blocks back. oxfmt formats TSX, Vue SFC code and CSS / SCSS / Less, and Svelte when the project's oxfmt config turns its `svelte` option on. oxfmt then needs `svelte` installed: without it `<svelte>` blocks stay as written and `mf-fmt` warns. With the option off, `<svelte>` blocks stay as written.
 - **Linting:** oxlint already lints the script blocks of `.vue` and `.svelte` files, but it skips unknown extensions like `.ucf`. Two ways:
   1. Upstream: add `.ucf` to oxc's block extraction, next to the `.vue` / `.svelte` one. Best result, needs oxc maintainers to accept it.
   2. Ours: `mf-lint [--deny-warnings] [paths…]` writes each block as a temporary `.tsx` / `.vue` / `.svelte` file, runs oxlint with JSON output and maps the positions back to the `.ucf` file.
