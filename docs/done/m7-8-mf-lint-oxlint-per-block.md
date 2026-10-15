@@ -50,7 +50,8 @@ Answers from the run-milestone orchestrator:
 4. oxlint's failure line: all its output lines, markers dropped, joined by spaces, paths relative; the milestone's
    "A missing tool is exit 2" bullet says so.
 5. No fuzz test.
-6. `lintUcf(files: SplitResult[], {root})` and `UcfLintDiagnostic` are the shipped shape; "Hands to later milestones"
+6. `lintUcf(files: SplitResult[], root)` and `UcfLintDiagnostic` are the shipped shape (planned `{root}`; the review made it
+   a plain argument, like `findFormatConfig(fileName, root)`); "Hands to later milestones"
    and 7.11's Build line follow.
 
 Found while building:
@@ -71,10 +72,11 @@ Found while building:
 - `isIgnored` moves here from `format/config.ts:120`, taking `config: {file?: string; ignorePatterns: string[]}`
   (`UcfFormatConfig` still fits). `format/` imports it from `files.ts`. No behaviour change.
 
-### 3. `lintUcf(files, {root})` (new `packages/language-tools/src/lint/index.ts`)
+### 3. `lintUcf(files, root)` (new `packages/language-tools/src/lint/index.ts`)
 
 - `files: SplitResult[]`: each file's `splitBlocks` result (the CLI's file text; the server's in-memory text in 7.11,
-  which already holds the split). A split with errors is not linted; its errors are the caller's to report.
+  which already holds the split); a relative `filename` is resolved against `root`. A split with errors is not linted;
+  its errors are the caller's to report.
 - `root`: oxlint loads from here (the cwd, or the server's workspace folder). The project's own oxlint:
   `resolveInProject(root, 'oxlint/package.json', missing)`, its `bin.oxlint`, run as `process.execPath <bin>`.
   Missing: `oxlint is not installed in <root>; add it to devDependencies`.
@@ -83,21 +85,22 @@ Found while building:
   run then names the error. Files are grouped by config.
 - Per group, sequentially, in `mkdtemp(join(tmpdir(), 'mf-lint-'))`:
   1. Each `<vue>`, `<react>`, `<svelte>` block's text at `blockFile(<relative path>, block)`, the path relative to the
-     config's folder (no config: to the file's filesystem root, so paths stay unique and inside the temp folder),
-     `/` separators. `<style>` blocks are skipped. A group with no block file runs no oxlint.
+     config's folder (no config: the whole path, its drive or share as the first folder, so paths stay unique and inside
+     the temp folder), `/` separators. `<style>` blocks are skipped (a split with no error always has a target block).
   2. The wrapper `.oxlintrc.json`: `extends: [<config>]` (none without one), `globals: {$style: 'readonly'}`, and one
      `overrides` entry per file with named modules (core's `moduleName()`, other than `$style`), listing that file's
-     block files, `globals: {<name>: 'readonly'}`: `classes` is defined only in the file that declares it.
+     block files as literal globs (`./` first, since a pattern without `/` matches in any folder; `*?[]{}` each in
+     a `[…]` class), `globals: {<name>: 'readonly'}`: `classes` is defined only in the file that declares it.
   3. `oxlint -c .oxlintrc.json -f json .` in the temp folder (`execFile`, `maxBuffer: Infinity`). Exit 0 or 1 with a
      JSON report: read it. Anything else (another exit, a stdout that is not its report, a bad config): throw
      `oxlint: <its output>`, stderr else stdout, `x` / `|` markers dropped, lines joined by single spaces,
-     `<root>/` removed from paths.
+     the config's path made relative to `root`.
   4. Each diagnostic maps by its `filename` (slashed) to its file and block; an unknown name throws. Primary span =
      `labels[0]`: `.ucf` offset = `contentStart` + the UTF-16 length of the block's first `offset` bytes, the same for
      `offset + length`. No label: the block's opening tag (7.6's rule).
   5. `rm(dir, {recursive: true, force: true})` in a `finally`.
 - Returns `UcfLintDiagnostic[]` (new in `src/types.ts`): `{file, start, end, block: Target, code, message, severity: 'error' | 'warning' | 'advice', url?, help?}`,
-  `start` / `end` UTF-16 offsets into the `.ucf` source. `LintOptions {root}`. Exported from `src/index.ts` with `lintUcf`.
+  `start` / `end` UTF-16 offsets into the `.ucf` source. Exported from `src/index.ts` with `lintUcf`.
 
 ### 4. The `mf-lint` bin
 
@@ -134,8 +137,10 @@ Found while building:
 ### 6. Test helpers
 
 - `runMfLint(cwd, args, env)` in `packages/e2e/editor/lib/commands.ts`.
-- `packages/e2e/editor/lib/lint.ts`: `LINT`, `CLEAN`, `LINT_SOURCE`, `fails()`, `report()`, `copyLint(root, folders)`,
-  `inBlock()`, `lintFinding()` and `lintFindings(file)` (the four expected `Lint.ucf` findings).
+- The spec holds its own helpers (`lintFinding()`, `lintFindings(file)`: the four expected `Lint.ucf` findings).
+  `copyMessy` became `copyInto(root, file, folders)` in `editor/lib/format.ts`, shared by the format and lint specs.
+- `counted()` and `problems(findings)` (the summary's counts) move to `src/files.ts`, shared with `mf-tsc`.
+- The CI `windows` job runs `mf-lint.spec.ts` (Windows paths: block file names, drive letters, temp folder).
 
 ### 7. Env registry (`scripts/lib/env.mjs`)
 
@@ -165,6 +170,17 @@ job (`pnpm devx test`, e2e project); nothing CI lacks (oxlint is a root devDepen
    that is not JSON (the exact `mf-lint: oxlint: ...` line; the temp folder empty here too).
 7. `--help` and `-h`: exit 0, the exact help.
 
+Added by the review:
+
+- `lintUcf` called directly with a relative file name: its UTF-16 spans, `block`, `url` and `help`.
+- Named modules: a copy under `[slug]/` (glob characters) and a `bare/Lint.ucf` without the `classes` module (the
+  same name in another folder) each get the right `no-undef`.
+- `.oxlintrc.jsonc` as the nearest config; no config at all (oxlint's defaults, outside the repo).
+- The bad config named from a subfolder (`../.oxlintrc.json`); `ignorePatterns` that are not a list (oxlint's message).
+- The temp folder check has its control: a `TMPDIR` that does not exist makes the run exit 2 naming it.
+- Not tested, no real input reaches them: oxlint exiting with anything but 0 or 1, a diagnostic with no label or an
+  `advice` severity, a diagnostic on a file `mf-lint` did not write.
+
 7.6's `mf-fmt.spec.ts` and 7.7's `svelte.spec.ts` stay green, counts unchanged.
 
 ## Docs
@@ -172,7 +188,7 @@ job (`pnpm devx test`, e2e project); nothing CI lacks (oxlint is a root devDepen
 - `docs/architecture.md`: a `mf-lint` bullet after `mf-fmt`.
 - Spec 6.1 and 8.1 already say this; no change.
 - Root `README.md`: the language-tools row names `mf-lint`.
-- Milestone doc: 7.8 Build/Test as shipped (`lintUcf(files: SplitResult[], {root})`, config-relative paths, per-file
+- Milestone doc: 7.8 Build/Test as shipped (`lintUcf(files: SplitResult[], root)`, config-relative paths, per-file
   named modules, no `no-unused-vars` in `<vue>`/`<svelte>`, the fixture's oxfmt ignores and tsconfig include); the
   "A missing tool is exit 2" bullet; "Hands to later milestones"; 7.11's Build line; `- Status: done`.
 - No `publicdocs/` page describes the commands yet.
