@@ -35,7 +35,6 @@ export const line = ({file, line, column, code, framework, severity, message}: F
 
 const TO_FIXED = "Property 'toFixed' does not exist on type 'string'. Did you mean 'fixed'?";
 
-/** A finding of the broken app, and the text its span covers in the fixture. */
 function expected(file: string, needle: string, text: string, rest: Omit<Finding, 'file' | 'line' | 'column' | 'end'>) {
   const at = span(fixture(BROKEN, file), needle, text.length, needle.indexOf(text));
   return {finding: (shown = file): Finding => ({file: shown, ...at, ...rest}), text};
@@ -72,7 +71,7 @@ export const NO_SIZE = expected('main.ts', '{size}', 'size', {
 });
 export const MAIN = expected('pages/main.tsx', 'text={1}', 'text', {code: 'TS2322', severity: 'error', message: NOT_STRING});
 
-/** Every finding of the whole broken app, in the order `mf-tsc` prints them. */
+/** A whole-project run's findings, in the order `mf-tsc` prints them. */
 export const BROKEN_FINDINGS = [BREAKS, SVELTE_BREAKS, VUE_BREAKS, NO_SIZE, MAIN];
 export const BROKEN_FILES = 7;
 
