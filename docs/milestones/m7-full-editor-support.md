@@ -57,7 +57,7 @@ Shared by the three:
 
 **`mf-lint`:** a finding is oxlint's `code`, `message`, severity (`advice` becomes `warning`) and position, with `block` and `framework` set to the block's tag. oxlint's `help` and `url` stay out of the CLI output (spec 8.1, one finding shape); `lintUcf` keeps them for the server (7.11). Summary `mf-lint: linted 5 files: 2 errors, 1 warning` (`..., no problems` when clean). JSON data: `{files}`. `--deny-warnings` sets `warningsFail`.
 
-**Help texts.** Each command's test pins its help exactly. The line starting `Paths are` is `CommandSpec.paths`; the line above it is `summary`. `mf-tsc` once 7.3 is in (7.1 has no `--framework` line, and its summary names `.ts and .tsx` only):
+**Help texts.** Each command's test pins its help exactly. The line starting `Paths are` is `CommandSpec.paths`; the line above it is `summary`. `mf-tsc` once 7.3 is in. 7.1 ships without the `--framework` line, with the summary `Type-checks the <react> block of .ucf files, with the .ts and .tsx files that import them.` and the example `mf-tsc src/Card.ucf --format json` (both true before `--framework` exists); 7.2 moves to the summary below with `.ts and .tsx` in place of `.ts, .tsx and .vue`, and to the example below; 7.3 names `.vue`:
 
 ```
 Usage: mf-tsc [options] [paths...]
@@ -142,7 +142,7 @@ Outside the milestones (new pinned packages, devDependencies unless said otherwi
 
 ### 7.1 `mf-tsc` for the React target and its importers
 
-- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`), on `runCommand` as "Decision: every command follows the command rules" says. It builds the program with `proxyCreateProgram(ts, ts.createProgram, ...)` from `@volar/typescript`, our Volar language plugin (`.ucf` as an extra extension), and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). It never emits and takes no `tsc` flags. Paths, `-p, --project`, the tsconfig lookup (`references` followed) and its exit 2 cases as decided above. A private `tscFinding(diagnostic, framework?)` in `tsc/index.ts` turns a TypeScript diagnostic, as Volar maps it back to the `.ucf` text, into a `Finding`. `runCommand` gains `CommandSpec.paths` and `short`.
+- Build: `packages/language-tools/src/tsc/index.ts` and the bin `mf-tsc` (`packages/language-tools/bin/mf-tsc.js`, listed under `bin` in its `package.json`), on `runCommand` as "Decision: every command follows the command rules" says. It builds the program with `proxyCreateProgram(ts, ts.createProgram, ...)` from `@volar/typescript`, our Volar language plugin (`.ucf` as an extra extension), and `resolveUcfImport` so imports follow spec 4.2 (attribute, then importer, then the default target from the tsconfig plugin entry). It never emits and takes no `tsc` flags. Paths, `-p, --project`, the tsconfig lookup (`references` followed) and its exit 2 cases as decided above. A private `tscFinding(ts, diagnostic, ucf?)` in `tsc/index.ts` turns a TypeScript diagnostic, as Volar maps it back to the `.ucf` text, into a `Finding` (`ucf`: the file's split and the framework of its checked script). A `.ucf` import the target rules reject gives our code (`missing-target-block`), not `TS2307`: `withImportErrors()` in `packages/language-tools/src/importErrors.ts`, shared with the TypeScript plugin. The folder walker the tsconfig lookup uses, `filesUnder()`, moves to `packages/language-tools/src/files.ts`. `runCommand` gains `CommandSpec.paths` and `short`.
 - Deliverable: `mf-tsc [paths]` type-checks `.ts` / `.tsx` files that import `.ucf` files, and the `<react>` block of every `.ucf` file: the whole project, one file or one folder, readable or `--format json`, exit 0 / 1 / 2. Findings carry `.ucf` lines and columns.
 - Test: area Editor, `packages/e2e/editor/tsc/react.spec.ts`. New fixture app `packages/e2e/fixtures/apps/types-every-target/` (valid) and `packages/e2e/fixtures/apps/types-broken/` with `ReactBreaks.ucf` (only a `<react>` block, which passes a number to a `string` prop) and `pages/main.tsx` passing a wrong prop to a valid `.ucf`. The test spawns the real `mf-tsc`:
   1. Whole project, from a temp copy of each app: exit 0 and the summary line only on the valid app; on the broken one, exit 1 and the exact readable lines and summary.
@@ -154,6 +154,8 @@ Outside the milestones (new pinned packages, devDependencies unless said otherwi
   7. A temp copy with `components/invalid/DuplicateReact.ucf` added: its `duplicate-target` findings.
   8. Exit 2, stdout empty, one stderr line: an unknown option (names the real ones), `--format xml`, a missing path, a file the tsconfig does not hold, a file with no tsconfig above it (in `os.tmpdir()`), a folder holding no program file, `-p` to a missing file, a tsconfig with an unknown compiler option, one with two (the line ends ` (and 1 more)`), and an app copy in `os.tmpdir()` with its tsconfig but no typescript to load.
   9. `--help` and `-h`: exit 0, the exact help.
+  10. A `.ts` importer picking `with { framework: 'vue' }` from `ReactBreaks.ucf`: one `missing-target-block` finding at the specifier, no `TS2307`.
+- Status: done
 
 ### 7.2 `mf-tsc` checks every target of every `.ucf` file
 
