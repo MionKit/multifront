@@ -68,10 +68,12 @@ function tagItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: 
 
 // Directives and Svelte 5 event attributes take an expression; a prefix a name.
 // The HTML data has no attribute with a `:`: all are ours.
-function attributeItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: number): CompletionItem[] {
+function attributeItem(item: CompletionItem, edit: TextEdit, block: string, scan: MarkupScan, start: number): CompletionItem[] {
   const {label} = item;
-  const tag = scan.tags.findLast((open) => open.start < start);
-  if (tag && isComponent(tag.name) && !COMPONENT_ATTRIBUTES.has(label)) return [];
+  const tag = scan.tags.findLast((candidate) => candidate.start < start);
+  // An unclosed tag runs to the next `<` or the content end: an edit there is still inside it.
+  const inTag = !!tag && (start < tag.end || (start === tag.end && block[tag.end - 1] !== '>'));
+  if (inTag && isComponent(tag.name) && !COMPONENT_ATTRIBUTES.has(label)) return [];
   if (label.endsWith(':')) return [snippet(item, edit, `${label}\${1:name}`)];
   const directive = /^[a-z]+:/.test(label) || /^on[a-z]+$/.test(label);
   if (directive && /^[^=]+=(["']?)\$1\1$/.test(edit.newText)) return [snippet(item, edit, `${label}={$1}`)];
@@ -98,7 +100,9 @@ export function svelteHtmlService(): LanguageServicePlugin {
             const edit = item.textEdit && 'range' in item.textEdit ? item.textEdit : undefined;
             if (!edit) return [item];
             const start = document.offsetAt(edit.range.start);
-            return block.content[start - 1] === '<' ? tagItem(item, edit, scan, start) : attributeItem(item, edit, scan, start);
+            return block.content[start - 1] === '<'
+              ? tagItem(item, edit, scan, start)
+              : attributeItem(item, edit, block.content, scan, start);
           });
           return {...list, items};
         },

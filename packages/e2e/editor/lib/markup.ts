@@ -10,7 +10,7 @@ type Document = Awaited<ReturnType<LanguageServer['updateTextDocument']>>;
 type CompletionList = NonNullable<Awaited<ReturnType<LanguageServer['sendCompletionRequest']>>>;
 type CompletionItem = CompletionList['items'][number];
 
-export interface Completed {
+interface Completed {
   items: CompletionItem[];
   document: Document;
   cursor: number;
@@ -40,7 +40,7 @@ export function markupCompletions(getServer: () => LanguageServer, component: Co
     return completeIn(source.slice(0, at) + typed.replace('|', '') + source.slice(at), at + typed.indexOf('|'));
   }
 
-  return {completeIn, complete};
+  return {complete};
 }
 
 export const labels = ({items}: Completed): string[] => items.map(({label}) => label);
@@ -51,7 +51,7 @@ export function newText({items}: Completed, label: string): string | undefined {
 }
 
 /** A snippet as the user finishes it: each tab stop holds its placeholder, or `x`; `$0` stays empty. */
-export function fillSnippet(snippet: string): string {
+function fillSnippet(snippet: string): string {
   return snippet
     .replace(/\$\{\d+:([^}]*)\}/g, '$1')
     .replace(/\$0/g, '')
@@ -59,7 +59,7 @@ export function fillSnippet(snippet: string): string {
 }
 
 /** `item` applied at `cursor`; `end` is just after the inserted text. */
-export function applyCompletion(document: Document, item: CompletionItem, cursor: number): {text: string; end: number} {
+function applyCompletion(document: Document, item: CompletionItem, cursor: number): {text: string; end: number} {
   const source = document.getText();
   const edit = item.textEdit && 'range' in item.textEdit ? item.textEdit : undefined;
   const [start, end] = edit ? [document.offsetAt(edit.range.start), document.offsetAt(edit.range.end)] : [cursor, cursor];
@@ -69,7 +69,7 @@ export function applyCompletion(document: Document, item: CompletionItem, cursor
 }
 
 /** The real `svelte/compiler` `parse` (modern, not loose) of the file's `<svelte>` block: its error, if any. */
-export function svelteParseError(source: string, filename: string): string | undefined {
+export function parseErrorMessage(source: string, filename: string): string | undefined {
   const block = splitBlocks(source, filename).targets.svelte!;
   try {
     compiler.parse(block.content, {modern: true});
@@ -85,7 +85,7 @@ export function expectEveryItemParses({items, document, cursor, component}: Comp
   const failures = items.flatMap((item) => {
     const {text, end} = applyCompletion(document, item, cursor);
     const finished = tag ? `${text.slice(0, end)} />${text.slice(end)}` : text;
-    const error = svelteParseError(finished, component.filename);
+    const error = parseErrorMessage(finished, component.filename);
     return error ? [`${item.label}: ${error}`] : [];
   });
   expect(failures).toEqual([]);
