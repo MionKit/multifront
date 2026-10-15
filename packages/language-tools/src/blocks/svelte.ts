@@ -15,7 +15,7 @@ const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 
 // TypeScript features only: `mf-fmt` formats the block, and generated wrappers have no outline of the user's.
 const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
-// Tags, attributes and blocks only: no HTML diagnostics, formatting, hover or links in Svelte markup.
+// Completion only: no HTML diagnostics, formatting, hover or links in Svelte markup.
 const MARKUP_FEATURES: CodeInformation = {completion: true};
 
 let installedTypesRoot: string | undefined;
@@ -97,7 +97,7 @@ function types(block: Block, ctx: EditorContext): EditorFile | undefined {
   return script && {ext: '.ts', code: script.code, map: undefined, mappings: script.mappings};
 }
 
-// The HTML service reads it; expressions are left to TypeScript, so `{…}` maps nowhere.
+// For the HTML service; `{…}` maps nowhere: expressions are TypeScript's.
 function markupCode(block: Block): VirtualCode {
   const {code, pieces} = scanMarkup(block.content);
   const mappings = pieces.map(({start, end}) => ({
@@ -109,7 +109,7 @@ function markupCode(block: Block): VirtualCode {
   return {id: 'svelte_markup', languageId: SVELTE_MARKUP_LANGUAGE, snapshot: stringSnapshot(code), mappings};
 }
 
-// Without a compiler (the language server) only the markup code.
+// No compiler (the language server): only the markup code.
 function editor(block: Block, ctx: EditorContext): VirtualCode[] {
   const script = svelteTypes(block, ctx);
   if (!script) {

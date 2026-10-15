@@ -1,6 +1,6 @@
 import type {IAttributeData, IHTMLDataProvider, ITagData} from 'vscode-html-languageservice';
 
-/** Svelte's special elements valid only at the top level of the markup. */
+/** Valid only at the top level of the markup. */
 export const META_ELEMENTS: ReadonlySet<string> = new Set([
   'svelte:window',
   'svelte:document',

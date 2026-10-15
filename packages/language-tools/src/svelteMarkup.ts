@@ -19,7 +19,7 @@ function tagNameEnd(text: string, pos: number): number {
   return pos;
 }
 
-// The closing quote of the string at `pos`, or -1; a template literal's `${…}` may hold more strings.
+// The closing quote of the string at `pos`, or -1.
 function stringEnd(text: string, pos: number): number {
   const quote = text[pos];
   for (let index = pos + 1; index < text.length; index++) {
@@ -63,7 +63,6 @@ function apply(stack: MarkupOpen[], {type, kind, name, branch, clauses}: MarkupE
   }
 }
 
-/** One pass over the block content. */
 export function scanMarkup(content: string): MarkupScan {
   const blanks: Blank[] = [];
   const events: MarkupEvent[] = [];
@@ -85,7 +84,7 @@ export function scanMarkup(content: string): MarkupScan {
     return end;
   };
 
-  // Attributes up to the tag's end; `complete` false for a tag still being typed.
+  // `complete` false: a tag still being typed.
   const readTag = (pos: number): {end: number; selfClosing: boolean; complete: boolean} => {
     while (pos < content.length) {
       const char = content[pos];

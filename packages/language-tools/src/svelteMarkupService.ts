@@ -1,5 +1,5 @@
-// Completions in the `<svelte>` markup: HTML tags and attributes with Svelte's elements and directives, and the
-// `{#…}`, `{@…}` and `{:…}` blocks. Each item is valid Svelte where it lands.
+// Completions in the `<svelte>` markup: HTML plus Svelte's elements, directives and `{#…}`, `{@…}`, `{:…}` blocks.
+// Each item is valid Svelte where it lands.
 import {CompletionItemKind, InsertTextFormat} from '@volar/language-server';
 import type {CompletionItem, LanguageServicePlugin, TextEdit} from '@volar/language-server';
 import {create as createHtmlService} from 'volar-service-html';
@@ -55,7 +55,7 @@ const snippet = (item: CompletionItem, edit: TextEdit, newText: string): Complet
   textEdit: {...edit, newText},
 });
 
-// `start`: offset of the tag name in the block; meta elements, `<style>` and a second `<script>` fit only some places.
+// `start`: offset of the tag name in the block.
 function tagItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: number): CompletionItem[] {
   const topLevel = openAt(scan, start - 1).length === 0;
   if (META_ELEMENTS.has(item.label) && (!topLevel || scan.metas.has(item.label))) return [];
@@ -65,8 +65,8 @@ function tagItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: 
   return [item];
 }
 
-// Directives and Svelte 5 event attributes take an expression; a prefix needs a name after it. The HTML data has
-// no attribute name with a `:`: every one is ours.
+// Directives and Svelte 5 event attributes take an expression; a prefix a name.
+// The HTML data has no attribute with a `:`: all are ours.
 function attributeItem(item: CompletionItem, edit: TextEdit): CompletionItem {
   const {label} = item;
   if (label.endsWith(':')) return snippet(item, edit, `${label}\${1:name}`);
