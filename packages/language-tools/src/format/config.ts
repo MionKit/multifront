@@ -57,8 +57,7 @@ export function findFormatConfig(fileName: string, root: string): UcfFormatConfi
   return {root, ...(file && {file}), options, overrides, ignorePatterns, ...(editorconfig && {editorconfig})};
 }
 
-// oxfmt's rule: a leading `./` anchors a pattern at the config's folder, as a `/` inside it does;
-// any other pattern matches at any depth.
+// oxfmt's rule: a leading `./` or an inner `/` anchors a pattern at the config's folder.
 function overrideGlob(pattern: string): string {
   if (pattern.startsWith('./')) return pattern.slice(2);
   return pattern.includes('/') ? pattern : `**/${pattern}`;
@@ -66,8 +65,7 @@ function overrideGlob(pattern: string): string {
 
 const matches = (path: string, glob: string) => minimatch(path, glob, {dot: true});
 
-// oxfmt's `.editorconfig` reader matches a section against the whole relative path, its `*` crossing `/`: `[*.tsx]`
-// matches `src/Card.ucf.react.tsx` but `[Card.tsx]` only `Card.tsx`, and `[/Card.tsx]` nothing.
+// oxfmt's `.editorconfig` reader: whole relative path, `*` crosses `/`, `[Card.tsx]` is top only, `[/Card.tsx]` nothing.
 function sectionMatches(path: string, glob: string): boolean {
   const pattern = glob.replace(/\*+|\?|\{([^}]*)\}|\[!?|[.+^$()|\\]/g, (token, choices?: string) => {
     if (token.startsWith('*')) return '.*';

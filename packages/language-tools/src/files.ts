@@ -23,7 +23,6 @@ export function filesUnder(dir: string, suffix: string, skipped?: string): strin
   return files.sort();
 }
 
-// Resolved from `root`, as the project's own `require` would.
 function resolveInProject(root: string, name: string, missing: string): {require: NodeJS.Require; path: string} {
   const require = createRequire(join(root, 'package.json'));
   try {
@@ -45,7 +44,6 @@ export async function projectImport<Module>(root: string, name: string, missing:
   return (await import(pathToFileURL(resolveInProject(root, name, missing).path).href)) as Module;
 }
 
-/** The first of `names` in `dir` or the nearest folder above it. */
 export function nearestFile(dir: string, names: readonly string[]): string | undefined {
   for (let folder = dir; ; folder = dirname(folder)) {
     const found = names.map((name) => join(folder, name)).find((file) => existsSync(file));
@@ -56,7 +54,7 @@ export function nearestFile(dir: string, names: readonly string[]): string | und
 // A JSON string, a comment, or a run of other text.
 const JSONC_TOKENS = /"(?:[^"\\]|\\.)*"?|\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|[^"/]+|\//g;
 
-/** JSON with comments and trailing commas, as oxfmt and oxlint read their configs; blanking keeps the error positions. */
+/** JSON with comments and trailing commas, as oxfmt and oxlint read it; blanking keeps error positions. */
 export function parseJsonc(file: string, root: string): unknown {
   const uncommented = readFileSync(file, 'utf8').replace(JSONC_TOKENS, (token) =>
     token.startsWith('//') || token.startsWith('/*') ? token.replace(/[^\n]/g, ' ') : token
@@ -72,10 +70,7 @@ export function parseJsonc(file: string, root: string): unknown {
   }
 }
 
-/**
- * The `.ucf` files of `paths` (none: the cwd), by the command rules of spec 8.1. `ignored` names the config that
- * ignores a file; `otherFiles` says what checks a file that is not `.ucf`.
- */
+/** Spec 8.1 rules; `ignored` returns the config ignoring a file, `otherFiles` names what checks a non-`.ucf` file. */
 export function ucfFiles(paths: string[], ignored: (file: string) => string | undefined, otherFiles: string): string[] {
   const cwd = process.cwd();
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
