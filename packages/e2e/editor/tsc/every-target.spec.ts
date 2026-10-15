@@ -40,7 +40,7 @@ const VUE_PICKS = `<vue>
 
 type Located = Pick<Finding, 'code' | 'line' | 'column' | 'end'>;
 
-// Each file's problems in the real `mf-tsc` and the real tsserver with our plugin, as code and span.
+// Each file's problems in the real `mf-tsc` and the real tsserver with our plugin.
 async function bothHosts(root: string, files: string[]): Promise<{ours: Located[][]; theirs: Located[][]}> {
   const {findings} = report((await runMfTsc(root, [...files, '--format', 'json'])).stdout);
   const ours = files.map((name) =>

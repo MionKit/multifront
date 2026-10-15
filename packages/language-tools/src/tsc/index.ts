@@ -134,7 +134,7 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     return sourceFile && !program.isSourceFileDefaultLibrary(sourceFile) ? sourceFile.fileName : undefined;
   };
   const filesOf = (project: Project): string[] => checkedOf(project).files();
-  // A `.ucf` file's scripts to check: those of its target blocks, `--framework` ones only. Undefined: not `.ucf`.
+  // Undefined: not a `.ucf` file.
   const targetsOf = (project: Project, fileName: string): Target[] | undefined => {
     const split = checkedOf(project).getSplit(fileName);
     return split && (frameworks ?? TARGETS).filter((target) => split.targets[target]);

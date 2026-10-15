@@ -112,7 +112,7 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
         ? withImportErrors(ts, sourceFile, diagnostics, importOptions(program.getCompilerOptions()))
         : diagnostics;
     };
-    // Volar maps a `.ucf` script's and drops what maps nowhere; ours put that on the block's opening tag.
+    // Volar drops diagnostics that map nowhere; `intoUcf` puts them on the block's opening tag.
     raw = {syntactic: program.getSyntacticDiagnostics, semantic: program.getSemanticDiagnostics};
     return program;
   }) as typeof ts.createProgram;
@@ -127,7 +127,6 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
   const host = createHost(ts, options, () => scripts);
   const program = createProgram({rootNames: parsed.fileNames, options, host});
 
-  // `language` maps the script into the `.ucf` file; what maps nowhere lands on the block's opening tag.
   const intoUcf = (
     language: Language<string>,
     diagnostics: readonly ts.Diagnostic[],
