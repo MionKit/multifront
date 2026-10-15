@@ -17,7 +17,7 @@ interface Completed {
   component: Component;
 }
 
-/** The language server's completions in `component`, each one on an unsaved edit undone after. */
+/** Completions on an unsaved edit of `component`, undone after. */
 export function markupCompletions(getServer: () => LanguageServer, component: Component) {
   async function completeIn(source: string, cursor: number): Promise<Completed> {
     const server = getServer();
@@ -68,7 +68,7 @@ function applyCompletion(document: Document, item: CompletionItem, cursor: numbe
   return {text: source.slice(0, start) + inserted + source.slice(end), end: start + inserted.length};
 }
 
-/** The real `svelte/compiler` `parse` (modern, not loose) of the file's `<svelte>` block: its error, if any. */
+/** Svelte's strict (not loose) parse error for the file's `<svelte>` block, if any. */
 export function parseErrorMessage(source: string, filename: string): string | undefined {
   const block = splitBlocks(source, filename).targets.svelte!;
   try {

@@ -122,7 +122,7 @@ export interface MarkupSpan {
   end: number;
 }
 
-/** A start tag in the `<svelte>` markup; `end` is the next `<` or the content end while it is still being typed. */
+/** `end` is the next `<` or the content end while the tag is still being typed. */
 export interface MarkupTag extends MarkupSpan {
   name: string;
   gaps: MarkupSpan[]; // whitespace between the name, the attributes and the tag's end; never inside a value

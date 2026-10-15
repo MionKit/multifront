@@ -66,8 +66,7 @@ function tagItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: 
   return [item];
 }
 
-// Directives and Svelte 5 event attributes take an expression; a prefix a name.
-// The HTML data has no attribute with a `:`: all are ours.
+// Directives and Svelte 5 event attributes take an expression, a prefix a name; every `:` attribute is ours, not HTML's.
 function attributeItem(item: CompletionItem, edit: TextEdit, block: string, scan: MarkupScan, start: number): CompletionItem[] {
   const {label} = item;
   const tag = scan.tags.findLast((candidate) => candidate.start < start);
