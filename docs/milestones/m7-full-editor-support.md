@@ -169,6 +169,7 @@ Outside the milestones (new pinned packages, devDependencies unless said otherwi
 - Build: `mf-tsc` adds `@vue/language-core`'s language plugin for `.vue` files (already a dependency since M4), so a `Page.vue` that imports `./Card.ucf` is checked in the same program. One command replaces `vue-tsc` in a project that uses `.ucf` files. The help's first summary line names `.vue` files.
 - Deliverable: `mf-tsc` type-checks `.vue` files, and their `.ucf` imports resolve to the Vue target.
 - Test: area Editor, `packages/e2e/editor/tsc/vue-importer.spec.ts`. Adds `Page.vue` to `types-every-target/` (valid) and `BadPage.vue` to `types-broken/` (passes a wrong prop to a `.ucf` component in its template). Real `mf-tsc`: the valid app exits 0; the broken one reports the error in `BadPage.vue` at the prop. `mf-tsc BadPage.vue` reports only that finding. The help test of 7.1 now pins the final help.
+- Status: done
 
 ### 7.4 Svelte markup completions: tags, Svelte elements, directives, blocks
 

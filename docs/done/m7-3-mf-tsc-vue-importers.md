@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.3
@@ -61,13 +61,14 @@ Answers from the run-milestone orchestrator:
    - `types-broken/tsconfig.json` `include`: `["*.ucf", "*.ts", "*.vue", "pages"]`.
 5. Shared helpers, `packages/e2e/editor/lib/tsc.ts`:
    - `BAD_PAGE = expected('BadPage.vue', ':label="1"', 'label', {code: 'TS2322', severity: 'error', message: NOT_STRING})`.
-   - It joins `BROKEN_FINDINGS` at its place in print order (program file order).
+   - It joins `BROKEN_FINDINGS` at its place in print order (program file order): first, as `BadPage.vue` comes
+     first in the program.
    - `BROKEN_FILES` becomes 8.
 6. Existing specs follow the new fixture files:
    - `react.spec.ts`: `INCLUDE`, `checked 5 files` on the valid app, the error count from `BROKEN_FINDINGS.length`,
      and the final `HELP` summary line (the help test the step says pins the final help).
    - `every-target.spec.ts`: `BAD_PAGE` in the whole-project `--framework svelte` lines (a `.vue` file is checked as
-     usual), the `include` edit strings, `checked 5 files` under `noUnusedLocals`.
+     usual, so 4 errors there), the `include` edit strings, `checked 5 files` under `noUnusedLocals`.
 
 ## Tests
 
