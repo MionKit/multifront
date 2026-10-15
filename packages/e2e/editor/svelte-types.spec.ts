@@ -175,6 +175,9 @@ describe('getTypesScript for the svelte target', () => {
     ] as const) {
       const script = language.scripts.set(filename, typescript.ScriptSnapshot.fromString(source))!;
       const code = script.generated!.embeddedCodes.get('svelte')!;
+      // The markup code follows it, for the language server's HTML service.
+      const svelteIds = script.generated!.root.embeddedCodes!.map(({id}) => id).filter((id) => id.startsWith('svelte'));
+      expect(svelteIds).toEqual(['svelte', 'svelte_markup']);
       const types = getTypesScript(filename, source, 'svelte', {svelteCompiler, compiler})!;
       expect(code.snapshot.getText(0, code.snapshot.getLength())).toBe(types.code);
       expect(code.mappings).toEqual(types.mappings);
