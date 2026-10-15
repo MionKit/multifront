@@ -1,0 +1,23 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ label: string }>()
+  </script>
+  <template>
+    <span>{{ label }}</span>
+  </template>
+</vue>
+
+<react>
+  export const size = 1
+
+  export default function OnlyReactExport({ label }: { label: string }) {
+    return <span>{label}</span>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { label }: { label: string } = $props()
+  </script>
+  <span>{label}</span>
+</svelte>

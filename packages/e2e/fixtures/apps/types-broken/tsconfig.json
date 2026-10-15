@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
   },
-  "include": ["*.ucf", "pages"]
+  "include": ["*.ucf", "*.ts", "pages"]
 }
