@@ -1,83 +1,56 @@
-// The real `mf-tsc` on real fixture apps: the `<react>` block of each `.ucf` file and the `.ts` / `.tsx` importers.
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import {createRequire} from 'node:module';
-import {homedir, tmpdir} from 'node:os';
-import {dirname, join, parse} from 'node:path';
+// The real `mf-tsc` on real fixture apps: the command rules, the `<react>` block of each `.ucf` file and its importers.
+import {mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {findingOf, rootRelativePath, splitBlocks} from '@multifront/core';
 import type {Finding} from '@multifront/core';
 import {describe, expect, it} from 'vitest';
-import {edited} from '../../build/lib/library.ts';
-import {FIXTURES_DIR, copyApp, copyAppOutside, readComponent, removeApp} from '../../fixtures/index.ts';
+import {copyAppOutside, readComponent} from '../../fixtures/index.ts';
 import {runMfTsc} from '../lib/commands.ts';
-import type {BinReport} from '../lib/commands.ts';
+import {
+  BREAKS,
+  BROKEN,
+  BROKEN_FILES,
+  BROKEN_FINDINGS,
+  MAIN,
+  NOT_STRING,
+  VALID,
+  addFile,
+  assertNoConfigAbove,
+  assertNotInstalled,
+  editFile,
+  line,
+  linkTypeScript,
+  report,
+  span,
+  withCopy,
+} from '../lib/tsc.ts';
 import {E2E_DIR, locate, offsetAt} from '../lib/tsserver.ts';
 
-const BROKEN = 'types-broken';
-const VALID = 'types-every-target';
 const REPO = join(E2E_DIR, '..', '..');
-const NOT_STRING = "Type 'number' is not assignable to type 'string'.";
 const HELP = `Usage: mf-tsc [options] [paths...]
 
-Type-checks the <react> block of .ucf files, with the .ts and .tsx files that import them.
+Type-checks .ucf files in every framework, with the .ts and .tsx files that import them.
 Paths are files or folders of the project; none checks the whole project.
 
 Options:
   -p, --project <file>   the tsconfig.json to use (default: the nearest one above each path)
+  --framework <name>     check .ucf files only in this framework: vue, react or svelte; repeat for more
   --format <format>      text or json (default: text)
   -h, --help             show this help
 
 Example:
-  mf-tsc src/Card.ucf --format json
+  mf-tsc src/Card.ucf --framework svelte --format json
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
+const INCLUDE = '"include": ["*.ucf", "*.ts", "pages"]';
 
-type Report = BinReport<{projects: {tsconfig: string; files: number}[]}>;
-
-const fixture = (app: string, file: string) => readFileSync(join(FIXTURES_DIR, 'apps', app, file), 'utf8');
-const report = (stdout: string) => JSON.parse(stdout) as Report;
-
-// 1-based columns; the span must not cross a line.
-function span(source: string, needle: string, length = needle.length): Pick<Finding, 'line' | 'column' | 'end'> {
-  const {line, offset} = locate(source, needle);
-  return {line, column: offset, end: {line, column: offset + length}};
-}
-
-// TypeScript marks the prop whose value has the wrong type.
-const BREAKS_SPAN = span(fixture(BROKEN, 'ReactBreaks.ucf'), 'text={42}', 'text'.length);
-const MAIN_SPAN = span(fixture(BROKEN, 'pages/main.tsx'), 'text={1}', 'text'.length);
-
-function breaksFinding(file = 'ReactBreaks.ucf'): Finding {
-  return {file, ...BREAKS_SPAN, code: 'TS2322', severity: 'error', message: NOT_STRING, block: 'react', framework: 'react'};
-}
-
-function mainFinding(file = 'pages/main.tsx'): Finding {
-  return {file, ...MAIN_SPAN, code: 'TS2322', severity: 'error', message: NOT_STRING};
-}
-
-const line = ({file, line, column, code, framework, severity, message}: Finding) =>
-  `${file}:${line}:${column}: ${severity} ${code}${framework ? ` (${framework})` : ''}: ${message}`;
+const breaksFinding = BREAKS.finding;
+const mainFinding = MAIN.finding;
 const BREAKS_LINE = line(breaksFinding());
 const MAIN_LINE = line(mainFinding());
-
-async function withCopy(app: string, check: (root: string) => Promise<void>, copy = copyApp): Promise<void> {
-  const root = await copy(app);
-  try {
-    await check(root);
-  } finally {
-    await removeApp(root);
-  }
-}
+const BROKEN_LINES = BROKEN_FINDINGS.map(({finding}) => `${line(finding())}\n`).join('');
 
 function withTempDir(check: (dir: string) => Promise<void>): () => Promise<void> {
   return async () => {
@@ -88,35 +61,6 @@ function withTempDir(check: (dir: string) => Promise<void>): () => Promise<void>
       rmSync(dir, {recursive: true, force: true});
     }
   };
-}
-
-function editFile(root: string, file: string, from: string, to: string): void {
-  const path = join(root, file);
-  writeFileSync(path, edited(readFileSync(path, 'utf8'), from, to));
-}
-
-function addFile(root: string, file: string, text: string): void {
-  mkdirSync(dirname(join(root, file)), {recursive: true});
-  writeFileSync(join(root, file), text);
-}
-
-// What the host must not have for a test outside the repo to mean what it says.
-function ancestors(dir: string): string[] {
-  const dirs = [dir];
-  while (dirs.at(-1) !== parse(dir).root) dirs.push(dirname(dirs.at(-1)!));
-  return dirs;
-}
-
-function assertNoConfigAbove(dir: string): void {
-  const found = ancestors(dir).filter((folder) => existsSync(join(folder, 'tsconfig.json')));
-  expect(found, 'a tsconfig.json above the temp folder changes what mf-tsc finds').toEqual([]);
-}
-
-function assertNoTypeScriptFor(dir: string): void {
-  const globals = [join(homedir(), '.node_modules'), join(homedir(), '.node_libraries')];
-  const folders = [...ancestors(dir).map((folder) => join(folder, 'node_modules')), ...globals];
-  const found = folders.filter((folder) => existsSync(join(folder, 'typescript')));
-  expect(found, 'a typescript install the temp copy can reach').toEqual([]);
 }
 
 describe('mf-tsc on a whole project', () => {
@@ -134,28 +78,27 @@ describe('mf-tsc on a whole project', () => {
     await withCopy(BROKEN, async (root) => {
       expect(await runMfTsc(root)).toEqual({
         code: 1,
-        stdout: `${BREAKS_LINE}\n${MAIN_LINE}\nmf-tsc: checked 3 files with tsconfig.json: 2 errors\n`,
+        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.json: 5 errors\n`,
         stderr: '',
       });
     });
   });
 
-  it('prints the same errors in the shared shape under --format json, each spanning the prop TypeScript marks', async () => {
+  it('prints the same errors in the shared shape under --format json, each spanning the text TypeScript marks', async () => {
     await withCopy(BROKEN, async (root) => {
       const run = await runMfTsc(root, ['--format', 'json']);
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       const document = report(run.stdout);
       expect(document).toEqual({
-        findings: [breaksFinding(), mainFinding()],
-        errorCount: 2,
+        findings: BROKEN_FINDINGS.map(({finding}) => finding()),
+        errorCount: 5,
         warningCount: 0,
-        projects: [{tsconfig: 'tsconfig.json', files: 3}],
+        projects: [{tsconfig: 'tsconfig.json', files: BROKEN_FILES}],
       });
-      for (const {file, line, column, end} of document.findings) {
+      for (const [index, {file, line, column, end}] of document.findings.entries()) {
         const source = readFileSync(join(root, file!), 'utf8');
         const start = offsetAt(source, {line: line!, offset: column!});
-        expect(source.slice(start, offsetAt(source, {line: end!.line, offset: end!.column}))).toBe('text');
-        expect(source.slice(start).startsWith(file!.endsWith('.ucf') ? 'text={42}' : 'text={1}')).toBe(true);
+        expect(source.slice(start, offsetAt(source, {line: end!.line, offset: end!.column}))).toBe(BROKEN_FINDINGS[index]!.text);
       }
     });
   });
@@ -163,7 +106,7 @@ describe('mf-tsc on a whole project', () => {
   it('says when its tsconfig holds no file to check', async () => {
     await withCopy(BROKEN, async (root) => {
       addFile(root, 'pages/node_modules/broken/index.ts', 'export const broken: string = 1;\n');
-      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "pages"]', '"include": ["pages/node_modules/broken/index.ts"]');
+      editFile(root, 'tsconfig.json', INCLUDE, '"include": ["pages/node_modules/broken/index.ts"]');
       expect(await runMfTsc(root)).toEqual({code: 2, stdout: '', stderr: 'mf-tsc: tsconfig.json holds no file to check\n'});
     });
   });
@@ -182,8 +125,8 @@ describe('mf-tsc on one file or one folder', () => {
     await withCopy(BROKEN, async (root) => {
       const skipped = ['pages/node_modules/broken/index.ts', 'pages/.cache/hidden.ts'];
       for (const file of skipped) addFile(root, file, 'export const broken: string = 1;\n');
-      const include = ['*.ucf', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
-      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "pages"]', `"include": [${include}]`);
+      const include = ['*.ucf', '*.ts', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
+      editFile(root, 'tsconfig.json', INCLUDE, `"include": [${include}]`);
       // Both are in the program: named, each is checked.
       const named = await runMfTsc(root, [...skipped, '--format', 'json']);
       expect(report(named.stdout).findings.map(({file, code}) => ({file, code}))).toEqual([
@@ -270,16 +213,11 @@ describe('mf-tsc with tsconfig references', () => {
     await withCopy(BROKEN, async (root) => {
       renameSync(join(root, 'tsconfig.json'), join(root, 'tsconfig.app.json'));
       // A reference back to the root: each project is visited once.
-      editFile(
-        root,
-        'tsconfig.app.json',
-        '"include": ["*.ucf", "pages"]',
-        '"include": ["*.ucf", "pages"],\n  "references": [{"path": "./tsconfig.json"}]'
-      );
+      editFile(root, 'tsconfig.app.json', INCLUDE, `${INCLUDE},\n  "references": [{"path": "./tsconfig.json"}]`);
       writeFileSync(join(root, 'tsconfig.json'), '{"files": [], "references": [{"path": "./tsconfig.app.json"}]}\n');
       expect(await runMfTsc(root)).toEqual({
         code: 1,
-        stdout: `${BREAKS_LINE}\n${MAIN_LINE}\nmf-tsc: checked 3 files with tsconfig.app.json: 2 errors\n`,
+        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.app.json: 5 errors\n`,
         stderr: '',
       });
       expect(await runMfTsc(root, ['ReactBreaks.ucf'])).toEqual({
@@ -381,7 +319,9 @@ describe('mf-tsc that cannot run', () => {
 
   it('names the real options, the formats and a path that does not exist', async () => {
     await withCopy(BROKEN, async (root) => {
-      expect(await runMfTsc(root, ['--nope'])).toEqual(fails("unknown option '--nope'; use --project, --format or --help"));
+      expect(await runMfTsc(root, ['--nope'])).toEqual(
+        fails("unknown option '--nope'; use --project, --framework, --format or --help")
+      );
       expect(await runMfTsc(root, ['--format', 'xml'])).toEqual(fails("unknown format 'xml'; use text or json"));
       expect(await runMfTsc(root, ['nope.ucf'])).toEqual(fails('nope.ucf does not exist'));
     });
@@ -414,10 +354,7 @@ describe('mf-tsc that cannot run', () => {
     'says when there is no tsconfig above the current folder',
     withTempDir(async (dir) => {
       assertNoConfigAbove(dir);
-      // The repo's own typescript, linked into the temp folder's node_modules.
-      const typescript = dirname(realpathSync(createRequire(import.meta.url).resolve('typescript/package.json')));
-      mkdirSync(join(dir, 'node_modules'));
-      symlinkSync(typescript, join(dir, 'node_modules', 'typescript'), 'junction');
+      linkTypeScript(dir);
       expect(await runMfTsc(dir)).toEqual(fails('no tsconfig.json in . or above it; add one or pass -p'));
     })
   );
@@ -440,7 +377,7 @@ describe('mf-tsc that cannot run', () => {
     await withCopy(
       BROKEN,
       async (root) => {
-        assertNoTypeScriptFor(root);
+        assertNotInstalled(root, 'typescript');
         // No global install either: Node also looks in NODE_PATH.
         expect(await runMfTsc(root, [], {NODE_PATH: undefined})).toEqual(
           fails(`typescript is not installed in ${realpathSync(root)}; add it to devDependencies`)

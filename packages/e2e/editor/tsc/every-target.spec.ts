@@ -1,0 +1,237 @@
+// The real `mf-tsc` checks every target of every `.ucf` file, as tsserver with our plugin sees it, one framework if asked.
+import {copyFileSync, mkdirSync, readFileSync, realpathSync, rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {DiagnosticsError, buildTarget, createBuildContext, findingOf, loadVueCompiler, splitBlocks} from '@multifront/core';
+import {describe, expect, it} from 'vitest';
+import {componentPath, copyAppOutside} from '../../fixtures/index.ts';
+import {PLUGIN} from '../lib/cases.ts';
+import {runMfTsc} from '../lib/commands.ts';
+import {
+  BROKEN,
+  BROKEN_FILES,
+  BROKEN_FINDINGS,
+  MAIN,
+  NO_SIZE,
+  SVELTE_BREAKS,
+  VALID,
+  VUE_BREAKS,
+  assertNotInstalled,
+  editFile,
+  line,
+  linkTypeScript,
+  report,
+  span,
+  withCopy,
+} from '../lib/tsc.ts';
+import {offsetAt, open, startTsserver} from '../lib/tsserver.ts';
+
+const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
+const summary = (files: number, problems: string) => `mf-tsc: checked ${files} files with tsconfig.json: ${problems}\n`;
+
+describe('mf-tsc over every target', () => {
+  it('reports each broken block in its own framework, inside that block, imported or not', async () => {
+    await withCopy(BROKEN, async (root) => {
+      const run = await runMfTsc(root, ['--format', 'json']);
+      expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
+      const {findings} = report(run.stdout);
+      expect(findings).toEqual(BROKEN_FINDINGS.map(({finding}) => finding()));
+      for (const {file, line, column, block} of findings.filter((finding) => finding.block)) {
+        const source = readFileSync(join(root, file!), 'utf8');
+        const target = splitBlocks(source, file!).targets[block as 'vue']!;
+        const start = offsetAt(source, {line: line!, offset: column!});
+        expect(start).toBeGreaterThanOrEqual(target.contentStart);
+        expect(start).toBeLessThan(target.contentEnd);
+      }
+    });
+  });
+
+  it("reports a block's error when nothing imports that target", async () => {
+    await withCopy(BROKEN, async (root) => {
+      rmSync(join(root, 'main.ts'));
+      editFile(root, 'OnlyReactExport.ucf', '<span>{{ label }}</span>', '<span>{{ label.toFixed(2) }}</span>');
+      const run = await runMfTsc(root, ['OnlyReactExport.ucf', '--format', 'json']);
+      const source = readFileSync(join(root, 'OnlyReactExport.ucf'), 'utf8');
+      expect(report(run.stdout).findings).toEqual([
+        {...VUE_BREAKS.finding('OnlyReactExport.ucf'), ...span(source, 'label.toFixed', 'toFixed'.length, 'label.'.length)},
+      ]);
+    });
+  });
+
+  it('gives the codes and spans tsserver with our plugin gives, file for file', async () => {
+    await withCopy(BROKEN, async (root) => {
+      const files = ['VueBreaks.ucf', 'SvelteBreaks.ucf', 'main.ts'];
+      const run = await runMfTsc(root, [...files, '--format', 'json']);
+      const tsserver = startTsserver({cwd: root, plugins: [PLUGIN]});
+      try {
+        const components = files.map((file) => {
+          const filename = join(root, file);
+          return {filename, source: readFileSync(filename, 'utf8')};
+        });
+        await open(tsserver, components);
+        for (const [index, {filename}] of components.entries()) {
+          const ours = report(run.stdout)
+            .findings.filter(({file}) => file === files[index])
+            .map(({code, line, column, end}) => ({
+              code,
+              start: {line, offset: column},
+              end: {line: end!.line, offset: end!.column},
+            }));
+          const theirs = (await tsserver.diagnostics(filename)).map(({code, start, end}) => ({code: `TS${code}`, start, end}));
+          expect(ours).toHaveLength(1);
+          expect(theirs, files[index]).toEqual(ours);
+        }
+      } finally {
+        await tsserver.stop();
+      }
+    });
+  });
+
+  it("puts a diagnostic in generated code on the block's opening tag", async () => {
+    await withCopy(VALID, async (root) => {
+      // The generated `declare const $style` clashes too, where no mapping leads back.
+      editFile(
+        root,
+        'Greeting.ucf',
+        "import Badge from './Badge.ucf'\n",
+        "import Badge from './Badge.ucf'\n  const $style = {}\n"
+      );
+      const source = readFileSync(join(root, 'Greeting.ucf'), 'utf8');
+      const redeclared = {
+        file: 'Greeting.ucf',
+        code: 'TS2451',
+        severity: 'error',
+        message: "Cannot redeclare block-scoped variable '$style'.",
+        block: 'react',
+        framework: 'react',
+      } as const;
+      const run = await runMfTsc(root, ['Greeting.ucf', '--format', 'json']);
+      expect(report(run.stdout).findings.filter(({code}) => code === 'TS2451')).toEqual([
+        {...redeclared, ...span(source, '<react>')},
+        {...redeclared, ...span(source, 'const $style', '$style'.length, 'const '.length)},
+      ]);
+    });
+  });
+
+  it("leaves out the generators' own unused helpers, which strict unused options would flag", async () => {
+    await withCopy(VALID, async (root) => {
+      editFile(
+        root,
+        'tsconfig.json',
+        '"strict": true,',
+        '"strict": true,\n    "noUnusedLocals": true,\n    "noUnusedParameters": true,'
+      );
+      expect(await runMfTsc(root)).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 4 files with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+    });
+  });
+
+  it("reports <svelte> markup Svelte cannot parse with the build's code", async () => {
+    await withCopy(BROKEN, async (root) => {
+      copyFileSync(componentPath('svelte/errors/UnclosedBrace.ucf'), join(root, 'UnclosedBrace.ucf'));
+      const file = join(root, 'UnclosedBrace.ucf');
+      const split = splitBlocks(readFileSync(file, 'utf8'), file);
+      const ctx = await createBuildContext(split, {root, compiler: loadVueCompiler(root), production: false});
+      const built = (() => {
+        try {
+          buildTarget(split, ctx, 'svelte');
+        } catch (err) {
+          if (err instanceof DiagnosticsError) return err.diagnostics;
+        }
+        throw new Error('the build took markup Svelte cannot parse');
+      })();
+      expect(built.map(({code}) => code)).toEqual(['svelte-parse-error']);
+      const run = await runMfTsc(root, ['UnclosedBrace.ucf', '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(report(run.stdout).findings).toEqual(
+        built.map((error) => ({...findingOf(error, split), file: 'UnclosedBrace.ucf', framework: 'svelte'}))
+      );
+    });
+  });
+});
+
+describe('mf-tsc --framework', () => {
+  it('checks one framework of one file', async () => {
+    await withCopy(BROKEN, async (root) => {
+      const run = await runMfTsc(root, ['SvelteBreaks.ucf', '--framework', 'svelte', '--format', 'json']);
+      expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
+      expect(report(run.stdout)).toEqual({
+        findings: [SVELTE_BREAKS.finding()],
+        errorCount: 1,
+        warningCount: 0,
+        projects: [{tsconfig: 'tsconfig.json', files: 1}],
+      });
+      expect(await runMfTsc(root, ['SvelteBreaks.ucf', '--framework', 'react'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 1 file with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+      expect(await runMfTsc(root, ['VueBreaks.ucf', '--framework', 'vue', '--framework', 'svelte'])).toEqual({
+        code: 1,
+        stdout: `${line(VUE_BREAKS.finding())}\nmf-tsc: checked 1 file with tsconfig.json: 1 error\n`,
+        stderr: '',
+      });
+    });
+  });
+
+  it('checks every other file as usual, and skips the .ucf files with none of those blocks', async () => {
+    await withCopy(BROKEN, async (root) => {
+      expect(await runMfTsc(root, ['pages', '--framework', 'svelte'])).toEqual({
+        code: 1,
+        stdout: `${line(MAIN.finding())}\nmf-tsc: checked 1 file with tsconfig.json: 1 error\n`,
+        stderr: '',
+      });
+      // ReactBreaks.ucf and Title.ucf have no <svelte> block.
+      const lines = [SVELTE_BREAKS, NO_SIZE, MAIN].map(({finding}) => `${line(finding())}\n`).join('');
+      expect(await runMfTsc(root, ['--framework', 'svelte'])).toEqual({
+        code: 1,
+        stdout: `${lines}${summary(BROKEN_FILES - 2, '3 errors')}`,
+        stderr: '',
+      });
+    });
+  });
+
+  it('names a file with none of those blocks, an unknown framework and a path left with no file', async () => {
+    await withCopy(BROKEN, async (root) => {
+      expect(await runMfTsc(root, ['ReactBreaks.ucf', '--framework', 'svelte'])).toEqual(
+        fails('ReactBreaks.ucf has no <svelte> block')
+      );
+      expect(await runMfTsc(root, ['ReactBreaks.ucf', '--framework', 'vue', '--framework', 'svelte'])).toEqual(
+        fails('ReactBreaks.ucf has no <vue> or <svelte> block')
+      );
+      expect(await runMfTsc(root, ['--framework', 'angular'])).toEqual(
+        fails("unknown framework 'angular'; use vue, react or svelte")
+      );
+      mkdirSync(join(root, 'react-only'));
+      copyFileSync(join(root, 'ReactBreaks.ucf'), join(root, 'react-only', 'Copy.ucf'));
+      editFile(root, 'tsconfig.json', '"pages"]', '"pages", "react-only"]');
+      expect(await runMfTsc(root, ['react-only', '--framework', 'svelte'])).toEqual(
+        fails('react-only holds no file of tsconfig.json to check in svelte')
+      );
+      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "*.ts", "pages", "react-only"]', '"include": ["react-only"]');
+      expect(await runMfTsc(root, ['--framework', 'vue', '--framework', 'svelte'])).toEqual(
+        fails('tsconfig.json holds no file to check in vue or svelte')
+      );
+    });
+  });
+
+  it('needs svelte only to check a <svelte> block', async () => {
+    await withCopy(
+      BROKEN,
+      async (root) => {
+        linkTypeScript(root);
+        assertNotInstalled(root, 'svelte');
+        const env = {NODE_PATH: undefined};
+        expect(await runMfTsc(root, ['SvelteBreaks.ucf'], env)).toEqual(
+          fails(`svelte is not installed in ${realpathSync(root)}; add it to devDependencies`)
+        );
+        // No react types here either: the <react> block's JSX errors, but the check runs.
+        const react = await runMfTsc(root, ['SvelteBreaks.ucf', '--framework', 'react'], env);
+        expect({code: react.code, stderr: react.stderr}).toEqual({code: 1, stderr: ''});
+      },
+      copyAppOutside
+    );
+  });
+});

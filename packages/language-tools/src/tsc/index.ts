@@ -1,18 +1,16 @@
 /** `mf-tsc`: the tsconfig's whole program with `.ucf` files in it, diagnostics of the given files only (spec 5). */
 import {basename, dirname, resolve} from 'node:path';
-import {findingOf, loadSvelteCompiler, loadVueCompiler, rootRelativePath, runCommand} from '@multifront/core';
-import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult} from '@multifront/core';
-import {proxyCreateProgram} from '@volar/typescript';
+import {TARGETS, findingOf, isTarget, orList, rootRelativePath, runCommand} from '@multifront/core';
+import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
 import type * as ts from 'typescript';
 import {filesUnder, projectTypeScript, slashed} from '../files.ts';
-import {withImportErrors} from '../importErrors.ts';
-import {MAIN_SCRIPT_TARGET, createUcfLanguagePlugin} from '../languagePlugin.ts';
-import {entryOptions, withUcfResolution} from '../resolve.ts';
-import type {TypeScript, UcfImportOptions, UcfVirtualCode} from '../types.ts';
+import type {TypeScript} from '../types.ts';
+import {createChecked} from './program.ts';
+import type {Checked} from './program.ts';
 
 const MF_TSC: CommandSpec = {
   name: 'mf-tsc',
-  summary: ['Type-checks the <react> block of .ucf files, with the .ts and .tsx files that import them.'],
+  summary: ['Type-checks .ucf files in every framework, with the .ts and .tsx files that import them.'],
   paths: 'Paths are files or folders of the project; none checks the whole project.',
   options: {
     project: {
@@ -21,8 +19,14 @@ const MF_TSC: CommandSpec = {
       value: '<file>',
       description: 'the tsconfig.json to use (default: the nearest one above each path)',
     },
+    framework: {
+      type: 'string',
+      multiple: true,
+      value: '<name>',
+      description: 'check .ucf files only in this framework: vue, react or svelte; repeat for more',
+    },
   },
-  example: 'mf-tsc src/Card.ucf --format json',
+  example: 'mf-tsc src/Card.ucf --framework svelte --format json',
 };
 
 const CONFIG_NAME = 'tsconfig.json';
@@ -31,11 +35,6 @@ interface Project {
   configFile: string;
   parsed: ts.ParsedCommandLine;
   checked?: Checked;
-}
-
-interface Checked {
-  program: ts.Program;
-  getSplit(fileName: string): SplitResult | undefined;
 }
 
 function flatten(ts: TypeScript, text: string | ts.DiagnosticMessageChain): string {
@@ -59,7 +58,7 @@ function configError(ts: TypeScript, diagnostics: readonly ts.Diagnostic[], cwd:
 }
 
 /** Volar has mapped `diagnostic` into the user's file; suggestions are dropped, as in `tsc`. */
-function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResult): Finding | undefined {
+function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResult, target?: Target): Finding | undefined {
   const {category, code, file, start, length = 0} = diagnostic;
   const severity =
     category === ts.DiagnosticCategory.Error ? 'error' : category === ts.DiagnosticCategory.Warning ? 'warning' : undefined;
@@ -85,62 +84,20 @@ function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResu
     end: at(start + length),
     ...finding,
     ...(block && {block}),
-    // The `.ucf` file's own script, the only one checked so far.
-    ...(own && {framework: MAIN_SCRIPT_TARGET}),
+    ...(own && target && {framework: target}),
   };
 }
 
-function optional<Compiler>(load: (root: string) => Compiler, root: string): Compiler | undefined {
-  try {
-    return load(root);
-  } catch {
-    return undefined;
-  }
-}
-
-function createChecked(ts: TypeScript, project: Project): Checked {
-  let getSplit: Checked['getSplit'] = () => undefined;
-  // Never emits: the tsconfig's emit options would only add errors about files it never writes.
-  const options: ts.CompilerOptions = {...project.parsed.options, noEmit: true, allowNonTsExtensions: true};
-  const root = dirname(project.configFile);
-  // Runs inside Volar's proxy, after it put its own resolver on the host.
-  const inner = ((createOptions: ts.CreateProgramOptions) => {
-    const host = createOptions.host!;
-    const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
-      ...entryOptions(compilerOptions),
-      compilerOptions,
-      host,
-      getSplit: (fileName) => getSplit(fileName),
-    });
-    host.resolveModuleNameLiterals = withUcfResolution(ts, host.resolveModuleNameLiterals!.bind(host), importOptions);
-    const program = ts.createProgram(createOptions);
-    // Before Volar decorates the program, so it maps our import errors into the `.ucf` file too.
-    const semantic = program.getSemanticDiagnostics;
-    program.getSemanticDiagnostics = (sourceFile, token) => {
-      const diagnostics = semantic(sourceFile, token);
-      return sourceFile
-        ? withImportErrors(ts, sourceFile, diagnostics, importOptions(program.getCompilerOptions()))
-        : diagnostics;
-    };
-    return program;
-  }) as typeof ts.createProgram;
-  const editorOptions = {
-    ts,
-    compilerOptions: options,
-    compiler: optional(loadVueCompiler, root),
-    svelteCompiler: optional(loadSvelteCompiler, root),
-  };
-  const createProgram = proxyCreateProgram(ts as Parameters<typeof proxyCreateProgram>[0], inner, () => ({
-    languagePlugins: [createUcfLanguagePlugin(editorOptions)],
-    setup(language) {
-      getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
-    },
-  }));
-  const program = createProgram({rootNames: project.parsed.fileNames, options, host: ts.createCompilerHost(options)});
-  return {program, getSplit: (fileName) => getSplit(fileName)};
+function frameworksOf(values: CommandValues): Target[] | undefined {
+  if (!Array.isArray(values.framework)) return undefined;
+  const names = values.framework as string[];
+  const unknown = names.find((name) => !isTarget(name));
+  if (unknown !== undefined) throw new Error(`unknown framework '${unknown}'; use ${orList(TARGETS)}`);
+  return [...new Set(names as Target[])];
 }
 
 async function check(values: CommandValues, paths: string[]): Promise<CommandResult> {
+  const frameworks = frameworksOf(values);
   const cwd = process.cwd();
   const ts = projectTypeScript(cwd, `typescript is not installed in ${cwd}; add it to devDependencies`);
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
@@ -163,7 +120,7 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     projects.set(key, project);
     return project;
   };
-  const checkedOf = (project: Project): Checked => (project.checked ??= createChecked(ts, project));
+  const checkedOf = (project: Project): Checked => (project.checked ??= createChecked(ts, project.configFile, project.parsed));
   // The project, then its references depth first, as tsserver looks for the project of a file.
   const chainOf = (configFile: string, chain: Project[] = []): Project[] => {
     const project = projectAt(configFile);
@@ -177,16 +134,14 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     const sourceFile = program.getSourceFile(file);
     return sourceFile && !program.isSourceFileDefaultLibrary(sourceFile) ? sourceFile.fileName : undefined;
   };
-  const filesOf = (project: Project): string[] => {
-    const {program} = checkedOf(project);
-    return program
-      .getSourceFiles()
-      .filter(
-        (sourceFile) =>
-          !program.isSourceFileDefaultLibrary(sourceFile) && !sourceFile.fileName.split('/').includes('node_modules')
-      )
-      .map(({fileName}) => fileName);
+  const filesOf = (project: Project): string[] => checkedOf(project).files();
+  // A `.ucf` file's scripts to check: those of its target blocks, `--framework` ones only. Undefined: not `.ucf`.
+  const targetsOf = (project: Project, fileName: string): Target[] | undefined => {
+    const split = checkedOf(project).getSplit(fileName);
+    return split && (frameworks ?? TARGETS).filter((target) => split.targets[target]);
   };
+  const checks = ([project, fileName]: [Project, string]): boolean => !frameworks || targetsOf(project, fileName)?.length !== 0;
+  const inFrameworks = () => `to check in ${orList(frameworks!)}`;
   const nearest = (dir: string): string | undefined => ts.findConfigFile(slashed(dir), ts.sys.fileExists);
 
   const pinned = typeof values.project === 'string' ? chainOf(resolve(cwd, values.project)) : undefined;
@@ -217,6 +172,7 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
       if (!config) throw new Error(`${shown(path)} has no ${CONFIG_NAME} above it; add one or pass -p`);
       const found = owner(chain, path);
       if (!found) throw new Error(`${shown(path)} is not part of ${shown(config)}; add it to "include" or pass -p`);
+      if (!checks(found)) throw new Error(`${shown(path)} has no ${orList(frameworks!.map((name) => `<${name}>`))} block`);
       assign(...found);
       continue;
     }
@@ -227,27 +183,33 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     const candidates = pinned ?? [...new Set([...(above ? chainOf(above) : []), ...below.flatMap((file) => chainOf(file))])];
     if (candidates.length === 0) throw new Error(`${shown(path)} has no ${CONFIG_NAME} above or in it; add one or pass -p`);
     const files = [...new Set(candidates.flatMap(filesOf).filter((fileName) => walked.has(fileName)))];
-    if (files.length === 0) throw new Error(`${shown(path)} holds no file of ${shown(candidates[0]!.configFile)}`);
-    for (const file of files) assign(...(owner(fileChain(file).chain, file) ?? owner(candidates, file)!));
+    const config = shown(candidates[0]!.configFile);
+    if (files.length === 0) throw new Error(`${shown(path)} holds no file of ${config}`);
+    const owned = files.map((file) => owner(fileChain(file).chain, file) ?? owner(candidates, file)!).filter(checks);
+    if (owned.length === 0) throw new Error(`${shown(path)} holds no file of ${config} ${inFrameworks()}`);
+    for (const found of owned) assign(...found);
   }
   if (paths.length === 0) {
     const config = pinned ? undefined : nearest(cwd);
     if (!pinned && !config) throw new Error(`no ${CONFIG_NAME} in . or above it; add one or pass -p`);
     const chain = pinned ?? chainOf(config!);
-    for (const project of chain) for (const fileName of filesOf(project)) assign(project, fileName);
-    if (assigned.size === 0) throw new Error(`${shown(chain[0]!.configFile)} holds no file to check`);
+    const owned = chain.flatMap((project) => filesOf(project).map((fileName): [Project, string] => [project, fileName]));
+    if (owned.length === 0) throw new Error(`${shown(chain[0]!.configFile)} holds no file to check`);
+    for (const found of owned.filter(checks)) assign(...found);
+    if (assigned.size === 0) throw new Error(`${shown(chain[0]!.configFile)} holds no file ${inFrameworks()}`);
   }
 
   const findings: Finding[] = [];
   for (const [project, files] of selection) {
-    const {program, getSplit} = checkedOf(project);
+    const checked = checkedOf(project);
+    const {program} = checked;
     const global = [...program.getOptionsDiagnostics(), ...program.getGlobalDiagnostics()];
     findings.push(...global.flatMap((diagnostic) => tscFinding(ts, diagnostic) ?? []));
     for (const fileName of files) {
-      const sourceFile = program.getSourceFile(fileName)!;
-      const split = getSplit(fileName);
-      const diagnostics = [...program.getSyntacticDiagnostics(sourceFile), ...program.getSemanticDiagnostics(sourceFile)];
-      findings.push(...diagnostics.flatMap((diagnostic) => tscFinding(ts, diagnostic, split) ?? []));
+      const split = checked.getSplit(fileName);
+      const {diagnostics, errors} = checked.check(fileName, targetsOf(project, fileName) ?? []);
+      findings.push(...diagnostics.flatMap(({diagnostic, target}) => tscFinding(ts, diagnostic, split, target) ?? []));
+      findings.push(...errors.map(({error, target}) => ({...findingOf(error, split!), framework: target})));
       if (split) findings.push(...split.errors.map((error) => findingOf(error, split)));
     }
   }

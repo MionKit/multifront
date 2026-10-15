@@ -1,0 +1,21 @@
+<vue>
+  <script setup lang="ts">
+  defineProps<{ label: string }>()
+  </script>
+  <template>
+    <span>{{ label.toFixed(2) }}</span>
+  </template>
+</vue>
+
+<react>
+  export default function VueBreaks({ label }: { label: string }) {
+    return <span>{label}</span>
+  }
+</react>
+
+<svelte>
+  <script lang="ts">
+    let { label }: { label: string } = $props()
+  </script>
+  <span>{label}</span>
+</svelte>

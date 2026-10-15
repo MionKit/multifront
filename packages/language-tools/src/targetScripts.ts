@@ -131,6 +131,26 @@ function createTargetLanguage(main: Language<string>, kind: ServedKind, caseSens
   return language;
 }
 
+/** A program host's view of the target scripts (`mf-tsc`): tsserver's files and mappings, without tsserver. */
+export function programTargetScripts(ts: TypeScript, main: Language<string>) {
+  const languages = new Map(
+    SERVED_KINDS.map((kind) => [kind.tag, createTargetLanguage(main, kind, ts.sys.useCaseSensitiveFileNames)])
+  );
+  return {
+    namesOf: (ucf: string): string[] =>
+      SERVED_KINDS.filter((kind) => targetScript(main, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag)),
+    scriptOf(fileName: string): TargetScript | undefined {
+      const parsed = parseTargetScriptName(fileName);
+      return parsed && targetScript(main, parsed.ucf, parsed.kind);
+    },
+    parse(fileName: string): {ucf: string; target: Target} | undefined {
+      const parsed = parseTargetScriptName(fileName);
+      return parsed && {ucf: parsed.ucf, target: parsed.kind.tag};
+    },
+    languageOf: (target: Target): Language<string> | undefined => languages.get(target),
+  };
+}
+
 /** Decorates the host now, before Volar binds it; `setup` and `route` run once Volar made its own language. */
 export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateInfo, base: ts.LanguageService) {
   const host = info.languageServiceHost;
