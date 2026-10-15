@@ -58,7 +58,7 @@ function ignoringConfig(fileName: string, root: string): string | undefined {
   return config && isIgnored({file: config, ignorePatterns: ignorePatterns(config, root)}, fileName) ? config : undefined;
 }
 
-// oxlint prints a bad config on stdout as a miette report, colored under `FORCE_COLOR` or a Windows console.
+// oxlint prints a bad config on stdout as a miette report, colored under `FORCE_COLOR` or a Windows console; spec 8.1 wants one plain line.
 function oxlintFailure(stdout: string, stderr: string, root: string, config: string | undefined): Error {
   const lines = stripVTControlCharacters(stderr.trim() || stdout.trim())
     .split(/\r?\n/)
@@ -82,7 +82,7 @@ async function runOxlint(bin: string, cwd: string, root: string, config: string 
     const {diagnostics} = JSON.parse(output.stdout) as {diagnostics?: OxlintDiagnostic[]};
     if (Array.isArray(diagnostics)) return diagnostics;
   } catch {
-    // Not its JSON report: a bad config exits 1 with a plain message.
+    // Not its JSON report: a bad config exits 1 with a miette report instead.
   }
   throw oxlintFailure(output.stdout, output.stderr, root, config);
 }
