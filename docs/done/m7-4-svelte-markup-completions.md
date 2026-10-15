@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.4
@@ -35,24 +35,29 @@ Checked before planning:
 
 Answers from the run-milestone orchestrator:
 
-1. `vscode-html-languageservice` 5.6.2 is pinned as a dependency of `@multifront/language-tools`, for
-   `newHTMLDataProvider` and its data types; the milestone's "Outside the milestones" list names it.
+1. `vscode-html-languageservice` 5.6.2 is a root devDependency, exact-pinned: the package imports only its HTML data
+   types (`IHTMLDataProvider`, `ITagData`, `IAttributeData`), and no exported `.d.ts` reaches them. The milestone's
+   "Outside the milestones" list names it. (First answered as a package dependency for `newHTMLDataProvider`, which
+   the provider written by hand made unneeded; revised after the review.)
 2. No fuzz test in this step: 7.4's test asks for the parse-every-suggestion check, not a fuzz test.
 3. The code's language id is `svelte-markup`, `name={…}` is blanked to `"…"`, and the tests type `{ti}` / `{#}` as
    VS Code's auto-close leaves them: each stated in 7.4's Build and Test lines with its reason.
 
 ## Plan
 
-1. `packages/language-tools/src/blocks/svelteMarkup.ts` (new): one lexical pass over the block content, no compiler
+1. `packages/language-tools/src/svelteMarkup.ts` (new; `src/blocks/` holds one file per block kind): one lexical pass over the block content, no compiler
    (so the server can run it):
    - `scanMarkup(content)` returns `code` (same length: `<script>` contents and every `{…}` become spaces; an attribute
      value `name={…}` becomes `"…"` with spaces inside, so the HTML scanner reads one quoted value; with plain spaces
      the next attribute would be read as its value), `pieces` (the spans kept), `events` (element open / close, block
-     `{#name` / `{:name` / `{/name`, each at its end offset) and the `ranges` a completion cannot start in (tags,
-     comments, raw text, expressions). Braces skip quotes and template literals inside an expression, escapes
+     `{#name` / `{:name` / `{/name`, each at its end offset), `opaque` (the spans a completion cannot start in: tags,
+     comments, raw text, expressions), `hasScript` (a top-level instance `<script>`; `<script module>` is not one)
+     and `metas` (the top-level `svelte:*` elements). Its types (`MarkupScan`, `MarkupOpen`, `MarkupEvent`,
+     `MarkupSpan`) live in `types.ts`. Braces skip quotes and template literals inside an expression, escapes
      included. An unclosed `{` is blanked up to the next `<`.
    - `openAt(scan, offset)`: the stack of open elements and blocks before `offset`, each block with its current
-     branch (`{#await p then v}` starts in `then`).
+     branch (`{#await p then v}` starts in `then`) and every `{:…}` clause it has in the whole content.
+   - `inText(scan, brace)`: the `{` starts an expression in text, not inside a tag, comment, raw text or expression.
 2. `blocks/svelte.ts` `editor()` always adds the code `{id: 'svelte_markup', languageId: 'svelte-markup'}`, its
    `pieces` mapped 1:1 with `{completion: true}` only (no HTML diagnostics, formatting, hover or links), beside the
    svelte2tsx code when a compiler is there, alone otherwise. `{…}` is unmapped: expressions get only TypeScript's
@@ -60,30 +65,35 @@ Answers from the run-milestone orchestrator:
    other's codes.
 3. `languagePlugin.ts:47` keeps the id of a `VirtualCode` an `editor()` built; `blocks/vue.ts` `editor()` names its
    code `vue` itself. Otherwise both `<svelte>` codes would get the id `svelte`.
-4. `packages/language-tools/src/blocks/svelteHtmlData.ts` (new): `SVELTE_HTML_DATA`, HTML custom data: the tags
+4. `packages/language-tools/src/svelteHtmlData.ts` (new): `svelteHtmlData`, an `IHTMLDataProvider` written by hand
+   (so its own tags never repeat the default ones), and `META_ELEMENTS`: the tags
    `svelte:window`, `svelte:document`, `svelte:body`, `svelte:head`, `svelte:element` (attribute `this`),
    `svelte:boundary`, `svelte:options` with one-line descriptions; global attributes: the prefixes `bind:`, `class:`,
    `style:`, `use:`, `transition:`, `in:`, `out:`, `animate:`, plus `bind:this`, the size binds and
    `bind:innerHTML` / `bind:innerText` / `bind:textContent`; per tag: `input` (`bind:value`, `bind:checked`,
    `bind:group`, `bind:files`, `bind:indeterminate`), `textarea` and `select` (`bind:value`), `details`
    (`bind:open`), `audio` / `video` (media binds), `img` (`bind:naturalWidth`, `bind:naturalHeight`).
-5. `packages/language-tools/src/svelteMarkupService.ts` (new): `svelteMarkupServices()`, two Volar service plugins:
-   - The HTML service: `volar-service-html` `create({documentSelector: ['svelte-markup'], getCustomData: () =>
-     [newHTMLDataProvider('svelte', SVELTE_HTML_DATA)]})`, its `provideCompletionItems` wrapped so each item is valid
+5. `packages/language-tools/src/svelteMarkupService.ts` (new), two Volar service plugins, both looking the root code up
+   with `ucfRoot()`, shared with `multifrontService.ts`:
+   - `svelteHtmlService()`: `volar-service-html` `create({documentSelector: ['svelte-markup'], getCustomData: () =>
+     [svelteHtmlData]})`, its `provideCompletionItems` wrapped so each item is valid
      Svelte where it lands, from `openAt` on the real block text (the root, decoded from the embedded URI): the meta
-     tags only at the top level; `style` dropped at the top level (styles are root blocks); `script` dropped at the
-     top level once the block has one; `svelte:element` inserts `svelte:element this={$1}`; a directive (name with
+     tags only at the top level, once each; `style` dropped at the top level (styles are root blocks); `script`
+     dropped at the top level once the block has an instance one; `svelte:element` inserts `svelte:element this={$1}`; a directive (name with
      `:`) or an `on*` event attribute inserts `={$1}`, not `="$1"`; a prefix inserts `bind:${1:name}`.
-   - `multifront-svelte-markup` (trigger characters `#`, `@`, `:`): on the root `.ucf` document, when the text before
+   - `svelteBlocksService`, `multifront-svelte-markup` (trigger characters `#`, `@`, `:`): on the root `.ucf` document, when the text before
      the cursor in the `<svelte>` markup is `{#`, `{@` or `{:` plus a word, at a text position. Snippet items, the edit
      also taking a `}` the editor auto-closed: `{#` `if`, `each`, `await`, `key`, `snippet`; `{@` `render`
      (`render ${1:children}()`), `html`, `debug`, and `const` only as the direct child of `{#if}` / `{:else}` /
      `{#each}` / `{#snippet}` / `{:then}` / `{:catch}`, a component or `<svelte:boundary>`; `{:` `else` in an `{#if}`
-     or `{#each}` not yet in `{:else}`, `then` in a pending `{#await}`, `catch` in an `{#await}` not yet in
-     `{:catch}`.
-6. `server.ts:142` adds `...svelteMarkupServices()` to the services.
-7. Dependencies of `@multifront/language-tools`, exact: `volar-service-html` `0.0.71` and `vscode-html-languageservice`
-   `5.6.2`, both already in the lockfile, past the 30-day age. The VS Code bundle takes them in with the server.
+     or `{#each}`, `then` and `catch` in an `{#await}`, each only when the block has no such clause yet, before or
+     after the cursor (Svelte's `block_duplicate_clause`: the first test run caught `{:then}` offered in the pending
+     branch of an `{#await}` that already had one). The clause being typed is read out first, so a finished `{:else`
+     still lists `else`.
+6. `server.ts:142` adds `svelteHtmlService()` and `svelteBlocksService` to the services.
+7. Dependency of `@multifront/language-tools`, exact: `volar-service-html` `0.0.71`; root devDependency
+   `vscode-html-languageservice` `5.6.2` (types only, decision 1). Both already in the lockfile, past the 30-day age.
+   The VS Code bundle takes `volar-service-html` in with the server.
 
 ## Tests
 
@@ -97,21 +107,31 @@ All on this host and in CI's `check` job (`pnpm devx test`), area Editor, real c
   on the fixture folder. Each case types a real unsaved edit and reverts it:
   1. `<sv` at the top level lists `svelte:window`, the other six `svelte:*` elements and `div`.
   2. `<sv` inside `<div>` lists `svelte:boundary` and `svelte:element`, not `svelte:window`, `svelte:head` or
-     `svelte:options`.
-  3. `<input bi />` lists `bind:value`, `bind:this` and `bind:`.
-  4. `{#` and `{#}` (VS Code's auto-close) list `if`, `each`, `await`, `key`, `snippet`.
-  5. `{@` at the top level lists `render`, `html`, `debug`, not `const`; inside `{#each}` it lists `const`.
-  6. `{:` inside `{#if}` lists `else` only; inside the pending `{#await}` `then` and `catch`; at the top level nothing.
-  7. `{ti}`: tsserver's `completionInfo` lists the `title` prop; the server lists no HTML tag there.
+     `svelte:options`. After a top-level `<svelte:window />`, `<sv` lists no second one. `<sc` lists `script` beside a
+     `<script module>` only.
+  3. `<input bi />` lists `bind:value`, `bind:this` and `bind:`. Their edits, and `onclick`'s, are `bind:value={$1}`,
+     `onclick={$1}` and `bind:${1:name}` (Svelte's parser takes `onclick="x"`, so the parse check cannot pin it).
+  4. `{#` and `{#}` (VS Code's auto-close) list `if`, `each`, `await`, `key`, `snippet`; `{#` in a `<script>` or a
+     comment lists nothing.
+  5. `{@` at the top level lists `render`, `html`, `debug`, not `const`; directly inside `{#each}`, an `{:else if}`
+     branch or a `<svelte:boundary>` it lists `const`, inside a plain element not.
+  6. `{:` inside `{#if}` lists `else` only; in the pending branch of the fixture's `{#await}`, which has its
+     `{:then}`, `catch` only; inside a typed `{#await load}` with no clause `then` and `catch`; inside
+     `{#await load then text}` `catch` only; in an `{#if}` that has its `{:else}` nothing; `{:else` typed in full still `else`; at the top level
+     nothing.
+  7. `{ti}`: tsserver's `completionInfo` lists the `title` prop; the server lists nothing there.
   8. Every item of cases 1 to 6, applied to a copy (its text edit; a tab stop filled with its placeholder or `x`, `$0`
      empty; ` />` after a tag name, as the user finishes the tag), leaves a `<svelte>` block the real
      `svelte/compiler` `parse` (modern, not loose) accepts.
   9. The server logged no warning or error.
 
-  Helpers `applyCompletion()` and `fillSnippet()` in `editor/lib/svelte.ts`, for 7.5 too.
+  Helpers `applyCompletion()` and `fillSnippet()` stay in the spec, its only reader; 7.5 moves them to `editor/lib/`
+  if it needs them.
 - `packages/e2e/editor/virtualCode.spec.ts`: every fixture with a `<svelte>` block now has the `svelte_markup` code
   after its react code; a new case checks it (same length as the block, pieces in order, `{completion: true}` only);
   file snapshots `<name>.svelte_markup.html` pin the blanked text (`EXTS` gains `'svelte-markup': '.html'`).
+- `packages/e2e/editor/svelte-types.spec.ts`: with a Svelte compiler, a block's codes are `svelte` then
+  `svelte_markup`.
 - The other editor specs stay green: `vue-block*` (Vue codes keep the id `vue`), `svelte-*`, `bundle`, `vsix`.
 
 ## Docs
