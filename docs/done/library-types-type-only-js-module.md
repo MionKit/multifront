@@ -10,9 +10,9 @@ created: 2026-10-14
 ## Intent
 
 A library component may type its props from a plain JavaScript module of `src`, through JSDoc
-(`/** @typedef {{ title: string }} CardTitle */` in `src/card.jsx`, `import type { CardTitle } from './card.js'` in
+(`/** @typedef {{ title: string }} CardTitle */` in `src/title.jsx`, `import type { CardTitle } from './title.js'` in
 both script blocks of `src/Card.ucf`). The React and Vue types builds then fail with
-`TS7016 Could not find a declaration file for module './card.jsx' ... implicitly has an 'any' type`, an error in the
+`TS7016 Could not find a declaration file for module './title.jsx' ... implicitly has an 'any' type`, an error in the
 user's `.ucf` file for a library that is fine. A `.ts` module in the same place works.
 
 ## Direction
@@ -50,7 +50,9 @@ Run by a delegated session in automatic mode: the delegation was the approval.
 - `--jsx preserve` (listing only): without `jsx`, tsc skips a `.jsx` module. Vue's real run still reports that as
   `TS6142` when the library sets no `jsx`; svelte2tsx's `emitDts` reports nothing, so Svelte would drop it unseen.
 - Tests in `packages/e2e/build/mf-build-findings.spec.ts`: `title.jsx` (React, Svelte) and `title.js` (Vue) type
-  `Card.ucf` and ship `title.d.ts`; `card.jsx` / `card.js` beside `Card.ucf` is the `name-clash`; Vue with `title.jsx`
-  and no `jsx` reports `TS6142`. Vue types through `const heading: CardTitle = props`: its compiler reads no JSDoc
+  `Card.ucf` and ship `title.d.ts`; `card.jsx` / `card.js` beside `Card.ucf` is the `name-clash`
+  (React, Vue: Svelte ships `Card.svelte.d.ts`); Vue with `title.jsx` and no `jsx` reports `TS6142`. Vue types through `const heading: CardTitle = props`: its compiler reads no JSDoc
   type inside `defineProps<...>()`.
+- Departs from Direction and Done when for Vue: a `.jsx` module there needs the library's own `jsx` (its tsconfig is
+  extended), else `TS6142`, as plain vue-tsc does. Vue is tested with `title.js`; Vue plus `jsx` set has no test.
 - Docs: `docs/architecture.md`, library paragraph, the listing run.
