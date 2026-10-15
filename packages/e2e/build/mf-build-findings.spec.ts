@@ -143,20 +143,71 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
     return edited(card, '{ title: string; children?: Snippet }', 'CardTitle & { children?: Snippet }');
   }
 
+  const tsTitle = 'export interface CardTitle {\n  title: string;\n}\n';
+  const shipped = /CardTitle\b[^}]*title: string;/;
+
   // Vue: the fixture sets no `jsx`, so vue-tsc rejects a .jsx module, below.
   it.each([
     ['jsx', 'react'],
+    ['js', 'react'],
     ['js', 'vue'],
     ['jsx', 'svelte'],
+    ['js', 'svelte'],
+    ['tsx', 'svelte'],
   ] as const)('writes title.%s as title.d.ts in the %s build', async (ext, framework) => {
     const edits = [
       {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
-      {file: `src/title.${ext}`, content: cardTitle},
+      {file: `src/title.${ext}`, content: ext === 'tsx' ? tsTitle : cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
       const run = await runMfBuild(root, ['--framework', framework]);
       expect(run).toMatchObject({code: 0, stderr: ''});
-      expect(readFileSync(join(root, 'dist', framework, 'title.d.ts'), 'utf8')).toContain('CardTitle');
+      expect(readFileSync(join(root, 'dist', framework, 'title.d.ts'), 'utf8')).toMatch(shipped);
+    });
+  });
+
+  it.each(['react', 'vue', 'svelte'] as const)(
+    'writes a module reached through another as title.d.ts in the %s build',
+    async (framework) => {
+      const edits = [
+        {file: 'src/Card.ucf', content: jsdocCard('./types.js')},
+        {file: 'src/types.ts', content: "export type { CardTitle } from './title.js';\n"},
+        {file: 'src/title.js', content: cardTitle},
+      ];
+      await withEditedLibrary(edits, async (root) => {
+        const run = await runMfBuild(root, ['--framework', framework]);
+        expect(run).toMatchObject({code: 0, stderr: ''});
+        expect(readFileSync(join(root, 'dist', framework, 'title.d.ts'), 'utf8')).toMatch(shipped);
+      });
+    }
+  );
+
+  it("writes title.jsx as title.d.ts in the vue build when the library's tsconfig sets jsx", async () => {
+    const options = {target: 'es2022', module: 'esnext', moduleResolution: 'bundler', strict: true, skipLibCheck: true};
+    const edits = [
+      {file: 'tsconfig.json', content: JSON.stringify({compilerOptions: {...options, jsx: 'preserve'}})},
+      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: 'src/title.jsx', content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', 'vue']);
+      expect(run).toMatchObject({code: 0, stderr: ''});
+      expect(readFileSync(join(root, 'dist', 'vue', 'title.d.ts'), 'utf8')).toMatch(shipped);
+    });
+  });
+
+  it("ignores an untyped package's JavaScript that only the listing run loads", async () => {
+    const typeImport = "  import type { ReactNode } from 'react'\n";
+    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+    const edits = [
+      {file: 'src/Card.ucf', content: edited(card, typeImport, `${typeImport}  import type { format } from 'flow-pkg'\n`)},
+      {file: 'src/flow-pkg.d.ts', content: "declare module 'flow-pkg' {\n  export function format(value: string): string;\n}\n"},
+      {file: 'node_modules/flow-pkg/package.json', content: '{"name": "flow-pkg", "type": "module", "main": "index.js"}\n'},
+      // Flow syntax, which tsc rejects in a .js file.
+      {file: 'node_modules/flow-pkg/index.js', content: 'export function format(value: string): string {\n  return value;\n}\n'},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      expect(await runMfBuild(root, ['--framework', 'react'])).toMatchObject({code: 0, stderr: ''});
     });
   });
 
