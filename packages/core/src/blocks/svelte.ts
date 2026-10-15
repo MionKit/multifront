@@ -209,17 +209,22 @@ function isCompileError(err: unknown): err is CompileError {
   return typeof code === 'string' && !!position;
 }
 
+/** The build's `svelte-parse-error` for what `parse(block.content)` threw; any other throw is no syntax error. */
+export function svelteParseError(err: unknown, block: Block, split: SplitResult): Diagnostic | undefined {
+  if (!isCompileError(err)) return undefined;
+  // Svelte's second line is a docs URL.
+  const text = `<svelte> does not parse: ${err.message.split('\n')[0]}`;
+  const [start, end] = err.position!;
+  return createDiagnostic(split, 'svelte-parse-error', block.contentStart + start, block.contentStart + end, text);
+}
+
 function parseBlock(block: Block, ctx: BuildContext): AST.Root {
   try {
     return loadSvelteCompiler(ctx.root).parse(block.content, {modern: true});
   } catch (err) {
-    if (!isCompileError(err)) throw err;
-    // Svelte's second line is a docs URL.
-    const text = `<svelte> does not parse: ${err.message.split('\n')[0]}`;
-    const [start, end] = err.position!;
-    throw new DiagnosticsError([
-      createDiagnostic(ctx.split, 'svelte-parse-error', block.contentStart + start, block.contentStart + end, text),
-    ]);
+    const diagnostic = svelteParseError(err, block, ctx.split);
+    if (!diagnostic) throw err;
+    throw new DiagnosticsError([diagnostic]);
   }
 }
 
