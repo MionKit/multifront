@@ -111,7 +111,7 @@ function serviceScript(code: VirtualCode): TargetScript | undefined {
 
 function editor(_block: Block, ctx: EditorContext): VirtualCode[] {
   const code = vueCode(ctx);
-  return code ? [code] : [];
+  return code ? [Object.assign(code, {id: 'vue'})] : [];
 }
 
 // Its mappings are already in `.ucf` offsets: the SFC code has the same length.

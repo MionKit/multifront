@@ -7,6 +7,7 @@ import {svelte2tsx} from 'svelte2tsx';
 import type * as ts from 'typescript';
 import {declareModule} from '../moduleTypes.ts';
 import {composeMappings, sourceMapMappings, stringSnapshot} from '../mappings.ts';
+import {SVELTE_MARKUP_LANGUAGE, scanMarkup} from '../svelteMarkup.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
 // svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
@@ -14,6 +15,8 @@ const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 
 // TypeScript features only: `mf-fmt` formats the block, and generated wrappers have no outline of the user's.
 const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
+// Tags, attributes and blocks only: no HTML diagnostics, formatting, hover or links in Svelte markup.
+const MARKUP_FEATURES: CodeInformation = {completion: true};
 
 let installedTypesRoot: string | undefined;
 
@@ -94,15 +97,28 @@ function types(block: Block, ctx: EditorContext): EditorFile | undefined {
   return script && {ext: '.ts', code: script.code, map: undefined, mappings: script.mappings};
 }
 
+// The HTML service reads it; expressions are left to TypeScript, so `{…}` maps nowhere.
+function markupCode(block: Block): VirtualCode {
+  const {code, pieces} = scanMarkup(block.content);
+  const mappings = pieces.map(({start, end}) => ({
+    sourceOffsets: [block.contentStart + start],
+    generatedOffsets: [start],
+    lengths: [end - start],
+    data: MARKUP_FEATURES,
+  }));
+  return {id: 'svelte_markup', languageId: SVELTE_MARKUP_LANGUAGE, snapshot: stringSnapshot(code), mappings};
+}
+
+// Without a compiler (the language server) only the markup code.
 function editor(block: Block, ctx: EditorContext): VirtualCode[] {
   const script = svelteTypes(block, ctx);
   if (!script) {
     // Unparsable markup: importers keep the last script's types; its offsets are stale, so nothing maps.
     const last = ctx.previous?.embeddedCodes?.find(({id}) => id === 'svelte');
-    return last ? [{...last, mappings: []}] : [];
+    return last ? [{...last, mappings: []}, markupCode(block)] : [markupCode(block)];
   }
   const languageId = script.lang === 'ts' ? 'typescript' : 'javascript';
-  return [{id: 'svelte', languageId, snapshot: stringSnapshot(script.code), mappings: script.mappings}];
+  return [{id: 'svelte', languageId, snapshot: stringSnapshot(script.code), mappings: script.mappings}, markupCode(block)];
 }
 
 function serviceScript(code: VirtualCode): TargetScript {

@@ -82,6 +82,7 @@
     "typescript-svelte-plugin": "0.3.52",
     "vite": "8.2.2",
     "vitest": "5.0.0",
+    "vscode-html-languageservice": "5.6.2",
     "vscode-oniguruma": "2.0.1",
     "vscode-textmate": "9.3.2",
     "vue": "3.5.42",

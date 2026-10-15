@@ -128,6 +128,9 @@ importers:
       vitest:
         specifier: 5.0.0
         version: 5.0.0(@types/node@26.6.4)(@vitest/coverage-v8@5.0.0)(vite@8.2.2(@types/node@26.6.4)(jiti@2.6.1)(sass@1.104.0)(stylus@0.64.0)(yaml@2.9.0))
+      vscode-html-languageservice:
+        specifier: 5.6.2
+        version: 5.6.2
       vscode-oniguruma:
         specifier: 2.0.1
         version: 2.0.1
@@ -214,6 +217,9 @@ importers:
         specifier: 0.7.61
         version: 0.7.61(svelte@5.57.0)(typescript@6.0.3)
       volar-service-css:
+        specifier: 0.0.71
+        version: 0.0.71(@volar/language-service@2.4.28)
+      volar-service-html:
         specifier: 0.0.71
         version: 0.0.71(@volar/language-service@2.4.28)
       vscode-uri:

@@ -44,7 +44,8 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
   const split = splitBlocks(source, fileName);
   const ctx = createEditorContext(split, options, last);
   const embeddedCodes: VirtualCode[] = editorFiles(ctx).map(({block, file}) => {
-    if (!('ext' in file)) return Object.assign(file, {id: codeId(block)});
+    // A code the row built carries its own id: a block may give several.
+    if (!('ext' in file)) return file;
     const {code, ext, mappings} = file;
     return {id: codeId(block), languageId: LANGUAGE_ID_BY_EXT[ext], snapshot: stringSnapshot(code), mappings};
   });

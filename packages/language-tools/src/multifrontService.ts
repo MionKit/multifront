@@ -1,9 +1,16 @@
 import {checkBlocks} from '@multifront/core';
 import {DiagnosticSeverity} from '@volar/language-server';
-import type {Diagnostic, LanguageServicePlugin} from '@volar/language-server';
+import type {Diagnostic, LanguageServiceContext, LanguageServicePlugin} from '@volar/language-server';
 import {URI} from 'vscode-uri';
 import {TSSERVER_CODES} from './tsserverCodes.ts';
 import type {UcfVirtualCode} from './types.ts';
+
+/** The root code of the `.ucf` file a document of it belongs to: the root document or an embedded one. */
+export function ucfRoot(context: LanguageServiceContext, uri: string): UcfVirtualCode | undefined {
+  const decoded = context.decodeEmbeddedDocumentUri(URI.parse(uri));
+  const root = decoded && context.language.scripts.get(decoded[0])?.generated?.root;
+  return root && 'split' in root ? (root as UcfVirtualCode) : undefined;
+}
 
 /** Diagnostics on the `.ucf` file itself, not on its embedded codes. */
 export const multifrontService: LanguageServicePlugin = {
@@ -13,10 +20,9 @@ export const multifrontService: LanguageServicePlugin = {
     return {
       provideDiagnostics(document): Diagnostic[] | undefined {
         if (document.languageId !== 'ucf') return;
-        const decoded = context.decodeEmbeddedDocumentUri(URI.parse(document.uri));
-        const root = decoded && context.language.scripts.get(decoded[0])?.generated?.root;
-        if (!root || !('split' in root)) return;
-        return checkBlocks((root as UcfVirtualCode).split)
+        const root = ucfRoot(context, document.uri);
+        if (!root) return;
+        return checkBlocks(root.split)
           .filter(({code}) => !TSSERVER_CODES.has(code))
           .map(({start, end, severity, code, message}) => ({
             range: {start: document.positionAt(start), end: document.positionAt(end)},
