@@ -131,6 +131,16 @@ export default defineLibrary({
     });
   });
 
+  it('calls a config function with the build env and awaits it', async () => {
+    const config = 'export default async ({command, mode}) => ({packages: {vue: {name: `@acme/${command}-${mode}`}}});\n';
+    await withEditedLibrary([{file: 'multifront.config.mjs', content: config}], async (root) => {
+      await rm(join(root, 'multifront.config.ts'));
+      const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts', '--format', 'json']);
+      expect(run).toMatchObject({code: 0, stderr: ''});
+      expect(report(run.stdout).packages).toEqual([expect.objectContaining({name: '@acme/build-production'})]);
+    });
+  });
+
   it('builds with the defaults when there is no config, and shows the out dir it runs in as .', async () => {
     await withEditedLibrary([], async (root) => {
       await rm(join(root, 'multifront.config.ts'));
@@ -528,6 +538,16 @@ describe('mf-build when it cannot run', () => {
       name: 'a config that is no object',
       files: {mjs: 'export default 5;\n'},
       error: 'mf-build: cannot load <mjs>: config must export or return an object.\n',
+    },
+    {
+      name: 'a config with no default export',
+      files: {mjs: "export const frameworks = ['vue'];\n"},
+      error: 'mf-build: cannot load <mjs>: config must export or return an object.\n',
+    },
+    {
+      name: 'a config that throws an Error',
+      files: {mjs: "throw new Error('bad config');\n"},
+      error: 'mf-build: cannot load <mjs>: bad config\n',
     },
     {
       name: 'a config function that returns no object',

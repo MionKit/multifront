@@ -51,5 +51,7 @@ The user's call, through the parent session: a real code fix first, no CI pin un
   Vite's two remaining steps stay the same: a function export is called with `{command: 'build', mode: 'production'}`,
   and a non-object is `config must export or return an object.`.
 - Tests: `build/library-cli.spec.ts > exits 2 on a config that throws a string` now passes on 26.11.1 and 26.12.0
-  (failed on 26.12.0 before). New row: a config function that returns no object.
+  (failed on 26.12.0 before), both run locally. New guards for the steps now ours: a config function that returns no
+  object, a config with no default export, a config that throws an `Error`, and an async config function called with
+  the build env (`@acme/build-production`).
 - Docs: `docs/architecture.md` (the `mf-build` sentence) and `docs/plan.md` (milestone 6 command line).
