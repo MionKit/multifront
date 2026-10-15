@@ -71,6 +71,30 @@ function formatError(split: SplitResult, block: Block, error: OxfmtError): Findi
   return findingOf(createDiagnostic(split, 'format-error', start, end, `<${block.type}> does not parse: ${why}`), split);
 }
 
+const SCRIPTED = new Set(['.vue', '.svelte']);
+// Attribute values may hold `>`, as in `generic="T extends Record<string, unknown>"`.
+const SCRIPT = /<script\b((?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/script>/g;
+// The parser oxfmt's own embed picks for each `lang`; any other lang is not JavaScript.
+const SCRIPT_FILES: Record<string, string> = {
+  '': 'script.jsx',
+  js: 'script.jsx',
+  jsx: 'script.jsx',
+  ts: 'script.ts',
+  tsx: 'script.tsx',
+};
+
+// oxfmt 0.67.0 keeps a <script> that does not parse as written with no error, and logs a stack for svelte.
+async function scriptError(format: Oxfmt['format'], block: Block): Promise<[Block, OxfmtError] | undefined> {
+  for (const match of block.content.matchAll(SCRIPT)) {
+    const file = SCRIPT_FILES[/(?:^|\s)lang\s*=\s*["']?(\w*)/.exec(match[1]!)?.[1] ?? ''];
+    if (!file) continue;
+    const [error] = (await format(file, match[2]!, {})).errors;
+    const contentStart = block.contentStart + match.index + match[0].length - '</script>'.length - match[2]!.length;
+    if (error) return [{...block, content: match[2]!, contentStart}, error];
+  }
+  return undefined;
+}
+
 const configRejection = (errors: OxfmtError[]) =>
   errors.find(({message, labels}) => labels.length === 0 && message.startsWith(CONFIG_ERROR));
 
@@ -96,6 +120,8 @@ export async function formatUcf(fileName: string, source: string, config: UcfFor
   });
   const results = await Promise.all(
     sent.map(async ({block, file, own, options}) => {
+      const broken = SCRIPTED.has(extname(file)) ? await scriptError(format, block) : undefined;
+      if (broken) return {block: broken[0], errors: [broken[1]], content: ''};
       const {code, errors} = await format(file, block.content, options);
       const rejected = configRejection(errors);
       if (rejected) {
