@@ -38,7 +38,6 @@ type Completed = Awaited<ReturnType<typeof completeIn>>;
 type CompletionItem = Completed['items'][number];
 type Document = Completed['document'];
 
-/** Sets the document to `source`, unsaved, and asks the server for completions at `cursor`. */
 async function completeIn(source: string, cursor: number) {
   const document = await server.openTextDocument(TOOLBAR.filename, 'ucf');
   const whole = (on: typeof document) => ({start: {line: 0, character: 0}, end: on.positionAt(on.getText().length)});
@@ -73,7 +72,7 @@ function fillSnippet(snippet: string): string {
     .replace(/\$\d+/g, 'x');
 }
 
-/** `document`'s text with `item` applied at `cursor`, and the offset just after the inserted text. */
+/** `item` applied at `cursor`; `end` is just after the inserted text. */
 function applyCompletion(document: Document, item: CompletionItem, cursor: number): {text: string; end: number} {
   const source = document.getText();
   const edit = item.textEdit && 'range' in item.textEdit ? item.textEdit : undefined;

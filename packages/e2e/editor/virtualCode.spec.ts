@@ -47,7 +47,7 @@ function expectedCodes(styles: Block[], react: Block | undefined): {id: string; 
   return react ? [...codes, {id: 'react', languageId: 'typescriptreact', block: react}] : codes;
 }
 
-// With no Svelte compiler, a <svelte> block gives its markup code only, after the others.
+// No Svelte compiler here: a <svelte> block gives only its markup code.
 function allCodes(split: ReturnType<typeof splitBlocks>): {id: string; languageId: string}[] {
   const markup = split.targets.svelte ? [{id: 'svelte_markup', languageId: 'svelte-markup'}] : [];
   return [...expectedCodes(split.styles, split.targets.react).map(({id, languageId}) => ({id, languageId})), ...markup];

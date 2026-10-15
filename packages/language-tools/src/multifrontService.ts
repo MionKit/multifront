@@ -5,7 +5,7 @@ import {URI} from 'vscode-uri';
 import {TSSERVER_CODES} from './tsserverCodes.ts';
 import type {UcfVirtualCode} from './types.ts';
 
-/** The root code of the `.ucf` file a document of it belongs to: the root document or an embedded one. */
+/** From the `.ucf` document or any of its embedded ones. */
 export function ucfRoot(context: LanguageServiceContext, uri: string): UcfVirtualCode | undefined {
   const decoded = context.decodeEmbeddedDocumentUri(URI.parse(uri));
   const root = decoded && context.language.scripts.get(decoded[0])?.generated?.root;
