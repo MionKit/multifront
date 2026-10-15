@@ -139,6 +139,7 @@ export interface CommandResult {
   findings: Finding[];
   summary: string;
   data?: Record<string, unknown>;
+  warningsFail?: boolean; // exit 1 on warnings too
 }
 
 /** The @vue/compiler-sfc parts multifront calls; hosts pass the one their Vue ships. */
