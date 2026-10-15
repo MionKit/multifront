@@ -9,11 +9,6 @@ import type {EditorConfigFile, FormatOptions, FormatOverride, UcfFormatConfig} f
 
 const CONFIG_NAMES = ['.oxfmtrc.json', '.oxfmtrc.jsonc'];
 
-/** The `.oxfmtrc.json` nearest above `dir`; a nested one replaces its parent, nothing inherited. */
-export function formatConfigFile(dir: string): string | undefined {
-  return nearestFile(dir, CONFIG_NAMES);
-}
-
 function readEditorConfig(root: string): EditorConfigFile | undefined {
   const file = nearestFile(root, ['.editorconfig']);
   if (!file) return undefined;
@@ -36,63 +31,78 @@ function readEditorConfig(root: string): EditorConfigFile | undefined {
   return {file, sections};
 }
 
-/** `file` undefined: oxfmt's defaults, with the `.editorconfig` still read. */
-export function readFormatConfig(file: string | undefined, root: string): UcfFormatConfig {
-  const raw = file ? parseJsonc(file, root) : {};
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-    throw new Error(`${rootRelativePath(root, file!)}: not a JSON object`);
-  }
-  const {overrides = [], ignorePatterns = [], $schema: _schema, ...options} = raw as FormatOptions;
-  const editorconfig = readEditorConfig(root);
-  return {
-    root,
-    ...(file && {file}),
-    options,
-    overrides: overrides as FormatOverride[],
-    ignorePatterns: ignorePatterns as string[],
-    ...(editorconfig && {editorconfig}),
-  };
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+function isOverride(value: unknown): value is FormatOverride {
+  if (!isObject(value) || !isStrings(value.files)) return false;
+  return (
+    (value.excludeFiles === undefined || isStrings(value.excludeFiles)) &&
+    (value.options === undefined || isObject(value.options))
+  );
 }
 
-/** The config the oxfmt CLI would use for `fileName` run from `root`. */
+/** The config the oxfmt CLI would use for `fileName` run from `root`: the nearest `.oxfmtrc.json`, nothing inherited. */
 export function findFormatConfig(fileName: string, root: string): UcfFormatConfig {
-  return readFormatConfig(formatConfigFile(dirname(fileName)), root);
+  const file = nearestFile(dirname(fileName), CONFIG_NAMES);
+  const raw = file ? parseJsonc(file, root) : {};
+  const fail = (why: string) => new Error(`${rootRelativePath(root, file!)}: ${why}`);
+  if (!isObject(raw)) throw fail('not a JSON object');
+  const {overrides = [], ignorePatterns = [], $schema: _schema, ...options} = raw;
+  if (!Array.isArray(overrides) || !overrides.every(isOverride))
+    throw fail('overrides must be an array of {files, excludeFiles, options}');
+  if (!isStrings(ignorePatterns)) throw fail('ignorePatterns must be an array of strings');
+  const editorconfig = readEditorConfig(root);
+  return {root, ...(file && {file}), options, overrides, ignorePatterns, ...(editorconfig && {editorconfig})};
 }
 
-// oxfmt's rule: a pattern with no `/` matches at any depth; a leading `./` anchors it to the config's folder.
+// oxfmt's rule: a leading `./` anchors a pattern at the config's folder, as a `/` inside it does;
+// any other pattern matches at any depth.
 function overrideGlob(pattern: string): string {
-  const anchored = pattern.startsWith('./');
-  const glob = anchored ? pattern.slice(2) : pattern;
-  return anchored || glob.includes('/') ? glob : `**/${glob}`;
-}
-
-// editorconfig's rule: a leading `/` anchors, else a section with no `/` matches at any depth.
-function sectionGlob(glob: string): string {
-  if (glob.startsWith('/')) return glob.slice(1);
-  return glob.includes('/') ? glob : `**/${glob}`;
+  if (pattern.startsWith('./')) return pattern.slice(2);
+  return pattern.includes('/') ? pattern : `**/${pattern}`;
 }
 
 const matches = (path: string, glob: string) => minimatch(path, glob, {dot: true});
 
+// oxfmt's `.editorconfig` reader matches a section against the whole relative path, its `*` crossing `/`: `[*.tsx]`
+// matches `src/Card.ucf.react.tsx` but `[Card.tsx]` only `Card.tsx`, and `[/Card.tsx]` nothing.
+function sectionMatches(path: string, glob: string): boolean {
+  const pattern = glob.replace(/\*+|\?|\{([^}]*)\}|\[!?|[.+^$()|\\]/g, (token, choices?: string) => {
+    if (token.startsWith('*')) return '.*';
+    if (token === '?') return '[^/]';
+    if (choices !== undefined)
+      return `(?:${choices
+        .split(',')
+        .map((choice) => choice.replace(/[.+^$()|\\]/g, '\\$&'))
+        .join('|')})`;
+    if (token.startsWith('[')) return token === '[!' ? '[^' : '[';
+    return `\\${token}`;
+  });
+  return new RegExp(`^${pattern}$`).test(path);
+}
+
 function editorProperties(editorconfig: EditorConfigFile | undefined, path: string): Record<string, string> {
   if (!editorconfig) return {};
   const relative = rootRelativePath(dirname(editorconfig.file), path);
-  const matching = editorconfig.sections.filter(({glob}) => matches(relative, sectionGlob(glob)));
+  const matching = editorconfig.sections.filter(({glob}) => sectionMatches(relative, glob));
   return Object.assign({}, ...matching.map(({properties}) => properties));
 }
 
 const numberOf = (value: string | undefined) => (value !== undefined && /^\d+$/.test(value) ? Number(value) : undefined);
-const choice = <Value>(value: string | undefined, values: Record<string, Value>) =>
+const choice = (value: string | undefined, values: Record<string, unknown>) =>
   value !== undefined && Object.hasOwn(values, value) ? values[value] : undefined;
 
-/** Base options, then each matching override in order, then the `.editorconfig` for fields still unset. */
-export function formatOptions(config: UcfFormatConfig, blockPath: string): FormatOptions {
-  const options: FormatOptions = {...config.options};
+/** `own`: the `.oxfmtrc.json` options alone; `options`: with the `.editorconfig` filling the fields still unset. */
+export function formatOptions(config: UcfFormatConfig, blockPath: string): {own: FormatOptions; options: FormatOptions} {
+  const own: FormatOptions = {...config.options};
   const relative = config.file ? rootRelativePath(dirname(config.file), blockPath) : blockPath;
   const any = (patterns: string[] = []) => patterns.some((pattern) => matches(relative, overrideGlob(pattern)));
   for (const override of config.overrides) {
-    if (any(override.files) && !any(override.excludeFiles)) Object.assign(options, override.options);
+    if (any(override.files) && !any(override.excludeFiles)) Object.assign(own, override.options);
   }
+  const options: FormatOptions = {...own};
   const props = editorProperties(config.editorconfig, blockPath);
   const fill = (key: string, value: unknown) => {
     if (options[key] === undefined && value !== undefined) options[key] = value;
@@ -105,7 +115,7 @@ export function formatOptions(config: UcfFormatConfig, blockPath: string): Forma
   fill('tabWidth', indentSize ?? numberOf(props.tab_width));
   fill('insertFinalNewline', choice(props.insert_final_newline, {true: true, false: false}));
   fill('singleQuote', choice(props.quote_type, {single: true, double: false}));
-  return options;
+  return {own, options};
 }
 
 /** `ignorePatterns` are gitignore lines rooted at the config's folder. */

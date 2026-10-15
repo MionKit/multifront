@@ -147,7 +147,7 @@ export type FormatOptions = Record<string, unknown>;
 export interface FormatOverride {
   files: string[];
   excludeFiles?: string[];
-  options: FormatOptions;
+  options?: FormatOptions;
 }
 
 /** One `.editorconfig`: its `[glob]` sections in order, keys and values lower-cased. */

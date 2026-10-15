@@ -1,12 +1,14 @@
 /** `mf-fmt`: oxfmt's `format()` on each block's own text, put back between the block's tags (spec 6.1). */
 import {readFileSync, writeFileSync} from 'node:fs';
-import {dirname, extname} from 'node:path';
+import {extname} from 'node:path';
 import {createDiagnostic, findingOf, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
 import type {Block, CommandResult, CommandSpec, CommandValues, Finding, SplitResult} from '@multifront/core';
+import type * as OxfmtModule from 'oxfmt';
 import {blockFile} from '../blocks/blockFile.ts';
 import {projectImport, ucfFiles} from '../files.ts';
+import {lineStarts} from '../mappings.ts';
 import type {FormattedUcf, UcfFormatConfig} from '../types.ts';
-import {formatConfigFile, formatOptions, isIgnored, readFormatConfig} from './config.ts';
+import {findFormatConfig, formatOptions, isIgnored} from './config.ts';
 
 export {findFormatConfig} from './config.ts';
 
@@ -18,43 +20,29 @@ const MF_FMT: CommandSpec = {
   example: 'mf-fmt --check src/Card.ucf',
 };
 
+type Oxfmt = Pick<typeof OxfmtModule, 'format'>;
+type FormatConfig = NonNullable<Parameters<Oxfmt['format']>[2]>;
+type OxfmtError = Awaited<ReturnType<Oxfmt['format']>>['errors'][number];
+
 // The endings oxfmt formats with no plugin; any other block stays as written.
 const FORMATTED = new Set(['.tsx', '.vue', '.css', '.scss', '.less']);
 const CONFIG_ERROR = 'Failed to parse configuration: ';
-const NEWLINES: Record<string, string> = {lf: '\n', cr: '\r', crlf: '\r\n'};
+const NEWLINES: Record<NonNullable<FormatConfig['endOfLine']>, string> = {lf: '\n', cr: '\r', crlf: '\r\n'};
 
-interface OxfmtError {
-  message: string;
-  labels: {start: number; end: number}[];
-}
+const projectOxfmt = (root: string) =>
+  projectImport<Oxfmt>(root, 'oxfmt', `oxfmt is not installed in ${root}; add it to devDependencies`);
 
-interface Oxfmt {
-  format(fileName: string, source: string, options: Record<string, unknown>): Promise<{code: string; errors: OxfmtError[]}>;
-}
-
-const oxfmts = new Map<string, Promise<Oxfmt>>();
-
-/** The project's own oxfmt, loaded once per root. */
-function projectOxfmt(root: string): Promise<Oxfmt> {
-  let oxfmt = oxfmts.get(root);
-  if (!oxfmt) {
-    oxfmt = projectImport<Oxfmt>(root, 'oxfmt', `oxfmt is not installed in ${root}; add it to devDependencies`);
-    oxfmts.set(root, oxfmt);
-  }
-  return oxfmt;
-}
-
-// A label's span; else Prettier's `(line:col)` ending the first message line; else the opening tag.
+// A label's span (oxc counts UTF-8 bytes); else Prettier's 1-based `(line:col)` ending the first message line; else the opening tag.
 function errorSpan(error: OxfmtError, block: Block): [number, number] {
   const [label] = error.labels;
-  if (label) return [block.contentStart + label.start, block.contentStart + label.end];
+  if (label) {
+    const bytes = Buffer.from(block.content);
+    const at = (offset: number) => block.contentStart + bytes.subarray(0, offset).toString().length;
+    return [at(label.start), at(label.end)];
+  }
   const loc = /\((\d+):(\d+)\)$/.exec(error.message.split('\n')[0]!);
   if (!loc) return [block.start, block.contentStart];
-  const lineStart = block.content
-    .split('\n')
-    .slice(0, Number(loc[1]) - 1)
-    .join('\n').length;
-  const at = block.contentStart + (Number(loc[1]) > 1 ? lineStart + 1 : 0) + Number(loc[2]) - 1;
+  const at = block.contentStart + lineStarts(block.content)[Number(loc[1]) - 1]! + Number(loc[2]) - 1;
   return [at, at];
 }
 
@@ -67,6 +55,9 @@ function formatError(split: SplitResult, block: Block, error: OxfmtError): Findi
   return findingOf(createDiagnostic(split, 'format-error', start, end, `<${block.type}> does not parse: ${why}`), split);
 }
 
+const configRejection = (errors: OxfmtError[]) =>
+  errors.find(({message, labels}) => labels.length === 0 && message.startsWith(CONFIG_ERROR));
+
 /** Text outside the blocks stays byte for byte; a config oxfmt rejects throws. */
 export async function formatUcf(fileName: string, source: string, config: UcfFormatConfig): Promise<FormattedUcf> {
   const split = splitBlocks(source, fileName);
@@ -76,14 +67,16 @@ export async function formatUcf(fileName: string, source: string, config: UcfFor
   const results = await Promise.all(
     sent.map(async (block) => {
       const file = blockFile(fileName, block);
-      const options = formatOptions(config, file);
+      const {own, options} = formatOptions(config, file) as {own: FormatConfig; options: FormatConfig};
       const {code, errors} = await format(file, block.content, options);
-      const rejected = errors.find(({message, labels}) => labels.length === 0 && message.startsWith(CONFIG_ERROR));
+      const rejected = configRejection(errors);
       if (rejected) {
-        const shown = rootRelativePath(config.root, (config.file ?? config.editorconfig?.file)!);
-        throw new Error(`${shown}: ${rejected.message.slice(CONFIG_ERROR.length).trim()}`);
+        // The `.oxfmtrc.json` alone passes: a value the `.editorconfig` filled in is the one rejected.
+        const fromEditorConfig = !configRejection((await format(file, '', own)).errors);
+        const blamed = fromEditorConfig ? config.editorconfig!.file : config.file!;
+        throw new Error(`${rootRelativePath(config.root, blamed)}: ${rejected.message.slice(CONFIG_ERROR.length).trim()}`);
       }
-      const newline = NEWLINES[options.endOfLine as string] ?? '\n';
+      const newline = NEWLINES[options.endOfLine ?? 'lf'];
       const trimmed = code.replace(/[\r\n]+$/, '');
       return {block, errors, content: trimmed ? `${newline}${trimmed}${newline}` : ''};
     })
@@ -108,42 +101,32 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
   const cwd = process.cwd();
   await projectOxfmt(cwd);
   const shown = (path: string) => rootRelativePath(cwd, path);
-  const configs = new Map<string | undefined, UcfFormatConfig>();
-  const configOf = (file: string): UcfFormatConfig => {
-    const path = formatConfigFile(dirname(file));
-    if (!configs.has(path)) configs.set(path, readFormatConfig(path, cwd));
-    return configs.get(path)!;
+  const ignoredBy = (file: string) => {
+    const config = findFormatConfig(file, cwd);
+    return isIgnored(config, file) ? shown(config.file!) : undefined;
   };
-  const files = ucfFiles(
-    paths,
-    (file) => {
-      const config = configOf(file);
-      return isIgnored(config, file) ? shown(config.file!) : undefined;
-    },
-    'format it with oxfmt'
-  );
+  const files = ucfFiles(paths, ignoredBy, 'format it with oxfmt');
   const findings: Finding[] = [];
-  const changed: string[] = [];
+  const writes: [string, string][] = [];
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
-    const formatted = await formatUcf(file, source, configOf(file));
+    const formatted = await formatUcf(file, source, findFormatConfig(file, cwd));
     findings.push(...formatted.findings);
     if (formatted.findings.length > 0 || formatted.text === source) continue;
-    changed.push(shown(file));
-    if (!values.check) {
-      writeFileSync(file, formatted.text);
-      continue;
-    }
+    writes.push([file, formatted.text]);
+    if (!values.check) continue;
     const split = splitBlocks(source, file);
     const at = firstDifference(source, formatted.text);
     const message = `not formatted; run mf-fmt ${shown(file)}`;
     findings.push(findingOf(createDiagnostic(split, 'unformatted', at, at, message), split));
   }
-  const count = `${changed.length} of ${files.length} files`;
+  // Only once every file formatted: a config error in a later file (exit 2) leaves every file as written.
+  if (!values.check) for (const [file, text] of writes) writeFileSync(file, text);
+  const count = `${writes.length} of ${files.length} files`;
   return {
     findings,
     summary: values.check ? `${count} not formatted` : `formatted ${count}`,
-    data: {files: files.length, changed},
+    data: {files: files.length, changed: writes.map(([file]) => shown(file))},
   };
 }
 

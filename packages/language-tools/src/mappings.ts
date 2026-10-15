@@ -46,7 +46,7 @@ export function insertMapped(block: Block, inserts: {at: number; text: string}[]
   return {code, mappings};
 }
 
-function lineStarts(text: string): number[] {
+export function lineStarts(text: string): number[] {
   const starts = [0];
   for (let at = text.indexOf('\n'); at !== -1; at = text.indexOf('\n', at + 1)) starts.push(at + 1);
   return starts;

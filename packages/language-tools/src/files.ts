@@ -23,28 +23,26 @@ export function filesUnder(dir: string, suffix: string, skipped?: string): strin
   return files.sort();
 }
 
-/** The project's own `typescript`. */
-export function projectTypeScript(root: string, missing: string): TypeScript {
+// Resolved from `root`, as the project's own `require` would.
+function resolveInProject(root: string, name: string, missing: string): {require: NodeJS.Require; path: string} {
   const require = createRequire(join(root, 'package.json'));
-  let path: string;
   try {
-    path = require.resolve('typescript');
+    return {require, path: require.resolve(name)};
   } catch {
     throw new Error(missing);
   }
+}
+
+/** The project's own `typescript`. */
+export function projectTypeScript(root: string, missing: string): TypeScript {
+  const {require, path} = resolveInProject(root, 'typescript', missing);
   // Found but broken: its own error says why.
   return require(path) as TypeScript;
 }
 
 /** A module of the project's own install, found from `root`. */
 export async function projectImport<Module>(root: string, name: string, missing: string): Promise<Module> {
-  let path: string;
-  try {
-    path = createRequire(join(root, 'package.json')).resolve(name);
-  } catch {
-    throw new Error(missing);
-  }
-  return (await import(pathToFileURL(path).href)) as Module;
+  return (await import(pathToFileURL(resolveInProject(root, name, missing).path).href)) as Module;
 }
 
 /** The first of `names` in `dir` or the nearest folder above it. */
@@ -58,12 +56,10 @@ export function nearestFile(dir: string, names: readonly string[]): string | und
 // A JSON string, a comment, or a run of other text.
 const JSONC_TOKENS = /"(?:[^"\\]|\\.)*"?|\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|[^"/]+|\//g;
 
-const isComment = (token: string) => token.startsWith('//') || token.startsWith('/*');
-
 /** JSON with comments and trailing commas, as oxfmt and oxlint read their configs; blanking keeps the error positions. */
 export function parseJsonc(file: string, root: string): unknown {
   const uncommented = readFileSync(file, 'utf8').replace(JSONC_TOKENS, (token) =>
-    isComment(token) ? token.replace(/[^\n]/g, ' ') : token
+    token.startsWith('//') || token.startsWith('/*') ? token.replace(/[^\n]/g, ' ') : token
   );
   // Comments are blank now, so a trailing comma and its `}` meet in one run.
   const json = uncommented.replace(JSONC_TOKENS, (token) =>

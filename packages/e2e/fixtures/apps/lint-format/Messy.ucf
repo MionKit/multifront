@@ -7,6 +7,7 @@ export default function Messy({label}:{label:string}){
 }
 </react>
 
+<!-- Text between the blocks stays as written. -->
 
 <vue>
 <script setup lang="ts">
