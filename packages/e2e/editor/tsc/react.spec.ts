@@ -47,7 +47,7 @@ type Report = BinReport<{projects: {tsconfig: string; files: number}[]}>;
 const fixture = (app: string, file: string) => readFileSync(join(FIXTURES_DIR, 'apps', app, file), 'utf8');
 const report = (stdout: string) => JSON.parse(stdout) as Report;
 
-// 1-based start and end of the first `length` characters of `needle` in `source`, on one line.
+// 1-based columns; the span must not cross a line.
 function span(source: string, needle: string, length = needle.length): Pick<Finding, 'line' | 'column' | 'end'> {
   const {line, offset} = locate(source, needle);
   return {line, column: offset, end: {line, column: offset + length}};
@@ -377,7 +377,6 @@ describe('mf-tsc findings beside the type errors', () => {
 });
 
 describe('mf-tsc that cannot run', () => {
-  // Exit 2, nothing on stdout, one line on stderr.
   const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
 
   it('names the real options, the formats and a path that does not exist', async () => {
@@ -415,7 +414,7 @@ describe('mf-tsc that cannot run', () => {
     'says when there is no tsconfig above the current folder',
     withTempDir(async (dir) => {
       assertNoConfigAbove(dir);
-      // The repo's own typescript, installed in the temp folder.
+      // The repo's own typescript, linked into the temp folder's node_modules.
       const typescript = dirname(realpathSync(createRequire(import.meta.url).resolve('typescript/package.json')));
       mkdirSync(join(dir, 'node_modules'));
       symlinkSync(typescript, join(dir, 'node_modules', 'typescript'), 'junction');
