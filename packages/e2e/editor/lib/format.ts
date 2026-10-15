@@ -1,4 +1,4 @@
-// What the `mf-fmt` and `mf-lint` specs share: the real oxfmt CLI, the fixture app and its expected outputs.
+// What the `mf-fmt` and `mf-lint` specs share: the real oxfmt and oxlint CLIs, the fixture app and its expected outputs.
 import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync} from 'node:fs';
 import {dirname, join} from 'node:path';
@@ -20,6 +20,8 @@ export const SENT_WITH_SVELTE: typeof SENT = {...SENT, svelte: '.svelte'};
 
 const OXFMT_DIR = join(E2E_DIR, '..', '..', 'node_modules', 'oxfmt');
 const OXFMT = join(OXFMT_DIR, 'bin', 'oxfmt');
+export const OXLINT_DIR = join(E2E_DIR, '..', '..', 'node_modules', 'oxlint');
+export const OXLINT = join(OXLINT_DIR, 'bin', 'oxlint');
 
 export function oxfmtCli(cwd: string, stdinFilepath: string, text: string): string {
   return execFileSync(process.execPath, [OXFMT, '--stdin-filepath', stdinFilepath], {cwd, input: text, encoding: 'utf8'});
