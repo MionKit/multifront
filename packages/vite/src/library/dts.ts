@@ -212,7 +212,13 @@ async function reachedRoots(bin: string, stage: string, job: LibraryTypesJob, sh
   // Without `jsx` tsc skips a `.jsx` module: the real run reports that, svelte2tsx's emit would drop it unreported.
   const listing = ['--listFilesOnly', '--maxNodeModuleJsDepth', String(2 ** 30), '--jsx', 'preserve'];
   const {code, output} = await runTool(bin, stage, listing);
-  if (code !== 0) throw compileError(job, output, shown);
+  // Only this run loads an untyped package's JS, whose syntax tsc may reject: errors there are not the library's.
+  const errors = output.split(/\r?\n/).flatMap((line) => {
+    const match = TSC_LINE.exec(line);
+    return match ? [match[1]] : [];
+  });
+  const outside = errors.length > 0 && errors.every((file) => file?.startsWith('../'));
+  if (code !== 0 && !outside) throw compileError(job, output, shown);
   // tsc prints the real path, past any symlink in the library root.
   const stageDir = normalizePath(await realpath(stage));
   return output

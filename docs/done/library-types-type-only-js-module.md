@@ -49,10 +49,14 @@ Run by a delegated session in automatic mode: the delegation was the approval.
   as before. The stage tsconfig is unchanged, so a third-party JS package still types as the library's own tsc does.
 - `--jsx preserve` (listing only): without `jsx`, tsc skips a `.jsx` module. Vue's real run still reports that as
   `TS6142` when the library sets no `jsx`; svelte2tsx's `emitDts` reports nothing, so Svelte would drop it unseen.
-- Tests in `packages/e2e/build/mf-build-findings.spec.ts`: `title.jsx` (React, Svelte) and `title.js` (Vue) type
-  `Card.ucf` and ship `title.d.ts`; `card.jsx` / `card.js` beside `Card.ucf` is the `name-clash`
-  (React, Vue: Svelte ships `Card.svelte.d.ts`); Vue with `title.jsx` and no `jsx` reports `TS6142`. Vue types through `const heading: CardTitle = props`: its compiler reads no JSDoc
-  type inside `defineProps<...>()`.
+- Unlimited depth makes the listing run load an untyped package's JS, which the real run never loads. Its errors there
+  (Flow syntax, say) no longer fail the build: the listing run throws only when an error names a stage file or no file.
+- Tests in `packages/e2e/build/mf-build-findings.spec.ts`: `title.js` (React, Vue, Svelte), `title.jsx` (React,
+  Svelte, and Vue with the library's `jsx` set) and `title.tsx` (Svelte, no `jsx`) type `Card.ucf` and ship
+  `title.d.ts`; so does a `title.js` reached through `src/types.ts`; an untyped Flow package, shimmed by a `src` `.d.ts`,
+  builds; `card.jsx` / `card.js` beside `Card.ucf` is the `name-clash` (React, Vue: Svelte ships `Card.svelte.d.ts`);
+  Vue with `title.jsx` and no `jsx` reports `TS6142`. Vue types through `const heading: CardTitle = props`: its
+  compiler reads no JSDoc type inside `defineProps<...>()`.
 - Departs from Direction and Done when for Vue: a `.jsx` module there needs the library's own `jsx` (its tsconfig is
-  extended), else `TS6142`, as plain vue-tsc does. Vue is tested with `title.js`; Vue plus `jsx` set has no test.
+  extended), else `TS6142`, as plain vue-tsc does. With `jsx` set it ships, tested.
 - Docs: `docs/architecture.md`, library paragraph, the listing run.
