@@ -170,4 +170,5 @@ export interface UcfFormatConfig {
 export interface FormattedUcf {
   text: string;
   findings: Finding[];
+  missingSvelte: boolean; // a `<svelte>` block the config formats stayed as written: oxfmt cannot load `svelte/compiler`
 }

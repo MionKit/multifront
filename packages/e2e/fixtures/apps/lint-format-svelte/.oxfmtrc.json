@@ -1,0 +1,4 @@
+{
+  // oxfmt's Svelte formatting, off by default: mf-fmt then formats the <svelte> block too.
+  "svelte": true
+}

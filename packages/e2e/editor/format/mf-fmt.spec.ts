@@ -11,8 +11,10 @@ import {runMfFmt, runMfTsc} from '../lib/commands.ts';
 import {
   LINT_FORMAT,
   MESSY,
-  SENT,
+  ORIGINAL,
   contents,
+  copyMessy,
+  expectCliOutput,
   fails,
   formatConfigsAbove,
   linkOxfmt,
@@ -39,27 +41,8 @@ Example:
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
-const ORIGINAL = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), MESSY);
 const FORMATTED_ONE = {code: 0, stdout: 'mf-fmt: formatted 1 of 1 files\n', stderr: ''};
 const INVALID_PRINT_WIDTH = 'Invalid printWidth: The line width should be between 1 and 320';
-
-function copyMessy(root: string, folders: string[]): void {
-  for (const folder of folders) {
-    mkdirSync(join(root, folder), {recursive: true});
-    cpSync(join(root, MESSY), join(root, folder, MESSY));
-  }
-}
-
-/** Each block oxfmt formats equals the oxfmt CLI's output for the same text, under the block file's name. */
-function expectCliOutput(root: string, file: string, newline = '\n'): void {
-  const before = contents(ORIGINAL);
-  const after = contents(read(root, file));
-  for (const [tag, ending] of Object.entries(SENT)) {
-    const cli = oxfmtCli(root, `${file}.${tag}${ending}`, before[tag as keyof typeof before]!);
-    // Flush left between the tags.
-    expect(after[tag as keyof typeof after], `<${tag}> of ${file}`).toBe(`${newline}${cli.replace(/[\r\n]+$/, '')}${newline}`);
-  }
-}
 
 function firstDifference(one: string, other: string): number {
   let at = 0;
