@@ -107,6 +107,29 @@ export function resolveUcfImport(
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};
 }
 
+export const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
+
+type ResolveLiterals = NonNullable<ts.CompilerHost['resolveModuleNameLiterals']>;
+
+/** `inner` with every `.ucf` literal resolved by `resolveUcfImport` instead. */
+export function withUcfResolution(
+  ts: TypeScript,
+  inner: ResolveLiterals,
+  importOptions: (compilerOptions: ts.CompilerOptions) => UcfImportOptions
+): ResolveLiterals {
+  return (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
+    const others = literals.filter((literal) => !isUcfSpecifier(literal));
+    if (others.length === literals.length)
+      return inner(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
+    const resolved = others.length > 0 ? inner(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
+    const options = importOptions(compilerOptions);
+    let next = 0;
+    return literals.map((literal) =>
+      isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
+    );
+  };
+}
+
 /** `frameworks`, `framework` and `importers` of our entry in `compilerOptions.plugins`. */
 export function entryOptions(compilerOptions: ts.CompilerOptions): ResolveTargetOptions {
   const plugins = (compilerOptions.plugins ?? []) as (ts.PluginImport & Partial<Record<keyof ResolveTargetOptions, unknown>>)[];

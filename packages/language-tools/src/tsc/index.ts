@@ -1,15 +1,13 @@
 /** `mf-tsc`: the tsconfig's whole program with `.ucf` files in it, diagnostics of the given files only (spec 5). */
-import {createRequire} from 'node:module';
-import {basename, dirname, join, resolve} from 'node:path';
+import {basename, dirname, resolve} from 'node:path';
 import {findingOf, loadSvelteCompiler, loadVueCompiler, rootRelativePath, runCommand} from '@multifront/core';
-import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
-import type {Language} from '@volar/language-core';
+import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult} from '@multifront/core';
 import {proxyCreateProgram} from '@volar/typescript';
 import type * as ts from 'typescript';
-import {filesUnder} from '../files.ts';
-import {isUcfSpecifier, withImportErrors} from '../importErrors.ts';
+import {filesUnder, projectTypeScript, slashed} from '../files.ts';
+import {withImportErrors} from '../importErrors.ts';
 import {MAIN_SCRIPT_TARGET, createUcfLanguagePlugin} from '../languagePlugin.ts';
-import {entryOptions, resolveUcfImport} from '../resolve.ts';
+import {entryOptions, withUcfResolution} from '../resolve.ts';
 import type {TypeScript, UcfImportOptions, UcfVirtualCode} from '../types.ts';
 
 const MF_TSC: CommandSpec = {
@@ -37,27 +35,7 @@ interface Project {
 
 interface Checked {
   program: ts.Program;
-  language: Language<string>;
-}
-
-interface UcfFile {
-  split: SplitResult;
-  framework: Target; // the target of the script TypeScript checked
-}
-
-// TypeScript names program files with `/`.
-const slashed = (path: string): string => path.replaceAll('\\', '/');
-
-function loadTypeScript(cwd: string): TypeScript {
-  const require = createRequire(join(cwd, 'package.json'));
-  let path: string;
-  try {
-    path = require.resolve('typescript');
-  } catch {
-    throw new Error(`typescript is not installed in ${cwd}; add it to devDependencies`);
-  }
-  // Found but broken: its own error says why.
-  return require(path) as TypeScript;
+  getSplit(fileName: string): SplitResult | undefined;
 }
 
 function flatten(ts: TypeScript, text: string | ts.DiagnosticMessageChain): string {
@@ -81,7 +59,7 @@ function configError(ts: TypeScript, diagnostics: readonly ts.Diagnostic[], cwd:
 }
 
 /** A TypeScript diagnostic, as Volar mapped it into the file the user wrote; suggestions are dropped, as in `tsc`. */
-function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, ucf?: UcfFile): Finding | undefined {
+function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResult): Finding | undefined {
   const {category, code, file, start, length = 0} = diagnostic;
   const severity =
     category === ts.DiagnosticCategory.Error ? 'error' : category === ts.DiagnosticCategory.Warning ? 'warning' : undefined;
@@ -99,15 +77,16 @@ function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, ucf?: UcfFile): F
     const {line, character} = file.getLineAndCharacterOfPosition(offset);
     return {line: line + 1, column: character + 1};
   };
-  const own = ucf && ucf.split.filename === file.fileName ? ucf : undefined;
-  const block = own?.split.blocks.find((candidate) => candidate.start <= start && start < candidate.end)?.type;
+  const own = split?.filename === file.fileName ? split : undefined;
+  const block = own?.blocks.find((candidate) => candidate.start <= start && start < candidate.end)?.type;
   return {
     file: file.fileName,
     ...at(start),
     end: at(start + length),
     ...finding,
     ...(block && {block}),
-    ...(own && {framework: own.framework}),
+    // The `.ucf` file's own script, the only one checked so far.
+    ...(own && {framework: MAIN_SCRIPT_TARGET}),
   };
 }
 
@@ -120,31 +99,20 @@ function optional<Compiler>(load: (root: string) => Compiler, root: string): Com
 }
 
 function createChecked(ts: TypeScript, project: Project): Checked {
-  let language: Language<string> | undefined;
+  let getSplit: Checked['getSplit'] = () => undefined;
   // Never emits: the tsconfig's emit options would only add errors about files it never writes.
   const options: ts.CompilerOptions = {...project.parsed.options, noEmit: true, allowNonTsExtensions: true};
   const root = dirname(project.configFile);
-  const getSplit = (fileName: string) => (language?.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
   // Runs inside Volar's proxy, after it put its own resolver on the host.
   const inner = ((createOptions: ts.CreateProgramOptions) => {
     const host = createOptions.host!;
-    const resolveOthers = host.resolveModuleNameLiterals!.bind(host);
     const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
       ...entryOptions(compilerOptions),
       compilerOptions,
       host,
-      getSplit,
+      getSplit: (fileName) => getSplit(fileName),
     });
-    host.resolveModuleNameLiterals = (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
-      const others = literals.filter((literal) => !isUcfSpecifier(literal));
-      const resolved =
-        others.length > 0 ? resolveOthers(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
-      const ucfOptions = importOptions(compilerOptions);
-      let next = 0;
-      return literals.map((literal) =>
-        isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, ucfOptions, sourceFile) : resolved[next++]!
-      );
-    };
+    host.resolveModuleNameLiterals = withUcfResolution(ts, host.resolveModuleNameLiterals!.bind(host), importOptions);
     const program = ts.createProgram(createOptions);
     // Before Volar decorates the program, so it maps our import errors into the `.ucf` file too.
     const semantic = program.getSemanticDiagnostics;
@@ -164,15 +132,17 @@ function createChecked(ts: TypeScript, project: Project): Checked {
   };
   const createProgram = proxyCreateProgram(ts as Parameters<typeof proxyCreateProgram>[0], inner, () => ({
     languagePlugins: [createUcfLanguagePlugin(editorOptions)],
-    setup: (created) => void (language = created),
+    setup(language) {
+      getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+    },
   }));
   const program = createProgram({rootNames: project.parsed.fileNames, options, host: ts.createCompilerHost(options)});
-  return {program, language: language!};
+  return {program, getSplit: (fileName) => getSplit(fileName)};
 }
 
 async function check(values: CommandValues, paths: string[]): Promise<CommandResult> {
   const cwd = process.cwd();
-  const ts = loadTypeScript(cwd);
+  const ts = projectTypeScript(cwd, `typescript is not installed in ${cwd}; add it to devDependencies`);
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
   const extraFileExtensions = [{extension: 'ucf', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred}];
   const projects = new Map<string, Project>();
@@ -250,20 +220,13 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
       assign(...found);
       continue;
     }
+    // Below the folder, `node_modules` and dot folders hold none of the project's files.
+    const walked = new Set(filesUnder(path, '').map(slashed));
+    const below = [...walked].filter((file) => basename(file) === CONFIG_NAME);
     const above = nearest(path);
-    const below = filesUnder(path, CONFIG_NAME).filter((file) => basename(file) === CONFIG_NAME);
     const candidates = pinned ?? [...new Set([...(above ? chainOf(above) : []), ...below.flatMap((file) => chainOf(file))])];
     if (candidates.length === 0) throw new Error(`${shown(path)} has no ${CONFIG_NAME} above or in it; add one or pass -p`);
-    const prefix = `${slashed(path)}/`;
-    // Below the folder, `node_modules` and dot folders hold none of the project's files.
-    const under = (fileName: string) =>
-      fileName.startsWith(prefix) &&
-      !fileName
-        .slice(prefix.length)
-        .split('/')
-        .slice(0, -1)
-        .some((segment) => segment.startsWith('.'));
-    const files = [...new Set(candidates.flatMap(filesOf).filter(under))];
+    const files = [...new Set(candidates.flatMap(filesOf).filter((fileName) => walked.has(fileName)))];
     if (files.length === 0) throw new Error(`${shown(path)} holds no file of ${shown(candidates[0]!.configFile)}`);
     for (const file of files) assign(...(owner(fileChain(file).chain, file) ?? owner(candidates, file)!));
   }
@@ -277,15 +240,14 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
 
   const findings: Finding[] = [];
   for (const [project, files] of selection) {
-    const {program, language} = checkedOf(project);
+    const {program, getSplit} = checkedOf(project);
     const global = [...program.getOptionsDiagnostics(), ...program.getGlobalDiagnostics()];
     findings.push(...global.flatMap((diagnostic) => tscFinding(ts, diagnostic) ?? []));
     for (const fileName of files) {
       const sourceFile = program.getSourceFile(fileName)!;
-      const split = (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
-      const ucf: UcfFile | undefined = split && {split, framework: MAIN_SCRIPT_TARGET};
+      const split = getSplit(fileName);
       const diagnostics = [...program.getSyntacticDiagnostics(sourceFile), ...program.getSemanticDiagnostics(sourceFile)];
-      findings.push(...diagnostics.flatMap((diagnostic) => tscFinding(ts, diagnostic, ucf) ?? []));
+      findings.push(...diagnostics.flatMap((diagnostic) => tscFinding(ts, diagnostic, split) ?? []));
       if (split) findings.push(...split.errors.map((error) => findingOf(error, split)));
     }
   }

@@ -2,8 +2,8 @@ import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
 import type * as ts from 'typescript';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {createLanguageServicePlugin, freshDiagnostics} from './languageServicePlugin.ts';
-import {isUcfSpecifier, withImportErrors} from './importErrors.ts';
-import {entryOptions, resolveUcfImport} from './resolve.ts';
+import {withImportErrors} from './importErrors.ts';
+import {entryOptions, withUcfResolution} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
 import type {EditorOptions, UcfImportOptions, UcfVirtualCode} from './types.ts';
 import {serveVueRequests} from './vueRequests.ts';
@@ -88,21 +88,7 @@ const createVolarPlugin = ({vueTypesRoot, svelteTypesRoot}: TypeScriptPluginOpti
         const resolve = host.resolveModuleNameLiterals?.bind(host);
         if (!resolve) return;
         type Resolve = typeof resolve;
-        const wrapResolve =
-          (inner: Resolve): Resolve =>
-          (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
-            const others = literals.filter((literal) => !isUcfSpecifier(literal));
-            if (others.length === literals.length) {
-              return inner(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
-            }
-            const resolved =
-              others.length > 0 ? inner(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
-            const options = importOptions(compilerOptions);
-            let next = 0;
-            return literals.map((literal) =>
-              isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
-            );
-          };
+        const wrapResolve = (inner: Resolve): Resolve => withUcfResolution(ts, inner, importOptions);
         // Outermost in any order: a later Volar plugin (Vue's) resolves a batch with a `.vue` import itself, `.ucf` too.
         // The setter wraps ours over its wrapper again; inner copies of ours then see no `.ucf`.
         let current = wrapResolve(resolve);
