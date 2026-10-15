@@ -103,11 +103,6 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
   const cwd = process.cwd();
   const ts = projectTypeScript(cwd, `typescript is not installed in ${cwd}; add it to devDependencies`);
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
-  const mixed = (extension: string): ts.FileExtensionInfo => ({
-    extension,
-    isMixedContent: true,
-    scriptKind: ts.ScriptKind.Deferred,
-  });
   const projects = new Map<string, Project>();
 
   const projectAt = (configFile: string): Project => {
@@ -121,7 +116,11 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     };
     // As `vue-tsc` reads them: before the file list, which takes their extensions too.
     const {vueOptions} = createParsedCommandLine(ts as Parameters<typeof createParsedCommandLine>[0], ts.sys, key);
-    const extensions = ['ucf', ...getAllExtensions(vueOptions).map((ext) => ext.slice(1))].map(mixed);
+    const extensions = ['ucf', ...getAllExtensions(vueOptions).map((ext) => ext.slice(1))].map((extension) => ({
+      extension,
+      isMixedContent: true,
+      scriptKind: ts.ScriptKind.Deferred,
+    }));
     const parsed = ts.getParsedCommandLineOfConfigFile(key, {}, host, undefined, undefined, extensions);
     if (!parsed) throw configError(ts, [unrecoverable!], cwd);
     if (parsed.errors.length > 0) throw configError(ts, parsed.errors, cwd);

@@ -320,12 +320,7 @@ describe('mf-tsc --framework', () => {
       expect(await runMfTsc(root, ['react-only', '--framework', 'svelte'])).toEqual(
         fails('react-only holds no file of tsconfig.json to check in svelte')
       );
-      editFile(
-        root,
-        'tsconfig.json',
-        '"include": ["*.ucf", "*.ts", "*.vue", "pages", "react-only"]',
-        '"include": ["react-only"]'
-      );
+      editFile(root, 'tsconfig.json', '["*.ucf", "*.ts", "*.vue", "pages", "react-only"]', '["react-only"]');
       expect(await runMfTsc(root, ['--framework', 'vue', '--framework', 'svelte'])).toEqual(
         fails('tsconfig.json holds no file to check in vue or svelte')
       );
