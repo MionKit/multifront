@@ -5,7 +5,7 @@ import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Ta
 import {createParsedCommandLine, getAllExtensions} from '@vue/language-core';
 import type {VueCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
-import {filesUnder, projectTypeScript, slashed} from '../files.ts';
+import {counted, filesUnder, problems, projectTypeScript, slashed} from '../files.ts';
 import type {Checked, TypeScript} from '../types.ts';
 import {createChecked} from './program.ts';
 
@@ -223,15 +223,11 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     }
   }
 
-  const counted = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-  const errors = findings.filter(({severity}) => severity === 'error').length;
-  const warnings = findings.length - errors;
-  const problems = [errors && counted(errors, 'error'), warnings && counted(warnings, 'warning')].filter(Boolean).join(', ');
   const used = [...selection];
   const configs = used.length === 1 ? shown(used[0]![0].configFile) : `${used.length} tsconfigs`;
   return {
     findings,
-    summary: `checked ${counted(assigned.size, 'file')} with ${configs}: ${problems || 'no errors'}`,
+    summary: `checked ${counted(assigned.size, 'file')} with ${configs}: ${problems(findings) || 'no errors'}`,
     data: {projects: used.map(([project, files]) => ({tsconfig: shown(project.configFile), files: files.size}))},
   };
 }
