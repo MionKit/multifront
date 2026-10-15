@@ -86,5 +86,5 @@ Part of the Done-when, on purpose: the cause is not found, since the crash does 
 - `exit.spec.ts` gets a third run, `crash.cjs`: it sets `NODE_OPTIONS`, kills the real VS Code main process with
   SIGSEGV and checks the dump, the error line and the missing Electron warning. It sits in `exit.spec.ts`, not a
   file of its own: two files starting VS Code at once would race over the unlocked `.vscode-test/` download.
-- GATE_RESULTS
+- 3 full `pnpm devx check` runs in a row on the cloud host with the fix: `exit.spec.ts` green in each, 4055 of 4055 tests.
 - Reading the next dump and fixing the cause is a new todo, with the CI half of the repeated-runs item.
