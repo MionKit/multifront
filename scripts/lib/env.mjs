@@ -23,6 +23,7 @@ export const REGISTRY = [
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
   {name: 'NODE_PATH', scope: 'internal', desc: "set by pnpm's bin shims into the repo's packages; the editor and compiler lookup tests and the consumer helpers clear it for their child processes"},
   {name: 'PATH', scope: 'internal', desc: "the shell's; the consumer test helpers drop its entries inside the repo for the temp apps, so no repo bin stands in for an app's"},
+  {name: 'FORCE_COLOR', scope: 'internal', desc: "read by oxlint, which then colors its report; the mf-lint tests set it to check mf-lint's one-line oxlint errors stay plain"},
   {name: 'TMPDIR', scope: 'internal', desc: "the OS temp folder on Linux and macOS, where mf-lint writes its block files; the mf-lint tests point it at a folder of their own"},
   {name: 'TEMP', scope: 'internal', desc: "the OS temp folder on Windows, and on Linux and macOS when TMPDIR and TMP are unset; the mf-lint tests set it beside TMPDIR"},
   {name: 'TMP', scope: 'internal', desc: "the OS temp folder on Windows when TEMP is unset, and on Linux and macOS when TMPDIR is unset; the mf-lint tests set it beside TMPDIR"},

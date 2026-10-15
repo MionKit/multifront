@@ -93,7 +93,7 @@ Found while building:
      a `[…]` class), `globals: {<name>: 'readonly'}`: `classes` is defined only in the file that declares it.
   3. `oxlint -c .oxlintrc.json -f json .` in the temp folder (`execFile`, `maxBuffer: Infinity`). Exit 0 or 1 with a
      JSON report: read it. Anything else (another exit, a stdout that is not its report, a bad config): throw
-     `oxlint: <its output>`, stderr else stdout, `x` / `|` markers dropped, lines joined by single spaces,
+     `oxlint: <its output>`, stderr else stdout, its colors (`FORCE_COLOR`, a Windows console) and `x` / `|` markers dropped, lines joined by single spaces,
      the config's path made relative to `root`.
   4. Each diagnostic maps by its `filename` (slashed) to its file and block; an unknown name throws. Primary span =
      `labels[0]`: `.ucf` offset = `contentStart` + the UTF-16 length of the block's first `offset` bytes, the same for
