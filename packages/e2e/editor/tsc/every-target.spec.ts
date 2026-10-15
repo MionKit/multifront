@@ -2,6 +2,7 @@
 import {copyFileSync, mkdirSync, readFileSync, realpathSync, rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {DiagnosticsError, buildTarget, createBuildContext, findingOf, loadVueCompiler, splitBlocks} from '@multifront/core';
+import type {Finding} from '@multifront/core';
 import {describe, expect, it} from 'vitest';
 import {componentPath, copyAppOutside} from '../../fixtures/index.ts';
 import {PLUGIN} from '../lib/cases.ts';
@@ -15,8 +16,10 @@ import {
   SVELTE_BREAKS,
   VALID,
   VUE_BREAKS,
+  addFile,
   assertNotInstalled,
   editFile,
+  fails,
   line,
   linkTypeScript,
   report,
@@ -25,8 +28,44 @@ import {
 } from '../lib/tsc.ts';
 import {offsetAt, open, startTsserver} from '../lib/tsserver.ts';
 
-const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
-const summary = (files: number, problems: string) => `mf-tsc: checked ${files} files with tsconfig.json: ${problems}\n`;
+const VUE_PICKS = `<vue>
+  <script setup lang="ts">
+  import ReactBreaks from './ReactBreaks.ucf'
+  </script>
+  <template>
+    <ReactBreaks />
+  </template>
+</vue>
+`;
+
+type Located = Pick<Finding, 'code' | 'line' | 'column' | 'end'>;
+
+// Each file's problems in the real `mf-tsc` and the real tsserver with our plugin, as code and span.
+async function bothHosts(root: string, files: string[]): Promise<{ours: Located[][]; theirs: Located[][]}> {
+  const {findings} = report((await runMfTsc(root, [...files, '--format', 'json'])).stdout);
+  const ours = files.map((name) =>
+    findings.filter(({file}) => file === name).map(({code, line, column, end}) => ({code, line, column, end}))
+  );
+  const tsserver = startTsserver({cwd: root, plugins: [PLUGIN]});
+  try {
+    const components = files.map((file) => ({filename: join(root, file), source: readFileSync(join(root, file), 'utf8')}));
+    await open(tsserver, components);
+    const theirs: Located[][] = [];
+    for (const {filename} of components) {
+      theirs.push(
+        (await tsserver.diagnostics(filename)).map(({code, start, end}) => ({
+          code: typeof code === 'number' ? `TS${code}` : String(code),
+          line: start.line,
+          column: start.offset,
+          end: {line: end.line, column: end.offset},
+        }))
+      );
+    }
+    return {ours, theirs};
+  } finally {
+    await tsserver.stop();
+  }
+}
 
 describe('mf-tsc over every target', () => {
   it('reports each broken block in its own framework, inside that block, imported or not', async () => {
@@ -59,30 +98,63 @@ describe('mf-tsc over every target', () => {
 
   it('gives the codes and spans tsserver with our plugin gives, file for file', async () => {
     await withCopy(BROKEN, async (root) => {
-      const files = ['VueBreaks.ucf', 'SvelteBreaks.ucf', 'main.ts'];
-      const run = await runMfTsc(root, [...files, '--format', 'json']);
-      const tsserver = startTsserver({cwd: root, plugins: [PLUGIN]});
-      try {
-        const components = files.map((file) => {
-          const filename = join(root, file);
-          return {filename, source: readFileSync(filename, 'utf8')};
-        });
-        await open(tsserver, components);
-        for (const [index, {filename}] of components.entries()) {
-          const ours = report(run.stdout)
-            .findings.filter(({file}) => file === files[index])
-            .map(({code, line, column, end}) => ({
-              code,
-              start: {line, offset: column},
-              end: {line: end!.line, offset: end!.column},
-            }));
-          const theirs = (await tsserver.diagnostics(filename)).map(({code, start, end}) => ({code: `TS${code}`, start, end}));
-          expect(ours).toHaveLength(1);
-          expect(theirs, files[index]).toEqual(ours);
-        }
-      } finally {
-        await tsserver.stop();
-      }
+      // Our import errors inside a <vue> block too, where the target rules reject the pick.
+      addFile(root, 'VuePicks.ucf', VUE_PICKS);
+      const files = ['VueBreaks.ucf', 'SvelteBreaks.ucf', 'main.ts', 'VuePicks.ucf'];
+      const {ours, theirs} = await bothHosts(root, files);
+      expect(ours.map((findings) => findings.length)).toEqual([1, 1, 1, 1]);
+      expect(theirs).toEqual(ours);
+      const picks = report((await runMfTsc(root, ['VuePicks.ucf', '--format', 'json'])).stdout).findings;
+      expect(picks).toEqual([
+        {
+          file: 'VuePicks.ucf',
+          ...span(VUE_PICKS, "'./ReactBreaks.ucf'"),
+          code: 'missing-target-block',
+          severity: 'error',
+          message: './ReactBreaks.ucf has no <vue> block; VuePicks.ucf imports it as vue',
+          block: 'vue',
+          framework: 'vue',
+        },
+      ]);
+    });
+  });
+
+  it('leaves out what a tool hides on purpose, as tsserver does: a template expression under @vue-ignore', async () => {
+    await withCopy(BROKEN, async (root) => {
+      editFile(
+        root,
+        'VueBreaks.ucf',
+        '<span>{{ label.toFixed(2) }}</span>',
+        '<span><!-- @vue-ignore -->{{ label.toFixed(2) }}</span>'
+      );
+      expect(await bothHosts(root, ['VueBreaks.ucf'])).toEqual({ours: [[]], theirs: [[]]});
+      expect(await runMfTsc(root, ['VueBreaks.ucf'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 1 file with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+    });
+  });
+
+  it('checks a .ucf file the program reaches only through an import, in every target', async () => {
+    await withCopy(BROKEN, async (root) => {
+      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "*.ts", "pages"]', '"include": ["pages"]');
+      addFile(
+        root,
+        'pages/uses.tsx',
+        'import VueBreaks from \'../VueBreaks.ucf\';\n\nexport const used = <VueBreaks label="a" />;\n'
+      );
+      // A pick resolves straight to the target script: its `.ucf` file joins the program.
+      addFile(
+        root,
+        'pages/picks.ts',
+        "import SvelteBreaks from '../SvelteBreaks.ucf' with {framework: 'svelte'};\n\nexport {SvelteBreaks};\n"
+      );
+      const run = await runMfTsc(root, ['--format', 'json']);
+      expect(report(run.stdout)).toMatchObject({
+        findings: [SVELTE_BREAKS.finding(), VUE_BREAKS.finding(), MAIN.finding()],
+        projects: [{tsconfig: 'tsconfig.json', files: 6}],
+      });
     });
   });
 
@@ -108,6 +180,33 @@ describe('mf-tsc over every target', () => {
       expect(report(run.stdout).findings.filter(({code}) => code === 'TS2451')).toEqual([
         {...redeclared, ...span(source, '<react>')},
         {...redeclared, ...span(source, 'const $style', '$style'.length, 'const '.length)},
+      ]);
+    });
+  });
+
+  it("puts one in a target script's generated code on that block's opening tag", async () => {
+    await withCopy(BROKEN, async (root) => {
+      // svelte2tsx declares the component under this name at the top level, beside the module script.
+      const name = 'SvelteBreaks__SvelteComponent_';
+      editFile(
+        root,
+        'SvelteBreaks.ucf',
+        '<svelte>\n',
+        `<svelte>\n  <script module lang="ts">\n    const ${name} = 1\n  </script>\n`
+      );
+      const source = readFileSync(join(root, 'SvelteBreaks.ucf'), 'utf8');
+      const redeclared = {
+        file: 'SvelteBreaks.ucf',
+        code: 'TS2451',
+        severity: 'error',
+        message: `Cannot redeclare block-scoped variable '${name}'.`,
+        block: 'svelte',
+        framework: 'svelte',
+      } as const;
+      const run = await runMfTsc(root, ['SvelteBreaks.ucf', '--format', 'json']);
+      expect(report(run.stdout).findings.filter(({code}) => code === 'TS2451')).toEqual([
+        {...redeclared, ...span(source, '<svelte>')},
+        {...redeclared, ...span(source, `const ${name}`, name.length, 'const '.length)},
       ]);
     });
   });
@@ -168,6 +267,16 @@ describe('mf-tsc --framework', () => {
         stdout: 'mf-tsc: checked 1 file with tsconfig.json: no errors\n',
         stderr: '',
       });
+      const twice = await runMfTsc(root, [
+        'SvelteBreaks.ucf',
+        '--framework',
+        'svelte',
+        '--framework',
+        'svelte',
+        '--format',
+        'json',
+      ]);
+      expect(report(twice.stdout).findings).toEqual([SVELTE_BREAKS.finding()]);
       expect(await runMfTsc(root, ['VueBreaks.ucf', '--framework', 'vue', '--framework', 'svelte'])).toEqual({
         code: 1,
         stdout: `${line(VUE_BREAKS.finding())}\nmf-tsc: checked 1 file with tsconfig.json: 1 error\n`,
@@ -187,7 +296,7 @@ describe('mf-tsc --framework', () => {
       const lines = [SVELTE_BREAKS, NO_SIZE, MAIN].map(({finding}) => `${line(finding())}\n`).join('');
       expect(await runMfTsc(root, ['--framework', 'svelte'])).toEqual({
         code: 1,
-        stdout: `${lines}${summary(BROKEN_FILES - 2, '3 errors')}`,
+        stdout: `${lines}mf-tsc: checked ${BROKEN_FILES - 2} files with tsconfig.json: 3 errors\n`,
         stderr: '',
       });
     });
@@ -227,6 +336,11 @@ describe('mf-tsc --framework', () => {
         expect(await runMfTsc(root, ['SvelteBreaks.ucf'], env)).toEqual(
           fails(`svelte is not installed in ${realpathSync(root)}; add it to devDependencies`)
         );
+        // Found but broken: its own error, not "not installed".
+        addFile(root, 'node_modules/svelte/package.json', '{"name": "svelte", "exports": {"./compiler": "./compiler.js"}}\n');
+        addFile(root, 'node_modules/svelte/compiler.js', "throw new Error('this svelte install is broken');\n");
+        expect(await runMfTsc(root, ['SvelteBreaks.ucf'], env)).toEqual(fails('this svelte install is broken'));
+        rmSync(join(root, 'node_modules', 'svelte'), {recursive: true});
         // No react types here either: the <react> block's JSX errors, but the check runs.
         const react = await runMfTsc(root, ['SvelteBreaks.ucf', '--framework', 'react'], env);
         expect({code: react.code, stderr: react.stderr}).toEqual({code: 1, stderr: ''});
