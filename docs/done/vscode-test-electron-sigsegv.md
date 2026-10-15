@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-15
 ---
 
@@ -49,3 +49,42 @@ None expected. If the harness gains a launch flag or an environment rule, the "E
 - The cause is found and fixed in `packages/e2e/editor/lib/vscode.ts` (or the CI setup), with evidence.
 - `exit.spec.ts` passes in repeated full `pnpm devx check` runs on the cloud host and in CI.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: keep the crash evidence, drop the host-only input (approved 2026-10-15, automatic mode)
+
+Findings:
+
+- CI: no crash in any `ci.yml` run (12 failed runs checked, none from VS Code). Cloud host only.
+- The crash is VS Code's main process at startup, before any extension output. Its log is all one pid
+  within 0.26 s. The `cpufreq` and `Crashpad/attachments` lines are Crashpad writing a dump: a normal start
+  never prints them; a main process killed with SIGSEGV prints the same three. The dump lands in
+  `user-data/Crashpad/completed`, which `runInVsCode` then deletes with its temp folder.
+- No repro on the cloud host: 0 crashes in 40 parallel full-suite runs under CPU load, 300 bare starts
+  (8 at once, during full gates) and 1 full `pnpm devx check` run.
+- Host vs CI in the crash window: the host's `NODE_OPTIONS` (`--max-old-space-size=8192`) reaches Electron,
+  which logs it as unsupported; no D-Bus system bus. `--disable-gpu` is out: a GPU process crash does not end
+  the main process.
+
+Plan:
+
+- `runInVsCode`: a run fails → copy its Crashpad dumps to `packages/e2e/.tmp/vscode-crashes/`
+  and name that folder in the error.
+- `runInVsCode`: drop `NODE_OPTIONS` from VS Code's environment, as CI runs it.
+- Test: `editor/vscode/crash.spec.ts` crashes a real VS Code with SIGSEGV and checks the dump is kept.
+- The root cause stays open without a repro: a new todo reads the next kept dump.
+
+## What shipped
+
+Part of the Done-when, on purpose: the cause is not found, since the crash does not reproduce.
+
+- `runInVsCode` starts VS Code with `--crash-reporter-directory` in its temp folder. Without it, VS Code 1.137.0
+  starts Crashpad only if `~/.vscode/argv.json` enables it, which a fresh home (CI) does not. It also turns off
+  the upload that moves a dump between folders.
+- `runInVsCode` keeps any Crashpad dumps of a failed run in `packages/e2e/.tmp/vscode-crashes/` and names the
+  folder in its error. A failed copy is named instead and never hides VS Code's own error.
+- `runInVsCode` gives VS Code no `NODE_OPTIONS`.
+- `exit.spec.ts` gets a third run, `crash.cjs`: it sets `NODE_OPTIONS`, kills the real VS Code main process with
+  SIGSEGV and checks the dump, the error line and the missing Electron warning. It sits in `exit.spec.ts`, not a
+  file of its own: two files starting VS Code at once would race over the unlocked `.vscode-test/` download.
+- GATE_RESULTS
+- Reading the next dump and fixing the cause is a new todo, with the CI half of the repeated-runs item.

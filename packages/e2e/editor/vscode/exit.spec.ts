@@ -1,10 +1,10 @@
-import {mkdtempSync, rmSync} from 'node:fs';
+import {mkdtempSync, readdirSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../../fixtures/index.ts';
-import {runInVsCode, VSCODE_VERSION} from '../lib/vscode.ts';
+import {CRASH_DIR, runInVsCode, VSCODE_VERSION} from '../lib/vscode.ts';
 import {packVsix} from '../lib/vsix.ts';
 
 interface Check {
@@ -62,4 +62,30 @@ describe("with VS Code's TypeScript extension disabled, the extension still star
       args: ['--disable-extension', TYPESCRIPT_EXTENSION],
     })
   );
+});
+
+// After the exit runs, in this file: a second file starting VS Code would race them over the `.vscode-test/` download.
+describe('a VS Code that dies by SIGSEGV', () => {
+  let kept: string | undefined;
+  const hostOptions = process.env.NODE_OPTIONS;
+
+  afterAll(() => {
+    process.env.NODE_OPTIONS = hostOptions;
+    if (kept) rmSync(kept, {recursive: true, force: true});
+  });
+
+  it('leaves its crash dump, named in the error, and got no NODE_OPTIONS', async () => {
+    process.env.NODE_OPTIONS = '--max-old-space-size=4096';
+    const suite = join(import.meta.dirname, 'crash.cjs');
+    const error = await runInVsCode({extension, workspace: WORKSPACE, suite}).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toContain('Test run terminated with signal SIGSEGV');
+    // The error ends with VS Code's own startup log: Electron names a NODE_OPTIONS it was given.
+    expect(message).not.toContain('Most NODE_OPTIONs are not supported');
+    kept = /^crash dump kept in (.+)$/m.exec(message)?.[1];
+    expect(kept, message.slice(0, 2000)).toBeDefined();
+    expect(kept!.startsWith(CRASH_DIR)).toBe(true);
+    expect(readdirSync(kept!).some((name) => name.endsWith('.dmp'))).toBe(true);
+  });
 });
