@@ -71,10 +71,10 @@ function formatError(split: SplitResult, block: Block, error: OxfmtError): Findi
   return findingOf(createDiagnostic(split, 'format-error', start, end, `<${block.type}> does not parse: ${why}`), split);
 }
 
-// The parser oxfmt's own embed picks for each `lang`; any other lang is not JavaScript.
+// Mirrors oxfmt's embed parser per `lang`; any other lang is not JavaScript.
 const SCRIPT_ENDINGS: Record<string, string> = {'': 'jsx', js: 'jsx', jsx: 'jsx', ts: 'ts', typescript: 'ts', tsx: 'tsx'};
 
-// oxfmt 0.67.0 keeps a <script> that does not parse as written with no error, and logs a stack for svelte.
+// oxfmt 0.67.0 leaves an unparsable <script> as is with no error, and logs a stack for svelte.
 async function scriptError(format: Oxfmt['format'], block: Block): Promise<{block: Block; error: OxfmtError} | undefined> {
   for (const script of blockScripts(block)) {
     const lang = typeof script.attrs.lang === 'string' ? script.attrs.lang : '';

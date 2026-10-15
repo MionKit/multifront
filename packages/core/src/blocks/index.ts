@@ -15,7 +15,7 @@ export function getBlockKind(tag: BlockTag): BlockKind {
   return KINDS_BY_TAG[tag];
 }
 
-/** Each root `<script>` of a `<vue>` or `<svelte>` block, as a block of that type: its own tag, attributes and text. */
+/** Each root `<script>` as a block of the same type, spanning its own tags. */
 export function blockScripts(block: Block): Block[] {
   const tags = block.type === 'vue' ? vueTags(block) : block.type === 'svelte' ? svelteTags(block) : [];
   return tags
