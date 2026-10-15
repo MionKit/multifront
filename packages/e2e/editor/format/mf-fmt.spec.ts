@@ -133,7 +133,8 @@ describe('mf-fmt with other configs', () => {
       async (root) => {
         expect(formatConfigsAbove(root), 'an oxfmt config above the temp copy changes what both tools find').toEqual([]);
         linkOxfmt(root);
-        rmSync(join(root, '.oxfmtrc.json'));
+        // mf-lint's fixtures: only `.oxfmtrc.json` keeps them out of the count.
+        for (const file of ['.oxfmtrc.json', 'Lint.ucf', 'Clean.ucf']) rmSync(join(root, file));
         writeFileSync(
           join(root, '.editorconfig'),
           [

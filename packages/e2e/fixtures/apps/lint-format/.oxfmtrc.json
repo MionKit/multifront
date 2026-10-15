@@ -1,5 +1,5 @@
 {
-  // The parity tests compare mf-fmt with the oxfmt CLI under this config.
+  // The parity tests compare mf-fmt with the oxfmt CLI under this config; mf-lint's fixtures stay out of them.
   "singleQuote": true,
   "semi": false,
   "overrides": [
@@ -8,5 +8,5 @@
     {"files": ["./Messy.ucf.style.scss"], "options": {"tabWidth": 2}},
     {"files": ["nested/*.vue"], "options": {"printWidth": 40}}
   ],
-  "ignorePatterns": ["old/**"]
+  "ignorePatterns": ["old/**", "Lint.ucf", "Clean.ucf"]
 }

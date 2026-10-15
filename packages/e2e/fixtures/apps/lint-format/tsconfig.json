@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
   },
-  "include": ["*.ucf", "react.ts", "vue.ts", "svelte.ts"]
+  "include": ["Messy.ucf", "react.ts", "vue.ts", "svelte.ts"]
 }

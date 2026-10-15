@@ -50,3 +50,7 @@ export function runMfTsc(cwd: string, args: string[] = [], env?: NodeJS.ProcessE
 export function runMfFmt(cwd: string, args: string[] = [], env?: NodeJS.ProcessEnv): Promise<BinRun> {
   return runBin('@multifront/language-tools', 'mf-fmt', cwd, args, {env});
 }
+
+export function runMfLint(cwd: string, args: string[] = [], env?: NodeJS.ProcessEnv): Promise<BinRun> {
+  return runBin('@multifront/language-tools', 'mf-lint', cwd, args, {env});
+}

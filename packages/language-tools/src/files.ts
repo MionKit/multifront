@@ -3,6 +3,7 @@ import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {rootRelativePath} from '@multifront/core';
+import ignore from 'ignore';
 import type {TypeScript} from './types.ts';
 
 // TypeScript names program files with `/`.
@@ -89,4 +90,11 @@ export function ucfFiles(paths: string[], ignored: (file: string) => string | un
     for (const file of found) files.add(file);
   }
   return [...files].sort();
+}
+
+/** `ignorePatterns` are gitignore lines rooted at the config's folder, as oxfmt and oxlint read them. */
+export function isIgnored(config: {file?: string; ignorePatterns: string[]}, fileName: string): boolean {
+  if (!config.file || config.ignorePatterns.length === 0) return false;
+  const path = rootRelativePath(dirname(config.file), fileName);
+  return !path.startsWith('../') && ignore().add(config.ignorePatterns).ignores(path);
 }

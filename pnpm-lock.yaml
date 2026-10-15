@@ -238,6 +238,9 @@ importers:
       oxfmt:
         specifier: 0.67.0
         version: 0.67.0(svelte@5.57.0)
+      oxlint:
+        specifier: 1.82.0
+        version: 1.82.0
       svelte:
         specifier: 5.57.0
         version: 5.57.0

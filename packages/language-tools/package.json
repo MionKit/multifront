@@ -36,6 +36,10 @@
       "source": "./src/format/index.ts",
       "default": "./dist/format/index.js"
     },
+    "#lint": {
+      "source": "./src/lint/index.ts",
+      "default": "./dist/lint/index.js"
+    },
     "#tsc": {
       "source": "./src/tsc/index.ts",
       "default": "./dist/tsc/index.js"
@@ -43,6 +47,7 @@
   },
   "bin": {
     "mf-fmt": "./bin/mf-fmt.js",
+    "mf-lint": "./bin/mf-lint.js",
     "mf-tsc": "./bin/mf-tsc.js",
     "multifront-language-server": "./bin/multifront-language-server.js"
   },
@@ -78,6 +83,7 @@
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.15",
     "oxfmt": ">=0.67.0 <1",
+    "oxlint": "^1.82.0",
     "svelte": "^5.55.6",
     "typescript": "^6.0.0"
   },
@@ -88,6 +94,9 @@
     "oxfmt": {
       "optional": true
     },
+    "oxlint": {
+      "optional": true
+    },
     "svelte": {
       "optional": true
     }
@@ -95,6 +104,7 @@
   "devDependencies": {
     "@vue/compiler-sfc": "3.5.42",
     "oxfmt": "0.67.0",
+    "oxlint": "1.82.0",
     "svelte": "5.57.0",
     "typescript": "6.0.3"
   }
