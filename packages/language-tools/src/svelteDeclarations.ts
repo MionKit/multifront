@@ -1,12 +1,13 @@
 // `.svelte` importers run Svelte's own TypeScript service, which never loads our plugin: they read declarations
 // of every `<svelte>` block instead, written to a mirror folder that `rootDirs` merges with the sources.
-import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {dirname, join, relative, resolve} from 'node:path';
 import {loadSvelteCompiler, splitBlocks} from '@multifront/core';
 import type * as ts from 'typescript';
 import {svelteTypes} from './blocks/svelte.ts';
 import {createEditorContext, editorFiles} from './context.ts';
+import {filesUnder} from './files.ts';
 import {entryOptions, resolveUcfImport} from './resolve.ts';
 import {targetScriptName} from './targetScripts.ts';
 import type {EmitSvelteTypesOptions, TypeScript, UcfImportOptions} from './types.ts';
@@ -31,21 +32,6 @@ function projectTypeScript(root: string): TypeScript {
   }
   // Found but broken: its own error says why.
   return require(path) as TypeScript;
-}
-
-// `node_modules` and dot folders below `dir` (the output's own `.ucf/` among them) hold none of the project's files.
-function filesUnder(dir: string, suffix: string, skipped?: string): string[] {
-  const files: string[] = [];
-  const visit = (folder: string): void => {
-    for (const entry of readdirSync(folder, {withFileTypes: true})) {
-      const path = join(folder, entry.name);
-      const kept = entry.name !== 'node_modules' && !entry.name.startsWith('.') && path !== skipped;
-      if (entry.isDirectory() && kept) visit(path);
-      else if (entry.isFile() && entry.name.endsWith(suffix)) files.push(path);
-    }
-  };
-  visit(dir);
-  return files.sort();
 }
 
 function hasSvelteBlock(fileName: string): boolean {
