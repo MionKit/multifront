@@ -7,7 +7,7 @@ import {svelte2tsx} from 'svelte2tsx';
 import type * as ts from 'typescript';
 import {declareModule} from '../moduleTypes.ts';
 import {composeMappings, sourceMapMappings, stringSnapshot} from '../mappings.ts';
-import {SVELTE_MARKUP_LANGUAGE, scanMarkup} from '../svelteMarkup.ts';
+import {SVELTE_MARKUP_LANGUAGE, isComponent, scanMarkup} from '../svelteMarkup.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
 // svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
@@ -17,6 +17,10 @@ const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
 const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
 // Completion only: no HTML diagnostics, formatting, hover or links in Svelte markup.
 const MARKUP_FEATURES: CodeInformation = {completion: true};
+// A component start tag's whitespace: TypeScript completes its props there, nothing else reads it.
+const PROPS_FEATURES: CodeInformation = {completion: true};
+const PROPS_OBJECT = 'props: {';
+const ENSURE_COMPONENT = '__sveltets_2_ensureComponent(';
 
 let installedTypesRoot: string | undefined;
 
@@ -47,6 +51,35 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
     });
   }
   return uses;
+}
+
+// Each component's start tag whitespace onto the start of the props object svelte2tsx writes for it:
+// `<Icon |` completes Icon's props. A gap's first character stays the tag name's end.
+function propsMappings(block: Block, code: string, mappings: CodeMapping[]): CodeMapping[] {
+  const found: CodeMapping[] = [];
+  for (const {name, start, gaps} of scanMarkup(block.content).tags) {
+    if (!isComponent(name) || gaps.length === 0) continue;
+    const nameAt = block.contentStart + start + 1;
+    const named = mappings.find(
+      ({sourceOffsets, lengths, generatedLengths}) =>
+        !generatedLengths && sourceOffsets[0]! <= nameAt && nameAt < sourceOffsets[0]! + lengths[0]!
+    );
+    if (!named) continue;
+    const generatedName = named.generatedOffsets[0]! + nameAt - named.sourceOffsets[0]!;
+    const props = code.indexOf(PROPS_OBJECT, generatedName);
+    const next = code.indexOf(ENSURE_COMPONENT, generatedName);
+    if (props === -1 || (next !== -1 && next < props)) continue;
+    for (const gap of gaps) {
+      found.push({
+        sourceOffsets: [block.contentStart + gap.start + 1],
+        generatedOffsets: [props + PROPS_OBJECT.length],
+        lengths: [gap.end - gap.start - 1],
+        generatedLengths: [0],
+        data: PROPS_FEATURES,
+      });
+    }
+  }
+  return found;
 }
 
 // svelte2tsx's script, then `declare const __ucfStyle: {readonly card: string};` per class map the block uses.
@@ -89,6 +122,7 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
   const mappings = composeMappings(outer, inner);
   let code = prefix + script.code;
   for (const [module, local] of locals) code = declareModule(code, local, module.classes, mappings);
+  mappings.push(...propsMappings(block, code, mappings));
   return {code, mappings, lang};
 }
 

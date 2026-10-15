@@ -1,5 +1,5 @@
 // The `<svelte>` markup read lexically: the server loads no Svelte compiler, and a block mid-edit rarely parses.
-import type {MarkupEvent, MarkupOpen, MarkupScan, MarkupSpan} from './types.ts';
+import type {MarkupEvent, MarkupOpen, MarkupScan, MarkupSpan, MarkupTag} from './types.ts';
 
 /** Embedded code language of the markup; not `html`, so Vue's template services never read it. */
 export const SVELTE_MARKUP_LANGUAGE = 'svelte-markup';
@@ -13,6 +13,9 @@ const VOID_ELEMENTS: ReadonlySet<string> = new Set(
 );
 const isSpace = (char: string | undefined): boolean => char !== undefined && /\s/.test(char);
 const isNameStart = (char: string | undefined): boolean => char !== undefined && /[A-Za-z]/.test(char);
+
+/** A component tag (`Icon`, `ui.Button`), not an element or a `svelte:*` one. */
+export const isComponent = (name: string): boolean => /^[A-Z]/.test(name) || name.includes('.');
 
 function tagNameEnd(text: string, pos: number): number {
   while (pos < text.length && !isSpace(text[pos]) && !'/>{<'.includes(text[pos]!)) pos++;
@@ -69,6 +72,7 @@ export function scanMarkup(content: string): MarkupScan {
   const opaque: MarkupScan['opaque'] = [];
   const stack: MarkupOpen[] = [];
   const metas = new Set<string>();
+  const tags: MarkupTag[] = [];
   let hasScript = false;
   const event = (next: MarkupEvent) => {
     events.push(next);
@@ -85,7 +89,7 @@ export function scanMarkup(content: string): MarkupScan {
   };
 
   // `complete` false: a tag still being typed.
-  const readTag = (pos: number): {end: number; selfClosing: boolean; complete: boolean} => {
+  const readTag = (pos: number, gaps: MarkupSpan[]): {end: number; selfClosing: boolean; complete: boolean} => {
     while (pos < content.length) {
       const char = content[pos];
       if (char === '>') return {end: pos + 1, selfClosing: false, complete: true};
@@ -96,6 +100,9 @@ export function scanMarkup(content: string): MarkupScan {
         continue;
       }
       if (char !== '=') {
+        const last = gaps.at(-1);
+        if (isSpace(char) && last?.end === pos) last.end++;
+        else if (isSpace(char)) gaps.push({start: pos, end: pos + 1});
         pos++;
         continue;
       }
@@ -135,7 +142,9 @@ export function scanMarkup(content: string): MarkupScan {
     } else if (char === '<' && isNameStart(content[pos + 1])) {
       const nameEnd = tagNameEnd(content, pos + 1);
       const name = content.slice(pos + 1, nameEnd);
-      const {end, selfClosing, complete} = readTag(nameEnd);
+      const gaps: MarkupSpan[] = [];
+      const {end, selfClosing, complete} = readTag(nameEnd, gaps);
+      tags.push({name, start: pos, end, gaps});
       opaque.push({start: pos, end, expression: false});
       const tag = content.slice(pos, end);
       pos = end;
@@ -181,7 +190,7 @@ export function scanMarkup(content: string): MarkupScan {
     from = Math.max(from, end);
   }
   if (content.length > from) pieces.push({start: from, end: content.length});
-  return {code: chars.join(''), pieces, events, opaque, hasScript, metas};
+  return {code: chars.join(''), pieces, events, opaque, hasScript, metas, tags};
 }
 
 /** What is open just before `offset`, outermost first. */

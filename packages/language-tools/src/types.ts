@@ -122,6 +122,12 @@ export interface MarkupSpan {
   end: number;
 }
 
+/** A start tag in the `<svelte>` markup; `end` is the next `<` or the content end while it is still being typed. */
+export interface MarkupTag extends MarkupSpan {
+  name: string;
+  gaps: MarkupSpan[]; // whitespace between the name, the attributes and the tag's end; never inside a value
+}
+
 /** The `<svelte>` markup read lexically, in offsets of the block content. */
 export interface MarkupScan {
   code: string; // same length as the content: `<script>` contents and every `{…}` blanked
@@ -130,4 +136,5 @@ export interface MarkupScan {
   opaque: (MarkupSpan & {expression: boolean})[]; // tags, comments, raw text and expressions: no markup completes there
   hasScript: boolean; // a top-level instance `<script>`
   metas: Set<string>; // top-level `svelte:*` elements; Svelte takes each meta element once
+  tags: MarkupTag[]; // every start tag, in order
 }
