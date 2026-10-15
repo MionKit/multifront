@@ -12,8 +12,9 @@ step: 7.3
 ## Problem
 
 `mf-tsc` (7.1, 7.2) builds one program per tsconfig through Volar's `proxyCreateProgram` with our `.ucf` language
-plugin only (`packages/language-tools/src/tsc/program.ts:150`). A `.vue` file is not even in the program:
-`tsc/index.ts:112` gives `ts.getParsedCommandLineOfConfigFile` only `ucf` as an extra extension, so `include` never
+plugin only (`createChecked`'s `languagePlugins` in `packages/language-tools/src/tsc/program.ts`). A `.vue` file is
+not even in the program: `projectAt` in `tsc/index.ts` gives `ts.getParsedCommandLineOfConfigFile` only `ucf` as an
+extra extension, so `include` never
 picks `Page.vue`. A Vue project with `.ucf` files needs `vue-tsc` beside `mf-tsc`, and `vue-tsc` cannot read `.ucf`
 imports, so in practice it has no checker. Milestone 7.3: one command type-checks `.vue` files, their `.ucf` imports
 resolved to the Vue target.
@@ -30,7 +31,7 @@ Answers from the run-milestone orchestrator:
 
 1. The tsconfig's `vueCompilerOptions` apply to `.vue` files: read with `createParsedCommandLine`, extensions from
    `getAllExtensions`, as `vue-tsc` does. `.ucf` `<vue>` blocks keep our own options.
-2. A parity test with the real `vue-tsc` on a plain `.vue` file goes in (test 6).
+2. A parity test with the real `vue-tsc` on a plain `.vue` file goes in (test 5).
 
 ## Plan
 
@@ -77,23 +78,25 @@ on `copyApp()` temp copies. They run on this host and in CI's `check` job (`pnpm
 7.1 / 7.2 specs use, plus `vue-tsc` 3.3.11 (already a root devDependency, run through the existing `typeCheck()` in
 `build/lib/library.ts`). No new infra.
 
-1. Valid app: `mf-tsc` exits 0 with `mf-tsc: checked 5 files with tsconfig.json: no errors`. `mf-tsc Page.vue` exits
-   0 with `checked 1 file with tsconfig.json: no errors`.
-2. Broken app, whole project, `--format json`: the `BadPage.vue` finding is exactly `BAD_PAGE.finding()`, no `block`,
-   no `framework`. The `.vue` text from its `line`/`column` to `end` is `label`.
-3. `mf-tsc BadPage.vue` reports only that finding: exit 1, stdout exactly
+1. Valid app: `mf-tsc Page.vue` exits 0 with `checked 1 file with tsconfig.json: no errors`. The whole valid app
+   (`checked 5 files`) and the broken one's whole-project document, `BAD_PAGE` with its text `label`, are pinned by
+   the updated `react.spec.ts`.
+2. `mf-tsc BadPage.vue` reports only that finding: exit 1, stdout exactly
    `BadPage.vue:6:21: error TS2322: Type 'number' is not assignable to type 'string'.` and
    `mf-tsc: checked 1 file with tsconfig.json: 1 error`. With `--format json`: the exact document,
    `projects: [{tsconfig: 'tsconfig.json', files: 1}]`.
-4. The `.vue` importer gets the Vue target: a temp edit makes `BadPage.vue` import `./Title.ucf` (no `<vue>` block).
+3. The `.vue` importer gets the Vue target: a temp edit makes `BadPage.vue` import `./Title.ucf` (no `<vue>` block).
    One `missing-target-block` finding at the specifier, `./Title.ucf has no <vue> block; BadPage.vue imports it as
    vue`, no TS2307.
-5. The tsconfig's `vueCompilerOptions` apply:
-   - In the valid copy, `Page.vue` passes an unknown prop: exit 0 without the option. With
-     `"vueCompilerOptions": {"strictTemplates": true}`, exit 1 with one error at that prop.
-   - With `"extensions": [".vue", ".page"]` and `*.page` in `include`, an `Extra.page` with a script type error is
-     reported at its line and column.
-6. Parity with `vue-tsc`: a temp `plain/` project in the broken copy (a tsconfig and a `Plain.vue` with one script
+4. The tsconfig's `vueCompilerOptions` apply:
+   - In the valid copy, `Page.vue` passes an unknown prop, and so does `Greeting.ucf`'s `<vue>` block (to `Badge`):
+     exit 0 without the option. Then the create-vue layout: root `{"files": [], "references": [...]}`,
+     `tsconfig.app.json` with `"extends": "./vue.json"`, `vue.json` holding `strictTemplates: true`. The whole
+     project and `-p tsconfig.app.json Page.vue` both give exactly one error, at `Page.vue`'s `extra`: the option
+     comes through `extends`, from the referenced project's own config, and never reaches a `.ucf` `<vue>` block.
+   - With `"extensions": [".vue", ".page"]` (the app's `include: ["."]` then picks it), an `Extra.page` with a script
+     type error is reported at its line and column.
+5. Parity with `vue-tsc`: a temp `plain/` project in the broken copy (a tsconfig and a `Plain.vue` with one script
    error and one template error, no `.ucf` import). Real `vue-tsc -p tsconfig.json --pretty false` and real
    `mf-tsc --format json` in that folder give the same codes at the same lines and columns.
 
@@ -112,7 +115,7 @@ The updated `react.spec.ts` and `every-target.spec.ts` stay green with the new f
 
 ## Fuzzing
 
-None. The milestone puts no fuzz test in 7.3. The cheap oracle, `vue-tsc`, is used as the fixed-case parity test 6.
+None. The milestone puts no fuzz test in 7.3. The cheap oracle, `vue-tsc`, is used as the fixed-case parity test 5.
 
 ## Out of scope
 
