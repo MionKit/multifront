@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.2
@@ -38,6 +38,12 @@ Answers from the run-milestone orchestrator:
    `mf-tsc: tsconfig.json holds no file to check in svelte` with no path (`in vue or svelte` for two). The
    milestone's "a path with no file to check" bullet names the case.
 
+Decided while building (automatic mode):
+
+- A generator's unused helper is left out even when unmapped: with `noUnusedLocals` the Vue and Svelte scripts flag
+  `__VLS_components`, `__ucfRest` and the like (`reportsUnnecessary`), which the user cannot fix. Every other unmapped
+  diagnostic lands on the opening tag. Pinned by the valid app under `noUnusedLocals` and `noUnusedParameters`.
+
 ## Plan
 
 ### 1. Target scripts in a program (`packages/language-tools/src/targetScripts.ts`)
@@ -47,10 +53,9 @@ Answers from the run-milestone orchestrator:
   - `namesOf(ucf): string[]`: `targetScriptName(ucf, tag)` for each served target whose script exists.
   - `scriptOf(fileName): TargetScript | undefined`: the script behind a `Card.ucf.<target>.ts` name.
   - `parse(fileName): {ucf, target} | undefined`.
-  - `toUcf(diagnostic, program)`: Volar's `transformDiagnostic(targetLanguage, …, true)`, the mapping tsserver's
-    target proxies use, so both hosts give the same positions.
-  - whether some mapping covers a span whatever its feature flags, so "generated code with no mapping" is told apart
-    from "mapped, but the tool hides it" (Vue's `verification: false`).
+  - `languageOf(target)`: the target language; `tsc/program.ts` maps with Volar's `transformDiagnostic` and asks it
+    whether some mapping covers a span whatever its feature flags (`mapsAnywhere`), so "generated code with no
+    mapping" is told apart from "mapped, but the tool hides it" (Vue's `verification: false`).
 - tsserver's `serveTargetScripts` is unchanged.
 
 ### 2. The program (`packages/language-tools/src/tsc/program.ts`, new)
@@ -72,7 +77,8 @@ Answers from the run-milestone orchestrator:
     `transformDiagnostic(main, …)`; `vue` and `svelte` are `Card.ucf.<target>.ts`'s, mapped with `toUcf`. Each comes
     with its target;
   - a diagnostic no mapping covers goes to the target block's opening tag, `[block.start, block.contentStart)`, code
-    and message kept; one mapped but filtered out by the tool's flags stays dropped, as `vue-tsc` drops it.
+    and message kept; one mapped but filtered out by the tool's flags stays dropped, as `vue-tsc` drops it, and so
+    does a generator's unused helper (`reportsUnnecessary`).
 - **`Checked.files()`**: the program's source files, minus default libs, `node_modules` and target script names.
 - **Svelte.** A checked `<svelte>` block with no compiler is exit 2 (decision 1). With a compiler but no script, the
   block's markup is parsed with the compiler and core's new `svelteParseError(err, block, split)` (shared with the
@@ -116,13 +122,16 @@ All run on this host and in CI's `check` and floor jobs (`pnpm devx test`): chil
 
 ### `packages/e2e/editor/lib/tsc.ts` (new)
 
-Shared by both specs: `span`, `line`, `withCopy`, `editFile`, `addFile`, the `Report` type, the broken app's findings.
+Shared by both specs: `span`, `line`, `withCopy`, `editFile`, `addFile`, `assertNoConfigAbove`,
+`assertNotInstalled(dir, name)`, `linkTypeScript(dir)`, the `Report` type, and the broken app's findings with the text
+each spans (`BROKEN_FINDINGS`).
 
 ### `packages/e2e/editor/tsc/every-target.spec.ts` (area Editor), real `mf-tsc` on `copyApp()` copies
 
 1. Broken app, whole project: exit 1, the exact readable lines and summary; in JSON each new finding spans `toFixed`
    (or `size`) in the fixture text, inside its `block`, `framework` set.
-2. Valid `types-every-target/` (all three targets): exit 0, summary only.
+2. Valid `types-every-target/` (all three targets): exit 0, summary only (pinned in `react.spec.ts`), also with
+   `noUnusedLocals` and `noUnusedParameters`.
 3. tsserver parity: the real tsserver with our plugin opens `VueBreaks.ucf`, `SvelteBreaks.ucf` and `main.ts`; its
    codes and spans equal `mf-tsc`'s findings for each.
 4. One framework: `mf-tsc SvelteBreaks.ucf --framework svelte --format json` gives only the Svelte finding;
@@ -132,8 +141,8 @@ Shared by both specs: `span`, `line`, `withCopy`, `editFile`, `addFile`, the `Re
 6. Nothing imports a target: a temp template error in `OnlyReactExport.ucf`'s `<vue>`, `main.ts` deleted: reported.
 7. Unmapped: `const $style = {}` in a temp copy of `Greeting.ucf`'s `<react>`: TS2451 at the user's line and one on
    the `<react>` opening tag.
-8. Svelte markup that does not parse (`components/svelte/errors/UnclosedBrace.ucf` copied in): the build's
-   `svelte-parse-error` finding.
+8. Svelte markup that does not parse (`components/svelte/errors/UnclosedBrace.ucf` copied in): exactly the
+   `findingOf` of what the real `buildTarget(…, 'svelte')` throws, `framework: 'svelte'`.
 9. Exit 2, stdout empty, one exact stderr line: `ReactBreaks.ucf --framework svelte`, `--framework angular`, a folder
    and a project empty after `--framework`, and a `copyAppOutside()` copy with typescript but no svelte (while
    `--framework react` there still runs).
