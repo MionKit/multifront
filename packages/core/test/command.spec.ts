@@ -1,4 +1,5 @@
 import {spawnSync} from 'node:child_process';
+import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {describe, expect, it} from 'vitest';
 import {checkBlocks, findingOf, splitBlocks} from '@multifront/core';
@@ -45,15 +46,38 @@ describe('findingOf', () => {
 describe('runCommand', () => {
   // The child types its options with core's exported `CommandOption`.
   const script = fileURLToPath(new URL('command.child.ts', import.meta.url));
+  const cwd = dirname(script);
   const run = (...args: string[]) => {
-    const {status, stdout, stderr} = spawnSync(process.execPath, [script, ...args], {encoding: 'utf8', timeout: 30_000});
+    const {status, stdout, stderr} = spawnSync(process.execPath, [script, ...args], {cwd, encoding: 'utf8', timeout: 30_000});
     return {status, stdout, stderr};
   };
 
-  it("lists the spec's own option beside --format and --help", () => {
+  it("lists the spec's own option beside --format and --help, short names first, and the paths last", () => {
     const {status, stdout, stderr} = run('--help');
     expect({status, stderr}).toEqual({status: 0, stderr: ''});
-    expect(stdout).toContain('\n  --name <name>       who to greet\n  --format <format>   text or json (default: text)\n');
+    expect(stdout).toMatch(
+      /^Usage: greet \[options\] \[paths\.\.\.\]\n\nGreets someone\.\nPaths are files or folders to greet too\.\n\n/
+    );
+    expect(stdout).toContain(
+      '\n  -n, --name <name>   who to greet\n  --format <format>   text or json (default: text)\n  -h, --help          show this help\n'
+    );
+    expect(run('-h')).toEqual({status, stdout, stderr});
+  });
+
+  it('hands each path to the command, absolute, and the short option its value', () => {
+    expect(run('-n', 'Ada', 'command.child.ts', '../test')).toEqual({
+      status: 0,
+      stdout: `greet: hello Ada ${join(cwd, 'command.child.ts')} ${cwd}\n`,
+      stderr: '',
+    });
+  });
+
+  it('names a path that does not exist, exit 2 and nothing on stdout', () => {
+    expect(run('--name', 'Ada', 'command.child.ts', 'nope')).toEqual({
+      status: 2,
+      stdout: '',
+      stderr: 'greet: nope does not exist\n',
+    });
   });
 
   it('names every option on an unknown one, exit 2 and nothing on stdout', () => {

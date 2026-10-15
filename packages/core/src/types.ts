@@ -115,7 +115,7 @@ export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
 }
 
 /** `value` names a string option's argument in the help: `<folder>`. */
-export interface CommandOption extends Pick<ParseArgsOptionDescriptor, 'type' | 'multiple'> {
+export interface CommandOption extends Pick<ParseArgsOptionDescriptor, 'type' | 'multiple' | 'short'> {
   value?: string;
   description: string;
 }
@@ -126,6 +126,7 @@ export interface CommandSpec {
   summary: string[];
   options: Record<string, CommandOption>;
   example: string;
+  paths?: string; // set: the command takes file or folder paths; the help's last summary line says which
 }
 
 export type CommandValues = Record<string, string | boolean | (string | boolean)[] | undefined>;
