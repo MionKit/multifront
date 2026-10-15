@@ -9,9 +9,11 @@ import type {Block, BlockKind, Diagnostic, SourceMap, SplitResult} from '../type
 const nests = (name: string): boolean => name === 'template';
 const rawAtTop = (name: string): boolean => name !== 'template';
 
+export const vueTags = (block: Block): ReturnType<typeof topLevelTags> => topLevelTags(block.content, nests, rawAtTop);
+
 // The same raw scan as the splitter: compiler-sfc's own "at least one <template> or <script>" error, without it.
 function check(block: Block, split: SplitResult): Diagnostic[] {
-  const tags = topLevelTags(block.content, nests, rawAtTop);
+  const tags = vueTags(block);
   const diagnostics = [...styleInsideTarget(block, split, nests, rawAtTop), ...frameworkInBlock(block, split, tags, 'vue')];
   if (tags.some(({name}) => name === 'template' || name === 'script')) return diagnostics;
   const message = '<vue> has no <template> or <script>; add one';

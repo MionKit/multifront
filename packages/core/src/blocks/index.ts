@@ -1,9 +1,10 @@
 import {DiagnosticsError, createDiagnostic} from '../diagnostics.ts';
-import type {BlockKind, BlockTag, BuildContext, Diagnostic, SplitResult, Target, VirtualFile} from '../types.ts';
+import {findClosingTag} from '../scan.ts';
+import type {Block, BlockKind, BlockTag, BuildContext, Diagnostic, SplitResult, Target, VirtualFile} from '../types.ts';
 import {reactKind} from './react.ts';
 import {styleKind} from './style.ts';
-import {svelteKind} from './svelte.ts';
-import {vueKind} from './vue.ts';
+import {svelteKind, svelteTags} from './svelte.ts';
+import {vueKind, vueTags} from './vue.ts';
 
 // Key order = registry order: shared kinds first, then targets in `TARGETS` order.
 const KINDS_BY_TAG: Record<BlockTag, BlockKind> = {style: styleKind, vue: vueKind, react: reactKind, svelte: svelteKind};
@@ -12,6 +13,19 @@ export const BLOCK_KINDS: readonly BlockKind[] = Object.values(KINDS_BY_TAG);
 
 export function getBlockKind(tag: BlockTag): BlockKind {
   return KINDS_BY_TAG[tag];
+}
+
+/** Each root `<script>` of a `<vue>` or `<svelte>` block, as a block of that type: its own tag, attributes and text. */
+export function blockScripts(block: Block): Block[] {
+  const tags = block.type === 'vue' ? vueTags(block) : block.type === 'svelte' ? svelteTags(block) : [];
+  return tags
+    .filter(({name, end}) => name === 'script' && !block.content.startsWith('/>', end - 2))
+    .map(({attrs, start, end}) => {
+      const close = findClosingTag(block.content, 'script', end) ?? {start: block.content.length, end: block.content.length};
+      const at = (offset: number) => block.contentStart + offset;
+      const content = block.content.slice(end, close.start);
+      return {...block, attrs, content, start: at(start), end: at(close.end), contentStart: at(end), contentEnd: at(close.start)};
+    });
 }
 
 /** Hosts call this, never the kinds' `check` one by one. */

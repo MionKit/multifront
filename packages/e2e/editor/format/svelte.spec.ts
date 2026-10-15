@@ -21,6 +21,7 @@ import {
 } from '../lib/format.ts';
 import {addFile, assertNotInstalled, editFile, span, withCopy} from '../lib/tsc.ts';
 
+const FORMATTED_ONE = {code: 0, stdout: 'mf-fmt: formatted 1 of 1 files\n', stderr: ''};
 const MISSING_SVELTE: Finding = {
   code: 'missing-svelte',
   severity: 'warning',
@@ -102,6 +103,30 @@ describe('mf-fmt with the svelte option on', () => {
         changed: [],
       });
       expect(read(root, MESSY)).toBe(source);
+    });
+  });
+
+  it('checks the instance <script> after the module one, lang="typescript" too, and never a <script> in markup', async () => {
+    await withCopy(LINT_FORMAT_SVELTE, async (root) => {
+      const head = '<svelte:head><script type="application/ld+json">{"@context":"https://schema.org"}</script></svelte:head>';
+      const valid = `<svelte>\n<script module lang="ts">export const size = 1</script>\n<script lang="typescript">let a = 1</script>\n${head}\n</svelte>\n`;
+      addFile(root, 'Scripts.ucf', valid);
+      expect(await runMfFmt(root, ['Scripts.ucf'])).toEqual(FORMATTED_ONE);
+      addFile(root, 'Scripts.ucf', valid.replace('let a = 1', 'let a = 1 +'));
+      const source = read(root, 'Scripts.ucf');
+      const run = await runMfFmt(root, ['Scripts.ucf', '--format', 'json']);
+      expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
+      expect(report(run.stdout).findings).toEqual([
+        {
+          file: 'Scripts.ucf',
+          ...span(source, '</script>\n<svelte:head>', 0),
+          code: 'format-error',
+          severity: 'error',
+          message: '<svelte> does not parse: Unexpected token',
+          block: 'svelte',
+        },
+      ]);
+      expect(read(root, 'Scripts.ucf')).toBe(source);
     });
   });
 
