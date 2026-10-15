@@ -83,6 +83,8 @@ export type DiagnosticCode =
   | 'missing-target-block'
   | 'mixed-frameworks'
   | 'framework-attribute-not-literal'
+  | 'unformatted'
+  | 'format-error'
   | LibraryErrorCode
   | TargetErrorCode;
 

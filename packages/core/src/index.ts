@@ -41,7 +41,7 @@ export {vueSfcCode} from './blocks/vue.ts';
 export {findingOf, runCommand} from './command.ts';
 export {loadSvelteCompiler, loadVueCompiler} from './compilers.ts';
 export {createBuildContext} from './context.ts';
-export {DiagnosticsError, locate, orList} from './diagnostics.ts';
+export {DiagnosticsError, createDiagnostic, locate, orList} from './diagnostics.ts';
 export {classMapId, styleId} from './ids.ts';
 export {DEFAULT_IMPORTERS, importerFromId, missingTargetBlockMessage, resolveTarget} from './imports/resolveTarget.ts';
 export {rewriteImportAttributes} from './imports/rewrite.ts';
