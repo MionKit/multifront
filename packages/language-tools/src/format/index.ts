@@ -1,11 +1,12 @@
 /** `mf-fmt`: oxfmt's `format()` on each block's own text, put back between the block's tags (spec 6.1). */
 import {readFileSync, writeFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
 import {extname} from 'node:path';
 import {createDiagnostic, findingOf, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
-import type {Block, CommandResult, CommandSpec, CommandValues, Finding, SplitResult} from '@multifront/core';
+import type {Block, CommandResult, CommandSpec, CommandValues, DiagnosticCode, Finding, SplitResult} from '@multifront/core';
 import type * as OxfmtModule from 'oxfmt';
 import {blockFile} from '../blocks/blockFile.ts';
-import {projectImport, ucfFiles} from '../files.ts';
+import {projectImport, resolveInProject, ucfFiles} from '../files.ts';
 import {lineStarts} from '../mappings.ts';
 import type {FormattedUcf, UcfFormatConfig} from '../types.ts';
 import {findFormatConfig, formatOptions, isIgnored} from './config.ts';
@@ -29,8 +30,23 @@ const FORMATTED = new Set(['.tsx', '.vue', '.css', '.scss', '.less']);
 const CONFIG_ERROR = 'Failed to parse configuration: ';
 const NEWLINES: Record<NonNullable<FormatConfig['endOfLine']>, string> = {lf: '\n', cr: '\r', crlf: '\r\n'};
 
-const projectOxfmt = (root: string) =>
-  projectImport<Oxfmt>(root, 'oxfmt', `oxfmt is not installed in ${root}; add it to devDependencies`);
+const MISSING_SVELTE = 'oxfmt cannot load svelte/compiler, so <svelte> blocks stay as written; add svelte to devDependencies';
+
+const oxfmtMissing = (root: string) => `oxfmt is not installed in ${root}; add it to devDependencies`;
+const projectOxfmt = (root: string) => projectImport<Oxfmt>(root, 'oxfmt', oxfmtMissing(root));
+
+// oxfmt requires `svelte/compiler` from its own folder, where pnpm links svelte only as oxfmt's peer.
+function oxfmtLoadsSvelte(root: string): boolean {
+  const oxfmt = resolveInProject(root, 'oxfmt', oxfmtMissing(root)).path;
+  try {
+    createRequire(oxfmt).resolve('svelte/compiler');
+    return true;
+  } catch (err) {
+    // Found but broken: its own error says why.
+    if ((err as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') return false;
+    throw err;
+  }
+}
 
 // oxc labels count UTF-8 bytes; no label: Prettier's 1-based `(line:col)` ending line 1; else the opening tag.
 function errorSpan(error: OxfmtError, block: Block): [number, number] {
@@ -61,13 +77,25 @@ const configRejection = (errors: OxfmtError[]) =>
 /** Text outside the blocks stays byte for byte; a config oxfmt rejects throws. */
 export async function formatUcf(fileName: string, source: string, config: UcfFormatConfig): Promise<FormattedUcf> {
   const split = splitBlocks(source, fileName);
-  if (split.errors.length > 0) return {text: source, findings: split.errors.map((error) => findingOf(error, split))};
+  if (split.errors.length > 0) {
+    return {text: source, findings: split.errors.map((error) => findingOf(error, split)), missingSvelte: false};
+  }
   const {format} = await projectOxfmt(config.root);
-  const sent = split.blocks.filter((block) => FORMATTED.has(extname(blockFile(fileName, block))));
+  let svelteLoads: boolean | undefined;
+  let missingSvelte = false;
+  const sent = split.blocks.flatMap((block) => {
+    const file = blockFile(fileName, block);
+    const {own, options} = formatOptions(config, file) as {own: FormatConfig; options: FormatConfig};
+    const ending = extname(file);
+    if (FORMATTED.has(ending)) return [{block, file, own, options}];
+    // oxfmt's `svelte` option: `true` or an object turns it on.
+    if (ending !== '.svelte' || !options.svelte) return [];
+    svelteLoads ??= oxfmtLoadsSvelte(config.root);
+    missingSvelte ||= !svelteLoads;
+    return svelteLoads ? [{block, file, own, options}] : [];
+  });
   const results = await Promise.all(
-    sent.map(async (block) => {
-      const file = blockFile(fileName, block);
-      const {own, options} = formatOptions(config, file) as {own: FormatConfig; options: FormatConfig};
+    sent.map(async ({block, file, own, options}) => {
       const {code, errors} = await format(file, block.content, options);
       const rejected = configRejection(errors);
       if (rejected) {
@@ -82,13 +110,13 @@ export async function formatUcf(fileName: string, source: string, config: UcfFor
     })
   );
   const findings = results.flatMap(({block, errors}) => (errors[0] ? [formatError(split, block, errors[0])] : []));
-  if (findings.length > 0) return {text: source, findings};
+  if (findings.length > 0) return {text: source, findings, missingSvelte};
   let text = source;
   // From the last block back, so earlier offsets stay valid.
   for (const {block, content} of results.reverse()) {
     text = text.slice(0, block.contentStart) + content + text.slice(block.contentEnd);
   }
-  return {text, findings: []};
+  return {text, findings: [], missingSvelte};
 }
 
 function firstDifference(source: string, text: string): number {
@@ -108,10 +136,12 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
   const files = ucfFiles(paths, ignoredBy, 'format it with oxfmt');
   const findings: Finding[] = [];
   const writes: [string, string][] = [];
+  let missingSvelte = false;
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
     const formatted = await formatUcf(file, source, findFormatConfig(file, cwd));
     findings.push(...formatted.findings);
+    missingSvelte ||= formatted.missingSvelte;
     if (formatted.findings.length > 0 || formatted.text === source) continue;
     writes.push([file, formatted.text]);
     if (!values.check) continue;
@@ -120,6 +150,9 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     const message = `not formatted; run mf-fmt ${shown(file)}`;
     findings.push(findingOf(createDiagnostic(split, 'unformatted', at, at, message), split));
   }
+  // One warning per run, not per file.
+  if (missingSvelte)
+    findings.push({code: 'missing-svelte' satisfies DiagnosticCode, severity: 'warning', message: MISSING_SVELTE});
   // Only once every file formatted: a config error in a later file (exit 2) leaves every file as written.
   if (!values.check) for (const [file, text] of writes) writeFileSync(file, text);
   const count = `${writes.length} of ${files.length} files`;

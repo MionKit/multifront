@@ -1,17 +1,22 @@
 // What the `mf-fmt` specs share: the real oxfmt CLI, the fixture app and its expected outputs.
 import {execFileSync} from 'node:child_process';
-import {existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {splitBlocks} from '@multifront/core';
 import type {BlockTag} from '@multifront/core';
+import {expect} from 'vitest';
+import {FIXTURES_DIR} from '../../fixtures/index.ts';
 import type {BinReport} from './commands.ts';
 import {E2E_DIR} from './tsserver.ts';
 
 export const LINT_FORMAT = 'lint-format';
+export const LINT_FORMAT_SVELTE = 'lint-format-svelte';
 export const MESSY = 'Messy.ucf';
 
 // The endings of the blocks of `Messy.ucf` that oxfmt formats; `<svelte>` stays as written.
 export const SENT: Partial<Record<BlockTag, string>> = {react: '.tsx', vue: '.vue', style: '.scss'};
+// With oxfmt's `svelte` option on.
+export const SENT_WITH_SVELTE: typeof SENT = {...SENT, svelte: '.svelte'};
 
 const OXFMT_DIR = join(E2E_DIR, '..', '..', 'node_modules', 'oxfmt');
 const OXFMT = join(OXFMT_DIR, 'bin', 'oxfmt');
@@ -26,6 +31,8 @@ export const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-fmt
 
 export const read = (root: string, file: string) => readFileSync(join(root, file), 'utf8');
 
+export const ORIGINAL = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), MESSY);
+
 /** What `mf-fmt` must never change. */
 export function outsideBlocks(source: string): string {
   const {blocks} = splitBlocks(source, MESSY);
@@ -36,10 +43,36 @@ export function contents(source: string): Partial<Record<BlockTag, string>> {
   return Object.fromEntries(splitBlocks(source, MESSY).blocks.map((block) => [block.type, block.content]));
 }
 
+export function copyMessy(root: string, folders: string[]): void {
+  for (const folder of folders) {
+    mkdirSync(join(root, folder), {recursive: true});
+    cpSync(join(root, MESSY), join(root, folder, MESSY));
+  }
+}
+
+/** Each block oxfmt formats equals the oxfmt CLI's output for the same text, under the block file's name. */
+export function expectCliOutput(root: string, file: string, newline = '\n', sent = SENT): void {
+  const before = contents(ORIGINAL);
+  const after = contents(read(root, file));
+  for (const [tag, ending] of Object.entries(sent)) {
+    const cli = oxfmtCli(root, `${file}.${tag}${ending}`, before[tag as BlockTag]!);
+    // Flush left between the tags.
+    expect(after[tag as BlockTag], `<${tag}> of ${file}`).toBe(`${newline}${cli.replace(/[\r\n]+$/, '')}${newline}`);
+  }
+}
+
 /** The repo's own oxfmt, alone in `dir/node_modules`. */
 export function linkOxfmt(dir: string): void {
   mkdirSync(join(dir, 'node_modules'), {recursive: true});
   symlinkSync(realpathSync(OXFMT_DIR), join(dir, 'node_modules', 'oxfmt'), 'junction');
+}
+
+/** A real oxfmt install in `dir/node_modules` with its own dependencies but no svelte, copied: a link would find the repo's. */
+export function copyOxfmtWithoutSvelte(dir: string): void {
+  const installed = dirname(realpathSync(OXFMT_DIR));
+  for (const name of readdirSync(installed).filter((entry) => entry !== 'svelte')) {
+    cpSync(join(installed, name), join(dir, 'node_modules', name), {recursive: true, dereference: true});
+  }
 }
 
 /** Folders above `dir` with an oxfmt config, which a test outside the repo must not have. */

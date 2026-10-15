@@ -23,7 +23,8 @@ export function filesUnder(dir: string, suffix: string, skipped?: string): strin
   return files.sort();
 }
 
-function resolveInProject(root: string, name: string, missing: string): {require: NodeJS.Require; path: string} {
+/** A package of the project's own install, found from `root`: its `require` and entry file. */
+export function resolveInProject(root: string, name: string, missing: string): {require: NodeJS.Require; path: string} {
   const require = createRequire(join(root, 'package.json'));
   try {
     return {require, path: require.resolve(name)};
