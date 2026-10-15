@@ -1,5 +1,5 @@
-// A component's props in the <svelte> markup: `<Icon ` completes Icon's props from tsserver with our plugin (hybrid
-// mode), and an unknown prop is an error there; our language server offers only what Svelte takes on a component.
+// Component props in <svelte> markup: tsserver with our plugin (hybrid mode) completes and checks them;
+// our language server offers only what Svelte takes on a component.
 import {join} from 'node:path';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';

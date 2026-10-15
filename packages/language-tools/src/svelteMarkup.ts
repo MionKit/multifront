@@ -14,7 +14,7 @@ const VOID_ELEMENTS: ReadonlySet<string> = new Set(
 const isSpace = (char: string | undefined): boolean => char !== undefined && /\s/.test(char);
 const isNameStart = (char: string | undefined): boolean => char !== undefined && /[A-Za-z]/.test(char);
 
-/** A component tag (`Icon`, `ui.Button`), not an element or a `svelte:*` one. */
+/** A component tag: `Icon`, `ui.Button`. */
 export const isComponent = (name: string): boolean => /^[A-Z]/.test(name) || name.includes('.');
 
 function tagNameEnd(text: string, pos: number): number {

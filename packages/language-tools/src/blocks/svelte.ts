@@ -50,8 +50,8 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
   return uses;
 }
 
-// Each component's start tag whitespace onto the start of the props object svelte2tsx writes for it:
-// `<Icon |` completes Icon's props. A gap's first character stays the tag name's end.
+// Component start-tag whitespace onto svelte2tsx's props object, so `<Icon |` completes Icon's props.
+// A gap's first character stays with the name or attribute before it.
 function propsMappings(block: Block, code: string, mappings: CodeMapping[]): CodeMapping[] {
   const found: CodeMapping[] = [];
   for (const {name, start, gaps} of scanMarkup(block.content).tags) {
