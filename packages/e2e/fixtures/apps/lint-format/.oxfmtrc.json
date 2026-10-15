@@ -2,6 +2,11 @@
   // The parity tests compare mf-fmt with the oxfmt CLI under this config.
   "singleQuote": true,
   "semi": false,
-  "overrides": [{"files": ["*.vue"], "options": {"semi": true}}],
+  "overrides": [
+    {"files": ["*.vue"], "options": {"semi": true}},
+    {"files": ["*.tsx"], "excludeFiles": ["*.react.tsx"], "options": {"semi": true}},
+    {"files": ["./Messy.ucf.style.scss"], "options": {"tabWidth": 2}},
+    {"files": ["nested/*.vue"], "options": {"printWidth": 40}}
+  ],
   "ignorePatterns": ["old/**"]
 }
