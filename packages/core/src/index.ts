@@ -34,7 +34,7 @@ export type {
   VirtualFile,
   VueCompiler,
 } from './types.ts';
-export {BLOCK_KINDS, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
+export {BLOCK_KINDS, blockScripts, buildTarget, checkBlocks, getBlockKind} from './blocks/index.ts';
 export {reactRootProps} from './blocks/react.ts';
 export {svelteEditorSource, svelteParseError} from './blocks/svelte.ts';
 export {vueSfcCode} from './blocks/vue.ts';

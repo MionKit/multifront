@@ -337,9 +337,11 @@ export function svelteEditorSource<Module>(
   return {code: text.toString(), locals, lang, mappings};
 }
 
+export const svelteTags = (block: Block): ReturnType<typeof topLevelTags> => topLevelTags(block.content, nests);
+
 // An `import()` in markup is left to the post rewrite of the compiled module.
 function check(block: Block, split: SplitResult): Diagnostic[] {
-  const tags = topLevelTags(block.content, nests);
+  const tags = svelteTags(block);
   return [...styleInsideTarget(block, split, nests), ...frameworkInBlock(block, split, tags, 'svelte')];
 }
 

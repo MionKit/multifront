@@ -2,7 +2,7 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {extname} from 'node:path';
-import {createDiagnostic, findingOf, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
+import {blockScripts, createDiagnostic, findingOf, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
 import type {Block, CommandResult, CommandSpec, CommandValues, DiagnosticCode, Finding, SplitResult} from '@multifront/core';
 import type * as OxfmtModule from 'oxfmt';
 import {blockFile} from '../blocks/blockFile.ts';
@@ -71,26 +71,16 @@ function formatError(split: SplitResult, block: Block, error: OxfmtError): Findi
   return findingOf(createDiagnostic(split, 'format-error', start, end, `<${block.type}> does not parse: ${why}`), split);
 }
 
-const SCRIPTED = new Set(['.vue', '.svelte']);
-// Attribute values may hold `>`, as in `generic="T extends Record<string, unknown>"`.
-const SCRIPT = /<script\b((?:[^>"']|"[^"]*"|'[^']*')*)>([\s\S]*?)<\/script>/g;
 // The parser oxfmt's own embed picks for each `lang`; any other lang is not JavaScript.
-const SCRIPT_FILES: Record<string, string> = {
-  '': 'script.jsx',
-  js: 'script.jsx',
-  jsx: 'script.jsx',
-  ts: 'script.ts',
-  tsx: 'script.tsx',
-};
+const SCRIPT_ENDINGS: Record<string, string> = {'': 'jsx', js: 'jsx', jsx: 'jsx', ts: 'ts', typescript: 'ts', tsx: 'tsx'};
 
 // oxfmt 0.67.0 keeps a <script> that does not parse as written with no error, and logs a stack for svelte.
-async function scriptError(format: Oxfmt['format'], block: Block): Promise<[Block, OxfmtError] | undefined> {
-  for (const match of block.content.matchAll(SCRIPT)) {
-    const file = SCRIPT_FILES[/(?:^|\s)lang\s*=\s*["']?(\w*)/.exec(match[1]!)?.[1] ?? ''];
-    if (!file) continue;
-    const [error] = (await format(file, match[2]!, {})).errors;
-    const contentStart = block.contentStart + match.index + match[0].length - '</script>'.length - match[2]!.length;
-    if (error) return [{...block, content: match[2]!, contentStart}, error];
+async function scriptError(format: Oxfmt['format'], block: Block): Promise<{block: Block; error: OxfmtError} | undefined> {
+  for (const script of blockScripts(block)) {
+    const lang = typeof script.attrs.lang === 'string' ? script.attrs.lang : '';
+    if (!Object.hasOwn(SCRIPT_ENDINGS, lang)) continue;
+    const [error] = (await format(`script.${SCRIPT_ENDINGS[lang]}`, script.content, {})).errors;
+    if (error) return {block: script, error};
   }
   return undefined;
 }
@@ -120,9 +110,9 @@ export async function formatUcf(fileName: string, source: string, config: UcfFor
   });
   const results = await Promise.all(
     sent.map(async ({block, file, own, options}) => {
-      const broken = SCRIPTED.has(extname(file)) ? await scriptError(format, block) : undefined;
-      if (broken) return {block: broken[0], errors: [broken[1]], content: ''};
-      const {code, errors} = await format(file, block.content, options);
+      const broken = await scriptError(format, block);
+      // An empty text still checks the config, and logs no stack.
+      const {code, errors} = await format(file, broken ? '' : block.content, options);
       const rejected = configRejection(errors);
       if (rejected) {
         // The `.oxfmtrc.json` alone passes: a value the `.editorconfig` filled in is the one rejected.
@@ -130,6 +120,7 @@ export async function formatUcf(fileName: string, source: string, config: UcfFor
         const blamed = fromEditorConfig ? config.editorconfig!.file : config.file!;
         throw new Error(`${rootRelativePath(config.root, blamed)}: ${rejected.message.slice(CONFIG_ERROR.length).trim()}`);
       }
+      if (broken) return {block: broken.block, errors: [broken.error], content: ''};
       const newline = NEWLINES[options.endOfLine ?? 'lf'];
       const trimmed = code.replace(/[\r\n]+$/, '');
       return {block, errors, content: trimmed ? `${newline}${trimmed}${newline}` : ''};

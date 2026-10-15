@@ -233,6 +233,17 @@ describe('mf-fmt --check', () => {
 });
 
 describe('mf-fmt on one file or one folder', () => {
+  it('checks only root <script>s of known lang: not one in a comment, a kebab-case tag or lang="coffee"', async () => {
+    await withCopy(LINT_FORMAT, async (root) => {
+      const source =
+        '<vue>\n<template><!-- <script>let a = ;</script> --><script-editor  v-model="code"></script-editor></template>\n' +
+        '<script lang="coffee">square = (x) -> x * x</script>\n</vue>\n';
+      addFile(root, 'Lookalikes.ucf', source);
+      expect(await runMfFmt(root, ['Lookalikes.ucf'])).toEqual(FORMATTED_ONE);
+      expect(read(root, 'Lookalikes.ucf')).toContain('<script lang="coffee">\nsquare = (x) -> x * x\n</script>');
+    });
+  });
+
   it('formats only the named file or the files below the named folder, never a dot folder or an ignored one', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       copyInto(root, MESSY, ['nested', '.hidden', 'old']);
@@ -313,6 +324,26 @@ describe('mf-fmt on blocks it cannot format', () => {
     expect(findings).toEqual([
       formatError(MESSY, span(source, "'é ü'+)", 1, "'é ü'+".length), '<vue> does not parse: Unexpected token'),
     ]);
+  });
+
+  it('reads a <vue> <script> with no lang as JavaScript and checks each root <script>, the broken one after a valid one', async () => {
+    const {source, findings} = await formatErrors((root) => {
+      addFile(
+        root,
+        'Scripts.ucf',
+        '<vue>\n<script>\nexport default {}\n</script>\n<script setup>\nconst a = 1 +;\n</script>\n</vue>\n'
+      );
+      return 'Scripts.ucf';
+    });
+    expect(findings).toEqual([formatError('Scripts.ucf', span(source, '+;', 1, 1), '<vue> does not parse: Unexpected token')]);
+  });
+
+  it('reports the config oxfmt rejects before a <vue> <script> that does not parse', async () => {
+    await withCopy(LINT_FORMAT, async (root) => {
+      addFile(root, 'Only.ucf', '<vue>\n<script setup lang="ts">let a = ;</script>\n</vue>\n');
+      writeFileSync(join(root, '.oxfmtrc.json'), '{"printWidth": 1000}\n');
+      expect(await runMfFmt(root, ['Only.ucf'])).toEqual(fails(`.oxfmtrc.json: ${INVALID_PRINT_WIDTH}`));
+    });
   });
 
   it("reports an error with no position at all on the block's opening tag", async () => {
