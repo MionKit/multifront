@@ -178,7 +178,7 @@ export interface UcfLintDiagnostic {
   file: string; // the split's filename
   start: number; // UTF-16 offsets into the .ucf source
   end: number;
-  block: Target; // the block oxlint linted
+  block: Target;
   code: string; // oxlint's: `eslint(no-debugger)`
   message: string;
   severity: Diagnostic['severity'] | 'advice';

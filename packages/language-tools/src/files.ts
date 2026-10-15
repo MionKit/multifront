@@ -100,7 +100,6 @@ export function isIgnored(config: {file?: string; ignorePatterns: string[]}, fil
   return !path.startsWith('../') && ignore().add(config.ignorePatterns).ignores(path);
 }
 
-/** `3 files`, `1 file`. */
 export const counted = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** A summary's `2 errors, 1 warning`; empty when there is neither. */
