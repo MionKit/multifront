@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.5
@@ -31,8 +31,8 @@ Checked before planning:
   `children` prop from the markup after it).
 - `@volar/source-map` `translateOffset`: a mapping with `lengths: [n]` and `generatedLengths: [0]` sends every offset of
   the source run to the one generated point.
-- tsserver's diagnostics already map the unknown prop: plain TS gives TS2353 on `"nme"` and TS2741 (`name` missing) for
-  `<Icon nme="x"/>`. `svelte-root-props.spec.ts` pins TS2353 on a root's unknown prop the same way.
+- tsserver's diagnostics already map the unknown prop: plain TS gives TS2353 on `"nme"` for `<Icon nme="x"/>` (the
+  excess property error comes alone, without TS2741 for the missing `name`). `svelte-root-props.spec.ts` pins TS2353 on a root's unknown prop the same way.
 - Hybrid mode (milestones README): tsserver with our plugin does every TypeScript job. So the prop items and the TS2353
   come from tsserver, as `{ti}` did in 7.4. Our language server never hosts TypeScript (`server.ts:131`).
 
@@ -92,15 +92,18 @@ server over LSP, the real tsserver with our plugin). No new infra: 7.4's harness
   tsserver with our plugin (`completionInfo`, `completionEntryDetails`, diagnostics) on `Toolbar.ucf`, with
   inferred-project options as in 7.4:
   1. As written: no diagnostic on `Toolbar.ucf` (the `.ucf` import resolves to `Icon.ucf`'s Svelte script).
-  2. `<Icon |` typed unclosed, then a newline and the rest of the markup: the entries are exactly `name` and `size`.
-     Their details read `(property) name: string` and `(property) size?: number | undefined`.
-  3. `<Icon | />`: the same two. `<Icon name="x" | />`: `size` only. `<Icon\n      |\n    />`: both.
+  2. `<Icon |` typed unclosed, then a newline and the rest of the markup: the entries are exactly `name`, `class`,
+     `size`, `style` (Icon's own two, plus the `class` and `style` its single root element takes, spec 3.5.1). Their
+     details read `(property) name: string`, `(property) class?: ClassValue | null | undefined`,
+     `(property) size?: number | undefined`, `(property) style?: string | null | undefined`.
+  3. `<Icon | />`: the same four. `<Icon name="x" | />`: all but `name`. `<Icon\n      |\n    />`: all four.
   4. Each item of case 3's `<Icon | />` list, applied as VS Code applies it (its `replacementSpan`, else the list's
      `optionalReplacementSpan`, else at the cursor; `insertText` or the name), leaves a block the real
      `svelte/compiler` `parse` accepts.
-  5. Not props: `<Icon|` (cursor on the name) and `<input | />` (a plain element) list neither `name` nor `size`.
-  6. `<Icon nme="x"/>`: exactly a TS2353 starting at `nme` and inside `nme="x"`, and a TS2741 (`name` missing) inside
-     the tag, the exact ranges pinned. Reverting the edit leaves no diagnostic.
+  5. Not props: `<Icon|` (cursor on the name) lists names in scope (`Icon`), not `size`; `<input | />` (a plain
+     element) lists nothing.
+  6. `<Icon nme="x"/>`: exactly one TS2353, from the start to the end of `nme`. Reverting the edit leaves no
+     diagnostic.
 
   Through the real language server:
 
