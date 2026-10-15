@@ -16,7 +16,6 @@ export const SENT: Partial<Record<BlockTag, string>> = {react: '.tsx', vue: '.vu
 const OXFMT_DIR = join(E2E_DIR, '..', '..', 'node_modules', 'oxfmt');
 const OXFMT = join(OXFMT_DIR, 'bin', 'oxfmt');
 
-/** The real oxfmt CLI on `text`, named `stdinFilepath`, run from `cwd`. */
 export function oxfmtCli(cwd: string, stdinFilepath: string, text: string): string {
   return execFileSync(process.execPath, [OXFMT, '--stdin-filepath', stdinFilepath], {cwd, input: text, encoding: 'utf8'});
 }
@@ -27,18 +26,17 @@ export const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-fmt
 
 export const read = (root: string, file: string) => readFileSync(join(root, file), 'utf8');
 
-/** The source with every block's content cut out: what `mf-fmt` must never change. */
+/** What `mf-fmt` must never change. */
 export function outsideBlocks(source: string): string {
   const {blocks} = splitBlocks(source, MESSY);
   return blocks.reduceRight((text, block) => text.slice(0, block.contentStart) + text.slice(block.contentEnd), source);
 }
 
-/** Each block's content of `source`, by tag. */
 export function contents(source: string): Partial<Record<BlockTag, string>> {
   return Object.fromEntries(splitBlocks(source, MESSY).blocks.map((block) => [block.type, block.content]));
 }
 
-/** The repo's own oxfmt in `dir/node_modules`, and nothing else there. */
+/** The repo's own oxfmt, alone in `dir/node_modules`. */
 export function linkOxfmt(dir: string): void {
   mkdirSync(join(dir, 'node_modules'), {recursive: true});
   symlinkSync(realpathSync(OXFMT_DIR), join(dir, 'node_modules', 'oxfmt'), 'junction');

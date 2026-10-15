@@ -32,7 +32,7 @@ const NEWLINES: Record<NonNullable<FormatConfig['endOfLine']>, string> = {lf: '\
 const projectOxfmt = (root: string) =>
   projectImport<Oxfmt>(root, 'oxfmt', `oxfmt is not installed in ${root}; add it to devDependencies`);
 
-// A label's span (oxc counts UTF-8 bytes); else Prettier's 1-based `(line:col)` ending the first message line; else the opening tag.
+// oxc labels count UTF-8 bytes; no label: Prettier's 1-based `(line:col)` ending line 1; else the opening tag.
 function errorSpan(error: OxfmtError, block: Block): [number, number] {
   const [label] = error.labels;
   if (label) {

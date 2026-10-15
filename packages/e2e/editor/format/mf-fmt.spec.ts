@@ -56,7 +56,7 @@ function expectCliOutput(root: string, file: string, newline = '\n'): void {
   const after = contents(read(root, file));
   for (const [tag, ending] of Object.entries(SENT)) {
     const cli = oxfmtCli(root, `${file}.${tag}${ending}`, before[tag as keyof typeof before]!);
-    // Flush left between the tags, one newline after the opening tag and one before the closing tag.
+    // Flush left between the tags.
     expect(after[tag as keyof typeof after], `<${tag}> of ${file}`).toBe(`${newline}${cli.replace(/[\r\n]+$/, '')}${newline}`);
   }
 }
