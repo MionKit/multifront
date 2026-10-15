@@ -31,7 +31,7 @@ import {E2E_DIR, locate, offsetAt} from '../lib/tsserver.ts';
 const REPO = join(E2E_DIR, '..', '..');
 const HELP = `Usage: mf-tsc [options] [paths...]
 
-Type-checks .ucf files in every framework, with the .ts and .tsx files that import them.
+Type-checks .ucf files in every framework, with the .ts, .tsx and .vue files that import them.
 Paths are files or folders of the project; none checks the whole project.
 
 Options:
@@ -45,7 +45,7 @@ Example:
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
-const INCLUDE = '"include": ["*.ucf", "*.ts", "pages"]';
+const INCLUDE = '"include": ["*.ucf", "*.ts", "*.vue", "pages"]';
 
 const breaksFinding = BREAKS.finding;
 const mainFinding = MAIN.finding;
@@ -69,7 +69,7 @@ describe('mf-tsc on a whole project', () => {
     await withCopy(VALID, async (root) => {
       expect(await runMfTsc(root)).toEqual({
         code: 0,
-        stdout: 'mf-tsc: checked 4 files with tsconfig.json: no errors\n',
+        stdout: 'mf-tsc: checked 5 files with tsconfig.json: no errors\n',
         stderr: '',
       });
     });
@@ -79,7 +79,7 @@ describe('mf-tsc on a whole project', () => {
     await withCopy(BROKEN, async (root) => {
       expect(await runMfTsc(root)).toEqual({
         code: 1,
-        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.json: 5 errors\n`,
+        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.json: ${BROKEN_FINDINGS.length} errors\n`,
         stderr: '',
       });
     });
@@ -92,7 +92,7 @@ describe('mf-tsc on a whole project', () => {
       const document = report(run.stdout);
       expect(document).toEqual({
         findings: BROKEN_FINDINGS.map(({finding}) => finding()),
-        errorCount: 5,
+        errorCount: BROKEN_FINDINGS.length,
         warningCount: 0,
         projects: [{tsconfig: 'tsconfig.json', files: BROKEN_FILES}],
       });
@@ -126,7 +126,7 @@ describe('mf-tsc on one file or one folder', () => {
     await withCopy(BROKEN, async (root) => {
       const skipped = ['pages/node_modules/broken/index.ts', 'pages/.cache/hidden.ts'];
       for (const file of skipped) addFile(root, file, 'export const broken: string = 1;\n');
-      const include = ['*.ucf', '*.ts', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
+      const include = ['*.ucf', '*.ts', '*.vue', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
       editFile(root, 'tsconfig.json', INCLUDE, `"include": [${include}]`);
       // Both are in the program: named, each is checked.
       const named = await runMfTsc(root, [...skipped, '--format', 'json']);
@@ -218,7 +218,7 @@ describe('mf-tsc with tsconfig references', () => {
       writeFileSync(join(root, 'tsconfig.json'), '{"files": [], "references": [{"path": "./tsconfig.app.json"}]}\n');
       expect(await runMfTsc(root)).toEqual({
         code: 1,
-        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.app.json: 5 errors\n`,
+        stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.app.json: ${BROKEN_FINDINGS.length} errors\n`,
         stderr: '',
       });
       expect(await runMfTsc(root, ['ReactBreaks.ucf'])).toEqual({

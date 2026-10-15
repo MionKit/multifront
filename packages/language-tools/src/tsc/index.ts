@@ -2,6 +2,8 @@
 import {basename, dirname, resolve} from 'node:path';
 import {TARGETS, findingOf, isTarget, orList, rootRelativePath, runCommand} from '@multifront/core';
 import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
+import {createParsedCommandLine, getAllExtensions} from '@vue/language-core';
+import type {VueCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
 import {filesUnder, projectTypeScript, slashed} from '../files.ts';
 import type {Checked, TypeScript} from '../types.ts';
@@ -9,7 +11,7 @@ import {createChecked} from './program.ts';
 
 const MF_TSC: CommandSpec = {
   name: 'mf-tsc',
-  summary: ['Type-checks .ucf files in every framework, with the .ts and .tsx files that import them.'],
+  summary: ['Type-checks .ucf files in every framework, with the .ts, .tsx and .vue files that import them.'],
   paths: 'Paths are files or folders of the project; none checks the whole project.',
   options: {
     project: {
@@ -33,6 +35,7 @@ const CONFIG_NAME = 'tsconfig.json';
 interface Project {
   configFile: string;
   parsed: ts.ParsedCommandLine;
+  vueOptions: VueCompilerOptions; // the tsconfig's `vueCompilerOptions`, for its `.vue` files
   checked?: Checked;
 }
 
@@ -100,7 +103,11 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
   const cwd = process.cwd();
   const ts = projectTypeScript(cwd, `typescript is not installed in ${cwd}; add it to devDependencies`);
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
-  const extraFileExtensions = [{extension: 'ucf', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred}];
+  const mixed = (extension: string): ts.FileExtensionInfo => ({
+    extension,
+    isMixedContent: true,
+    scriptKind: ts.ScriptKind.Deferred,
+  });
   const projects = new Map<string, Project>();
 
   const projectAt = (configFile: string): Project => {
@@ -112,14 +119,18 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
       ...ts.sys,
       onUnRecoverableConfigFileDiagnostic: (diagnostic) => void (unrecoverable = diagnostic),
     };
-    const parsed = ts.getParsedCommandLineOfConfigFile(key, {}, host, undefined, undefined, extraFileExtensions);
+    // As `vue-tsc` reads them: before the file list, which takes their extensions too.
+    const {vueOptions} = createParsedCommandLine(ts as Parameters<typeof createParsedCommandLine>[0], ts.sys, key);
+    const extensions = ['ucf', ...getAllExtensions(vueOptions).map((ext) => ext.slice(1))].map(mixed);
+    const parsed = ts.getParsedCommandLineOfConfigFile(key, {}, host, undefined, undefined, extensions);
     if (!parsed) throw configError(ts, [unrecoverable!], cwd);
     if (parsed.errors.length > 0) throw configError(ts, parsed.errors, cwd);
-    project = {configFile: key, parsed};
+    project = {configFile: key, parsed, vueOptions};
     projects.set(key, project);
     return project;
   };
-  const checkedOf = (project: Project): Checked => (project.checked ??= createChecked(ts, project.configFile, project.parsed));
+  const checkedOf = (project: Project): Checked =>
+    (project.checked ??= createChecked(ts, project.configFile, project.parsed, project.vueOptions));
   // The project, then its references depth first, as tsserver looks for the project of a file.
   const chainOf = (configFile: string, chain: Project[] = []): Project[] => {
     const project = projectAt(configFile);

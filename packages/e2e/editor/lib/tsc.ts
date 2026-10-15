@@ -69,11 +69,16 @@ export const NO_SIZE = expected('main.ts', '{size}', 'size', {
     `Module '"./OnlyReactExport.ucf"' has no exported member 'size'. ` +
     `Did you mean to use 'import size from "./OnlyReactExport.ucf"' instead?`,
 });
+export const BAD_PAGE = expected('BadPage.vue', ':label="1"', 'label', {
+  code: 'TS2322',
+  severity: 'error',
+  message: NOT_STRING,
+});
 export const MAIN = expected('pages/main.tsx', 'text={1}', 'text', {code: 'TS2322', severity: 'error', message: NOT_STRING});
 
 /** A whole-project run's findings, in the order `mf-tsc` prints them. */
-export const BROKEN_FINDINGS = [BREAKS, SVELTE_BREAKS, VUE_BREAKS, NO_SIZE, MAIN];
-export const BROKEN_FILES = 7;
+export const BROKEN_FINDINGS = [BAD_PAGE, BREAKS, SVELTE_BREAKS, VUE_BREAKS, NO_SIZE, MAIN];
+export const BROKEN_FILES = 8;
 
 export const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
 
