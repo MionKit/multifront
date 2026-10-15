@@ -123,7 +123,8 @@ export async function runCommand(
       const lines = [...findings.map(findingLine), `${spec.name}: ${result.summary}`];
       process.stdout.write(`${lines.join('\n')}\n`);
     }
-    return count(findings, 'error') > 0 ? 1 : 0;
+    const failed = count(findings, 'error') > 0 || (result.warningsFail === true && count(findings, 'warning') > 0);
+    return failed ? 1 : 0;
   } catch (err) {
     process.stderr.write(`${spec.name}: ${err instanceof Error ? err.message : String(err)}\n`);
     return 2;
