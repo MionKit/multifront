@@ -1,0 +1,7 @@
+{
+  // The parity tests compare mf-fmt with the oxfmt CLI under this config.
+  "singleQuote": true,
+  "semi": false,
+  "overrides": [{"files": ["*.vue"], "options": {"semi": true}}],
+  "ignorePatterns": ["old/**"]
+}

@@ -46,3 +46,7 @@ export async function runBin(
 export function runMfTsc(cwd: string, args: string[] = [], env?: NodeJS.ProcessEnv): Promise<BinRun> {
   return runBin('@multifront/language-tools', 'mf-tsc', cwd, args, {env});
 }
+
+export function runMfFmt(cwd: string, args: string[] = [], env?: NodeJS.ProcessEnv): Promise<BinRun> {
+  return runBin('@multifront/language-tools', 'mf-fmt', cwd, args, {env});
+}

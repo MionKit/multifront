@@ -1,0 +1,14 @@
+{
+  // Messy.ucf type-checks in every target before and after mf-fmt formats a copy.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
+  },
+  "include": ["*.ucf", "react.ts", "vue.ts", "svelte.ts"]
+}

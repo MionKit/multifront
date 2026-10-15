@@ -1,0 +1,10 @@
+# oxfmt reads the nearest .editorconfig above the current folder: the mf-fmt tests run from this one.
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+[*.tsx]
+max_line_length = 72

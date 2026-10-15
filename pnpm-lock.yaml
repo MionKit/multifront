@@ -207,6 +207,12 @@ importers:
       '@vue/typescript-plugin':
         specifier: 3.3.11
         version: 3.3.11(typescript@6.0.3)
+      ignore:
+        specifier: 7.0.9
+        version: 7.0.9
+      minimatch:
+        specifier: 10.2.6
+        version: 10.2.6
       postcss:
         specifier: 8.5.28
         version: 8.5.28
@@ -229,6 +235,9 @@ importers:
       '@vue/compiler-sfc':
         specifier: 3.5.42
         version: 3.5.42
+      oxfmt:
+        specifier: 0.67.0
+        version: 0.67.0(svelte@5.57.0)
       svelte:
         specifier: 5.57.0
         version: 5.57.0

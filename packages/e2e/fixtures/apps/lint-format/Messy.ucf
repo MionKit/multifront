@@ -1,0 +1,33 @@
+<!-- Deliberately unformatted: mf-fmt's tests format copies of it, never this file. -->
+<react>
+import {useState} from "react"
+export default function Messy({label}:{label:string}){
+  const [count,setCount]=useState(0)
+      return <button className={$style.messy} onClick={()=>setCount(count+1)}>{label} {count}</button>
+}
+</react>
+
+
+<vue>
+<script setup lang="ts">
+import {ref} from "vue"
+defineProps<{label:string}>()
+const count=ref(0)
+</script>
+<template>
+      <button :class="$style.messy"   @click="count++">{{label}} {{ count }}</button>
+</template>
+</vue>
+
+<svelte>
+<script lang="ts">
+  let {label}:{label:string}=$props()
+  let count=$state(0)
+</script>
+<button class={$style.messy}   onclick={()=>count++}>{label} {count}</button>
+</svelte>
+
+<style   module lang="scss">
+$gap:4px;
+.messy{padding:$gap;  &:hover{opacity:.8}}
+</style>
