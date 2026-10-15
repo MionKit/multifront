@@ -37,3 +37,20 @@ user's `.ucf` file for a library that is fine. A `.ts` module in the same place 
 - A type-only `.js` / `.jsx` module of `src` types a component in the React and Vue (and Svelte, if affected) builds.
 - `pnpm devx check` is green.
 - the simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: list JS modules at any depth (approved 2026-10-15)
+
+Run by a delegated session in automatic mode: the delegation was the approval.
+
+- Cause confirmed. Each stage file sits under `node_modules`, so tsc's listing run dropped a JS module reached only by
+  `import type` (React: `TS7016`; Vue: the same with `.js`; Svelte: no error, `title.d.ts` silently missing).
+- Fix in `reachedRoots()` (`packages/vite/src/library/dts.ts`), shared by all three builds: the `--listFilesOnly` run
+  passes `--maxNodeModuleJsDepth 1073741824` and `--jsx preserve`. The real run then takes every reached file as a root,
+  as before. The stage tsconfig is unchanged, so a third-party JS package still types as the library's own tsc does.
+- `--jsx preserve` (listing only): without `jsx`, tsc skips a `.jsx` module. Vue's real run still reports that as
+  `TS6142` when the library sets no `jsx`; svelte2tsx's `emitDts` reports nothing, so Svelte would drop it unseen.
+- Tests in `packages/e2e/build/mf-build-findings.spec.ts`: `title.jsx` (React, Svelte) and `title.js` (Vue) type
+  `Card.ucf` and ship `title.d.ts`; `card.jsx` / `card.js` beside `Card.ucf` is the `name-clash`; Vue with `title.jsx`
+  and no `jsx` reports `TS6142`. Vue types through `const heading: CardTitle = props`: its compiler reads no JSDoc
+  type inside `defineProps<...>()`.
+- Docs: `docs/architecture.md`, library paragraph, the listing run.
