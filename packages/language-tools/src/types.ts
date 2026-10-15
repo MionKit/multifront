@@ -89,3 +89,17 @@ export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocation
   target?: Target; // undefined when `resolveTarget` gave an error
   error?: Pick<Diagnostic, 'code' | 'message'> & Partial<Pick<Diagnostic, 'start' | 'end'>>; // no span: the specifier
 }
+
+/** One tsconfig's program in `mf-tsc`, with every `.ucf` file's target scripts in it. */
+export interface Checked {
+  program: ts.Program;
+  getSplit(fileName: string): SplitResult | undefined;
+  files(): string[]; // the user's files: no default lib, no `node_modules`, no target script
+  check(fileName: string, targets: readonly Target[]): CheckedFile;
+}
+
+/** One file's problems, already in the file the user wrote. */
+export interface CheckedFile {
+  diagnostics: {diagnostic: ts.Diagnostic; target?: Target}[]; // `target`: the `.ucf` script that reported it
+  errors: {error: Diagnostic; target: 'svelte'}[]; // ours: `<svelte>` markup Svelte cannot parse
+}
