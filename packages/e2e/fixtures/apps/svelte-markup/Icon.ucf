@@ -1,0 +1,6 @@
+<svelte>
+  <script lang="ts">
+    let { name, size = 16 }: { name: string; size?: number } = $props()
+  </script>
+  <span class="icon" style:font-size="{size}px">{name}</span>
+</svelte>
