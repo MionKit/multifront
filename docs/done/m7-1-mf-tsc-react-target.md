@@ -28,7 +28,22 @@ Answers from the run-milestone orchestrator:
    texts" paragraph names them; 7.2 moves to the final text.
 3. Missing path: `mf-tsc: nope.ucf does not exist`, printed by `runCommand` for every command. Spec 8.1's "One file
    or folder" bullet gets the example line.
-4. `tscFinding(ts, diagnostic, ucf?)` is the private signature; the milestone line says so.
+4. `tscFinding(ts, diagnostic, ucf?)` is the private signature; the milestone line says so. After review it became
+   `tscFinding(ts, diagnostic, split?)`: the framework is always the file's own script's, `MAIN_SCRIPT_TARGET`.
+
+Review (automatic mode) changed what shipped:
+
+- One `runBin(packageName, bin, cwd, args, {source, env})` in `packages/e2e/editor/lib/commands.ts` serves `runMfBuild`
+  and `runMfTsc`; `BinReport<Data>` types both commands' JSON documents.
+- `withUcfResolution(ts, inner, importOptions)` and `isUcfSpecifier` in `src/resolve.ts`: the `.ucf` resolver wrapper,
+  shared by the TypeScript plugin and `mf-tsc`. `slashed` and `projectTypeScript(root, missing)` in `src/files.ts`,
+  shared with `svelteDeclarations.ts`.
+- A named folder is walked once with `filesUnder(folder, '')`: its tsconfigs and the program files it holds.
+- `copyAppOutside(name)` in `packages/e2e/fixtures/index.ts` (removed by `removeApp()`) for the no-typescript case.
+- More tests: a warning (`mixed-frameworks`), a folder whose only tsconfig is below it, the two "no tsconfig" exits, a
+  tsconfig holding no file to check, the dot-folder skip, `-p` with a folder, references pointing back.
+- Kept as is: `mf-tsc` leaves a Vue or Svelte compiler out when it cannot be loaded, as the TypeScript plugin does;
+  a broken tsconfig below a named folder is exit 2 (spec 8.1, bad config); `-p` takes a file, as the help says.
 
 ## Plan
 
@@ -130,7 +145,8 @@ use.
   `mf-tsc: empty has no tsconfig.json above or in it; add one or pass -p`. No file: `mf-tsc: empty holds no file of
   tsconfig.json`.
 - No path: the chain of `-p`, else of `findConfigFile(cwd)`; every project's files, each file going to the first
-  project holding it. No tsconfig: `mf-tsc: no tsconfig.json in . or above it; add one or pass -p`.
+  project holding it. No tsconfig: `mf-tsc: no tsconfig.json in . or above it; add one or pass -p`. No file:
+  `mf-tsc: tsconfig.json holds no file to check`.
 - All paths merge into one map project → file set: a file named twice, or inside a named folder, is checked once.
 
 **Findings.** Per project with at least one file: `getGlobalDiagnostics()` and `getOptionsDiagnostics()` (no
@@ -147,8 +163,8 @@ file, e.g. TS2688), then per file `getSyntacticDiagnostics(sf)` and `getSemantic
   finding has neither.
 - Each checked `.ucf` file also gives its `split.errors` through `findingOf` (no `framework`), beside TypeScript's.
 
-**Result.** Summary `checked 3 files with tsconfig.json: 1 error` (`1 file`; `N errors`, `, N warnings` when
-any, `no errors` when none; `checked 5 files with 2 tsconfigs: …` with several projects). Data
+**Result.** Summary `checked 3 files with tsconfig.json: 1 error` (`1 file`; each of `N errors`, `N warnings` that
+is not zero, joined by `, `; `no errors` when both are; `checked 5 files with 2 tsconfigs: …` with several projects). Data
 `projects: [{tsconfig, files}]`, `tsconfig` relative to the cwd, `files` a count, in check order.
 
 ### 5. The bin and the package
@@ -165,7 +181,7 @@ All run on this host and in CI's `check` job (`pnpm devx test`) and the floor jo
 
 ### `packages/e2e/editor/tsc/react.spec.ts` (area Editor)
 
-New helper `packages/e2e/editor/lib/commands.ts`: `runBin(packageName, bin, cwd, args, env?)` (and `runMfTsc`) spawns the real bin from the
+New helper `packages/e2e/editor/lib/commands.ts`: `runBin(packageName, bin, cwd, args, {source, env})` (and `runMfTsc`) spawns the real bin from the
 package's `bin` field with `node --conditions=source`, returns `{code, stdout, stderr}` (7.6 and 7.8 reuse it).
 
 New fixtures:
@@ -198,8 +214,8 @@ Cases, every one on a `copyApp()` copy (`removeApp()` after):
    and `tsconfig.app.json` the original. `mf-tsc` and `mf-tsc ReactBreaks.ucf` report the referenced project's
    errors, summary `with tsconfig.app.json`.
 6. Copy whose tsconfig sets `types: ["nonexistent"]`: one TS2688 finding with no file, exit 1.
-7. Copy with `components/invalid/DuplicateReact.ucf` added to the app: its `duplicate-target` findings, each equal to
-   `findingOf(diagnostic, split)` of core's own split (file relative to the cwd).
+7. Copy with `components/invalid/DuplicateReact.ucf` written to the app root as `DuplicateReact.ucf` and named as the
+   path: its `duplicate-target` findings, each equal to `findingOf(diagnostic, split)` of core's own split.
 8. Exit 2, stdout empty, one exact stderr line: unknown option (`use --project, --format or --help`),
    `--format xml`, a missing path, a file the tsconfig does not hold (`notes/Loose.ts` added to the copy), a file
    with no tsconfig above it (in `os.tmpdir()`), a folder holding no program file, `-p` to a missing file, a
