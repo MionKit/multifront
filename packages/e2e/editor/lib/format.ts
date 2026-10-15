@@ -13,7 +13,7 @@ export const LINT_FORMAT = 'lint-format';
 export const LINT_FORMAT_SVELTE = 'lint-format-svelte';
 export const MESSY = 'Messy.ucf';
 
-// The endings of the blocks of `Messy.ucf` that oxfmt formats; `<svelte>` stays as written.
+// The endings of the blocks of `Messy.ucf` that oxfmt formats with its `svelte` option off.
 export const SENT: Partial<Record<BlockTag, string>> = {react: '.tsx', vue: '.vue', style: '.scss'};
 // With oxfmt's `svelte` option on.
 export const SENT_WITH_SVELTE: typeof SENT = {...SENT, svelte: '.svelte'};
@@ -67,7 +67,7 @@ export function linkOxfmt(dir: string): void {
   symlinkSync(realpathSync(OXFMT_DIR), join(dir, 'node_modules', 'oxfmt'), 'junction');
 }
 
-/** A real oxfmt install in `dir/node_modules` with its own dependencies but no svelte, copied: a link would find the repo's. */
+/** oxfmt and its dependencies minus svelte, copied into `dir/node_modules`: a link would find the repo's svelte. */
 export function copyOxfmtWithoutSvelte(dir: string): void {
   const installed = dirname(realpathSync(OXFMT_DIR));
   for (const name of readdirSync(installed).filter((entry) => entry !== 'svelte')) {

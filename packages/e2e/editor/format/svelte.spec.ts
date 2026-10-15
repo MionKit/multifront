@@ -149,7 +149,6 @@ describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
           MISSING_SVELTE,
           expect.objectContaining({file: 'nested/Messy.ucf', code: 'format-error', block: 'react'}),
         ]);
-        // No `<svelte>` block, no warning.
         addFile(root, 'Plain.ucf', '<react>\nexport default function Plain() {\n  return <p />;\n}\n</react>\n');
         const plain = await runMfFmt(root, ['Plain.ucf', '--format', 'json'], env);
         expect({code: plain.code, stderr: plain.stderr}).toEqual({code: 0, stderr: ''});
