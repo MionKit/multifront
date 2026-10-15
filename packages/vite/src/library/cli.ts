@@ -1,8 +1,9 @@
 import {existsSync} from 'node:fs';
 import {dirname, join, relative, resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {runCommand} from '@multifront/core';
 import type {CommandResult, CommandSpec, CommandValues, Target} from '@multifront/core';
-import {createLogger, loadConfigFromFile, normalizePath} from 'vite';
+import {createLogger, normalizePath} from 'vite';
 import type {LibraryOptions, LibraryResult} from '../types.ts';
 import {buildLibrary} from './build.ts';
 import {LibraryError} from './errors.ts';
@@ -29,18 +30,27 @@ const MF_BUILD: CommandSpec = {
   example: 'mf-build --framework react --format json',
 };
 
-// A config may throw anything; Vite rethrows it unchanged.
+// A config may throw anything.
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-// `native`: Node resolves the config's imports, honouring `--conditions=source`; the bundler resolves with `node` only.
+/** Natively, as Vite's `native` loader does: Node resolves the config's imports, honouring `--conditions=source`. */
+async function importConfig(file: string): Promise<unknown> {
+  // Top-level await makes the graph async: Node 26.12 prints a trace when a sync-run module throws a non-Error.
+  const wrapper = `import * as config from ${JSON.stringify(pathToFileURL(file).href)};\nawait 0;\nexport {config};\n`;
+  const {config} = (await import(`data:text/javascript,${encodeURIComponent(wrapper)}`)) as {config: {default?: unknown}};
+  return config.default;
+}
+
 async function loadConfig(root: string): Promise<LibraryOptions> {
   const file = CONFIG_FILES.map((name) => join(root, name)).find((path) => existsSync(path));
   if (file === undefined) return {};
   try {
-    const loaded = await loadConfigFromFile({command: 'build', mode: 'production'}, file, root, 'silent', undefined, 'native');
-    return (loaded?.config ?? {}) as LibraryOptions;
+    const exported = await importConfig(file);
+    const config: unknown = await (typeof exported === 'function' ? exported({command: 'build', mode: 'production'}) : exported);
+    if (Object.prototype.toString.call(config) !== '[object Object]') throw new Error('config must export or return an object.');
+    return config as LibraryOptions;
   } catch (err) {
     throw new Error(`cannot load ${file}: ${messageOf(err)}`, {cause: err});
   }

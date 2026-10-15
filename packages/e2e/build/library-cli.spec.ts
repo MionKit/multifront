@@ -530,6 +530,11 @@ describe('mf-build when it cannot run', () => {
       error: 'mf-build: cannot load <mjs>: config must export or return an object.\n',
     },
     {
+      name: 'a config function that returns no object',
+      files: {mjs: 'export default () => 5;\n'},
+      error: 'mf-build: cannot load <mjs>: config must export or return an object.\n',
+    },
+    {
       name: 'a config that throws a string',
       files: {mjs: "throw 'bad config';\n"},
       error: 'mf-build: cannot load <mjs>: bad config\n',
