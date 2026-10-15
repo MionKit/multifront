@@ -83,8 +83,11 @@ Part of the Done-when, on purpose: the cause is not found, since the crash does 
 - `runInVsCode` keeps any Crashpad dumps of a failed run in `packages/e2e/.tmp/vscode-crashes/` and names the
   folder in its error. A failed copy is named instead and never hides VS Code's own error.
 - `runInVsCode` gives VS Code no `NODE_OPTIONS`.
+- CI sets `kernel.core_pattern=/dev/null` in each job that runs `exit.spec.ts`. On GitHub's Ubuntu runners a
+  crashed VS Code main process stayed in state D for minutes: the kernel piped its core (V8's huge reserved address
+  space) to systemd-coredump. Any real crash there would have hung the job until its test timed out.
 - `exit.spec.ts` gets a third run, `crash.cjs`: it sets `NODE_OPTIONS`, kills the real VS Code main process with
   SIGSEGV and checks the dump, the error line and the missing Electron warning. It sits in `exit.spec.ts`, not a
   file of its own: two files starting VS Code at once would race over the unlocked `.vscode-test/` download.
-- 3 full `pnpm devx check` runs in a row on the cloud host with the fix: `exit.spec.ts` green in each, 4055 of 4055 tests.
+- 3 full `pnpm devx check` runs in a row on the cloud host with the fix (before the CI step): `exit.spec.ts` green in each, 4055 of 4055 tests.
 - Reading the next dump and fixing the cause is a new todo, with the CI half of the repeated-runs item.
