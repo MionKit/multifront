@@ -14,9 +14,9 @@ export const BROKEN = 'types-broken';
 export const VALID = 'types-every-target';
 export const NOT_STRING = "Type 'number' is not assignable to type 'string'.";
 
-export type Report = BinReport<{projects: {tsconfig: string; files: number}[]}>;
+type Report = BinReport<{projects: {tsconfig: string; files: number}[]}>;
 
-export const fixture = (app: string, file: string) => readFileSync(join(FIXTURES_DIR, 'apps', app, file), 'utf8');
+const fixture = (app: string, file: string) => readFileSync(join(FIXTURES_DIR, 'apps', app, file), 'utf8');
 export const report = (stdout: string) => JSON.parse(stdout) as Report;
 
 /** 1-based columns of `needle` in `source`, `length` characters from `shift` past its start; never across a line. */
@@ -36,14 +36,9 @@ export const line = ({file, line, column, code, framework, severity, message}: F
 const TO_FIXED = "Property 'toFixed' does not exist on type 'string'. Did you mean 'fixed'?";
 
 /** A finding of the broken app, and the text its span covers in the fixture. */
-interface Expected {
-  finding: (file?: string) => Finding;
-  text: string;
-}
-
 function expected(file: string, needle: string, text: string, rest: Omit<Finding, 'file' | 'line' | 'column' | 'end'>) {
   const at = span(fixture(BROKEN, file), needle, text.length, needle.indexOf(text));
-  return {finding: (shown = file) => ({file: shown, ...at, ...rest}), text};
+  return {finding: (shown = file): Finding => ({file: shown, ...at, ...rest}), text};
 }
 
 // TypeScript marks the prop whose value has the wrong type, and the member a target lacks.
@@ -78,8 +73,10 @@ export const NO_SIZE = expected('main.ts', '{size}', 'size', {
 export const MAIN = expected('pages/main.tsx', 'text={1}', 'text', {code: 'TS2322', severity: 'error', message: NOT_STRING});
 
 /** Every finding of the whole broken app, in the order `mf-tsc` prints them. */
-export const BROKEN_FINDINGS: readonly Expected[] = [BREAKS, SVELTE_BREAKS, VUE_BREAKS, NO_SIZE, MAIN];
+export const BROKEN_FINDINGS = [BREAKS, SVELTE_BREAKS, VUE_BREAKS, NO_SIZE, MAIN];
 export const BROKEN_FILES = 7;
+
+export const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
 
 export async function withCopy(app: string, check: (root: string) => Promise<void>, copy = copyApp): Promise<void> {
   const root = await copy(app);

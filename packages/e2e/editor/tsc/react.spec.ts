@@ -19,6 +19,7 @@ import {
   assertNoConfigAbove,
   assertNotInstalled,
   editFile,
+  fails,
   line,
   linkTypeScript,
   report,
@@ -315,8 +316,6 @@ describe('mf-tsc findings beside the type errors', () => {
 });
 
 describe('mf-tsc that cannot run', () => {
-  const fails = (message: string) => ({code: 2, stdout: '', stderr: `mf-tsc: ${message}\n`});
-
   it('names the real options, the formats and a path that does not exist', async () => {
     await withCopy(BROKEN, async (root) => {
       expect(await runMfTsc(root, ['--nope'])).toEqual(
