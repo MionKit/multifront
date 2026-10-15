@@ -150,7 +150,6 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     const message = `not formatted; run mf-fmt ${shown(file)}`;
     findings.push(findingOf(createDiagnostic(split, 'unformatted', at, at, message), split));
   }
-  // One warning per run, not per file.
   if (missingSvelte)
     findings.push({code: 'missing-svelte' satisfies DiagnosticCode, severity: 'warning', message: MISSING_SVELTE});
   // Only once every file formatted: a config error in a later file (exit 2) leaves every file as written.
