@@ -53,23 +53,26 @@ Answers from the run-milestone orchestrator:
    being typed. The type goes in `types.ts`: `MarkupTag {name: string; start: number; end: number; gaps: MarkupSpan[]}`.
    `MarkupScan` gains `tags: MarkupTag[]`. `gaps` holds the whitespace runs at the tag's own level: between the name
    and the first attribute, between attributes, and before `>` / `/>` (or, in an unclosed tag, up to the next `<` or
-   the end). Quoted values and `{…}` are not gaps. `readTag()` records them on the `pos++` path it already walks.
+   the end). Quoted values, `{…}` and the space before an attribute's `=` are not gaps. `readTag()` records them on the
+   `pos++` path it already walks.
    `isComponent(name)` (a capital first letter or a dot) moves here from `svelteMarkupService.ts:21`, exported.
 2. `packages/language-tools/src/blocks/svelte.ts` `svelteTypes()` adds `propsMappings(block, code, mappings)`. It runs
    on the final code, after the `declareModule` loop, which only appends. For each component tag in
    `scanMarkup(block.content).tags`:
    - it finds the generated offset of the tag name (`.ucf` offset `contentStart + start + 1`) through the composed 1:1
      mappings;
-   - then the first `props: {` after it, with no other `__sveltets_2_ensureComponent(` in between.
+   - then the first `props: {` after it (svelte2tsx writes it right after the name).
    - Each gap maps to the point right after that `{`:
      `{sourceOffsets: [contentStart + gap.start + 1], generatedOffsets: [point], lengths: [gap.end - gap.start - 1], generatedLengths: [0], data: {completion: true}}`
-     (`PROPS_FEATURES`, completion only).
+     (`MARKUP_FEATURES`, completion only).
    - The gap's first character is left out, so `<Icon|` stays a tag-name position.
    - A tag whose name or props object is not found gets no mapping.
 
    This changes no diagnostics: mf-tsc, the declarations emit and tsserver read `verification` only.
 3. `packages/language-tools/src/svelteMarkupService.ts` `svelteHtmlService()`. An attribute item whose start tag (the
-   last `scan.tags` entry starting before the edit) is a component keeps only `bind:` and `bind:this`. Those are valid
+   last `scan.tags` entry starting before the edit, while the edit is still inside it: before its end, or at the end of
+   an unclosed one) is a component keeps only `bind:` and `bind:this`. Text and close tags after a component keep their
+   items (found in review: an unbounded lookup dropped `&amp;` after `<Icon />`). Those are valid
    on a component (a prop binding, the instance). Every other HTML attribute, directive and `on*` item is dropped: the
    tag's props come from tsserver.
 4. The `<Icon |` completions reach VS Code through tsserver, routed to `Toolbar.ucf.svelte.ts` by `targetScripts.ts`
@@ -85,9 +88,10 @@ server over LSP, the real tsserver with our plugin). No new infra: 7.4's harness
     `let {name, size = 16}: {name: string; size?: number} = $props()`, markup `<span …>{name}</span>`.
   - `Toolbar.ucf` imports it (`import Icon from './Icon.ucf'`) and uses `<Icon name="search" />` after the `<input>`.
     No anchor the 7.4 spec types after moves.
-- `packages/e2e/editor/lib/markup.ts` (new): 7.4's `completeIn` / `complete` (built over a server and a component),
-  `labels`, `newText`, `fillSnippet`, `applyCompletion`, `expectEveryItemParses` (real `svelte/compiler` `parse`,
-  modern), moved from `server/svelte-markup.spec.ts`, which then imports them. Its cases stay as they are.
+- `packages/e2e/editor/lib/markup.ts` (new): 7.4's `complete` (from `markupCompletions()`, over a server and a
+  component), `labels`, `newText`, `expectEveryItemParses` (real `svelte/compiler` `parse`, modern) and the new
+  `parseErrorMessage()` (that parse's error for a whole `.ucf` text), moved from `server/svelte-markup.spec.ts`, which
+  then imports them; `fillSnippet` and `applyCompletion` stay private there. Its cases stay as they are.
 - `packages/e2e/editor/server/svelte-props.spec.ts` (new). Each case is a real unsaved edit, reverted after. Through
   tsserver with our plugin (`completionInfo`, `completionEntryDetails`, diagnostics) on `Toolbar.ucf`, with
   inferred-project options as in 7.4:
@@ -97,6 +101,9 @@ server over LSP, the real tsserver with our plugin). No new infra: 7.4's harness
      details read `(property) name: string`, `(property) class?: ClassValue | null | undefined`,
      `(property) size?: number | undefined`, `(property) style?: string | null | undefined`.
   3. `<Icon | />`: the same four. `<Icon name="x" | />`: all but `name`. `<Icon\n      |\n    />`: all four.
+     `<Icon |` unclosed as the block's last markup: all four. `<ui.Icon | />` (a dotted name, `const ui = { Icon }`
+     typed into the script): all four. Inside `name="a |b"`, `size={1 + |2}` and before the `=` of `name |= "x"`: no
+     prop.
   4. Each item of case 3's `<Icon | />` list, applied as VS Code applies it (its `replacementSpan`, else the list's
      `optionalReplacementSpan`, else at the cursor; `insertText` or the name), leaves a block the real
      `svelte/compiler` `parse` accepts.
@@ -107,8 +114,9 @@ server over LSP, the real tsserver with our plugin). No new infra: 7.4's harness
 
   Through the real language server:
 
-  7. `<Icon | />` lists exactly `bind:` and `bind:this`, and each parses (`expectEveryItemParses`). `<input bi| />`
-     keeps 7.4's list (not narrowed).
+  7. `<Icon | />` lists exactly `bind:` and `bind:this`, and each parses (`expectEveryItemParses`); so do
+     `<ui.Icon | />` and `<Icon |` as the last markup. `&am|` after the fixture's `<Icon name="search" />` still lists
+     `&amp;`. `<input bi| />` keeps 7.4's list (not narrowed).
   8. The server logged no warning or error.
 - The other editor specs stay green: `svelte-markup`, `svelte-*`, `virtualCode` (component-free fixtures are unchanged;
   fixtures with components gain only completion mappings, not snapshotted), `tsc/*`, `bundle`, `vsix`.
