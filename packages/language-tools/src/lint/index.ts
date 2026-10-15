@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join, parse, resolve} from 'node:path';
-import {promisify} from 'node:util';
+import {promisify, stripVTControlCharacters} from 'node:util';
 import {findingOf, locate, moduleName, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
 import type {Block, CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
 import {blockFile} from '../blocks/blockFile.ts';
@@ -58,9 +58,9 @@ function ignoringConfig(fileName: string, root: string): string | undefined {
   return config && isIgnored({file: config, ignorePatterns: ignorePatterns(config, root)}, fileName) ? config : undefined;
 }
 
-// oxlint prints a bad config on stdout as a miette report: one line for spec 8.1's single stderr line.
+// oxlint prints a bad config on stdout as a miette report, colored under `FORCE_COLOR` or a Windows console.
 function oxlintFailure(stdout: string, stderr: string, root: string, config: string | undefined): Error {
-  const lines = (stderr.trim() || stdout.trim())
+  const lines = stripVTControlCharacters(stderr.trim() || stdout.trim())
     .split(/\r?\n/)
     .map((line) => line.replace(/^\s*(?:[x×|│]\s)?/, '').trim())
     .filter(Boolean);
