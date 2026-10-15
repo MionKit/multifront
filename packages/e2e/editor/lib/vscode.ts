@@ -1,13 +1,15 @@
 import {spawn} from 'node:child_process';
-import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import {PassThrough} from 'node:stream';
 import {runTests} from '@vscode/test-electron';
+import {TMP_DIR} from '../../fixtures/index.ts';
 import {REPO_ROOT} from './vsix.ts';
 
 // Newest stable at least 30 days old: the same age floor as npm packages.
 export const VSCODE_VERSION = '1.137.0';
+export const CRASH_DIR = join(TMP_DIR, 'vscode-crashes');
 
 interface CheckResult {
   name: string;
@@ -45,20 +47,47 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
         workspace,
         `--user-data-dir=${join(temp, 'user-data')}`,
         `--extensions-dir=${join(temp, 'extensions')}`,
+        // Starts Crashpad whatever the host's ~/.vscode/argv.json says, and keeps its dumps local.
+        `--crash-reporter-directory=${join(temp, 'crashes')}`,
         ...args,
       ],
       // NODE_PATH from pnpm's bin shim would let the extension find the repo's packages.
-      extensionTestsEnv: {MULTIFRONT_VSCODE_RESULTS: results, NODE_PATH: undefined, ...(display && {DISPLAY: display.value})},
+      // NODE_OPTIONS is the host's, not VS Code's: Electron rejects it at startup, and CI never sets it.
+      extensionTestsEnv: {
+        MULTIFRONT_VSCODE_RESULTS: results,
+        NODE_PATH: undefined,
+        NODE_OPTIONS: undefined,
+        ...(display && {DISPLAY: display.value}),
+      },
       stdout: stream,
       stderr: stream,
     });
     return JSON.parse(readFileSync(results, 'utf8')) as CheckResult[];
   } catch (err) {
-    throw new Error(`VS Code run failed: ${String(err)}\n${output.join('').slice(-20_000)}`, {cause: err});
+    let keptNote = '';
+    try {
+      const crashFolder = keepCrashDumps(temp);
+      if (crashFolder) keptNote = `\ncrash dump kept in ${crashFolder}`;
+    } catch (copyErr) {
+      keptNote = `\ncrash dump not kept: ${String(copyErr)}`;
+    }
+    throw new Error(`VS Code run failed: ${String(err)}${keptNote}\n${output.join('').slice(-20_000)}`, {cause: err});
   } finally {
     display?.stop();
     rmSync(temp, {recursive: true, force: true});
   }
+}
+
+/** Copies the Crashpad dumps of a failed run out of its temp folder; returns where, or undefined if none. */
+function keepCrashDumps(temp: string): string | undefined {
+  const crashes = join(temp, 'crashes');
+  if (!existsSync(crashes)) return undefined;
+  const dumps = readdirSync(crashes, {recursive: true, encoding: 'utf8'}).filter((name) => name.endsWith('.dmp'));
+  if (dumps.length === 0) return undefined;
+  const kept = join(CRASH_DIR, basename(temp));
+  mkdirSync(kept, {recursive: true});
+  for (const dump of dumps) cpSync(join(crashes, dump), join(kept, basename(dump)));
+  return kept;
 }
 
 /** A headless Linux host has no display: start Xvfb on a free one. */
