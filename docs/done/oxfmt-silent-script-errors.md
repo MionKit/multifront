@@ -47,12 +47,18 @@ await format('X.svelte', '<script lang="ts">let a = ;</script><p/>', {svelte: tr
 
 Run in automatic mode by a delegated session; the parent session's delegation stands for plan approval.
 
-- `formatUcf` sends each `<script>` of a `<vue>` or `<svelte>` block to oxfmt's `format()` on its own before the
-  block, as `script.ts`, `script.tsx` or `script.jsx` by its `lang` (the parser oxfmt's embed picks). Any other
-  `lang` is skipped. The first error becomes the block's `format-error` at the script's place in the `.ucf` file,
-  through the existing `errorSpan`, and the block is never sent, so the svelte stack never reaches stderr.
-- The tag match lets an attribute value hold `>` (`generic="T extends Record<string, unknown>"`).
-- Tests: `packages/e2e/editor/format/mf-fmt.spec.ts` (`<vue>`, past a `generic` with `>` and non-ASCII text) and
-  `svelte.spec.ts` (`<svelte>`, empty stderr, file left as written). Both fail on oxfmt 0.67.0 without the check.
-- Upstream report on `oxc-project/oxc`: not filed; this session has no access to that repository. Still owed by a
-  human, with the two snippets above. Once oxfmt reports these errors itself, the check can go.
+- `formatUcf` sends each root `<script>` of a `<vue>` block, or of a `<svelte>` block it sends to oxfmt (the
+  `svelte` option on and `svelte/compiler` loadable), to oxfmt's `format()` on its own before the block. The file name
+  is `script.ts`, `script.tsx` or `script.jsx` by its `lang` (`ts` / `typescript`, `tsx`, none / `js` / `jsx`); any
+  other `lang` is skipped. The first error becomes the block's `format-error` at the script's place in the `.ucf`
+  file, through the existing `errorSpan`. The block itself then goes to `format()` as empty text, so a rejected config
+  still exits 2 and the svelte stack never reaches stderr.
+- Root scripts come from a new core export, `blockScripts(block)`: the same tag scan the vue and svelte checks use.
+  So a `<script>` in an HTML comment, in markup (`<svelte:head>` JSON-LD), a kebab-case tag or a self-closing
+  `<script />` is never checked, and attribute values may hold `>`.
+- Tests in `packages/e2e/editor/format/`: broken `lang="ts"` scripts in `<vue>` (past a `generic` with `>` and
+  non-ASCII text) and `<svelte>` (empty stderr, file as written); a no-lang `<vue>` script after a valid one; a svelte
+  module script then a broken `lang="typescript"` one beside JSON-LD; look-alikes that must format; a rejected config
+  winning over a broken script.
+- Upstream report on `oxc-project/oxc`: not filed, no access from this session. Filed as its own todo, with the
+  removal of the check once oxfmt reports these errors.
