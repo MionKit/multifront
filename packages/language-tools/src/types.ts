@@ -172,3 +172,21 @@ export interface FormattedUcf {
   findings: Finding[];
   missingSvelte: boolean; // a `<svelte>` block the config formats stayed as written: oxfmt cannot load `svelte/compiler`
 }
+
+/** `lintUcf` input beside the files. */
+export interface LintOptions {
+  root: string; // oxlint loads from here (the cwd, or the server's workspace folder)
+}
+
+/** One oxlint diagnostic of a `.ucf` file, its span in that file. */
+export interface UcfLintDiagnostic {
+  file: string; // the split's filename
+  start: number; // UTF-16 offsets into the .ucf source
+  end: number;
+  block: Target; // the block oxlint linted
+  code: string; // oxlint's: `eslint(no-debugger)`
+  message: string;
+  severity: 'error' | 'warning' | 'advice';
+  url?: string;
+  help?: string;
+}

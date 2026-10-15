@@ -1,0 +1,41 @@
+<!-- mf-lint's fixture: a debugger statement and an unused variable in each target block. -->
+<react>
+export default function Lint({label}: {label: string}) {
+  const unused = 'é ü'
+  debugger;
+  return <p className={`${$style.card} ${classes.wide}`}>{label}</p>
+}
+</react>
+
+<vue>
+<script setup lang="ts">
+const unused = 'é ü'
+debugger;
+</script>
+
+<template>
+  <p :class="$style.card">lint</p>
+</template>
+</vue>
+
+<svelte>
+<script lang="ts">
+  const unused = 'é ü'
+  const card = $style.card
+  debugger;
+</script>
+
+<p class={card}>lint</p>
+</svelte>
+
+<style module>
+.card {
+  color: red;
+}
+</style>
+
+<style module="classes">
+.wide {
+  width: 100%;
+}
+</style>

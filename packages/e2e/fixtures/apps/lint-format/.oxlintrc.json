@@ -1,0 +1,9 @@
+{
+  // mf-lint's tests lint copies of Lint.ucf and Clean.ucf under it, mf-fmt's Messy.ucf left out; it also lints this app's .ts files.
+  "rules": {
+    "no-debugger": "error",
+    "no-undef": "error"
+  },
+  "overrides": [{"files": ["**/*.tsx"], "rules": {"no-debugger": "warn"}}],
+  "ignorePatterns": ["old/**", "Messy.ucf"]
+}

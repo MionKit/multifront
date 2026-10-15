@@ -6,10 +6,10 @@ import {createDiagnostic, findingOf, rootRelativePath, runCommand, splitBlocks} 
 import type {Block, CommandResult, CommandSpec, CommandValues, DiagnosticCode, Finding, SplitResult} from '@multifront/core';
 import type * as OxfmtModule from 'oxfmt';
 import {blockFile} from '../blocks/blockFile.ts';
-import {projectImport, resolveInProject, ucfFiles} from '../files.ts';
+import {isIgnored, projectImport, resolveInProject, ucfFiles} from '../files.ts';
 import {lineStarts} from '../mappings.ts';
 import type {FormattedUcf, UcfFormatConfig} from '../types.ts';
-import {findFormatConfig, formatOptions, isIgnored} from './config.ts';
+import {findFormatConfig, formatOptions} from './config.ts';
 
 export {findFormatConfig} from './config.ts';
 

@@ -2,7 +2,6 @@
 import {readFileSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {rootRelativePath} from '@multifront/core';
-import ignore from 'ignore';
 import {minimatch} from 'minimatch';
 import {nearestFile, parseJsonc} from '../files.ts';
 import type {EditorConfigFile, FormatOptions, FormatOverride, UcfFormatConfig} from '../types.ts';
@@ -114,11 +113,4 @@ export function formatOptions(config: UcfFormatConfig, blockPath: string): {own:
   fill('insertFinalNewline', choice(props.insert_final_newline, {true: true, false: false}));
   fill('singleQuote', choice(props.quote_type, {single: true, double: false}));
   return {own, options};
-}
-
-/** `ignorePatterns` are gitignore lines rooted at the config's folder. */
-export function isIgnored(config: UcfFormatConfig, fileName: string): boolean {
-  if (!config.file || config.ignorePatterns.length === 0) return false;
-  const path = rootRelativePath(dirname(config.file), fileName);
-  return !path.startsWith('../') && ignore().add(config.ignorePatterns).ignores(path);
 }
