@@ -127,6 +127,75 @@ describe('mf-build on a type-only module of another script kind beside a compone
   });
 });
 
+describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
+  const cardTitle = '/** @typedef {{ title: string }} CardTitle */\nexport {};\n';
+
+  /** Card.ucf typed from a JavaScript module in every block; Vue past `defineProps`, whose compiler reads no JSDoc. */
+  function jsdocCard(specifier: string): string {
+    const typeImport = `  import type { CardTitle } from '${specifier}'\n`;
+    let card = typedCard(specifier);
+    card = edited(
+      card,
+      'defineProps<CardTitle>()',
+      'const props = defineProps<{ title: string }>()\n  const heading: CardTitle = props'
+    );
+    card = edited(card, "  import type { Snippet } from 'svelte'\n", `  import type { Snippet } from 'svelte'\n${typeImport}`);
+    return edited(card, '{ title: string; children?: Snippet }', 'CardTitle & { children?: Snippet }');
+  }
+
+  // Vue: the fixture sets no `jsx`, so vue-tsc rejects a .jsx module, below.
+  it.each([
+    ['jsx', 'react'],
+    ['js', 'vue'],
+    ['jsx', 'svelte'],
+  ] as const)('writes title.%s as title.d.ts in the %s build', async (ext, framework) => {
+    const edits = [
+      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: `src/title.${ext}`, content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', framework]);
+      expect(run).toMatchObject({code: 0, stderr: ''});
+      expect(readFileSync(join(root, 'dist', framework, 'title.d.ts'), 'utf8')).toContain('CardTitle');
+    });
+  });
+
+  it('reports a .jsx module as needing jsx in the vue build', async () => {
+    const edits = [
+      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: 'src/title.jsx', content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', 'vue', '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(report(run.stdout).findings).toEqual([
+        expect.objectContaining({code: 'TS6142', file: 'src/Card.ucf', message: expect.stringContaining("'--jsx' is not set")}),
+      ]);
+    });
+  });
+
+  it.each([
+    ['jsx', 'react'],
+    ['jsx', 'vue'],
+    ['js', 'vue'],
+  ] as const)('writes card.%s as card.d.ts: a name-clash in the %s build', async (ext, framework) => {
+    const edits = [
+      {file: 'src/Card.ucf', content: jsdocCard('./card.js')},
+      {file: `src/card.${ext}`, content: cardTitle},
+    ];
+    await withEditedLibrary(edits, async (root) => {
+      const run = await runMfBuild(root, ['--framework', framework, '--format', 'json']);
+      expect(run.code).toBe(1);
+      expect(report(run.stdout).findings).toEqual([
+        expect.objectContaining({
+          code: 'name-clash',
+          message: `src/Card.ucf and src/card.${ext} would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file`,
+        }),
+      ]);
+    });
+  });
+});
+
 describe("mf-build on a type-only module with a component's exact name (M6 6.1 build errors)", () => {
   const edits = [
     {file: 'src/Card.ucf', content: typedCard('./Card.js')},
