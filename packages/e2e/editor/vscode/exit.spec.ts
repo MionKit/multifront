@@ -64,7 +64,7 @@ describe("with VS Code's TypeScript extension disabled, the extension still star
   );
 });
 
-// After the exit runs, in this file: a second file starting VS Code would race them over the `.vscode-test/` download.
+// Here, after the exit runs: another file starting VS Code would race them for the `.vscode-test/` download.
 describe('a VS Code that dies by SIGSEGV', () => {
   let kept: string | undefined;
   const hostOptions = process.env.NODE_OPTIONS;

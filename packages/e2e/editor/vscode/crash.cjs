@@ -1,4 +1,4 @@
-// Extension test file for exit.spec.ts's SIGSEGV run: crashes VS Code's main process, as the unexplained crash did.
+// exit.spec.ts's SIGSEGV suite: crashes VS Code's main process, as the unexplained crash did.
 const {execFileSync} = require('node:child_process');
 
 function parentOf(pid) {

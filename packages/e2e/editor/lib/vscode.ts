@@ -47,12 +47,12 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
         workspace,
         `--user-data-dir=${join(temp, 'user-data')}`,
         `--extensions-dir=${join(temp, 'extensions')}`,
-        // Starts Crashpad whatever the host's ~/.vscode/argv.json says, and keeps its dumps local.
+        // Turns Crashpad on despite ~/.vscode/argv.json; dumps stay in temp.
         `--crash-reporter-directory=${join(temp, 'crashes')}`,
         ...args,
       ],
       // NODE_PATH from pnpm's bin shim would let the extension find the repo's packages.
-      // NODE_OPTIONS is the host's, not VS Code's: Electron rejects it at startup, and CI never sets it.
+      // Electron rejects the host's NODE_OPTIONS at startup; CI never sets it.
       extensionTestsEnv: {
         MULTIFRONT_VSCODE_RESULTS: results,
         NODE_PATH: undefined,
@@ -78,7 +78,6 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
   }
 }
 
-/** Copies the Crashpad dumps of a failed run out of its temp folder; returns where, or undefined if none. */
 function keepCrashDumps(temp: string): string | undefined {
   const crashes = join(temp, 'crashes');
   if (!existsSync(crashes)) return undefined;
