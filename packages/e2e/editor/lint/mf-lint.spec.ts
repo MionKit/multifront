@@ -9,16 +9,15 @@ import {describe, expect, it, onTestFinished} from 'vitest';
 import {FIXTURES_DIR, copyAppOutside, readComponent} from '../../fixtures/index.ts';
 import {runMfLint} from '../lib/commands.ts';
 import type {BinReport} from '../lib/commands.ts';
-import {LINT_FORMAT, copyInto, read} from '../lib/format.ts';
+import {LINT_FORMAT, OXLINT_DIR, copyInto, read} from '../lib/format.ts';
 import {assertNotInstalled, editFile, line, withCopy} from '../lib/tsc.ts';
-import {E2E_DIR, offsetAt, tsLocation} from '../lib/tsserver.ts';
+import {offsetAt, tsLocation} from '../lib/tsserver.ts';
 
 const LINT = 'Lint.ucf';
 const CLEAN = 'Clean.ucf';
 const UNUSED = "Variable 'unused' is declared but never used. Unused variables should start with a '_'.";
 const DEBUGGER = '`debugger` statement is not allowed';
 const LINT_SOURCE = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), LINT);
-const OXLINT_DIR = join(E2E_DIR, '..', '..', 'node_modules', 'oxlint');
 const BAD_CONFIG = (config: string) =>
   `oxlint: Failed to parse oxlint configuration file. invalid config file ${config}: ` +
   `Failed to parse oxlint config ${config}. key must be a string at line 1 column 3`;
