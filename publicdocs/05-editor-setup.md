@@ -25,7 +25,7 @@ Open a `.ucf` file and each block gets its own language's features.
 | `<react>` | Highlighting, completions, errors, hover, go to definition, rename and find references, also across `.ts` and `.tsx` files |
 | `<style>`, `<style lang="scss">` | Highlighting, completions, errors, hover, go to definition |
 | `<vue>` | Highlighting, completions (template tags, attributes and directives too), errors, hover, go to definition, rename and find references, also across `.ts` files |
-| `<svelte>` | Highlighting, completions in scripts and `{…}` expressions, errors, hover, go to definition, also across `.ts` files. Needs `svelte` installed in the project. |
+| `<svelte>` | Highlighting, completions in scripts and `{…}` expressions, markup completions (HTML tags and attributes, Svelte elements like `<svelte:window>`, directives like `bind:value`, and `{#if}`, `{#each}`, `{@render}` style blocks), errors, hover, go to definition, also across `.ts` files. Needs `svelte` installed in the project. |
 | `<style lang="less">` | Highlighting |
 | The whole file | Errors for the [block rules](02-component-files.md#block-rules) |
 

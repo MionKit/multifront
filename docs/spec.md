@@ -295,7 +295,7 @@ Order:
 2. TypeScript plugin and the `<react>` block. TSX is plain TypeScript, so full types land first.
 3. `<style>` blocks: CSS / SCSS features.
 4. `<vue>` block through `@vue/language-core`.
-5. `<svelte>` block: types through `svelte2tsx`, markup completions later.
+5. `<svelte>` block: types through `svelte2tsx`; markup completions (HTML tags and attributes, Svelte elements, directives, `{#if}` style blocks) from the language server.
 6. Formatting and linting for `.ucf` through oxfmt and oxlint.
 
 ### 6.1 Linting and formatting `.ucf` (last milestone)
