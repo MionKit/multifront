@@ -5,7 +5,7 @@ import type {CompletionItem, LanguageServicePlugin, TextEdit} from '@volar/langu
 import {create as createHtmlService} from 'volar-service-html';
 import {ucfRoot} from './multifrontService.ts';
 import {META_ELEMENTS, svelteHtmlData} from './svelteHtmlData.ts';
-import {SVELTE_MARKUP_LANGUAGE, inText, openAt, scanMarkup} from './svelteMarkup.ts';
+import {SVELTE_MARKUP_LANGUAGE, inText, isComponent, openAt, scanMarkup} from './svelteMarkup.ts';
 import type {MarkupOpen, MarkupScan} from './types.ts';
 
 interface BlockItem {
@@ -18,7 +18,8 @@ const isBlock = (open: MarkupOpen | undefined, ...names: string[]): open is Mark
   open?.kind === 'block' && names.includes(open.name);
 // Svelte's `const_tag_invalid_placement` rule.
 const CONST_BRANCHES: ReadonlySet<string> = new Set(['if', 'else if', 'else', 'each', 'snippet', 'then', 'catch']);
-const isComponent = (name: string): boolean => /^[A-Z]/.test(name) || name.includes('.');
+// A component's other attributes are props, from tsserver; Svelte rejects `class:`, `use:` and the like on it.
+const COMPONENT_ATTRIBUTES: ReadonlySet<string> = new Set(['bind:', 'bind:this']);
 
 const BLOCK_ITEMS: Record<string, BlockItem[]> = {
   '#': [
@@ -67,12 +68,14 @@ function tagItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: 
 
 // Directives and Svelte 5 event attributes take an expression; a prefix a name.
 // The HTML data has no attribute with a `:`: all are ours.
-function attributeItem(item: CompletionItem, edit: TextEdit): CompletionItem {
+function attributeItem(item: CompletionItem, edit: TextEdit, scan: MarkupScan, start: number): CompletionItem[] {
   const {label} = item;
-  if (label.endsWith(':')) return snippet(item, edit, `${label}\${1:name}`);
+  const tag = scan.tags.findLast((open) => open.start < start);
+  if (tag && isComponent(tag.name) && !COMPONENT_ATTRIBUTES.has(label)) return [];
+  if (label.endsWith(':')) return [snippet(item, edit, `${label}\${1:name}`)];
   const directive = /^[a-z]+:/.test(label) || /^on[a-z]+$/.test(label);
-  if (directive && /^[^=]+=(["']?)\$1\1$/.test(edit.newText)) return snippet(item, edit, `${label}={$1}`);
-  return item;
+  if (directive && /^[^=]+=(["']?)\$1\1$/.test(edit.newText)) return [snippet(item, edit, `${label}={$1}`)];
+  return [item];
 }
 
 /** The HTML service on the `svelte-markup` code, its items made valid Svelte. */
@@ -95,7 +98,7 @@ export function svelteHtmlService(): LanguageServicePlugin {
             const edit = item.textEdit && 'range' in item.textEdit ? item.textEdit : undefined;
             if (!edit) return [item];
             const start = document.offsetAt(edit.range.start);
-            return block.content[start - 1] === '<' ? tagItem(item, edit, scan, start) : [attributeItem(item, edit)];
+            return block.content[start - 1] === '<' ? tagItem(item, edit, scan, start) : attributeItem(item, edit, scan, start);
           });
           return {...list, items};
         },
