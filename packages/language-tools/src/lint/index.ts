@@ -53,7 +53,6 @@ function ignorePatterns(config: string, root: string): string[] {
   }
 }
 
-/** The config that ignores `fileName`, if any. */
 function ignoringConfig(fileName: string, root: string): string | undefined {
   const config = lintConfig(fileName);
   return config && isIgnored({file: config, ignorePatterns: ignorePatterns(config, root)}, fileName) ? config : undefined;
@@ -149,7 +148,7 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
   }
 }
 
-/** One oxlint run per nearest `.oxlintrc.json`, loaded from `root`; a split with errors, or one its config ignores, is not linted. */
+/** One oxlint run per nearest `.oxlintrc.json`, loaded from `root`; skips a split with errors or one its config ignores. */
 export async function lintUcf(files: SplitResult[], root: string): Promise<UcfLintDiagnostic[]> {
   const bin = oxlintBin(root);
   const groups = new Map<string | undefined, SplitResult[]>();

@@ -43,7 +43,6 @@ export function contents(source: string): Partial<Record<BlockTag, string>> {
   return Object.fromEntries(splitBlocks(source, MESSY).blocks.map((block) => [block.type, block.content]));
 }
 
-/** Copies of the app's `file` into each of `folders`. */
 export function copyInto(root: string, file: string, folders: string[]): void {
   for (const folder of folders) {
     mkdirSync(join(root, folder), {recursive: true});
