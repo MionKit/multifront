@@ -8,6 +8,7 @@ import {componentPath, copyAppOutside} from '../../fixtures/index.ts';
 import {PLUGIN} from '../lib/cases.ts';
 import {runMfTsc} from '../lib/commands.ts';
 import {
+  BAD_PAGE,
   BROKEN,
   BROKEN_FILES,
   BROKEN_FINDINGS,
@@ -138,7 +139,7 @@ describe('mf-tsc over every target', () => {
 
   it('checks a .ucf file the program reaches only through an import, in every target', async () => {
     await withCopy(BROKEN, async (root) => {
-      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "*.ts", "pages"]', '"include": ["pages"]');
+      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "*.ts", "*.vue", "pages"]', '"include": ["pages"]');
       addFile(
         root,
         'pages/uses.tsx',
@@ -221,7 +222,7 @@ describe('mf-tsc over every target', () => {
       );
       expect(await runMfTsc(root)).toEqual({
         code: 0,
-        stdout: 'mf-tsc: checked 4 files with tsconfig.json: no errors\n',
+        stdout: 'mf-tsc: checked 5 files with tsconfig.json: no errors\n',
         stderr: '',
       });
     });
@@ -293,10 +294,10 @@ describe('mf-tsc --framework', () => {
         stderr: '',
       });
       // ReactBreaks.ucf and Title.ucf have no <svelte> block.
-      const lines = [SVELTE_BREAKS, NO_SIZE, MAIN].map(({finding}) => `${line(finding())}\n`).join('');
+      const lines = [BAD_PAGE, SVELTE_BREAKS, NO_SIZE, MAIN].map(({finding}) => `${line(finding())}\n`).join('');
       expect(await runMfTsc(root, ['--framework', 'svelte'])).toEqual({
         code: 1,
-        stdout: `${lines}mf-tsc: checked ${BROKEN_FILES - 2} files with tsconfig.json: 3 errors\n`,
+        stdout: `${lines}mf-tsc: checked ${BROKEN_FILES - 2} files with tsconfig.json: 4 errors\n`,
         stderr: '',
       });
     });
@@ -319,7 +320,12 @@ describe('mf-tsc --framework', () => {
       expect(await runMfTsc(root, ['react-only', '--framework', 'svelte'])).toEqual(
         fails('react-only holds no file of tsconfig.json to check in svelte')
       );
-      editFile(root, 'tsconfig.json', '"include": ["*.ucf", "*.ts", "pages", "react-only"]', '"include": ["react-only"]');
+      editFile(
+        root,
+        'tsconfig.json',
+        '"include": ["*.ucf", "*.ts", "*.vue", "pages", "react-only"]',
+        '"include": ["react-only"]'
+      );
       expect(await runMfTsc(root, ['--framework', 'vue', '--framework', 'svelte'])).toEqual(
         fails('tsconfig.json holds no file to check in vue or svelte')
       );

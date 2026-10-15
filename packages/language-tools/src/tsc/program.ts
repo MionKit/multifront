@@ -4,6 +4,8 @@ import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler, svelteParseError} from '@multifront/core';
 import type {SplitResult, SvelteCompiler, Target} from '@multifront/core';
 import type {Language} from '@volar/language-core';
+import {createVueLanguagePlugin} from '@vue/language-core';
+import type {VueCompilerOptions} from '@vue/language-core';
 import {proxyCreateProgram} from '@volar/typescript';
 import {transformDiagnostic, transformTextSpan} from '@volar/typescript/lib/node/transform.js';
 import {getServiceScript} from '@volar/typescript/lib/node/utils.js';
@@ -62,7 +64,12 @@ function mapsAnywhere(language: Language<string>, {file, start, length = 0}: ts.
 
 const inNodeModules = (fileName: string): boolean => fileName.split('/').includes('node_modules');
 
-export function createChecked(ts: TypeScript, configFile: string, parsed: ts.ParsedCommandLine): Checked {
+export function createChecked(
+  ts: TypeScript,
+  configFile: string,
+  parsed: ts.ParsedCommandLine,
+  vueOptions: VueCompilerOptions
+): Checked {
   let main: Language<string> | undefined;
   let scripts: Scripts | undefined;
   let raw: Record<'syntactic' | 'semantic', ts.Program['getSemanticDiagnostics']> | undefined;
@@ -118,7 +125,11 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
   }) as typeof ts.createProgram;
   const editorOptions = {ts, compilerOptions: options, compiler: optional(loadVueCompiler, root), svelteCompiler};
   const createProgram = proxyCreateProgram(ts as Parameters<typeof proxyCreateProgram>[0], inner, () => ({
-    languagePlugins: [createUcfLanguagePlugin(editorOptions)],
+    // `.vue` files, as `vue-tsc` builds them; a `.ucf` `<vue>` block keeps our own options.
+    languagePlugins: [
+      createUcfLanguagePlugin(editorOptions),
+      createVueLanguagePlugin(ts as Parameters<typeof createVueLanguagePlugin>[0], options, vueOptions, (id: string) => id),
+    ],
     setup(language) {
       main = language;
       scripts = programTargetScripts(ts, language);
