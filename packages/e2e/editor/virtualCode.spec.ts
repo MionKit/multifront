@@ -23,7 +23,7 @@ const NAMES = [
   'react/root-props/UnionProps.ucf',
   'react/shapes/MemoForwardRef.ucf',
 ];
-const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx'};
+const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx', 'svelte-markup': '.html'};
 const ALL_ON = {verification: true, completion: true, semantic: true, navigation: true, structure: true, format: true};
 
 function textOf(code: VirtualCode): string {
@@ -45,6 +45,12 @@ function expectedCodes(styles: Block[], react: Block | undefined): {id: string; 
     return lang === 'css' || lang === 'scss' ? [{id: `style_${block.index}`, languageId: lang, block}] : [];
   });
   return react ? [...codes, {id: 'react', languageId: 'typescriptreact', block: react}] : codes;
+}
+
+// With no Svelte compiler, a <svelte> block gives its markup code only, after the others.
+function allCodes(split: ReturnType<typeof splitBlocks>): {id: string; languageId: string}[] {
+  const markup = split.targets.svelte ? [{id: 'svelte_markup', languageId: 'svelte-markup'}] : [];
+  return [...expectedCodes(split.styles, split.targets.react).map(({id, languageId}) => ({id, languageId})), ...markup];
 }
 
 function segments(mapping: CodeMapping): {source: [number, number]; generated: [number, number]}[] {
@@ -97,10 +103,8 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
     });
 
     it('gives one code per block the splitter kept, with its language', () => {
-      const expected = expectedCodes(split.styles, split.targets.react);
-      expect(embedded.map(({id, languageId}) => ({id, languageId}))).toEqual(
-        expected.map(({id, languageId}) => ({id, languageId}))
-      );
+      const expected = allCodes(split);
+      expect(embedded.map(({id, languageId}) => ({id, languageId}))).toEqual(expected);
       expect([...byId.keys()]).toEqual(['root', ...expected.map(({id}) => id)]);
     });
 
@@ -142,6 +146,21 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
           expect(chars, `${id} at ${offset}`).toContain(source[offset]);
         }
       }
+    });
+
+    it('the <svelte> markup code: the block, same length, kept text mapped 1:1 for completion only', () => {
+      const block = split.targets.svelte;
+      const code = byId.get('svelte_markup');
+      if (!block) return expect(code).toBeUndefined();
+      expect(textOf(code!)).toHaveLength(block.content.length);
+      let next = block.contentStart;
+      for (const {sourceOffsets, generatedOffsets, lengths, data} of code!.mappings) {
+        expect(data).toEqual({completion: true});
+        expect(sourceOffsets[0]! - block.contentStart).toBe(generatedOffsets[0]);
+        expect(sourceOffsets[0]).toBeGreaterThanOrEqual(next);
+        next = sourceOffsets[0]! + lengths[0]!;
+      }
+      expect(next).toBeLessThanOrEqual(block.contentEnd);
     });
 
     it('serves the react code as the file’s own TypeScript script, an empty module without one', () => {
