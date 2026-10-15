@@ -6,7 +6,7 @@ import type {TypeScript} from './types.ts';
 // TypeScript names program files with `/`.
 export const slashed = (fileName: string): string => fileName.replaceAll('\\', '/');
 
-/** Files ending in `suffix` below `dir`, sorted; `node_modules`, dot folders and `skipped` hold none of the project's files. */
+/** `node_modules`, dot folders and `skipped` hold none of the project's files. */
 export function filesUnder(dir: string, suffix: string, skipped?: string): string[] {
   const files: string[] = [];
   const visit = (folder: string): void => {
@@ -21,7 +21,7 @@ export function filesUnder(dir: string, suffix: string, skipped?: string): strin
   return files.sort();
 }
 
-/** The project's own `typescript`, resolved from `root`; `missing` is the error when it has none. */
+/** The project's own `typescript`. */
 export function projectTypeScript(root: string, missing: string): TypeScript {
   const require = createRequire(join(root, 'package.json'));
   let path: string;

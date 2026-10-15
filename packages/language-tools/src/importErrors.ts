@@ -59,7 +59,7 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   return errors;
 }
 
-/** Our errors at each `.ucf` import of `sourceFile`, as the build reports them, in place of TypeScript's own there. */
+/** Our `.ucf` import errors, as the build reports them, replace TypeScript's own there. */
 export function withImportErrors(
   ts: TypeScript,
   sourceFile: ts.SourceFile,

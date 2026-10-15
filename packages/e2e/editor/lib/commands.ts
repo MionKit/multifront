@@ -16,7 +16,7 @@ interface BinOptions {
   env?: NodeJS.ProcessEnv; // over this process's own
 }
 
-/** A command's `--format json` document: findings and counts, plus the command's own data. */
+/** A command's `--format json` document. */
 export type BinReport<Data> = {findings: Finding[]; errorCount: number; warningCount: number} & Data;
 
 // Runs the bin's JS entry, not the `.bin` shim: Windows shims are `.cmd` files that need a shell.

@@ -58,7 +58,7 @@ function configError(ts: TypeScript, diagnostics: readonly ts.Diagnostic[], cwd:
   return new Error(`${where}error TS${first!.code}: ${flatten(ts, first!.messageText)}${more}`);
 }
 
-/** A TypeScript diagnostic, as Volar mapped it into the file the user wrote; suggestions are dropped, as in `tsc`. */
+/** Volar has mapped `diagnostic` into the user's file; suggestions are dropped, as in `tsc`. */
 function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResult): Finding | undefined {
   const {category, code, file, start, length = 0} = diagnostic;
   const severity =

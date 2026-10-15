@@ -111,7 +111,6 @@ export const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => litera
 
 type ResolveLiterals = NonNullable<ts.CompilerHost['resolveModuleNameLiterals']>;
 
-/** `inner` with every `.ucf` literal resolved by `resolveUcfImport` instead. */
 export function withUcfResolution(
   ts: TypeScript,
   inner: ResolveLiterals,
