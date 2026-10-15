@@ -67,20 +67,24 @@ Decided while building (automatic mode):
   `fileExists` says whether the script exists.
 - **Roots.** Inside `inner`, after Volar's `setup` gave us `main`: the tsconfig's root names plus `namesOf(ucf)` for
   every root `.ucf` file. After the program is built, any `.ucf` file it reached (by an import, or as the `.ucf` of a
-  target script it reached) missing as a root is added with its target scripts, and the program is rebuilt with
-  `oldProgram`, until nothing is added.
+  target script it reached) missing as a root is added with its target scripts, except under `node_modules`, and the
+  program is rebuilt with `oldProgram`, until nothing is added.
 - **Raw diagnostics.** `inner` keeps the program's syntactic and semantic functions after `withImportErrors` wraps
   them and before Volar decorates them, so our import errors apply to target scripts too, as in tsserver.
-- **`Checked.diagnostics(fileName, targets)`**, already in the user's file:
+- **`Checked.check(fileName, targets)`** returns a `CheckedFile` already in the user's file: `diagnostics` (each with
+  its target) and `errors` (the `svelte-parse-error`, reported with `framework: 'svelte'`). `Checked` and
+  `CheckedFile` live in `src/types.ts`.
   - a file that is not `.ucf`: the decorated program's diagnostics, as in 7.1;
   - a `.ucf` file: `react` (`MAIN_SCRIPT_TARGET`) is its own script's raw diagnostics mapped with Volar's
-    `transformDiagnostic(main, …)`; `vue` and `svelte` are `Card.ucf.<target>.ts`'s, mapped with `toUcf`. Each comes
+    `transformDiagnostic(main, …)`; `vue` and `svelte` are `Card.ucf.<target>.ts`'s, mapped with Volar's
+    `transformDiagnostic(languageOf(target), …, true)`. Each comes
     with its target;
   - a diagnostic no mapping covers goes to the target block's opening tag, `[block.start, block.contentStart)`, code
     and message kept; one mapped but filtered out by the tool's flags stays dropped, as `vue-tsc` drops it, and so
     does a generator's unused helper (`reportsUnnecessary`).
 - **`Checked.files()`**: the program's source files, minus default libs, `node_modules` and target script names.
-- **Svelte.** A checked `<svelte>` block with no compiler is exit 2 (decision 1). With a compiler but no script, the
+- **Svelte.** A checked `<svelte>` block with no compiler is exit 2 (decision 1); an install that is found but does not
+  load gives its own error instead of "not installed". With a compiler but no script, the
   block's markup is parsed with the compiler and core's new `svelteParseError(err, block, split)` (shared with the
   build's `parseBlock`) gives the `svelte-parse-error` finding (decision 2).
 
@@ -89,7 +93,8 @@ Decided while building (automatic mode):
 - New option `framework` (`multiple`, `<name>`, "check .ucf files only in this framework: vue, react or svelte;
   repeat for more"), after `project`. Summary `Type-checks .ucf files in every framework, with the .ts and .tsx files
   that import them.`, example `mf-tsc src/Card.ucf --framework svelte --format json`.
-- `--framework` is checked first: any value outside `TARGETS` is exit 2,
+- `--framework` is checked before TypeScript is loaded (after `runCommand`'s path check): any value outside `TARGETS`
+  is exit 2,
   `mf-tsc: unknown framework 'angular'; use vue, react or svelte` (`orList` exported from `@multifront/core`).
 - The targets checked: the given frameworks (deduped), or all three. Per `.ucf` file, those of them with a block.
   A named `.ucf` file with none is exit 2, `mf-tsc: ReactBreaks.ucf has no <svelte> block` (`has no <vue> or <svelte>
@@ -123,29 +128,35 @@ All run on this host and in CI's `check` and floor jobs (`pnpm devx test`): chil
 ### `packages/e2e/editor/lib/tsc.ts` (new)
 
 Shared by both specs: `span`, `line`, `withCopy`, `editFile`, `addFile`, `assertNoConfigAbove`,
-`assertNotInstalled(dir, name)`, `linkTypeScript(dir)`, the `Report` type, and the broken app's findings with the text
+`assertNotInstalled(dir, name)`, `linkTypeScript(dir)`, `fails`, `report`, and the broken app's findings with the text
 each spans (`BROKEN_FINDINGS`).
 
 ### `packages/e2e/editor/tsc/every-target.spec.ts` (area Editor), real `mf-tsc` on `copyApp()` copies
 
-1. Broken app, whole project: exit 1, the exact readable lines and summary; in JSON each new finding spans `toFixed`
-   (or `size`) in the fixture text, inside its `block`, `framework` set.
+1. Broken app, whole project: exit 1; in JSON the exact findings, each `.ucf` one inside its `block`, `framework` set
+   (the readable lines, the summary and the text each span covers are pinned in `react.spec.ts`).
 2. Valid `types-every-target/` (all three targets): exit 0, summary only (pinned in `react.spec.ts`), also with
    `noUnusedLocals` and `noUnusedParameters`.
-3. tsserver parity: the real tsserver with our plugin opens `VueBreaks.ucf`, `SvelteBreaks.ucf` and `main.ts`; its
-   codes and spans equal `mf-tsc`'s findings for each.
+3. tsserver parity: the real tsserver with our plugin opens `VueBreaks.ucf`, `SvelteBreaks.ucf`, `main.ts` and a temp
+   `VuePicks.ucf` whose `<vue>` block imports `./ReactBreaks.ucf` (our `missing-target-block` inside a target script);
+   its codes and spans equal `mf-tsc`'s findings for each. Under `<!-- @vue-ignore -->` (a mapping with
+   `verification: false`) both hosts report nothing for `VueBreaks.ucf`.
+   Reached only through imports: `include: ["pages"]` with a `.tsx` importing `VueBreaks.ucf` and a `.ts` picking
+   `SvelteBreaks.ucf` `with {framework: 'svelte'}`: both files' block errors are reported.
 4. One framework: `mf-tsc SvelteBreaks.ucf --framework svelte --format json` gives only the Svelte finding;
-   `--framework react` on it exits 0; `--framework vue --framework svelte` on `VueBreaks.ucf` the Vue one only.
+   `--framework react` on it exits 0; `--framework svelte` twice reports it once; `--framework vue --framework svelte`
+   on `VueBreaks.ucf` the Vue one only.
 5. A folder: `mf-tsc pages --framework svelte` still reports `main.tsx`'s finding; `--framework svelte` with no path
    skips the files with no `<svelte>` block in the count.
 6. Nothing imports a target: a temp template error in `OnlyReactExport.ucf`'s `<vue>`, `main.ts` deleted: reported.
 7. Unmapped: `const $style = {}` in a temp copy of `Greeting.ucf`'s `<react>`: TS2451 at the user's line and one on
-   the `<react>` opening tag.
+   the `<react>` opening tag. In a target script: a `<script module>` `const` named like svelte2tsx's component
+   (`SvelteBreaks__SvelteComponent_`) gives TS2451 at the user's line and one on the `<svelte>` opening tag.
 8. Svelte markup that does not parse (`components/svelte/errors/UnclosedBrace.ucf` copied in): exactly the
    `findingOf` of what the real `buildTarget(…, 'svelte')` throws, `framework: 'svelte'`.
 9. Exit 2, stdout empty, one exact stderr line: `ReactBreaks.ucf --framework svelte`, `--framework angular`, a folder
-   and a project empty after `--framework`, and a `copyAppOutside()` copy with typescript but no svelte (while
-   `--framework react` there still runs).
+   and a project empty after `--framework`, a `copyAppOutside()` copy with typescript but no svelte (while
+   `--framework react` there still runs), and the same copy with a svelte install that throws on load (its own error).
 
 ### `packages/e2e/editor/tsc/react.spec.ts` (7.1, updated, nothing loosened)
 
