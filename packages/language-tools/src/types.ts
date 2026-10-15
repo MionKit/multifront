@@ -103,3 +103,31 @@ export interface CheckedFile {
   diagnostics: {diagnostic: ts.Diagnostic; target?: Target}[]; // `target`: the `.ucf` script that reported it
   errors: {error: Diagnostic; target: 'svelte'}[]; // ours: `<svelte>` markup Svelte cannot parse
 }
+
+/** An element or a `{#…}` block open at some offset in the `<svelte>` markup. */
+export interface MarkupOpen {
+  kind: 'element' | 'block';
+  name: string;
+  branch: string; // a block's current `{#…}` or `{:…}` name
+  clauses: Set<string>; // a block's `{:…}` names in the whole content, and `then` / `catch` in its `{#await …}`
+}
+
+export interface MarkupEvent extends Pick<MarkupOpen, 'kind' | 'name'>, Partial<Pick<MarkupOpen, 'branch' | 'clauses'>> {
+  at: number; // just after the tag or the `}`
+  type: 'open' | 'close' | 'branch'; // an open block's `clauses` fill while scanning, shared by its `MarkupOpen`s
+}
+
+export interface MarkupSpan {
+  start: number;
+  end: number;
+}
+
+/** The `<svelte>` markup read lexically, in offsets of the block content. */
+export interface MarkupScan {
+  code: string; // same length as the content: `<script>` contents and every `{…}` blanked
+  pieces: MarkupSpan[]; // the spans `code` keeps as written
+  events: MarkupEvent[];
+  opaque: (MarkupSpan & {expression: boolean})[]; // tags, comments, raw text and expressions: no markup completes there
+  hasScript: boolean; // a top-level instance `<script>`
+  metas: Set<string>; // top-level `svelte:*` elements; Svelte takes each meta element once
+}

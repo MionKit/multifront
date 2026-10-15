@@ -10,6 +10,7 @@ import {URI} from 'vscode-uri';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {multifrontService} from './multifrontService.ts';
 import {emitSvelteTypes} from './svelteDeclarations.ts';
+import {svelteBlocksService, svelteHtmlService} from './svelteMarkupService.ts';
 import type {ServerOptions, TypeScript} from './types.ts';
 import {VUE_REQUESTS, vueRequestCommand} from './blocks/vue.ts';
 
@@ -139,7 +140,13 @@ export function startServer(options: ServerOptions = {}): void {
     }
     // No Vue compiler: it only types `$style` in the React code, which no service here reads.
     const plugin = byUri(createUcfLanguagePlugin({ts}));
-    const services = [createCssService(), multifrontService, ...(ts ? vuePlugins(ts, connection) : [])];
+    const services = [
+      createCssService(),
+      multifrontService,
+      svelteHtmlService(),
+      svelteBlocksService,
+      ...(ts ? vuePlugins(ts, connection) : []),
+    ];
     return server.initialize(params, createSimpleProject([plugin]), services);
   });
   connection.onInitialized(server.initialized);
