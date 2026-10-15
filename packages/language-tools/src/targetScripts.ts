@@ -143,10 +143,7 @@ export function programTargetScripts(ts: TypeScript, main: Language<string>) {
       const parsed = parseTargetScriptName(fileName);
       return parsed && targetScript(main, parsed.ucf, parsed.kind);
     },
-    parse(fileName: string): {ucf: string; target: Target} | undefined {
-      const parsed = parseTargetScriptName(fileName);
-      return parsed && {ucf: parsed.ucf, target: parsed.kind.tag};
-    },
+    ucfOf,
     languageOf: (target: Target): Language<string> | undefined => languages.get(target),
   };
 }

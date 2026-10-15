@@ -4,9 +4,8 @@ import {TARGETS, findingOf, isTarget, orList, rootRelativePath, runCommand} from
 import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
 import type * as ts from 'typescript';
 import {filesUnder, projectTypeScript, slashed} from '../files.ts';
-import type {TypeScript} from '../types.ts';
+import type {Checked, TypeScript} from '../types.ts';
 import {createChecked} from './program.ts';
-import type {Checked} from './program.ts';
 
 const MF_TSC: CommandSpec = {
   name: 'mf-tsc',

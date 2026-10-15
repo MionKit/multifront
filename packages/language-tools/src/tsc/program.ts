@@ -1,7 +1,8 @@
 /** One tsconfig's program for `mf-tsc`: every `.ucf` file with each target's script, diagnostics in the `.ucf` text. */
-import {dirname} from 'node:path';
+import {createRequire} from 'node:module';
+import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler, svelteParseError} from '@multifront/core';
-import type {Diagnostic, SplitResult, SvelteCompiler, Target} from '@multifront/core';
+import type {SplitResult, SvelteCompiler, Target} from '@multifront/core';
 import type {Language} from '@volar/language-core';
 import {proxyCreateProgram} from '@volar/typescript';
 import {transformDiagnostic, transformTextSpan} from '@volar/typescript/lib/node/transform.js';
@@ -11,23 +12,9 @@ import {withImportErrors} from '../importErrors.ts';
 import {MAIN_SCRIPT_TARGET, createUcfLanguagePlugin} from '../languagePlugin.ts';
 import {entryOptions, withUcfResolution} from '../resolve.ts';
 import {programTargetScripts, targetScriptName} from '../targetScripts.ts';
-import type {TypeScript, UcfImportOptions, UcfVirtualCode} from '../types.ts';
-
-export interface Checked {
-  program: ts.Program;
-  getSplit(fileName: string): SplitResult | undefined;
-  files(): string[]; // the user's files: no default lib, no `node_modules`, no target script
-  check(fileName: string, targets: readonly Target[]): CheckedFile;
-}
-
-/** One file's problems, already in the file the user wrote. */
-export interface CheckedFile {
-  diagnostics: {diagnostic: ts.Diagnostic; target?: Target}[]; // `target`: the `.ucf` script that reported it
-  errors: {error: Diagnostic; target: Target}[]; // ours: `<svelte>` markup Svelte cannot parse
-}
+import type {Checked, CheckedFile, TypeScript, UcfImportOptions, UcfVirtualCode} from '../types.ts';
 
 type Scripts = ReturnType<typeof programTargetScripts>;
-type DiagnosticsOf = (sourceFile: ts.SourceFile) => readonly ts.Diagnostic[];
 
 function optional<Compiler>(load: (root: string) => Compiler, root: string): Compiler | undefined {
   try {
@@ -35,6 +22,16 @@ function optional<Compiler>(load: (root: string) => Compiler, root: string): Com
   } catch {
     return undefined;
   }
+}
+
+// Not installed, or found but broken: then its own error says why.
+function svelteError(root: string, loadError: unknown): unknown {
+  try {
+    createRequire(join(root, 'package.json')).resolve('svelte/compiler');
+  } catch {
+    return new Error(`svelte is not installed in ${root}; add it to devDependencies`);
+  }
+  return loadError;
 }
 
 // Each file parsed once: a pass that adds roots asks for every file again.
@@ -53,7 +50,7 @@ function createHost(ts: TypeScript, options: ts.CompilerOptions, scripts: () => 
     parsed.set(fileName, sourceFile);
     return sourceFile;
   };
-  host.fileExists = (fileName) => (scripts()?.parse(fileName) ? !!scripts()!.scriptOf(fileName) : fileExists(fileName));
+  host.fileExists = (fileName) => (scripts()?.ucfOf(fileName) ? !!scripts()!.scriptOf(fileName) : fileExists(fileName));
   return host;
 }
 
@@ -68,13 +65,19 @@ const inNodeModules = (fileName: string): boolean => fileName.split('/').include
 export function createChecked(ts: TypeScript, configFile: string, parsed: ts.ParsedCommandLine): Checked {
   let main: Language<string> | undefined;
   let scripts: Scripts | undefined;
-  let raw: {syntactic: DiagnosticsOf; semantic: DiagnosticsOf} | undefined;
+  let raw: Record<'syntactic' | 'semantic', ts.Program['getSemanticDiagnostics']> | undefined;
   const getSplit = (fileName: string): SplitResult | undefined =>
     (main?.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
   // Never emits: the tsconfig's emit options would only add errors about files it never writes.
   const options: ts.CompilerOptions = {...parsed.options, noEmit: true, allowNonTsExtensions: true};
   const root = dirname(configFile);
-  const svelteCompiler: SvelteCompiler | undefined = optional(loadSvelteCompiler, root);
+  let svelteLoadError: unknown;
+  let svelteCompiler: SvelteCompiler | undefined;
+  try {
+    svelteCompiler = loadSvelteCompiler(root);
+  } catch (err) {
+    svelteLoadError = err;
+  }
   // Runs inside Volar's proxy, after `setup` and after Volar put its own resolver on the host.
   const inner = ((createOptions: ts.CreateProgramOptions) => {
     const host = createOptions.host!;
@@ -96,7 +99,7 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
     for (let size = 0; size !== roots.size;) {
       size = roots.size;
       for (const {fileName} of program.getSourceFiles()) {
-        const ucf = fileName.endsWith('.ucf') ? fileName : scripts!.parse(fileName)?.ucf;
+        const ucf = fileName.endsWith('.ucf') ? fileName : scripts!.ucfOf(fileName);
         if (ucf && !roots.has(ucf) && !inNodeModules(ucf)) addUcf(ucf);
       }
       if (size !== roots.size) program = ts.createProgram({...createOptions, rootNames: [...roots], oldProgram: program});
@@ -150,7 +153,7 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
         .getSourceFiles()
         .filter((sourceFile) => !program.isSourceFileDefaultLibrary(sourceFile))
         .map(({fileName}) => fileName)
-        .filter((fileName) => !inNodeModules(fileName) && !scripts!.parse(fileName)),
+        .filter((fileName) => !inNodeModules(fileName) && !scripts!.ucfOf(fileName)),
     check(fileName, targets) {
       const sourceFile = program.getSourceFile(fileName)!;
       const split = getSplit(fileName);
@@ -173,7 +176,7 @@ export function createChecked(ts: TypeScript, configFile: string, parsed: ts.Par
         // No script for a block it has: Svelte cannot be loaded, or cannot read the markup.
         const block = split.targets[target]!;
         if (target !== 'svelte') throw new Error(`${fileName} gives no ${target} script`);
-        if (!svelteCompiler) throw new Error(`svelte is not installed in ${root}; add it to devDependencies`);
+        if (!svelteCompiler) throw svelteError(root, svelteLoadError);
         try {
           svelteCompiler.parse(block.content, {modern: true});
         } catch (err) {
