@@ -208,8 +208,8 @@ function compileError(job: LibraryTypesJob, output: string, shown: Map<string, s
 
 /** Every staged file the program reaches: tsc emits nothing for one under `node_modules` unless it is a root. */
 async function reachedRoots(bin: string, stage: string, job: LibraryTypesJob, shown: Map<string, string>): Promise<string[]> {
-  // Every stage file sits under `node_modules`: past this depth tsc drops a JS module, and a type-only one is no root.
-  // Without `jsx` tsc skips a `.jsx` module: the real run reports that, svelte2tsx's emit would drop it unreported.
+  // The stage is under `node_modules`: tsc drops a JS module past this depth, and a type-only one is no root.
+  // Without `jsx` tsc skips a `.jsx` module: the real run reports it, svelte2tsx's emit would drop it silently.
   const listing = ['--listFilesOnly', '--maxNodeModuleJsDepth', String(2 ** 30), '--jsx', 'preserve'];
   const {code, output} = await runTool(bin, stage, listing);
   // Only this run loads an untyped package's JS, whose syntax tsc may reject: errors there are not the library's.
