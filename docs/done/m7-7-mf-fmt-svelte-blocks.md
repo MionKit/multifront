@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.7
@@ -44,25 +44,33 @@ Answers from the run-milestone orchestrator:
 3. 7.10's Build line gets a clause: `missingSvelte` from `formatUcf` → the server logs one line.
 4. No fuzz test or fixture sweep; the CLI parity test covers it.
 
+Review (automatic mode) changed what shipped:
+
+- No `projectResolve` wrapper: `resolveInProject` is exported instead.
+- `oxfmtLoadsSvelte` treats only `MODULE_NOT_FOUND` as missing; a broken svelte install throws its own error.
+- More tests: `"svelte": {}`, the warning beside a `format-error`, no warning without a `<svelte>` block.
+- Kept: the `lint-format-svelte/` fixture app and the separate `svelte.spec.ts`, both named by the milestone step (and
+  the app reused by 7.10).
+
 ## Plan
 
 ### 1. Core: one code (`packages/core/src/types.ts:86`)
 
 `DiagnosticCode` gains `'missing-svelte'`.
 
-### 2. Resolve a project package's path (`packages/language-tools/src/files.ts:26-45`)
+### 2. Resolve oxfmt's entry file (`packages/language-tools/src/files.ts:26`)
 
-New export `projectResolve(root, name, missing): string`, the resolved path from the private `resolveInProject`;
-`projectImport` uses it.
+`resolveInProject(root, name, missing)` is exported (it was private); `formatUcf` takes oxfmt's entry file from it.
 
 ### 3. `formatUcf` (`packages/language-tools/src/format/index.ts:62-91`)
 
 - Per block first: its `blockFile` and `formatOptions(config, file)`.
 - Sent when its ending is in `FORMATTED`, or it ends in `.svelte` and its resolved `options.svelte` is `true` or an
   object (`overrides` count: `{"files": ["*.svelte"], "options": {"svelte": false}}` turns it off).
-- Private `oxfmtLoadsSvelte(root)`: `createRequire(projectResolve(root, 'oxfmt', …)).resolve('svelte/compiler')`,
-  lazily, at most once per call, only when a `.svelte` block would be sent. Fails → that block is not sent, stays as
-  written, the result says `missingSvelte: true`; other blocks are still formatted.
+- Private `oxfmtLoadsSvelte(root)`: `createRequire(<oxfmt's entry>).resolve('svelte/compiler')`, lazily, at most once
+  per call, only when a `.svelte` block would be sent. `MODULE_NOT_FOUND` → that block is not sent, stays as written,
+  the result says `missingSvelte: true`; other blocks are still formatted. Any other error (svelte found but broken)
+  is thrown: its own message says why (exit 2).
 - `FormattedUcf` (`src/types.ts:170`) gains `missingSvelte: boolean`, `false` on every other path (splitter errors too).
 - Svelte parse errors take the 7.6 path unchanged: no label, no `(line:col)` → `format-error` on the `<svelte>` opening
   tag, message `<svelte> does not parse: <Svelte's first line>`, file unchanged.
@@ -84,7 +92,8 @@ Readable: `warning missing-svelte: …` then the summary; JSON `warningCount: 1`
 ### 6. Shared helpers (`packages/e2e/editor/lib/format.ts`)
 
 - `LINT_FORMAT_SVELTE`.
-- `ORIGINAL` and `expectCliOutput(root, file, newline, sent = SENT)` move here from `mf-fmt.spec.ts`.
+- `ORIGINAL`, `copyMessy` and `expectCliOutput(root, file, newline, sent = SENT)` move here from `mf-fmt.spec.ts`;
+  `SENT_WITH_SVELTE` adds `svelte: '.svelte'` to `SENT`.
 - `copyOxfmtWithoutSvelte(dir)`: every entry of oxfmt's pnpm `node_modules` folder (oxfmt, tinypool, its native
   `@oxfmt/binding-*`) but `svelte`, into `dir/node_modules`, symlinks dereferenced: a real oxfmt install that cannot
   see svelte.
@@ -111,15 +120,21 @@ Vite plugin are root devDependencies).
    (`--stdin-filepath Messy.ucf.svelte.svelte` etc., same folder), flush left; text outside the blocks unchanged.
 3. A second run changes nothing; `--check` exits 0.
 4. The real Svelte build (`buildApp`, input `svelte.ts`) of the formatted copy succeeds, with the `svelte` entry.
-5. Per block file: `nested/Messy.ucf` and an override `{"files": ["nested/*.svelte"], "options": {"svelte": false}}`:
+5. The object form `"svelte": {}` turns it on too, matching the CLI.
+6. Per block file: `nested/Messy.ucf` and an override `{"files": ["nested/*.svelte"], "options": {"svelte": false}}`:
    the nested `<svelte>` block stays as written, the top one is formatted.
-6. A `<svelte>` markup edit that does not parse (`{#if}`): exit 1, one `format-error` on the `<svelte>` opening tag,
+7. A `<svelte>` markup edit that does not parse (`{#if}`): exit 1, one `format-error` on the `<svelte>` opening tag,
    `<svelte> does not parse: expected_whitespace: Expected whitespace`, file unchanged.
-7. No svelte for oxfmt: `copyAppOutside` + `copyOxfmtWithoutSvelte`, `assertNotInstalled(root, 'svelte')`, `NODE_PATH`
-   unset, `Messy.ucf` and `nested/Messy.ucf`: exit 0, stdout exactly `warning missing-svelte: …` and
-   `mf-fmt: formatted 2 of 2 files` (one warning for two files), both `<svelte>` blocks as written, the other blocks
-   formatted; `--format json` gives exactly that one finding, `warningCount: 1`.
-8. 7.6's `mf-fmt.spec.ts` stays green unchanged: `lint-format/`, without the option, keeps `<svelte>` as written.
+8. No svelte for oxfmt: `copyAppOutside` + `copyOxfmtWithoutSvelte`, `assertNotInstalled(root, 'svelte')`, `NODE_PATH`
+   unset, `Messy.ucf` and `nested/Messy.ucf`:
+   - `--check --format json`: the warning first (no file), then both `unformatted` findings;
+   - write mode: exit 0, stdout exactly `warning missing-svelte: …` and `mf-fmt: formatted 2 of 2 files` (one warning
+     for two files), both `<svelte>` blocks as written, the other blocks formatted;
+   - `--format json` again: exactly that one finding, `warningCount: 1`;
+   - a `<react>` block that does not parse beside it: the warning and the `format-error`, exit 1;
+   - a `.ucf` file with no `<svelte>` block: no warning.
+9. 7.6's `mf-fmt.spec.ts` stays green, its cases unchanged (only its helpers move to `editor/lib/format.ts`):
+   `lint-format/`, without the option, keeps `<svelte>` as written.
 
 ## Fuzzing
 
@@ -128,7 +143,8 @@ None: the milestone puts no fuzz test in 7.7 (decision 4).
 ## Out of scope
 
 - Exact positions for Svelte parse errors (on the opening tag, as 7.6 does for any position-less error).
-- oxfmt's silence on `<script>` syntax errors inside Svelte and Vue blocks and its stderr stack (the CLI does the same).
+- oxfmt's silence on `<script>` syntax errors inside Svelte and Vue blocks and its stderr stack (the CLI does the same):
+  filed as its own guidelines todo in this PR, found here.
 - The server side (7.10).
 
 ## Done when
