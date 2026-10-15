@@ -266,7 +266,7 @@ describe('mf-lint that cannot run', () => {
       copyInto(root, LINT, ['nested']);
       const {dir, env} = ownTemp();
       expect(await runMfLint(root, [], env)).toEqual(fails(BAD_CONFIG('.oxlintrc.json')));
-      // oxlint colors its report under FORCE_COLOR, as it does in a Windows console.
+      // FORCE_COLOR makes oxlint color its report, as a Windows console does.
       expect(await runMfLint(root, [], {...env, FORCE_COLOR: '1'})).toEqual(fails(BAD_CONFIG('.oxlintrc.json')));
       expect(await runMfLint(join(root, 'nested'), [], env)).toEqual(fails(BAD_CONFIG('../.oxlintrc.json')));
       expect(readdirSync(dir)).toEqual([]);
