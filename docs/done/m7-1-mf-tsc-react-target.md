@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-15
 milestone: 7
 step: 7.1
@@ -88,7 +88,8 @@ Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage,
 ```
 
 TypeScript is loaded from the project: `createRequire(join(cwd, 'package.json')).resolve('typescript')`. If it
-cannot be resolved: exit 2, `mf-tsc: typescript is not installed in <cwd>; add it to devDependencies`.
+cannot be resolved (Node's `NODE_PATH` global folders count, as for any `require`): exit 2,
+`mf-tsc: typescript is not installed in <cwd>; add it to devDependencies`.
 
 **Projects.** One cached record per tsconfig path: its `ParsedCommandLine` and its program, both built on first
 use.
@@ -164,7 +165,7 @@ All run on this host and in CI's `check` job (`pnpm devx test`) and the floor jo
 
 ### `packages/e2e/editor/tsc/react.spec.ts` (area Editor)
 
-New helper `packages/e2e/editor/lib/commands.ts`: `runBin(packageName, bin, cwd, args)` spawns the real bin from the
+New helper `packages/e2e/editor/lib/commands.ts`: `runBin(packageName, bin, cwd, args, env?)` (and `runMfTsc`) spawns the real bin from the
 package's `bin` field with `node --conditions=source`, returns `{code, stdout, stderr}` (7.6 and 7.8 reuse it).
 
 New fixtures:
@@ -203,7 +204,8 @@ Cases, every one on a `copyApp()` copy (`removeApp()` after):
    `--format xml`, a missing path, a file the tsconfig does not hold (`notes/Loose.ts` added to the copy), a file
    with no tsconfig above it (in `os.tmpdir()`), a folder holding no program file, `-p` to a missing file, a
    tsconfig with one unknown compiler option (its `file:line:col`), one with two (` (and 1 more)`), and an app copy
-   in `os.tmpdir()` with its tsconfig but no typescript to load.
+   in `os.tmpdir()` with its tsconfig but no typescript to load (run with `NODE_PATH` unset, so no global install
+   is found).
 9. A copy with `pages/vue-pick.ts` importing `../ReactBreaks.ucf` `with {framework: 'vue'}`:
    `missing-target-block` at the specifier, no TS2307.
 10. `--help` and `-h`: exit 0, the exact help above.
