@@ -1,7 +1,7 @@
-import {mkdtempSync, readdirSync, rmSync} from 'node:fs';
+import {existsSync, mkdtempSync, readdirSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {basename, join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../../fixtures/index.ts';
 import {CRASH_DIR, runInVsCode, VSCODE_VERSION} from '../lib/vscode.ts';
@@ -87,5 +87,7 @@ describe('a VS Code that dies by SIGSEGV', () => {
     expect(kept, message.slice(0, 2000)).toBeDefined();
     expect(kept!.startsWith(CRASH_DIR)).toBe(true);
     expect(readdirSync(kept!).some((name) => name.endsWith('.dmp'))).toBe(true);
+    // crash.cjs left a writer in the run's folder: the harness waited for it before deleting the folder.
+    expect(existsSync(join(tmpdir(), basename(kept!)))).toBe(false);
   });
 });
