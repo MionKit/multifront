@@ -9,12 +9,15 @@ import type {Check} from '../lib/vscode.ts';
 import {packVsix} from '../lib/vsix.ts';
 
 const SUITE = join(import.meta.dirname, 'suite.cjs');
+const FONTCONFIG_SUITE = join(import.meta.dirname, 'fontconfig.cjs');
 const WORKSPACE = join(FIXTURES_DIR, 'apps', 'imports');
-const {checks, withoutTypescript, TYPESCRIPT_EXTENSION} = createRequire(import.meta.url)(SUITE) as {
+const require = createRequire(import.meta.url);
+const {checks, withoutTypescript, TYPESCRIPT_EXTENSION} = require(SUITE) as {
   checks: Check[];
   withoutTypescript: Check[];
   TYPESCRIPT_EXTENSION: string;
 };
+const {checks: fontconfigChecks} = require(FONTCONFIG_SUITE) as {checks: Check[]};
 
 let temp: string;
 let extension: string;
@@ -41,6 +44,10 @@ describe("with VS Code's TypeScript extension disabled, the extension still star
       args: ['--disable-extension', TYPESCRIPT_EXTENSION],
     })
   );
+});
+
+describe.runIf(process.platform === 'linux')("VS Code's main process reads the harness's one-file font config", () => {
+  reportChecks(fontconfigChecks, () => runInVsCode({extension, workspace: WORKSPACE, suite: FONTCONFIG_SUITE}));
 });
 
 describe('a VS Code that dies by SIGSEGV', () => {

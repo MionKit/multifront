@@ -1,19 +1,8 @@
 // exit.spec.ts's SIGSEGV suite: crashes VS Code's main process, as the unexplained crash did.
-const {execFileSync, spawn} = require('node:child_process');
+const {spawn} = require('node:child_process');
 const {mkdirSync, writeFileSync} = require('node:fs');
 const {basename, dirname, join} = require('node:path');
-
-function parentOf(pid) {
-  return Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {encoding: 'utf8'}).trim());
-}
-
-/** VS Code's main process: the first ancestor of this extension host with no `--type=` argument. */
-function mainProcess() {
-  for (let pid = parentOf(process.pid); pid > 1; pid = parentOf(pid)) {
-    if (!execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {encoding: 'utf8'}).includes('--type=')) return pid;
-  }
-  throw new Error('no VS Code main process above the extension host');
-}
+const {mainProcess} = require('./harness.cjs');
 
 function lateFolder() {
   return join(dirname(process.env.MULTIFRONT_VSCODE_RESULTS), 'crashes', 'late');

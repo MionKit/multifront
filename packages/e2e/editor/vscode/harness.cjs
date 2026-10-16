@@ -80,4 +80,16 @@ function codeOf({code}) {
   return typeof code === 'object' && code !== null ? code.value : code;
 }
 
-module.exports = {runChecks, until, show, positionOf, serverProcesses, hoverAt, codeOf};
+function parentOf(pid) {
+  return Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {encoding: 'utf8'}).trim());
+}
+
+/** VS Code's main process: the first ancestor of this extension host with no `--type=` argument. */
+function mainProcess() {
+  for (let pid = parentOf(process.pid); pid > 1; pid = parentOf(pid)) {
+    if (!execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {encoding: 'utf8'}).includes('--type=')) return pid;
+  }
+  throw new Error('no VS Code main process above the extension host');
+}
+
+module.exports = {runChecks, mainProcess, until, show, positionOf, serverProcesses, hoverAt, codeOf};
