@@ -2,9 +2,8 @@
 import {dirname} from 'node:path';
 import type {LanguageServer, LanguageServicePlugin, TextEdit} from '@volar/language-server';
 import {URI} from 'vscode-uri';
-import {isIgnored} from '../files.ts';
+import {isIgnored, workspaceRoot} from '../files.ts';
 import {findFormatConfig, formatUcf, MISSING_SVELTE} from '../format/index.ts';
-import {workspaceRoot} from './workspace.ts';
 
 /** The `multifront-format` plugin; every embedded code has formatting off, so no other service formats a block. */
 export function formatService(server: LanguageServer): LanguageServicePlugin {
@@ -18,7 +17,6 @@ export function formatService(server: LanguageServer): LanguageServicePlugin {
     create(context) {
       return {
         async provideDocumentFormattingEdits(document, range): Promise<TextEdit[] | undefined> {
-          if (document.languageId !== 'ucf') return undefined;
           const source = context.decodeEmbeddedDocumentUri(URI.parse(document.uri))?.[0];
           if (source?.scheme !== 'file') return undefined;
           // Range formatting is out of scope: a selection gets nothing.
@@ -39,13 +37,14 @@ export function formatService(server: LanguageServer): LanguageServicePlugin {
             failures.set(root, reason);
             return undefined;
           }
-          failures.delete(root);
           if (formatted.missingSvelte && !missingSvelte.has(root)) {
             missingSvelte.add(root);
             console.warn(`multifront: ${MISSING_SVELTE}`);
           }
-          // Findings: a block that does not parse, which the diagnostics already show.
-          if (formatted.findings.length > 0 || formatted.text === text) return [];
+          // Findings: a block that does not parse, which the diagnostics already show; oxfmt may not have run.
+          if (formatted.findings.length > 0) return [];
+          failures.delete(root);
+          if (formatted.text === text) return [];
           return [{range: {start: document.positionAt(0), end: document.positionAt(text.length)}, newText: formatted.text}];
         },
       };
