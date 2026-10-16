@@ -22,6 +22,7 @@ import {
   readApp,
 } from './lib/cases.ts';
 import {formatting, LINT_FORMAT, LINT_FORMAT_SVELTE, ORIGINAL} from './lib/format.ts';
+import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from './lib/lint.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {saveUcf} from './lib/svelte.ts';
@@ -104,6 +105,30 @@ describe.each([LINT_FORMAT, LINT_FORMAT_SVELTE])('the bundled server formats %s/
     const {text} = await format(ORIGINAL);
     expect(text).not.toBe(ORIGINAL);
     expect(text).toBe(await mfFmt(ORIGINAL));
+  });
+});
+
+describe('the bundled server lints lint-format/ with the project oxlint', () => {
+  let app: string;
+  let server: LanguageServer;
+
+  beforeAll(async () => {
+    app = await copyApp(LINT_FORMAT);
+    server = await startLanguageServer(app, {
+      server: join(extension, 'dist', 'server.cjs'),
+      initializationOptions: {typescript: {tsdk: TSDK}},
+    });
+  });
+
+  afterAll(async () => {
+    await server?.stop();
+    if (app) await removeApp(app);
+  });
+
+  it('the diagnostics on Lint.ucf are what the real mf-lint reports', async () => {
+    const findings = await mfLintFindings(app, 'Lint.ucf');
+    expect(findings).toHaveLength(4);
+    expect(lintPoints(await lintDiagnostics(server, join(app, 'Lint.ucf')))).toEqual(findings.map(asLintPoint));
   });
 });
 

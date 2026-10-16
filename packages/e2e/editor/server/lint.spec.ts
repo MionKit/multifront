@@ -1,0 +1,152 @@
+// oxlint diagnostics through the real server, with a tsdk as VS Code passes one: what the real mf-lint reports.
+import {writeFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
+import {edited} from '../../build/lib/library.ts';
+import {copyApp, copyAppOutside, FIXTURES_DIR, readComponent, removeApp} from '../../fixtures/index.ts';
+import {copyInto, LINT_FORMAT, read} from '../lib/format.ts';
+import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from '../lib/lint.ts';
+import {startLanguageServer, TSDK} from '../lib/lsp.ts';
+import type {LanguageServer} from '../lib/lsp.ts';
+import {assertNotInstalled} from '../lib/tsc.ts';
+
+const LINT = 'Lint.ucf';
+const LINT_SOURCE = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), LINT);
+const CONFIG = '.oxlintrc.json';
+// The `<vue>` block's `debugger;`, blanked so every other range stays where it was.
+const VUE_DEBUGGER = 'debugger;\n</script>';
+const WITHOUT_VUE_DEBUGGER = edited(LINT_SOURCE, VUE_DEBUGGER, `${' '.repeat('debugger;'.length)}\n</script>`);
+const ruleUrl = (code: string) => `https://oxc.rs/docs/guide/usage/linter/rules/${code.replace(/^(\w+)\((.+)\)$/, '$1/$2')}.html`;
+
+/** A language server on a copy of `app`, with a tsdk as VS Code passes one. */
+function linting(copy = copyApp, prepare: (root: string) => void = () => {}) {
+  const state = {root: '', server: undefined as unknown as LanguageServer};
+
+  beforeAll(async () => {
+    state.root = await copy(LINT_FORMAT);
+    prepare(state.root);
+    state.server = await startLanguageServer(state.root, {initializationOptions: {typescript: {tsdk: TSDK}}});
+  });
+
+  afterAll(async () => {
+    await state.server?.stop();
+    if (state.root) await removeApp(state.root);
+  });
+
+  // Errors and warnings (type <= 2) logged from log index `from` on, in order.
+  const warnings = (from = 0) =>
+    state.server.log
+      .slice(from)
+      .filter(({type}) => type <= 2)
+      .map(({message}) => message);
+
+  return {state, warnings, lint: (text?: string, file = LINT) => lintDiagnostics(state.server, join(state.root, file), text)};
+}
+
+describe('lint diagnostics on lint-format/', () => {
+  const {state, warnings, lint} = linting();
+
+  /** Writes the config on disk and tells the server as VS Code would, then waits for its refresh request. */
+  async function setConfig(text: string): Promise<void> {
+    const file = join(state.root, CONFIG);
+    writeFileSync(file, text);
+    const refreshed = state.server.nextDiagnosticRefresh();
+    await state.server.didChangeWatchedFiles([{uri: pathToFileURL(file).href, type: 2}]);
+    await refreshed;
+  }
+
+  it("give what the real mf-lint reports, worded as oxlint's own server words them, and log nothing", async () => {
+    const findings = await mfLintFindings(state.root, LINT);
+    expect(findings).toHaveLength(4);
+    const diagnostics = await lint();
+    expect(lintPoints(diagnostics)).toEqual(findings.map(asLintPoint));
+    diagnostics.forEach((diagnostic, index) => {
+      const {code, message} = findings[index]!;
+      expect(diagnostic.codeDescription).toEqual({href: ruleUrl(code)});
+      const [first, help] = diagnostic.message.split('\nhelp: ');
+      expect({first, help: typeof help}).toEqual({first: message, help: 'string'});
+      expect(help).not.toBe('');
+    });
+    expect(warnings()).toEqual([]);
+  });
+
+  it('watch every .oxlintrc.json and .oxlintrc.jsonc', async () => {
+    await vi.waitFor(() =>
+      expect(state.server.registrations).toContainEqual({
+        id: expect.any(String),
+        method: 'workspace/didChangeWatchedFiles',
+        registerOptions: {watchers: [{globPattern: '**/.oxlintrc.json'}, {globPattern: '**/.oxlintrc.jsonc'}]},
+      })
+    );
+  });
+
+  it('follow the unsaved buffer, not the file on disk', async () => {
+    const findings = await mfLintFindings(state.root, LINT);
+    try {
+      const points = lintPoints(await lint(WITHOUT_VUE_DEBUGGER));
+      expect(points).toEqual(findings.filter(({block}) => block !== 'vue').map(asLintPoint));
+      expect(await mfLintFindings(state.root, LINT)).toEqual(findings);
+    } finally {
+      await lint(LINT_SOURCE);
+    }
+  });
+
+  it('follow a change of .oxlintrc.json on disk', async () => {
+    const config = read(state.root, CONFIG);
+    try {
+      await setConfig(edited(config, '"no-debugger": "error"', '"no-debugger": "off"').replace('"no-debugger": "warn"', ''));
+      const codes = lintPoints(await lint()).map(({code}) => code);
+      expect(codes).toEqual(['eslint(no-unused-vars)']);
+    } finally {
+      await setConfig(config);
+    }
+    expect(await lint()).toHaveLength(4);
+  });
+
+  it('skip a file oxlint is not run on: clean, ignored, untitled, or one whose blocks do not split', async () => {
+    const from = state.server.log.length;
+    expect(await lint(undefined, 'Clean.ucf')).toEqual([]);
+    copyInto(state.root, LINT, ['old']);
+    expect(await lint(undefined, `old/${LINT}`)).toEqual([]);
+    const untitled = await state.server.openUntitledDocument('ucf', LINT_SOURCE);
+    expect(await state.server.sendDocumentDiagnosticRequest(untitled.uri)).toEqual({kind: 'full', items: []});
+    const duplicate = join(state.root, 'DuplicateReact.ucf');
+    writeFileSync(duplicate, readComponent('invalid/DuplicateReact.ucf').source);
+    const document = await state.server.openTextDocument(duplicate, 'ucf');
+    const report = await state.server.sendDocumentDiagnosticRequest(document.uri);
+    const items = report.kind === 'full' ? report.items : [];
+    expect(items.map(({source, code}) => [source, code])).toContainEqual(['multifront', 'duplicate-target']);
+    expect(items.filter(({source}) => source === 'oxlint')).toEqual([]);
+    expect(warnings(from)).toEqual([]);
+  });
+
+  it("log oxlint's message once for a config it rejects, and lint again once the config is fixed", async () => {
+    const config = read(state.root, CONFIG);
+    const from = state.server.log.length;
+    try {
+      await setConfig('{"rules": ');
+      expect(await lint()).toEqual([]);
+      expect(await lint(WITHOUT_VUE_DEBUGGER)).toEqual([]);
+      const logged = warnings(from);
+      expect(logged).toHaveLength(1);
+      expect(logged[0]!.startsWith(`multifront: no linting in ${state.root} (oxlint: `)).toBe(true);
+      expect(logged[0]).toMatch(/\S\)$/);
+    } finally {
+      await setConfig(config);
+    }
+    expect(await lint(LINT_SOURCE)).toHaveLength(4);
+  });
+});
+
+describe('lint diagnostics with no oxlint in the project', () => {
+  const {state, warnings, lint} = linting(copyAppOutside, (root) => assertNotInstalled(root, 'oxlint'));
+
+  it('give none, log one line, and the server keeps answering', async () => {
+    expect(await lint()).toEqual([]);
+    expect(await lint(WITHOUT_VUE_DEBUGGER)).toEqual([]);
+    const missing = `oxlint is not installed in ${state.root}; add it to devDependencies`;
+    expect(warnings()).toEqual([`multifront: no linting in ${state.root} (${missing})`]);
+    expect(state.server.process.exitCode).toBeNull();
+  });
+});
