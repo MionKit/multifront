@@ -8,7 +8,7 @@ import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
 import {disposeVueCode, forwardToVueCode} from './blocks/vue.ts';
 import {createEditorContext, editorFiles} from './context.ts';
-import {ALL_FEATURES, stringSnapshot} from './mappings.ts';
+import {BLOCK_FEATURES, stringSnapshot} from './mappings.ts';
 import type {EditorOptions, UcfVirtualCode} from './types.ts';
 
 const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
@@ -49,7 +49,9 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
     const {code, ext, mappings} = file;
     return {id: codeId(block), languageId: LANGUAGE_ID_BY_EXT[ext], snapshot: stringSnapshot(code), mappings};
   });
-  const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_FEATURES}];
+  // Volar formats only a code with formatting on: the root alone, where `multifront-format` answers.
+  const data = {...BLOCK_FEATURES, format: true};
+  const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data}];
   const root: UcfVirtualCode = {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
   const vue = embeddedCodes.find(({id}) => id === 'vue');
   if (vue) forwardToVueCode(root, vue);

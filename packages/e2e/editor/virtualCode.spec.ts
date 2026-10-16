@@ -25,6 +25,8 @@ const NAMES = [
 ];
 const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx', 'svelte-markup': '.html'};
 const ALL_ON = {verification: true, completion: true, semantic: true, navigation: true, structure: true, format: true};
+// Only the root formats: the server's `multifront-format` formats the whole file.
+const BLOCK_ON = {...ALL_ON, format: false};
 
 function textOf(code: VirtualCode): string {
   return code.snapshot.getText(0, code.snapshot.getLength());
@@ -132,7 +134,7 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
         // In order, with no gap or overlap; a style code and a <react> code with no root props are one piece.
         let next = block.contentStart;
         for (const piece of content) {
-          expect(piece).toMatchObject({sourceOffsets: [next], data: ALL_ON});
+          expect(piece).toMatchObject({sourceOffsets: [next], data: BLOCK_ON});
           next += piece.lengths[0]!;
         }
         expect(next).toBe(block.contentEnd);

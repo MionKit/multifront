@@ -30,7 +30,8 @@ const FORMATTED = new Set(['.tsx', '.vue', '.css', '.scss', '.less']);
 const CONFIG_ERROR = 'Failed to parse configuration: ';
 const NEWLINES: Record<NonNullable<FormatConfig['endOfLine']>, string> = {lf: '\n', cr: '\r', crlf: '\r\n'};
 
-const MISSING_SVELTE = 'oxfmt cannot load svelte/compiler, so <svelte> blocks stay as written; add svelte to devDependencies';
+export const MISSING_SVELTE =
+  'oxfmt cannot load svelte/compiler, so <svelte> blocks stay as written; add svelte to devDependencies';
 
 const oxfmtMissing = (root: string) => `oxfmt is not installed in ${root}; add it to devDependencies`;
 const projectOxfmt = (root: string) => projectImport<Oxfmt>(root, 'oxfmt', oxfmtMissing(root));

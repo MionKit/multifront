@@ -2,13 +2,15 @@ import type {Connection, InitializeParams, LanguagePlugin, LanguageServer, Langu
 import {createConnection, createServer, createSimpleProject, loadTsdkByPath} from '@volar/language-server/node.js';
 import {createVueLanguageServicePlugins} from '@vue/language-service';
 import {existsSync} from 'node:fs';
-import {isAbsolute, join, relative, sep} from 'node:path';
+import {join, relative} from 'node:path';
 import {splitBlocks} from '@multifront/core';
 import type * as ts from 'typescript';
 import {create as createCssService} from 'volar-service-css';
 import {URI} from 'vscode-uri';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {multifrontService} from './multifrontService.ts';
+import {formatService} from './server/format.ts';
+import {workspaceRoot} from './server/workspace.ts';
 import {emitSvelteTypes} from './svelteDeclarations.ts';
 import {svelteBlocksService, svelteHtmlService} from './svelteMarkupService.ts';
 import type {ServerOptions, TypeScript} from './types.ts';
@@ -80,16 +82,6 @@ function vuePlugins(typescript: TypeScript, connection: Connection): LanguageSer
   return createVueLanguageServicePlugins(typescript as typeof ts, tsserverClient(connection)).filter(({name}) => name !== 'css');
 }
 
-// The deepest folder holding the file: its own project in a multi-root workspace.
-function workspaceRoot(fileName: string, folders: readonly URI[]): string | undefined {
-  const roots = folders.filter(({scheme}) => scheme === 'file').map(({fsPath}) => fsPath);
-  const holding = roots.filter((root) => {
-    const path = relative(root, fileName);
-    return !!path && !isAbsolute(path) && !path.startsWith(`..${sep}`) && path !== '..';
-  });
-  return holding.sort((first, second) => second.length - first.length)[0];
-}
-
 // Waits out a burst of saves (Save All, auto-save): each emit covers the whole folder.
 const EMIT_DELAY = 100;
 
@@ -141,6 +133,7 @@ export function startServer(options: ServerOptions = {}): void {
     // No Vue compiler: it only types `$style` in the React code, which no service here reads.
     const plugin = byUri(createUcfLanguagePlugin({ts}));
     const services = [
+      formatService(server),
       createCssService(),
       multifrontService,
       svelteHtmlService(),
