@@ -90,3 +90,31 @@ export function relayTsserver(server: LanguageServer, tsserver: Tsserver): void 
     await server.connection.sendNotification('tsserver/response', [id, body]);
   });
 }
+
+type TextEdit = NonNullable<Awaited<ReturnType<LanguageServer['sendDocumentFormattingRequest']>>>[number];
+
+/** Unlike every fixture's config: the server must ignore what the client sends. */
+const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
+
+/** Format Document on `file`, its buffer first set to `text`; `text` in the result is the buffer with the edits. */
+export async function formatDocument(
+  server: LanguageServer,
+  file: string,
+  text?: string
+): Promise<{edits: TextEdit[]; text: string}> {
+  let document = await server.openTextDocument(file, 'ucf');
+  if (text !== undefined) {
+    const whole = {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};
+    document = await server.updateTextDocument(document.uri, [{range: whole, newText: text}]);
+  }
+  const edits = (await server.sendDocumentFormattingRequest(document.uri, CLIENT_OPTIONS)) ?? [];
+  const spans = edits.map(({range, newText}) => ({
+    start: document.offsetAt(range.start),
+    end: document.offsetAt(range.end),
+    newText,
+  }));
+  const formatted = spans
+    .sort((first, second) => second.start - first.start)
+    .reduce((source, {start, end, newText}) => source.slice(0, start) + newText + source.slice(end), document.getText());
+  return {edits, text: formatted};
+}

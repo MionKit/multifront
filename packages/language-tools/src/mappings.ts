@@ -7,19 +7,31 @@ export function stringSnapshot(text: string): IScriptSnapshot {
   return {getText: (start, end) => text.slice(start, end), getLength: () => text.length, getChangeRange: () => undefined};
 }
 
-/** Every language feature on: the generated text is the user's own. */
-export const ALL_FEATURES: CodeInformation = {
+/** Every language feature but formatting: the generated text is the user's own; `multifront-format` formats the file. */
+export const BLOCK_FEATURES: CodeInformation = {
   verification: true,
   completion: true,
   semantic: true,
   navigation: true,
   structure: true,
-  format: true,
+  format: false,
 };
+
+const unformatted = new WeakMap<CodeMapping[], CodeMapping[]>();
+
+/** `mappings` with formatting off; a code built elsewhere (Vue's) would let its own service format the block. */
+export function withoutFormat(mappings: CodeMapping[]): CodeMapping[] {
+  let copy = unformatted.get(mappings);
+  if (!copy) {
+    copy = mappings.map((mapping) => ({...mapping, data: {...mapping.data, format: false}}));
+    unformatted.set(mappings, copy);
+  }
+  return copy;
+}
 
 /** The block content, 1:1 at the start of the generated code. */
 export function contentMapping(block: Block): CodeMapping {
-  return {sourceOffsets: [block.contentStart], generatedOffsets: [0], lengths: [block.content.length], data: ALL_FEATURES};
+  return {sourceOffsets: [block.contentStart], generatedOffsets: [0], lengths: [block.content.length], data: BLOCK_FEATURES};
 }
 
 /** The block content with `inserts` (offsets in it) added: every content piece 1:1, the inserted text unmapped. */
@@ -33,7 +45,7 @@ export function insertMapped(block: Block, inserts: {at: number; text: string}[]
       sourceOffsets: [contentStart + from],
       generatedOffsets: [code.length],
       lengths: [to - from],
-      data: ALL_FEATURES,
+      data: BLOCK_FEATURES,
     });
     code += content.slice(from, to);
     from = to;

@@ -1,10 +1,10 @@
 import {vueSfcCode} from '@multifront/core';
 import type {Block, SplitResult} from '@multifront/core';
 import {forEachEmbeddedCode} from '@volar/language-core';
-import type {LanguagePlugin, VirtualCode} from '@volar/language-core';
+import type {CodeMapping, LanguagePlugin, VirtualCode} from '@volar/language-core';
 import {VueVirtualCode, createVueLanguagePlugin, getDefaultCompilerOptions} from '@vue/language-core';
 import type * as ts from 'typescript';
-import {stringSnapshot} from '../mappings.ts';
+import {stringSnapshot, withoutFormat} from '../mappings.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, EditorOptions, TargetScript, TypeScript} from '../types.ts';
 
 const SERVICE_SCRIPT = /^script_(ts|tsx|js|jsx)$/;
@@ -47,25 +47,32 @@ function editorSfcCode(split: SplitResult): string {
 }
 
 // Ours serve the root `<style>` blocks; Vue's would share their ids, and the root keeps one code per id.
-const withoutStyles = new WeakMap<VirtualCode[], VirtualCode[]>();
+// Vue's formatters would format the whole SFC code, whose non-Vue parts are blank: only `multifront-format` formats.
+const asBlockCodes = new WeakMap<VirtualCode[], VirtualCode[]>();
 
-function stripStyles(codes: VirtualCode[]): VirtualCode[] {
-  let kept = withoutStyles.get(codes);
+function blockCodes(codes: VirtualCode[]): VirtualCode[] {
+  let kept = asBlockCodes.get(codes);
   if (!kept) {
     kept = codes
       .filter(({id}) => !STYLE_CODE.test(id))
-      .map((code) => (code.embeddedCodes?.length ? {...code, embeddedCodes: stripStyles(code.embeddedCodes)} : code));
-    withoutStyles.set(codes, kept);
+      .map((code) => ({
+        ...code,
+        mappings: withoutFormat(code.mappings),
+        ...(code.embeddedCodes?.length ? {embeddedCodes: blockCodes(code.embeddedCodes)} : {}),
+      }));
+    asBlockCodes.set(codes, kept);
   }
   return kept;
 }
 
 const vueEmbeddedCodes = Object.getOwnPropertyDescriptor(VueVirtualCode.prototype, 'embeddedCodes')!.get!;
+const vueMappings = Object.getOwnPropertyDescriptor(VueVirtualCode.prototype, 'mappings')!.get!;
 
-// Language-core keeps one code per file and updates it, so the getter goes on once.
-function ownStylesOnly(code: VueVirtualCode): VueVirtualCode {
+// Language-core keeps one code per file and updates it, so the getters go on once.
+function asBlockCode(code: VueVirtualCode): VueVirtualCode {
   if (!Object.hasOwn(code, 'embeddedCodes')) {
-    Object.defineProperty(code, 'embeddedCodes', {get: () => stripStyles(vueEmbeddedCodes.call(code) as VirtualCode[])});
+    Object.defineProperty(code, 'embeddedCodes', {get: () => blockCodes(vueEmbeddedCodes.call(code) as VirtualCode[])});
+    Object.defineProperty(code, 'mappings', {get: () => withoutFormat(vueMappings.call(code) as CodeMapping[])});
   }
   return code;
 }
@@ -77,7 +84,7 @@ function vueCode(ctx: EditorContext): VirtualCode | undefined {
   const code = vuePlugin(typescript, compilerOptions, vueTypesRoot).createVirtualCode?.(split.filename, 'vue', snapshot, {
     getAssociatedScript: () => undefined,
   });
-  return code && ownStylesOnly(code);
+  return code && asBlockCode(code);
 }
 
 /** Language-core keeps every file's code in a module-wide registry until it is disposed. */
