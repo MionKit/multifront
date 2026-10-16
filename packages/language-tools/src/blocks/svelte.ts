@@ -82,7 +82,7 @@ function propsMappings(block: Block, code: string, mappings: CodeMapping[]): Cod
 // svelte2tsx names `$$ComponentProps` for `let props = $props()` too, but declares it only for a destructured one.
 // Its own type for that case, appended so no mapping moves.
 function withComponentProps(code: string, lang: SvelteTypes['lang']): string {
-  if (!code.includes('$$ComponentProps') || /type \$\$ComponentProps =|\} \$\$ComponentProps \*\//.test(code)) return code;
+  if (!code.includes('$$ComponentProps') || /type \$\$ComponentProps =|\}\s+\$\$ComponentProps \*\//.test(code)) return code;
   return lang === 'ts'
     ? `${code}\n;type $$ComponentProps = Record<string, any>;\n`
     : `${code}\n/** @typedef {Record<string, any>} $$ComponentProps */\n`;
