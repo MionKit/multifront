@@ -74,7 +74,9 @@ Answers from the orchestrator, one line each:
 5. **`packages/e2e/editor/gate.spec.ts`**, cwd `FIXTURES_DIR`. `gateUcfFiles(root)`: the `.ucf` files of
    `tsconfig.fixtures.json` (TypeScript's `getParsedCommandLineOfConfigFile`, `.ucf` as extra extension), minus
    `LINT_LEFT_OUT` (name → reason: `TsxEdges.ucf`'s `<\/react>` escape, the splitter case `core/test/split.spec.ts`
-   pins; `EmptyPropsRoot.ucf`'s `let {} = $props()`, which `core/test/svelte/forward.spec.ts` pins).
+   pins; `EmptyPropsRoot.ucf`'s `let {} = $props()`, which `core/test/svelte/forward.spec.ts` pins;
+   `react/errors/NoDefault.ucf`'s unused component, the missing default export `blocks/react.spec.ts` pins). The
+   `react/errors` and `svelte/errors` folders are left out file by file: only those whose error a spec pins.
    - Real `mf-tsc -p tsconfig.fixtures.json --format json`: exit 0, `errorCount: 0`; on failure the message is the
      readable lines.
    - Real `mf-lint --format json <gate files>` under the repo's `.oxlintrc.json`: exit 0, `errorCount: 0`, same.
@@ -92,8 +94,9 @@ Answers from the orchestrator, one line each:
      serves only `@multifront/*`, no uplink, storage in a temp folder; started detached on a free port with its
      log in a file, ready on `/-/ping`, its process group killed after. The tarballs are published with
      `npm publish --registry`, a throwaway token in a temp `--userconfig`.
-   - `createConsumerApp(template, tarballs, {npmrc})` writes the app's `.npmrc`
-     (`@multifront:registry=http://localhost:<port>/`); `runInApp(app, command, cwd)` gains `cwd`.
+   - `createConsumerApp(template, packages, {registry})` writes the app's `.npmrc`
+     (`@multifront:registry=http://127.0.0.1:<port>/`) and adds `@multifront/*` to its `minimumReleaseAgeExclude`
+     (just published); `runInApp(app, command, cwd)` gains `cwd` and returns `stdout` and `stderr` too.
 7. **`packages/e2e/consumer/language-tools.spec.ts`**, template `fixtures/apps/consumer-language-tools/package.json`
    (typescript, oxlint, oxfmt, svelte, vue, react, @types/react at the repo's versions; `@multifront/language-tools`
    from the registry). The bins run from `node_modules/.bin` inside copies of `types-every-target/` and
