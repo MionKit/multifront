@@ -27,7 +27,7 @@ describe('lint diagnostics on lint-format/', () => {
   const {state, warnings} = formatting(LINT_FORMAT);
   const lint = (text?: string, file = LINT) => lintDiagnostics(state.server, join(state.root, file), text);
 
-  /** Writes the config on disk and tells the server as VS Code would, then waits for its refresh request. */
+  /** Notifies the server as VS Code's file watcher would. */
   async function setConfig(text: string): Promise<void> {
     const file = join(state.root, CONFIG);
     writeFileSync(file, text);

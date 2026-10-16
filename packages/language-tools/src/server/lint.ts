@@ -19,7 +19,7 @@ const SEVERITY: Record<UcfLintDiagnostic['severity'], DiagnosticSeverity> = {
 /** Volar caches diagnostics per document version, so a config change reloads the project and asks the client to pull. */
 export function lintService(server: LanguageServer): LanguageServicePlugin {
   const {console} = server.connection;
-  // Per root: the reason last logged, cleared when a lint there succeeds.
+  // Per folder: the reason last logged, cleared when a lint there succeeds.
   const failures = new Map<string, string>();
   server.onInitialized(() => {
     server.fileWatcher

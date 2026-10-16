@@ -20,7 +20,7 @@ interface Registration {
 
 export interface LanguageServer extends LanguageServerHandle {
   log: LogMessage[]; // every message the server logged; a plugin that throws logs a warning
-  registrations: Registration[]; // every capability the server registered with the client
+  registrations: Registration[];
   nextDiagnosticRefresh(): Promise<void>; // the next `workspace/diagnostic/refresh` the server sends
   stop(): Promise<void>;
 }
@@ -104,7 +104,7 @@ export async function startLanguageServer(
   return Object.assign(handle, {log, registrations, nextDiagnosticRefresh, stop});
 }
 
-/** Errors and warnings (type <= 2) the server logged from log index `from` on, in order. */
+/** Errors and warnings the server logged from log index `from` on. */
 export const loggedWarnings = (server: LanguageServer, from = 0): string[] =>
   server.log
     .slice(from)
@@ -134,7 +134,7 @@ export const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
 
 export type Document = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
 
-/** Opens `file` as `ucf`, its buffer then set to `text`, as a real edit. */
+/** `text`, if given, replaces the buffer as a real edit. */
 export async function openUcf(server: LanguageServer, file: string, text?: string): Promise<Document> {
   const document = await server.openTextDocument(file, 'ucf');
   if (text === undefined) return document;
