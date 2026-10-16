@@ -36,6 +36,7 @@ export const REGISTRY = [
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_VSCODE_DATA', scope: 'internal', desc: 'set by the real VS Code harness: the JSON file the check suite inside VS Code reads its expected results from'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
+  {name: 'MULTIFRONT_VSIX', scope: 'internal', desc: 'set by the vscode-release workflow: the .vsix pnpm devx vsix packed; editor/vscode/vsix.spec.ts tests that file instead of packing its own, and the publish steps publish it'},
   {name: 'MULTIFRONT_CONSUMER_TARBALLS', scope: 'internal', desc: "set by CI's consumer job: the folder pnpm devx consumer-pack filled; the consumer tests install those tarballs instead of building their own"},
   {name: 'MULTIFRONT_KEEP_CONSUMER_APPS', scope: 'dev', desc: 'keep the temp apps of the consumer tests (packages/e2e/consumer/) in the OS temp dir; each kept path is printed'},
   {name: 'MULTIFRONT_FUZZ_SEED', scope: 'dev', desc: 'base seed of the fuzz tests; default fixed, so every run replays'},
