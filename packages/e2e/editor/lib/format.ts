@@ -8,7 +8,7 @@ import {afterAll, beforeAll, expect} from 'vitest';
 import {copyApp, FIXTURES_DIR, removeApp} from '../../fixtures/index.ts';
 import {runMfFmt} from './commands.ts';
 import type {BinReport} from './commands.ts';
-import {formatDocument, startLanguageServer, TSDK} from './lsp.ts';
+import {formatDocument, startLanguageServer, TSDK, loggedWarnings} from './lsp.ts';
 import type {LanguageServer} from './lsp.ts';
 import {E2E_DIR} from './tsserver.ts';
 
@@ -95,7 +95,7 @@ interface FormattingOptions {
   server?: () => string; // a bundled server file; default: the bin, from source
 }
 
-/** A language server on one copy of `app`, with a tsdk as VS Code passes one, and a second copy for the real `mf-fmt`. */
+/** A language server on one copy of `app`, with a tsdk as VS Code passes one, and a second copy for the real commands. */
 export function formatting(app: string, {copy = copyApp, prepare = () => {}, server}: FormattingOptions = {}) {
   const state = {root: '', other: '', server: undefined as unknown as LanguageServer};
 
@@ -124,12 +124,7 @@ export function formatting(app: string, {copy = copyApp, prepare = () => {}, ser
   }
 
   const format = (text?: string, file = join(state.root, MESSY)) => formatDocument(state.server, file, text);
-  // Errors and warnings (type <= 2) logged from log index `from` on, in order.
-  const warnings = (from = 0) =>
-    state.server.log
-      .slice(from)
-      .filter(({type}) => type <= 2)
-      .map(({message}) => message);
+  const warnings = (from = 0) => loggedWarnings(state.server, from);
 
   return {state, mfFmt, format, warnings};
 }

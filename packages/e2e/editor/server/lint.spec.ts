@@ -2,13 +2,11 @@
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
+import {describe, expect, it, vi} from 'vitest';
 import {edited} from '../../build/lib/library.ts';
-import {copyApp, copyAppOutside, FIXTURES_DIR, readComponent, removeApp} from '../../fixtures/index.ts';
-import {copyInto, LINT_FORMAT, read} from '../lib/format.ts';
+import {copyAppOutside, FIXTURES_DIR, readComponent} from '../../fixtures/index.ts';
+import {copyInto, formatting, LINT_FORMAT, read} from '../lib/format.ts';
 import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from '../lib/lint.ts';
-import {startLanguageServer, TSDK} from '../lib/lsp.ts';
-import type {LanguageServer} from '../lib/lsp.ts';
 import {assertNotInstalled} from '../lib/tsc.ts';
 
 const LINT = 'Lint.ucf';
@@ -17,35 +15,17 @@ const CONFIG = '.oxlintrc.json';
 // The `<vue>` block's `debugger;`, blanked so every other range stays where it was.
 const VUE_DEBUGGER = 'debugger;\n</script>';
 const WITHOUT_VUE_DEBUGGER = edited(LINT_SOURCE, VUE_DEBUGGER, `${' '.repeat('debugger;'.length)}\n</script>`);
+// oxlint's parse error: no code, no rule URL, no help.
+const VUE_PARSE_ERROR = edited(
+  LINT_SOURCE,
+  '<script setup lang="ts">\nconst unused = \'é ü\'',
+  '<script setup lang="ts">\nconst = 1'
+);
 const ruleUrl = (code: string) => `https://oxc.rs/docs/guide/usage/linter/rules/${code.replace(/^(\w+)\((.+)\)$/, '$1/$2')}.html`;
 
-/** A language server on a copy of `app`, with a tsdk as VS Code passes one. */
-function linting(copy = copyApp, prepare: (root: string) => void = () => {}) {
-  const state = {root: '', server: undefined as unknown as LanguageServer};
-
-  beforeAll(async () => {
-    state.root = await copy(LINT_FORMAT);
-    prepare(state.root);
-    state.server = await startLanguageServer(state.root, {initializationOptions: {typescript: {tsdk: TSDK}}});
-  });
-
-  afterAll(async () => {
-    await state.server?.stop();
-    if (state.root) await removeApp(state.root);
-  });
-
-  // Errors and warnings (type <= 2) logged from log index `from` on, in order.
-  const warnings = (from = 0) =>
-    state.server.log
-      .slice(from)
-      .filter(({type}) => type <= 2)
-      .map(({message}) => message);
-
-  return {state, warnings, lint: (text?: string, file = LINT) => lintDiagnostics(state.server, join(state.root, file), text)};
-}
-
 describe('lint diagnostics on lint-format/', () => {
-  const {state, warnings, lint} = linting();
+  const {state, warnings} = formatting(LINT_FORMAT);
+  const lint = (text?: string, file = LINT) => lintDiagnostics(state.server, join(state.root, file), text);
 
   /** Writes the config on disk and tells the server as VS Code would, then waits for its refresh request. */
   async function setConfig(text: string): Promise<void> {
@@ -71,6 +51,18 @@ describe('lint diagnostics on lint-format/', () => {
     expect(warnings()).toEqual([]);
   });
 
+  it("give oxlint's own message, and no rule link, for a finding with neither help nor URL", async () => {
+    writeFileSync(join(state.root, 'Broken.ucf'), VUE_PARSE_ERROR);
+    const findings = await mfLintFindings(state.root, 'Broken.ucf');
+    const parseErrors = findings.filter(({block}) => block === 'vue');
+    expect(parseErrors).toEqual([expect.objectContaining({message: 'Unexpected token', severity: 'error'})]);
+    const diagnostics = await lint(undefined, 'Broken.ucf');
+    expect(lintPoints(diagnostics)).toEqual(findings.map(asLintPoint));
+    const parseError = diagnostics.find(({range}) => range.start.line === asLintPoint(parseErrors[0]!).range.start.line)!;
+    expect(parseError).toMatchObject({severity: 1, source: 'oxlint', message: 'Unexpected token'});
+    expect(Object.keys(parseError).filter((key) => key === 'code' || key === 'codeDescription')).toEqual([]);
+  });
+
   it('watch every .oxlintrc.json and .oxlintrc.jsonc', async () => {
     await vi.waitFor(() =>
       expect(state.server.registrations).toContainEqual({
@@ -90,6 +82,12 @@ describe('lint diagnostics on lint-format/', () => {
     } finally {
       await lint(LINT_SOURCE);
     }
+  });
+
+  it('lint a file outside every workspace folder from its own folder, as mf-lint run there', async () => {
+    const findings = await mfLintFindings(state.other, LINT);
+    expect(findings).toHaveLength(4);
+    expect(lintPoints(await lintDiagnostics(state.server, join(state.other, LINT)))).toEqual(findings.map(asLintPoint));
   });
 
   it('follow a change of .oxlintrc.json on disk', async () => {
@@ -121,17 +119,22 @@ describe('lint diagnostics on lint-format/', () => {
     expect(warnings(from)).toEqual([]);
   });
 
-  it("log oxlint's message once for a config it rejects, and lint again once the config is fixed", async () => {
+  it("log oxlint's message once per reason for a config it rejects, again after a lint succeeds", async () => {
     const config = read(state.root, CONFIG);
     const from = state.server.log.length;
+    const prefix = `multifront: no linting in ${state.root} (oxlint: `;
     try {
       await setConfig('{"rules": ');
       expect(await lint()).toEqual([]);
       expect(await lint(WITHOUT_VUE_DEBUGGER)).toEqual([]);
+      expect(warnings(from)).toEqual([expect.stringMatching(/\S\)$/)]);
+      await setConfig(config);
+      expect(await lint(LINT_SOURCE)).toHaveLength(4);
+      await setConfig('{"rules": ');
+      expect(await lint()).toEqual([]);
       const logged = warnings(from);
-      expect(logged).toHaveLength(1);
-      expect(logged[0]!.startsWith(`multifront: no linting in ${state.root} (oxlint: `)).toBe(true);
-      expect(logged[0]).toMatch(/\S\)$/);
+      expect(logged).toHaveLength(2);
+      for (const line of logged) expect(line.startsWith(prefix)).toBe(true);
     } finally {
       await setConfig(config);
     }
@@ -140,11 +143,17 @@ describe('lint diagnostics on lint-format/', () => {
 });
 
 describe('lint diagnostics with no oxlint in the project', () => {
-  const {state, warnings, lint} = linting(copyAppOutside, (root) => assertNotInstalled(root, 'oxlint'));
+  const {state, warnings} = formatting(LINT_FORMAT, {
+    copy: copyAppOutside,
+    prepare: (root) => assertNotInstalled(root, 'oxlint'),
+  });
 
   it('give none, log one line, and the server keeps answering', async () => {
-    expect(await lint()).toEqual([]);
-    expect(await lint(WITHOUT_VUE_DEBUGGER)).toEqual([]);
+    const file = join(state.root, LINT);
+    expect(await lintDiagnostics(state.server, file)).toEqual([]);
+    const document = await state.server.openTextDocument(file, 'ucf');
+    expect(await state.server.sendDocumentDiagnosticRequest(document.uri)).toMatchObject({kind: 'full'});
+    expect(await lintDiagnostics(state.server, file, WITHOUT_VUE_DEBUGGER)).toEqual([]);
     const missing = `oxlint is not installed in ${state.root}; add it to devDependencies`;
     expect(warnings()).toEqual([`multifront: no linting in ${state.root} (${missing})`]);
     expect(state.server.process.exitCode).toBeNull();

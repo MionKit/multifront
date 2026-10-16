@@ -109,26 +109,12 @@ describe.each([LINT_FORMAT, LINT_FORMAT_SVELTE])('the bundled server formats %s/
 });
 
 describe('the bundled server lints lint-format/ with the project oxlint', () => {
-  let app: string;
-  let server: LanguageServer;
-
-  beforeAll(async () => {
-    app = await copyApp(LINT_FORMAT);
-    server = await startLanguageServer(app, {
-      server: join(extension, 'dist', 'server.cjs'),
-      initializationOptions: {typescript: {tsdk: TSDK}},
-    });
-  });
-
-  afterAll(async () => {
-    await server?.stop();
-    if (app) await removeApp(app);
-  });
+  const {state} = formatting(LINT_FORMAT, {server: () => join(extension, 'dist', 'server.cjs')});
 
   it('the diagnostics on Lint.ucf are what the real mf-lint reports', async () => {
-    const findings = await mfLintFindings(app, 'Lint.ucf');
+    const findings = await mfLintFindings(state.root, 'Lint.ucf');
     expect(findings).toHaveLength(4);
-    expect(lintPoints(await lintDiagnostics(server, join(app, 'Lint.ucf')))).toEqual(findings.map(asLintPoint));
+    expect(lintPoints(await lintDiagnostics(state.server, join(state.root, 'Lint.ucf')))).toEqual(findings.map(asLintPoint));
   });
 });
 
