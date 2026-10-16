@@ -1,6 +1,7 @@
 // A `.ts` importer picking svelte gets `Card.ucf.svelte.ts`: svelte2tsx's script, a real Svelte `Component`.
 // The bundled plugin's own checks are in bundle.spec.ts.
 import {createRequire} from 'node:module';
+import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
 import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript, resolveUcfImport} from '@multifront/language-tools';
@@ -137,6 +138,14 @@ describe('getTypesScript for the svelte target', () => {
   it("references svelte2tsx's shims in the installed package and the project's svelte-html.d.ts", () => {
     const references = [...panelScript()!.code.matchAll(/^\/\/\/ <reference path="(.*)" \/>$/gm)].map(([, path]) => path);
     expect(references).toEqual(REFERENCES);
+  });
+
+  it("references svelte2tsx's own element types where no svelte resolves, or from an untitled document", () => {
+    const fallback = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'].map((name) => join(INSTALLED_SHIMS, name));
+    for (const filename of [join(tmpdir(), 'Panel.ucf'), 'Untitled-1.ucf']) {
+      const {code} = getTypesScript(filename, PANEL.source, 'svelte', {svelteCompiler, compiler})!;
+      expect([...code.matchAll(/^\/\/\/ <reference path="(.*)" \/>$/gm)].map(([, path]) => path)).toEqual(fallback);
+    }
   });
 
   it('has no script without the Svelte compiler', () => {
