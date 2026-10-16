@@ -82,7 +82,7 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
   return checks;
 }
 
-/** Runs one cleanup step of a failed run: its error becomes a line of notes, never the error the caller sees. */
+/** A failed run's cleanup step: its error becomes a note, never replaces the run's own error. */
 async function noted(failure: string, step: () => Promise<unknown> | unknown): Promise<string> {
   try {
     const note = await step();
@@ -110,7 +110,7 @@ async function leftoversGone(temp: string): Promise<void> {
   }
 }
 
-/** Every process with `temp` in its command line: each VS Code process names its profile or dump folder. */
+/** Each VS Code process names its profile or dump folder, both inside `temp`. */
 function processesNaming(temp: string): number[] {
   if (process.platform === 'win32') return [];
   const list = execFileSync('ps', ['-A', '-ww', '-o', 'pid=,args='], {encoding: 'utf8'});

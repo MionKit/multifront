@@ -19,7 +19,7 @@ function lateFolder() {
   return join(dirname(process.env.MULTIFRONT_VSCODE_RESULTS), 'crashes', 'late');
 }
 
-/** Like Crashpad: outlives VS Code in its own process group, naming the run's folder and writing into it. */
+/** Mimics Crashpad: outlives VS Code, names the run's folder in its args, writes into it. */
 function leaveWriter(loop) {
   const script = `while ${loop}; do mkdir -p "$1" && : > "$1/$i"; i=$((i+1)); sleep 0.01; done`;
   spawn('sh', ['-c', `i=0; ${script}`, 'writer', lateFolder()], {detached: true, stdio: 'ignore'}).unref();
@@ -32,7 +32,6 @@ function blockDumpFolder() {
   writeFileSync(join(crashDir, basename(dirname(process.env.MULTIFRONT_VSCODE_RESULTS))), '');
 }
 
-/** A suite that starts `leave`'s process, then crashes VS Code. */
 function crashLeaving(leave) {
   return async () => {
     leave();
