@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "VS Code extension for multifront component files: the .ucf grammar, the language server and the TypeScript plugin.",
   "private": true,
+  "publisher": "mionkit",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -89,6 +90,11 @@
         "path": "./dist/syntaxes/source.ucf.svelte.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "[ucf]": {
+        "editor.defaultFormatter": "mionkit.multifront-vscode"
+      }
+    },
     "typescriptServerPlugins": [
       {
         "name": "multifront-typescript-plugin-pack",
