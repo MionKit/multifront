@@ -59,7 +59,7 @@ export async function packVsix(dir: string): Promise<string> {
   return join(dir, 'extension');
 }
 
-/** The `.vsix` the release workflow packed (`MULTIFRONT_VSIX`), else a fresh pack; unzipped into `dir/extension/`. */
+/** `MULTIFRONT_VSIX` = the `.vsix` the release workflow packed; unset → a fresh pack. */
 export async function vsixUnderTest(dir: string): Promise<{vsix: string; extension: string}> {
   const given = process.env.MULTIFRONT_VSIX;
   if (!given) return {extension: await packVsix(dir), vsix: join(dir, VSIX_FILE)};
