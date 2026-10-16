@@ -4,12 +4,9 @@ import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR} from '../../fixtures/index.ts';
-import {CRASH_DIR, runInVsCode, VSCODE_VERSION} from '../lib/vscode.ts';
+import {CRASH_DIR, reportChecks, runInVsCode, VSCODE_VERSION} from '../lib/vscode.ts';
+import type {Check} from '../lib/vscode.ts';
 import {packVsix} from '../lib/vsix.ts';
-
-interface Check {
-  name: string;
-}
 
 const SUITE = join(import.meta.dirname, 'suite.cjs');
 const WORKSPACE = join(FIXTURES_DIR, 'apps', 'imports');
@@ -18,8 +15,6 @@ const {checks, withoutTypescript, TYPESCRIPT_EXTENSION} = createRequire(import.m
   withoutTypescript: Check[];
   TYPESCRIPT_EXTENSION: string;
 };
-
-type Results = Awaited<ReturnType<typeof runInVsCode>>;
 
 let temp: string;
 let extension: string;
@@ -32,22 +27,6 @@ beforeAll(async () => {
 afterAll(() => {
   if (temp) rmSync(temp, {recursive: true, force: true});
 });
-
-function reportChecks(names: Check[], start: () => Promise<Results>): void {
-  let results: Results;
-
-  // Long timeout: the first run downloads VS Code; later ones start it in seconds.
-  beforeAll(async () => {
-    results = await start();
-  }, 900_000);
-
-  it.each(names.map(({name}) => name))('%s', (name) => {
-    const result = results.find((row) => row.name === name);
-    // A missing result: the suite died before this check.
-    expect(result, `${name} did not run`).toBeDefined();
-    if (result?.error) throw new Error(result.error);
-  });
-}
 
 describe(`milestone 2 exit test, in VS Code ${VSCODE_VERSION} with the packed extension`, () => {
   reportChecks(checks, () => runInVsCode({extension, workspace: WORKSPACE, suite: SUITE}));

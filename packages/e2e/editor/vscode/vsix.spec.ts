@@ -6,17 +6,14 @@ import type {Finding} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../../fixtures/index.ts';
 import {runMfFmt, runMfLint, runMfTsc} from '../lib/commands.ts';
-import type {BinReport} from '../lib/commands.ts';
-import {formatting, LINT_FORMAT, ORIGINAL, read} from '../lib/format.ts';
+import type {BinReport, BinRun} from '../lib/commands.ts';
+import {formatting, LINT_FORMAT, LINT_FORMAT_SVELTE, ORIGINAL, read} from '../lib/format.ts';
 import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from '../lib/lint.ts';
 import {labels, markupCompletions} from '../lib/markup.ts';
 import {addFile, assertNotInstalled, editFile, VALID} from '../lib/tsc.ts';
-import {runInVsCode} from '../lib/vscode.ts';
+import {reportChecks, runInVsCode} from '../lib/vscode.ts';
+import type {Check} from '../lib/vscode.ts';
 import {packVsix, readZip, VSIX_FILE} from '../lib/vsix.ts';
-
-interface Check {
-  name: string;
-}
 
 const SUITE = join(import.meta.dirname, 'vsix.cjs');
 const {checks} = createRequire(import.meta.url)(SUITE) as {checks: Check[]};
@@ -60,8 +57,10 @@ describe('the packed manifest has the Marketplace fields', () => {
   });
 });
 
+const server = () => join(extension, 'dist', 'server.cjs');
+
 describe('the server from the unzipped .vsix, with no repo node_modules beside it', () => {
-  const {state, mfFmt, format} = formatting(LINT_FORMAT, {server: () => join(extension, 'dist', 'server.cjs')});
+  const {state, mfFmt, format} = formatting(LINT_FORMAT, {server});
   const clean = () => ({filename: join(state.root, 'Clean.ucf'), source: read(state.root, 'Clean.ucf')});
 
   it('finds none of its dependencies outside the .vsix', () => {
@@ -87,35 +86,49 @@ describe('the server from the unzipped .vsix, with no repo node_modules beside i
   });
 });
 
+describe(`the server from the unzipped .vsix formats ${LINT_FORMAT_SVELTE}/ with the project oxfmt`, () => {
+  const {mfFmt, format} = formatting(LINT_FORMAT_SVELTE, {server});
+
+  it('Format Document on Messy.ucf gives what the real mf-fmt writes, <svelte> included', async () => {
+    const {text} = await format(ORIGINAL);
+    expect(text).not.toBe(ORIGINAL);
+    expect(text).toBe(await mfFmt(ORIGINAL));
+  });
+});
+
 /** A types-every-target/ copy with its own configs (the repo's ignore `.tmp/`), a type error and a `debugger`. */
 async function brokenCopy(): Promise<string> {
   const root = await copyApp(VALID);
-  addFile(root, '.oxlintrc.json', '{"rules": {"no-debugger": "error"}}\n');
-  addFile(root, '.oxfmtrc.json', '{}\n');
-  editFile(root, GREETING, 'label={String(count)}', 'label={count}');
-  editFile(
-    root,
-    GREETING,
-    'defineProps<{ name: string; count?: number }>()',
-    'defineProps<{ name: string; count?: number }>()\n  debugger'
-  );
+  try {
+    addFile(root, '.oxlintrc.json', '{"rules": {"no-debugger": "error"}}\n');
+    addFile(root, '.oxfmtrc.json', '{}\n');
+    editFile(root, GREETING, 'label={String(count)}', 'label={count}');
+    const props = 'defineProps<{ name: string; count?: number }>()';
+    editFile(root, GREETING, props, `${props}\n  debugger`);
+  } catch (err) {
+    await removeApp(root);
+    throw err;
+  }
   return root;
 }
 
-async function findings(run: Promise<{code: number; stdout: string; stderr: string}>): Promise<Finding[]> {
+async function findings(run: Promise<BinRun>): Promise<Finding[]> {
   const {code, stdout, stderr} = await run;
   expect({code, stderr}).toEqual({code: 1, stderr: ''});
   return (JSON.parse(stdout) as BinReport<object>).findings;
 }
 
 describe('a real VS Code with the .vsix installed into a fresh extensions folder', () => {
-  let workspace: string;
-  let other: string;
-  let results: Awaited<ReturnType<typeof runInVsCode>>;
+  let workspace: string | undefined;
+  let other: string | undefined;
 
-  // Long timeout: the first run downloads VS Code; later ones start it in seconds.
-  beforeAll(async () => {
-    [workspace, other] = await Promise.all([brokenCopy(), brokenCopy()]);
+  afterAll(async () => {
+    await Promise.all([workspace, other].filter((root) => root !== undefined).map((root) => removeApp(root)));
+  });
+
+  reportChecks(checks, async () => {
+    workspace = await brokenCopy();
+    other = await brokenCopy();
     const args = [GREETING, '--format', 'json'];
     const [tsc, lint, fmt] = await Promise.all([
       findings(runMfTsc(workspace, args)),
@@ -124,17 +137,6 @@ describe('a real VS Code with the .vsix installed into a fresh extensions folder
     ]);
     expect({code: fmt.code, stderr: fmt.stderr}).toEqual({code: 0, stderr: ''});
     const data = {tsc, lint, formatted: read(other, GREETING)};
-    results = await runInVsCode({vsix: join(temp, VSIX_FILE), workspace, suite: SUITE, data});
-  }, 900_000);
-
-  afterAll(async () => {
-    await Promise.all([workspace, other].filter(Boolean).map((root) => removeApp(root)));
-  });
-
-  it.each(checks.map(({name}) => name))('%s', (name) => {
-    const result = results.find((row) => row.name === name);
-    // A missing result: the suite died before this check.
-    expect(result, `${name} did not run`).toBeDefined();
-    if (result?.error) throw new Error(result.error);
+    return runInVsCode({vsix: join(temp, VSIX_FILE), workspace, suite: SUITE, data});
   });
 });

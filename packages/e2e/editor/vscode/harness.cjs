@@ -65,9 +65,19 @@ function hoverText(hovers) {
   return hovers.flatMap(({contents}) => contents.map((part) => (typeof part === 'string' ? part : part.value))).join('\n');
 }
 
+/** Waits for a hover at `at` holding every `wanted` text. */
+function hoverAt(document, at, wanted, what) {
+  const vscode = require('vscode');
+  const texts = [wanted].flat();
+  return until(async () => {
+    const text = hoverText(await vscode.commands.executeCommand('vscode.executeHoverProvider', document.uri, at));
+    return !text.includes('(loading...)') && texts.every((part) => text.includes(part)) && text;
+  }, `${what} with ${texts.join(' and ')}`);
+}
+
 /** TypeScript's diagnostic code may come as `{value, target}`. */
 function codeOf({code}) {
   return typeof code === 'object' && code !== null ? code.value : code;
 }
 
-module.exports = {runChecks, until, show, positionOf, serverProcesses, hoverText, codeOf};
+module.exports = {runChecks, until, show, positionOf, serverProcesses, hoverAt, codeOf};
