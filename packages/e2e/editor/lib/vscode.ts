@@ -263,10 +263,7 @@ function keepCrashDumps(temp: string): string | undefined {
   return kept;
 }
 
-/**
- * The main process crashed once inside pango's background FcInit, while it parsed the host's 64 font config files.
- * This root holds one config file, no template dir and a warm cache, so that parse takes well under a millisecond.
- */
+/** Main process once crashed in pango's background FcInit parsing 64 host font configs; this root cuts that to one. */
 function fontconfigRoot(): string {
   const config = join(FONTCONFIG_ROOT, 'etc', 'fonts', 'fonts.conf');
   mkdirSync(dirname(config), {recursive: true});
@@ -280,7 +277,7 @@ function fontconfigRoot(): string {
   const part = `${config}.${randomUUID()}`;
   writeFileSync(part, FONTCONFIG);
   renameSync(part, config);
-  // A cold cache would make pango's thread scan every font file at startup; warm, this only stats the dirs.
+  // Cold cache: pango's thread scans every font file at startup; warm, it only stats the dirs.
   execFileSync('fc-cache', [], {env: {PATH: process.env.PATH, FONTCONFIG_SYSROOT: FONTCONFIG_ROOT}});
   return FONTCONFIG_ROOT;
 }
