@@ -19,7 +19,7 @@ export function loadEnv() {
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env, and peer-floor runs only with it set'},
   {name: 'GITHUB_ENV', scope: 'internal', desc: 'set by GitHub Actions; the vscode-release workflow writes MULTIFRONT_VSIX there for its later steps'},
-  {name: 'GITHUB_OUTPUT', scope: 'internal', desc: 'set by GitHub Actions; the CI Playwright version step writes the cache key there'},
+  {name: 'GITHUB_OUTPUT', scope: 'internal', desc: "set by GitHub Actions; ci.yml's Playwright version and pnpm store path steps write their outputs there"},
   {name: 'GITHUB_REF_NAME', scope: 'internal', desc: 'set by GitHub Actions; on a release, the vscode-release workflow checks it is v<version.json>'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite; the consumer helpers clear it for the temp apps'},
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
