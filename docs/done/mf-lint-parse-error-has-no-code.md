@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-16
 ---
 
@@ -36,3 +36,15 @@ spec 8.1 if a code is added (the list of codes lives in core's `DiagnosticCode`)
 
 - `mf-lint` on a `.ucf` file whose block does not parse prints a real code in both output formats, pinned by a test.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: shipped (approved 2026-10-16, automatic mode, delegated session)
+
+- oxlint gives no `code` for a parse error (`const = ;`) nor for a redeclaration (`let a; let a;`), checked on the
+  pinned oxlint. `lintUcf()` now sets core's new `DiagnosticCode` `lint-parse-error` on any such finding, so
+  `UcfLintDiagnostic.code` stays a `string` and `mf-lint`'s `Finding` always has one.
+- The server reads `lintUcf()`, so it now shows `lint-parse-error` too (still no rule link): the editor matches the
+  command line, as spec 6.1 asks.
+- Tests: `packages/e2e/editor/lint/mf-lint.spec.ts` pins the text and JSON output of a copy with a `<react>` parse error
+  and a `<vue>` redeclaration; `packages/e2e/editor/server/lint.spec.ts`'s parse-error case expects the code.
+- Docs: `docs/milestones/m7-full-editor-support.md` "New codes", the `mf-lint` finding line and the 7.11 test line.
+  Spec 8.1 lists no codes itself (it points at `DiagnosticCode`), so it is unchanged. No fuzzing: a fix.

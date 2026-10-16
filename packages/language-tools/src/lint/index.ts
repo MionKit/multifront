@@ -22,7 +22,8 @@ const MF_LINT: CommandSpec = {
 const CONFIG_NAMES = ['.oxlintrc.json', '.oxlintrc.jsonc'];
 const WRAPPER = '.oxlintrc.json';
 
-interface OxlintDiagnostic extends Pick<UcfLintDiagnostic, 'message' | 'code' | 'severity' | 'url' | 'help'> {
+interface OxlintDiagnostic extends Pick<UcfLintDiagnostic, 'message' | 'severity' | 'url' | 'help'> {
+  code?: string; // none when the block does not parse
   filename: string;
   labels: {span: {offset: number; length: number}}[];
 }
@@ -136,7 +137,7 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
         start,
         end,
         block: block.type as Target,
-        code,
+        code: code ?? 'lint-parse-error',
         message,
         severity,
         ...(url && {url}),

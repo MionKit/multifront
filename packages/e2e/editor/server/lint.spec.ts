@@ -15,7 +15,7 @@ const CONFIG = '.oxlintrc.json';
 // The `<vue>` block's `debugger;`, blanked so every other range stays where it was.
 const VUE_DEBUGGER = 'debugger;\n</script>';
 const WITHOUT_VUE_DEBUGGER = edited(LINT_SOURCE, VUE_DEBUGGER, `${' '.repeat('debugger;'.length)}\n</script>`);
-// oxlint's parse error: no code, no rule URL, no help.
+// oxlint's parse error: no rule URL, no help, and no code of oxlint's.
 const VUE_PARSE_ERROR = edited(
   LINT_SOURCE,
   '<script setup lang="ts">\nconst unused = \'é ü\'',
@@ -51,16 +51,18 @@ describe('lint diagnostics on lint-format/', () => {
     expect(warnings()).toEqual([]);
   });
 
-  it("give oxlint's own message, and no rule link, for a finding with neither help nor URL", async () => {
+  it("give oxlint's own message, mf-lint's code and no rule link, for a finding with neither help nor URL", async () => {
     writeFileSync(join(state.root, 'Broken.ucf'), VUE_PARSE_ERROR);
     const findings = await mfLintFindings(state.root, 'Broken.ucf');
     const parseErrors = findings.filter(({block}) => block === 'vue');
-    expect(parseErrors).toEqual([expect.objectContaining({message: 'Unexpected token', severity: 'error'})]);
+    expect(parseErrors).toEqual([
+      expect.objectContaining({code: 'lint-parse-error', message: 'Unexpected token', severity: 'error'}),
+    ]);
     const diagnostics = await lint(undefined, 'Broken.ucf');
     expect(lintPoints(diagnostics)).toEqual(findings.map(asLintPoint));
     const parseError = diagnostics.find(({range}) => range.start.line === asLintPoint(parseErrors[0]!).range.start.line)!;
-    expect(parseError).toMatchObject({severity: 1, source: 'oxlint', message: 'Unexpected token'});
-    expect(Object.keys(parseError).filter((key) => key === 'code' || key === 'codeDescription')).toEqual([]);
+    expect(parseError).toMatchObject({severity: 1, source: 'oxlint', code: 'lint-parse-error', message: 'Unexpected token'});
+    expect(parseError).not.toHaveProperty('codeDescription');
   });
 
   it('watch every .oxlintrc.json and .oxlintrc.jsonc', async () => {
