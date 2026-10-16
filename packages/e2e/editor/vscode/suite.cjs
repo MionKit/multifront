@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
-const {codeOf, hoverText, positionOf, runChecks, serverProcesses, show, until} = require('./harness.cjs');
+const {codeOf, hoverAt, positionOf, runChecks, serverProcesses, show, until} = require('./harness.cjs');
 
 const CARD_SIGNATURE = 'Card({ title }: { title: string })';
 const TYPESCRIPT_EXTENSION = 'vscode.typescript-language-features';
@@ -42,13 +42,6 @@ async function definitionAt(document, at, what) {
   assert.equal(definitions.length, 1, `one definition expected, got ${definitions.length}`);
   const [definition] = definitions;
   return {fsPath: (definition.targetUri ?? definition.uri).fsPath, start: (definition.targetSelectionRange ?? definition.targetRange ?? definition.range).start};
-}
-
-function hoverAt(document, at, wanted, what) {
-  return until(async () => {
-    const text = hoverText(await vscode.commands.executeCommand('vscode.executeHoverProvider', document.uri, at));
-    return !text.includes('(loading...)') && text.includes(wanted) && text;
-  }, `${what} with ${wanted}`);
 }
 
 function diagnosticsOnLine(uri, line) {

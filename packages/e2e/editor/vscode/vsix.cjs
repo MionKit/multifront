@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
 const {basename, dirname, join} = require('node:path');
-const {codeOf, hoverText, positionOf, runChecks, show, until} = require('./harness.cjs');
+const {codeOf, hoverAt, positionOf, runChecks, show, until} = require('./harness.cjs');
 
 let vscode;
 
@@ -23,6 +23,18 @@ function sameRange({range}, {line, column, end}) {
 
 const describe = ({code, line, column}) => `${code} at ${line}:${column}`;
 
+/** Waits until Greeting.ucf's diagnostics hold one `matches` diagnostic at each finding of `expected()[key]`. */
+async function holdsEvery(key, what, matches) {
+  const findings = expected()[key];
+  assert.ok(findings.length > 0, `the real mf-${key} found nothing`);
+  const uri = vscode.Uri.file(workspaceFile('Greeting.ucf'));
+  const held = () => {
+    const diagnostics = vscode.languages.getDiagnostics(uri);
+    return findings.every((finding) => diagnostics.some((diagnostic) => matches(diagnostic, finding) && sameRange(diagnostic, finding)));
+  };
+  await until(held, `${what} diagnostics ${findings.map(describe).join(', ')}`);
+}
+
 const checks = [
   {
     name: 'Greeting.ucf opens with language id ucf, served by the installed extension',
@@ -39,31 +51,11 @@ const checks = [
   },
   {
     name: "Greeting.ucf's diagnostics hold every mf-lint finding, from oxlint",
-    async run() {
-      const {lint} = expected();
-      assert.ok(lint.length > 0, 'mf-lint found nothing');
-      const uri = vscode.Uri.file(workspaceFile('Greeting.ucf'));
-      const missing = () =>
-        lint.filter((finding) => {
-          const found = vscode.languages.getDiagnostics(uri);
-          return !found.some((diagnostic) => diagnostic.source === 'oxlint' && codeOf(diagnostic) === finding.code && sameRange(diagnostic, finding));
-        });
-      await until(() => missing().length === 0, `oxlint diagnostics ${lint.map(describe).join(', ')}`);
-    },
+    run: () => holdsEvery('lint', 'oxlint', (diagnostic, {code}) => diagnostic.source === 'oxlint' && codeOf(diagnostic) === code),
   },
   {
     name: "Greeting.ucf's diagnostics hold every mf-tsc finding, from tsserver with the plugin",
-    async run() {
-      const {tsc} = expected();
-      assert.ok(tsc.length > 0, 'mf-tsc found nothing');
-      const uri = vscode.Uri.file(workspaceFile('Greeting.ucf'));
-      const missing = () =>
-        tsc.filter((finding) => {
-          const found = vscode.languages.getDiagnostics(uri);
-          return !found.some((diagnostic) => `TS${codeOf(diagnostic)}` === finding.code && sameRange(diagnostic, finding));
-        });
-      await until(() => missing().length === 0, `TypeScript diagnostics ${tsc.map(describe).join(', ')}`);
-    },
+    run: () => holdsEvery('tsc', 'TypeScript', (diagnostic, {code}) => `TS${codeOf(diagnostic)}` === code),
   },
   {
     name: 'Format Document on Greeting.ucf gives what mf-fmt writes',
@@ -89,11 +81,7 @@ const checks = [
     name: 'hover on <Greeting in main.tsx shows the React props, from the installed TypeScript plugin',
     async run() {
       const main = await show(workspaceFile('main.tsx'));
-      const at = positionOf(main, '<Greeting', 1);
-      await until(async () => {
-        const text = hoverText(await vscode.commands.executeCommand('vscode.executeHoverProvider', main.uri, at));
-        return !text.includes('(loading...)') && text.includes('name: string') && text.includes('count?: number') && text;
-      }, 'a hover with name: string and count?: number');
+      await hoverAt(main, positionOf(main, '<Greeting', 1), ['name: string', 'count?: number'], 'a hover on <Greeting in main.tsx');
     },
   },
 ];

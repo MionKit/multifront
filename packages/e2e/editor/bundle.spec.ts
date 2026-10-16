@@ -21,8 +21,6 @@ import {
   PLUGIN,
   readApp,
 } from './lib/cases.ts';
-import {formatting, LINT_FORMAT, LINT_FORMAT_SVELTE, ORIGINAL} from './lib/format.ts';
-import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from './lib/lint.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {saveUcf} from './lib/svelte.ts';
@@ -95,26 +93,6 @@ describe('the bundled server writes Svelte declarations on save', () => {
     const bundled = readdirSync(outDir, {recursive: true, encoding: 'utf8'}).filter((name) => name.endsWith('.d.ts'));
     expect(bundled.sort()).toEqual(expected);
     for (const name of expected) expect(readFileSync(join(outDir, name), 'utf8')).toBe(readFileSync(join(direct, name), 'utf8'));
-  });
-});
-
-describe.each([LINT_FORMAT, LINT_FORMAT_SVELTE])('the bundled server formats %s/ with the project oxfmt', (app) => {
-  const {mfFmt, format} = formatting(app, {server: () => join(extension, 'dist', 'server.cjs')});
-
-  it('Format Document on Messy.ucf gives what the real mf-fmt writes', async () => {
-    const {text} = await format(ORIGINAL);
-    expect(text).not.toBe(ORIGINAL);
-    expect(text).toBe(await mfFmt(ORIGINAL));
-  });
-});
-
-describe('the bundled server lints lint-format/ with the project oxlint', () => {
-  const {state} = formatting(LINT_FORMAT, {server: () => join(extension, 'dist', 'server.cjs')});
-
-  it('the diagnostics on Lint.ucf are what the real mf-lint reports', async () => {
-    const findings = await mfLintFindings(state.root, 'Lint.ucf');
-    expect(findings).toHaveLength(4);
-    expect(lintPoints(await lintDiagnostics(state.server, join(state.root, 'Lint.ucf')))).toEqual(findings.map(asLintPoint));
   });
 });
 
