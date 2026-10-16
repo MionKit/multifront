@@ -151,10 +151,10 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
       needFileNameList: true,
     });
     expect(fileNames).toContain(join(extension, 'dist', 'svelte-types', SVELTE_SHIMS));
-    // The shims' `import('svelte')` and the element types' `svelte/elements` read the project's Svelte: beside the bundle there is none.
+    // Shims' `import('svelte')` and element types' `svelte/elements` read the project's Svelte: none sits beside the bundle.
     const svelte = realpathSync(join(REPO_ROOT, 'node_modules', 'svelte'));
     const svelteTypes = fileNames.filter((name) => /\/svelte\/(types\/index|svelte-html|elements)\.d\.ts$/.test(name));
-    // A file reached through a link and through its real path is one file.
+    // One file can appear by link and by real path.
     expect([...new Set(svelteTypes.map((name) => realpathSync(name)))].sort()).toEqual(
       ['elements.d.ts', 'svelte-html.d.ts', join('types', 'index.d.ts')].map((name) => join(svelte, name))
     );
@@ -213,7 +213,7 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
 });
 
 describe('mf-tsc and the plugin pack alone, on the same broken .ucf files', () => {
-  // Card.ucf as the milestone 7 exit test edits it: a number passed to a string attribute in its <svelte> markup.
+  // MarkupBreaks.ucf is Card.ucf as the milestone 7 exit test breaks it.
   const files = ['ReactBreaks.ucf', 'VueBreaks.ucf', 'SvelteBreaks.ucf', 'MarkupBreaks.ucf'];
   let root: string;
 

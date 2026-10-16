@@ -10,9 +10,9 @@ import {composeMappings, sourceMapMappings, stringSnapshot} from '../mappings.ts
 import {SVELTE_MARKUP_LANGUAGE, isComponent, scanMarkup} from '../svelteMarkup.ts';
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
-// svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
+// svelte2tsx's shims: `import('svelte')` needs no Svelte beside them, Svelte's types declare it globally.
 const SHIMS = 'svelte-shims-v4.d.ts';
-// Element types import `svelte/elements`, which resolves only beside a Svelte: the project's file, else svelte2tsx's.
+// Element types import `svelte/elements`, resolved only beside a Svelte: the project's file, else svelte2tsx's.
 const SVELTE_HTML = 'svelte-html.d.ts';
 const SVELTE_JSX = 'svelte-jsx-v4.d.ts';
 
@@ -26,7 +26,7 @@ let installedTypesRoot: string | undefined;
 // A Svelte installed later needs a restart, as its compiler does.
 const svelteHtmlByFolder = new Map<string, string | undefined>();
 
-// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file's `import 'svelte'` reads; every Svelte 5 has the file.
+// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file imports; every Svelte 5 ships svelte-html.d.ts.
 function projectSvelteHtml(fileName: string): string | undefined {
   const folder = dirname(fileName);
   if (svelteHtmlByFolder.has(folder)) return svelteHtmlByFolder.get(folder);

@@ -18,7 +18,7 @@ async function runChecks(checks) {
   writeFileSync(process.env.MULTIFRONT_VSCODE_RESULTS, JSON.stringify(results, null, 2));
 }
 
-/** What the spec got from the real mf-* commands on the same files. */
+/** The spec's mf-* results on the same files. */
 const expected = () => JSON.parse(readFileSync(process.env.MULTIFRONT_VSCODE_DATA, 'utf8'));
 
 /** Language features answer late, or with `(loading...)` first. */
@@ -95,7 +95,6 @@ function mainProcess() {
   throw new Error('no VS Code main process above the extension host');
 }
 
-/** The text after Format Document, as VS Code applies its edits. */
 async function formattedText(document) {
   const vscode = require('vscode');
   const options = {tabSize: 2, insertSpaces: true};

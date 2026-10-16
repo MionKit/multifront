@@ -34,7 +34,7 @@ export function span(
 
 export type Located = Pick<Finding, 'code' | 'line' | 'column' | 'end'>;
 
-/** Each file's problems in the real `mf-tsc` and the real tsserver, by default with our plugin from source. */
+/** Each file's problems from mf-tsc and from tsserver, by default with our plugin from source. */
 export async function bothHosts(
   root: string,
   files: string[],
@@ -65,7 +65,7 @@ export async function bothHosts(
   }
 }
 
-// The milestone 7 exit test's edit of fixtures Card.ucf: a number passed to a string attribute in its <svelte> markup.
+// The milestone 7 exit test's edit of fixtures Card.ucf: a number in a string attribute.
 const SVELTE_PROPS = '    let { title }: { title: string } = $props()\n';
 const SVELTE_HEADING = '<h2>{title}</h2></div>\n</svelte>';
 

@@ -26,7 +26,7 @@ const svelteCompiler = loadSvelteCompiler(FIXTURES_DIR);
 const compiler = loadVueCompiler(FIXTURES_DIR);
 const fromLanguageTools = createRequire(createRequire(import.meta.url).resolve('@multifront/language-tools'));
 const INSTALLED_SHIMS = dirname(fromLanguageTools.resolve('svelte2tsx/package.json'));
-// What svelte2tsx's `get_global_types` picks: its shims, and the element types of the project's Svelte.
+// As svelte2tsx's `get_global_types` picks them.
 const REFERENCES = [
   join(INSTALLED_SHIMS, 'svelte-shims-v4.d.ts'),
   join(dirname(createRequire(PANEL.filename).resolve('svelte/package.json')), 'svelte-html.d.ts'),

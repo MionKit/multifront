@@ -1,11 +1,11 @@
-// Milestone 7 exit test, run in real VS Code by exit.spec.ts with the packed .vsix installed, on an edited Card.ucf copy.
+// Milestone 7 exit test, run by exit.spec.ts in VS Code with the packed .vsix on a broken Card.ucf copy.
 // `vscode` is required in `run`, so exit.spec.ts can load the check names outside VS Code.
 const assert = require('node:assert/strict');
 const {join} = require('node:path');
 const {codeOf, expected, formattedText, positionOf, runChecks, show, until} = require('./harness.cjs');
 
 let vscode;
-// Typed as the last markup of <svelte>, unclosed, as VS Code holds it while typing.
+// The last <svelte> markup line's end, where a tag is typed unclosed.
 const MARKUP_END = ['\n</svelte>', 0];
 
 const card = () => join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'Card.ucf');
@@ -27,10 +27,10 @@ function shownProblems(uri) {
     .sort();
 }
 
-// VS Code's TypeScript extension marks an optional member's label with `?`; it inserts the bare name.
+// VS Code's TypeScript extension labels an optional member `name?` but inserts `name`.
 const label = ({label: itemLabel}) => (typeof itemLabel === 'string' ? itemLabel : itemLabel.label).replace(/\?$/, '');
 
-/** Inserts each `[text, needle, shift]` into the unsaved buffer, `shift` past the needle (default: after it), in one edit. */
+/** `shift` counts from the needle's start; the buffer is left unsaved. */
 async function type(document, inserts) {
   const workspaceEdit = new vscode.WorkspaceEdit();
   for (const [text, needle, shift = needle.length] of inserts) workspaceEdit.insert(document.uri, positionOf(document, needle, shift), text);
@@ -107,7 +107,7 @@ const checks = [
   },
 ];
 
-// VS Code calls `run` with the tests root, which no check needs.
+// VS Code passes `run` the tests root; no check needs it.
 module.exports = {
   checks,
   run: () => {
