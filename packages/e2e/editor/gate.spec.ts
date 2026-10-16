@@ -1,5 +1,4 @@
-// The CI gate: the real `mf-tsc` and `mf-lint` over every valid fixture, which must type-check in every target and be
-// oxlint clean. The fixtures are `tsconfig.fixtures.json`'s files; its excludes say why each one is left out.
+// The CI gate: `mf-tsc` and `mf-lint` over `tsconfig.fixtures.json`'s files; its excludes say why each is left out.
 import {cp, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {basename, join, relative} from 'node:path';
 import typescript from 'typescript';
@@ -15,7 +14,7 @@ const CARD = 'components/Card.ucf';
 const FOLDER = 'apps/types-every-target';
 const RUNS = 5;
 
-// Type-checked, but broken on purpose for oxlint; the rule each breaks and the spec that pins it.
+// Type-checked, but broken on purpose for oxlint.
 const LINT_LEFT_OUT = {
   'components/TsxEdges.ucf': "no-useless-escape: the '<\\/react>' string core/test/split.spec.ts pins",
   'components/react/errors/NoDefault.ucf': 'no-unused-vars: the component with no default export blocks/react.spec.ts pins',
@@ -24,7 +23,6 @@ const LINT_LEFT_OUT = {
 
 type Report = BinReport<Record<string, unknown>>;
 
-/** The `.ucf` files of the gate's tsconfig under `root`, relative to it. */
 function gateUcfFiles(root: string): string[] {
   const errors: typescript.Diagnostic[] = [];
   const host = {
@@ -45,7 +43,6 @@ function gateUcfFiles(root: string): string[] {
     .sort();
 }
 
-/** No error, with the readable lines as the message when there is one. */
 function expectClean(run: Awaited<ReturnType<typeof runMfTsc>>): void {
   expect(run.stderr).toBe('');
   const {errorCount, findings} = JSON.parse(run.stdout) as Report;
@@ -77,7 +74,7 @@ describe('the fixtures gate', () => {
   });
 
   it('fails once a fixture has a type error and an oxlint error', async () => {
-    // Under `.tmp/`, which the repo's `.oxlintrc.json` ignores: the copy gets the repo's rules on its own.
+    // The repo's `.oxlintrc.json` ignores `.tmp/`: the copy gets its own, without that ignore.
     await mkdir(TMP_DIR, {recursive: true});
     const root = await mkdtemp(join(TMP_DIR, 'fixtures-'));
     try {

@@ -71,7 +71,7 @@ export interface LanguageToolsTarballs {
   remove: () => Promise<void>;
 }
 
-// Real `tsc --build` and `pnpm pack` in a staged workspace, never in the `dist/` built-packages.spec.ts builds at once.
+// In a staged workspace: build/built-packages.spec.ts builds the real `dist/` at the same time.
 export async function packLanguageTools(): Promise<LanguageToolsTarballs> {
   await mkdir(TMP_DIR, {recursive: true});
   // Inside the repo: TypeScript finds the root `node_modules` above it.
