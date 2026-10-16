@@ -79,5 +79,5 @@ No human could approve the plan in this delegated session; it was decided under 
 
 - Named from the dump: the crashed thread (pango's `FcInit`) and what it was doing (starting a fontconfig XML parse).
   Fixed: that parse now takes about 0.2 ms instead of about 10 ms. Not named: the thread it raced with.
-- Repeated runs: one full `pnpm devx check` on the cloud host passed with the fix, plus this PR's CI.
+- Repeated runs: two full `pnpm devx check` runs on the cloud host passed with the fix, plus this PR's CI.
 - Split off as a new todo: count repeated gates and CI runs for a recurrence, and on a new dump name the other thread.
