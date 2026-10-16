@@ -8,7 +8,7 @@ and a `rootDirs` entry for the declarations it writes (see the editor setup docs
 
 Part of [multifront](https://github.com/MionKit/multifront): one component file, three frameworks.
 
-> **Status:** early development, not published yet.
+> **Status:** early development.
 
 ## License
 

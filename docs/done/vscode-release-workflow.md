@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-16
 milestone: 7
 step: 7.14
@@ -18,25 +18,24 @@ Today `packages/e2e/editor/vscode/vsix.spec.ts` always packs its own copy: `pack
 ## Plan
 
 1. **The spec can test a given `.vsix`.** This is the pattern `MULTIFRONT_CONSUMER_TARBALLS` already uses (`consumer/lib/pack.ts` `fixtureTarballs`), and mion's release gate too: pack once, test those bytes, publish those bytes.
-   - `packages/e2e/editor/lib/vsix.ts`: new export `vsixUnderTest(dir, given = process.env.MULTIFRONT_VSIX): Promise<{vsix, extension}>`.
-     - With `given` set: `resolve(given)`. If that file is missing, throw `<path> does not exist: run pnpm devx vsix`. Otherwise unzip it into `dir/extension/` with the existing `unzipVsix`.
-     - Without it: today's `packVsix(dir)`, with `vsix = join(dir, VSIX_FILE)`.
+   - `packages/e2e/editor/lib/vsix.ts`: new export `vsixUnderTest(dir): Promise<{vsix, extension}>`, reading `MULTIFRONT_VSIX`.
+     - Set: `resolve()`d. If that file is missing, throw `<resolved path> does not exist: run pnpm devx vsix`. Otherwise unzip it into `dir/extension/` with the existing `unzipVsix`.
+     - Unset: today's `packVsix(dir)`, with `vsix = join(dir, VSIX_FILE)`. `VSIX_FILE` is no longer exported (no other importer).
    - `vsix.spec.ts` `beforeAll` calls it. The manifest test (`readZip`) and `runInVsCode({vsix})` use the returned `vsix` instead of `join(temp, VSIX_FILE)`.
    - `scripts/lib/env.mjs` `REGISTRY` gets a new internal row: `MULTIFRONT_VSIX`, "set by the vscode-release workflow: the .vsix pnpm devx vsix packed; editor/vscode/vsix.spec.ts tests that file instead of packing its own, and the publish steps publish it".
-   - Also a `GITHUB_REF_NAME` row, internal: "set by GitHub Actions; on a release, the vscode-release workflow checks it is v<version.json>".
-   - `VSCE_PAT` and `OVSX_PAT` get no row: only vsce and ovsx read them (milestone text).
+   - With the workflow: internal rows `GITHUB_REF_NAME` ("on a release, the vscode-release workflow checks it is v<version.json>") and `GITHUB_ENV` (the workflow writes `MULTIFRONT_VSIX` there), and `secret` rows `VSCE_PAT` and `OVSX_PAT` (repository secrets the workflow hands to vsce and ovsx).
+   - The `GITHUB_OUTPUT` row, own commit: it named only ci.yml's Playwright version step, and now also its pnpm store path step.
 2. **`.github/workflows/vscode-release.yml`**, one job `vsix` on `ubuntu-latest`, `permissions: contents: read`, `concurrency: {group: vscode-release-${{ github.ref }}, cancel-in-progress: ${{ github.event_name == 'pull_request' }}}` (a release is never cancelled mid-publish).
    - Triggers: `release: types: [published]`, and a `pull_request` dry run to `main` when `.github/workflows/vscode-release.yml`, `packages/e2e/editor/vscode/vsix.spec.ts` or `packages/e2e/editor/lib/vsix.ts` changes.
    - Steps, the setup copied from ci.yml's `check` job:
      1. Checkout, `pnpm/action-setup@v6`, `setup-node@v5` (node 26, pnpm cache).
-     2. "The release tag is v + version.json", `if: github.event_name == 'release'`. Reads `version.json`. Fails with `::error::` when the version is not plain `major.minor.patch` (the Marketplace refuses semver pre-release versions: vsce's `validateManifestForPublishing`) or when `$GITHUB_REF_NAME != v$version`. Nothing is packed or published after a failure.
+     2. "version.json is major.minor.patch, the release tag v + it", on PRs too. Reads `version.json`. Fails with `::error::` when the version is not plain `major.minor.patch` (the Marketplace refuses semver pre-release versions: vsce's `validateManifestForPublishing`) or, on a release only, when `$GITHUB_REF_NAME != v$version`. Nothing is packed or published after a failure. Then writes `MULTIFRONT_VSIX=${{ github.workspace }}/packages/vscode/multifront-vscode-<version>.vsix` to `$GITHUB_ENV`, so every later step has it.
      3. `pnpm install --frozen-lockfile`.
-     4. `id: vsix`: writes `path=${{ github.workspace }}/packages/vscode/multifront-vscode-<version>.vsix` to `$GITHUB_OUTPUT`.
-     5. `pnpm devx vsix`.
-     6. ci.yml's `.vscode-test` cache, with the same key so it reuses the `check` job's cache, and `sudo sysctl -w kernel.core_pattern=/dev/null`.
-     7. "Test the packed file": `pnpm devx test --reporter verbose packages/e2e/editor/vscode/vsix.spec.ts`, with `MULTIFRONT_VSIX: ${{ steps.vsix.outputs.path }}`. The harness starts its own Xvfb.
-     8. "Publish to the VS Code Marketplace", `if: github.event_name == 'release'`: `pnpm exec vsce publish --packagePath "$MULTIFRONT_VSIX" --skip-duplicate`, env `VSCE_PAT: ${{ secrets.VSCE_PAT }}`. vsce reads `VSCE_PAT` itself.
-     9. "Publish to Open VSX", same `if`: `pnpm exec ovsx publish "$MULTIFRONT_VSIX" --skip-duplicate`, env `OVSX_PAT: ${{ secrets.OVSX_PAT }}`. ovsx reads `OVSX_PAT` itself. Because a PAT is given, ovsx does not try OIDC, so no `id-token` permission.
+     4. `pnpm devx vsix`.
+     5. ci.yml's `.vscode-test` cache, with the same key so it reuses the `check` job's cache, and `sudo sysctl -w kernel.core_pattern=/dev/null`.
+     6. "Test the packed file": `pnpm devx test --reporter verbose packages/e2e/editor/vscode/vsix.spec.ts`. The harness starts its own Xvfb.
+     7. "Publish to the VS Code Marketplace", `if: github.event_name == 'release'`: `pnpm exec vsce publish --packagePath "$MULTIFRONT_VSIX" --skip-duplicate`, env `VSCE_PAT: ${{ secrets.VSCE_PAT }}`. vsce reads `VSCE_PAT` itself.
+     8. "Publish to Open VSX", same `if`: `pnpm exec ovsx publish "$MULTIFRONT_VSIX" --skip-duplicate`, env `OVSX_PAT: ${{ secrets.OVSX_PAT }}`. ovsx reads `OVSX_PAT` itself. Because a PAT is given, ovsx does not try OIDC, so no `id-token` permission.
    - `--skip-duplicate` on both: re-running a release whose Open VSX step failed must not fail on the Marketplace version that already went out.
 3. **`ovsx` 1.2.0** as a new exact-pinned root devDependency (`pnpm add -D -w ovsx@1.2.0`).
    - 1.2.0 is the newest release older than 30 days (2026-09-10).
@@ -63,14 +62,16 @@ Today `packages/e2e/editor/vscode/vsix.spec.ts` always packs its own copy: `pack
 - Pre-release channel (orchestrator): none. A release whose `version.json` is not plain `major.minor.patch` fails before anything is packed. Milestone open question 5 is settled (publisher `mionkit`, no pre-release channel), and `docs/plan.md`'s versioning bullet notes the version shape.
 - CI proof (orchestrator): the workflow's `pull_request` dry run on its three paths, both publish steps gated on `github.event_name == 'release'`.
 - ovsx 1.2.0, the `MULTIFRONT_VSIX` and `GITHUB_REF_NAME` rows and `--skip-duplicate` (orchestrator): approved as planned.
+- Review: `VSCE_PAT` and `OVSX_PAT` get `secret` rows after all. AGENTS.md lists every env var a CI step reads, the registry has a `secret` scope for credentials, and `FORCE_COLOR` sets the precedent of a row for a var only a tool reads. The milestone step text follows.
+- Review: the version check runs on the PR dry run too (only the tag compare needs a release), and the `.vsix` path goes through `GITHUB_ENV` once instead of three `env:` mappings.
 
 ## Tests
 
 Area Editor.
 
 - `packages/e2e/editor/vscode/vsix.spec.ts` with no env var: unchanged behaviour. It runs in ci.yml's `check` job and floor jobs, and on this host (Xvfb and the cached VS Code 1.137.0 are present).
-- With `MULTIFRONT_VSIX`: on this host, `pnpm devx vsix`, then `MULTIFRONT_VSIX=<abs path> pnpm devx test packages/e2e/editor/vscode/vsix.spec.ts`. Every check passes on the given file, and the error is checked for a missing path.
-- In CI: the workflow's PR dry run runs the same thing on this PR. The `PR` message quotes its log lines showing the spec's tests executing.
+- With `MULTIFRONT_VSIX`: on this host, `pnpm devx vsix`, then `MULTIFRONT_VSIX=<abs path> pnpm devx test packages/e2e/editor/vscode/vsix.spec.ts`. Every check passes on the given file. A test that runs only when `MULTIFRONT_VSIX` is set (`it.runIf`) checks the file under test is that one, so a slip back to a fresh pack fails the release instead of publishing an untested file.
+- In CI: the workflow's PR dry run runs the same thing on this PR. The PR description and the `PR` message quote its log lines showing the spec's tests executing, the `MULTIFRONT_VSIX` one included.
 - The publish steps cannot run before the first real release. That run is checked by hand (SETUP.md), as the step says.
 
 ## Fuzzing
