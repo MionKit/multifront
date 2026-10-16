@@ -1,4 +1,4 @@
-// What the `mf-fmt` and `mf-lint` specs share: the real oxfmt and oxlint CLIs, the fixture app and its expected outputs.
+// Shared by the format/ and lint/ specs: real oxfmt and oxlint CLIs, the fixture app, its expected outputs.
 import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync} from 'node:fs';
 import {dirname, join} from 'node:path';
