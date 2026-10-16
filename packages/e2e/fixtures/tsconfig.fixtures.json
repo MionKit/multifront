@@ -65,8 +65,6 @@
     // core/test/svelte/rootProps.spec.ts pins the `class` with no value, which Svelte's own types reject.
     "components/svelte/root-props/ValuelessClass.ucf",
     // core/test/svelte/forward.spec.ts pins Svelte's error on its text event attribute.
-    "components/svelte/roots/StringHandlerRoot.ucf",
-    // svelte2tsx writes the backtick of an attribute value into a template literal unescaped.
-    "components/svelte/root-props/Merges.ucf"
+    "components/svelte/roots/StringHandlerRoot.ucf"
   ]
 }
