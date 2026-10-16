@@ -1,7 +1,7 @@
 // Plain CommonJS: VS Code's extension host loads extension test files with require.
 // `runInVsCode()` in ../lib/vscode.ts reads the JSON results file it writes.
 const {execFileSync} = require('node:child_process');
-const {writeFileSync} = require('node:fs');
+const {readFileSync, writeFileSync} = require('node:fs');
 const {join} = require('node:path');
 
 /** Never throws: a failed check is recorded, so VS Code exits 0 and the spec still reads every result. */
@@ -17,6 +17,9 @@ async function runChecks(checks) {
   }
   writeFileSync(process.env.MULTIFRONT_VSCODE_RESULTS, JSON.stringify(results, null, 2));
 }
+
+/** What the spec got from the real mf-* commands on the same files. */
+const expected = () => JSON.parse(readFileSync(process.env.MULTIFRONT_VSCODE_DATA, 'utf8'));
 
 /** Language features answer late, or with `(loading...)` first. */
 async function until(probe, what, ms = 60_000) {
@@ -92,4 +95,18 @@ function mainProcess() {
   throw new Error('no VS Code main process above the extension host');
 }
 
-module.exports = {runChecks, mainProcess, until, show, positionOf, serverProcesses, hoverAt, codeOf};
+/** The text after Format Document, as VS Code applies its edits. */
+async function formattedText(document) {
+  const vscode = require('vscode');
+  const options = {tabSize: 2, insertSpaces: true};
+  const edits = await until(async () => {
+    const found = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', document.uri, options);
+    return found?.length > 0 && found;
+  }, 'formatting edits');
+  // Last edit first, so the earlier offsets still hold.
+  const sorted = edits.map((edit) => ({start: document.offsetAt(edit.range.start), end: document.offsetAt(edit.range.end), text: edit.newText}));
+  sorted.sort((first, second) => second.start - first.start);
+  return sorted.reduce((text, {start, end, text: newText}) => text.slice(0, start) + newText + text.slice(end), document.getText());
+}
+
+module.exports = {runChecks, mainProcess, until, show, positionOf, serverProcesses, hoverAt, codeOf, expected, formattedText};

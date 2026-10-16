@@ -2,11 +2,9 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
-import type {Finding} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../../fixtures/index.ts';
-import {runMfFmt, runMfLint, runMfTsc} from '../lib/commands.ts';
-import type {BinReport, BinRun} from '../lib/commands.ts';
+import {jsonFindings, runMfFmt, runMfLint, runMfTsc} from '../lib/commands.ts';
 import {formatting, LINT_FORMAT, LINT_FORMAT_SVELTE, ORIGINAL, read} from '../lib/format.ts';
 import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from '../lib/lint.ts';
 import {labels, markupCompletions} from '../lib/markup.ts';
@@ -120,12 +118,6 @@ async function brokenCopy(): Promise<string> {
   return root;
 }
 
-async function findings(run: Promise<BinRun>): Promise<Finding[]> {
-  const {code, stdout, stderr} = await run;
-  expect({code, stderr}).toEqual({code: 1, stderr: ''});
-  return (JSON.parse(stdout) as BinReport<object>).findings;
-}
-
 describe('a real VS Code with the .vsix installed into a fresh extensions folder', () => {
   let workspace: string | undefined;
   let other: string | undefined;
@@ -139,8 +131,8 @@ describe('a real VS Code with the .vsix installed into a fresh extensions folder
     other = await brokenCopy();
     const args = [GREETING, '--format', 'json'];
     const [tsc, lint, fmt] = await Promise.all([
-      findings(runMfTsc(workspace, args)),
-      findings(runMfLint(workspace, args)),
+      jsonFindings(runMfTsc(workspace, args)),
+      jsonFindings(runMfLint(workspace, args)),
       runMfFmt(other, [GREETING]),
     ]);
     expect({code: fmt.code, stderr: fmt.stderr}).toEqual({code: 0, stderr: ''});

@@ -1,16 +1,13 @@
 // Milestone 7 exit test, run in real VS Code by exit.spec.ts with the packed .vsix installed, on an edited Card.ucf copy.
 // `vscode` is required in `run`, so exit.spec.ts can load the check names outside VS Code.
 const assert = require('node:assert/strict');
-const {readFileSync} = require('node:fs');
 const {join} = require('node:path');
-const {codeOf, positionOf, runChecks, show, until} = require('./harness.cjs');
+const {codeOf, expected, formattedText, positionOf, runChecks, show, until} = require('./harness.cjs');
 
 let vscode;
 // Typed as the last markup of <svelte>, unclosed, as VS Code holds it while typing.
 const MARKUP_END = ['\n</svelte>', 0];
 
-/** What exit.spec.ts got from the real mf-tsc, mf-lint and mf-fmt on the same file. */
-const expected = () => JSON.parse(readFileSync(process.env.MULTIFRONT_VSCODE_DATA, 'utf8'));
 const card = () => join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'Card.ucf');
 
 /** mf-* positions are 1-based, VS Code's 0-based. */
@@ -76,16 +73,7 @@ const checks = [
   {
     name: '4. Format Document on Card.ucf gives byte for byte what mf-fmt writes on a second copy',
     async run() {
-      const document = await show(card());
-      const options = {tabSize: 2, insertSpaces: true};
-      const edits = await until(async () => {
-        const found = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', document.uri, options);
-        return found?.length > 0 && found;
-      }, 'formatting edits');
-      // Last edit first, so the earlier offsets still hold.
-      const sorted = edits.map((edit) => ({start: document.offsetAt(edit.range.start), end: document.offsetAt(edit.range.end), text: edit.newText}));
-      sorted.sort((first, second) => second.start - first.start);
-      const formatted = sorted.reduce((text, {start, end, text: newText}) => text.slice(0, start) + newText + text.slice(end), document.getText());
+      const formatted = await formattedText(await show(card()));
       assert.equal(formatted, expected().formatted);
     },
   },

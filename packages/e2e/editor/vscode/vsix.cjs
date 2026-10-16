@@ -1,14 +1,11 @@
 // Step 7.13, run in real VS Code by vsix.spec.ts with the packed .vsix installed, on a types-every-target/ copy.
 // `vscode` is required in `run`, so vsix.spec.ts can load the check names outside VS Code.
 const assert = require('node:assert/strict');
-const {readFileSync} = require('node:fs');
 const {basename, dirname, join} = require('node:path');
-const {codeOf, hoverAt, positionOf, runChecks, show, until} = require('./harness.cjs');
+const {codeOf, expected, formattedText, hoverAt, positionOf, runChecks, show, until} = require('./harness.cjs');
 
 let vscode;
 
-/** What vsix.spec.ts got from the real mf-tsc, mf-lint and mf-fmt on the same files. */
-const expected = () => JSON.parse(readFileSync(process.env.MULTIFRONT_VSCODE_DATA, 'utf8'));
 const workspaceFile = (name) => join(vscode.workspace.workspaceFolders[0].uri.fsPath, name);
 
 /** mf-* positions are 1-based, VS Code's 0-based. */
@@ -60,18 +57,7 @@ const checks = [
     name: 'Format Document on Greeting.ucf gives what mf-fmt writes',
     async run() {
       const greeting = await show(workspaceFile('Greeting.ucf'));
-      const options = {tabSize: 2, insertSpaces: true};
-      const edits = await until(
-        async () => {
-          const found = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', greeting.uri, options);
-          return found?.length > 0 && found;
-        },
-        'formatting edits'
-      );
-      // Last edit first, so the earlier offsets still hold.
-      const sorted = edits.map((edit) => ({start: greeting.offsetAt(edit.range.start), end: greeting.offsetAt(edit.range.end), text: edit.newText}));
-      sorted.sort((first, second) => second.start - first.start);
-      const formatted = sorted.reduce((text, {start, end, text: newText}) => text.slice(0, start) + newText + text.slice(end), greeting.getText());
+      const formatted = await formattedText(greeting);
       assert.notEqual(formatted, greeting.getText(), 'formatting changed nothing');
       assert.equal(formatted, expected().formatted);
     },

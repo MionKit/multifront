@@ -43,7 +43,7 @@ export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   return root;
 }
 
-const VSIX_FILE = 'multifront-vscode-0.0.0.vsix';
+export const VSIX_FILE = 'multifront-vscode-0.0.0.vsix';
 
 /** Packs and unzips into `dir/extension/`; the packed file stays as `dir/<VSIX_FILE>`. */
 export async function packVsix(dir: string): Promise<string> {

@@ -5,7 +5,6 @@ import {DiagnosticsError, buildTarget, createBuildContext, findingOf, loadVueCom
 import type {Finding} from '@multifront/core';
 import {describe, expect, it} from 'vitest';
 import {componentPath, copyAppOutside} from '../../fixtures/index.ts';
-import {PLUGIN} from '../lib/cases.ts';
 import {runMfTsc} from '../lib/commands.ts';
 import {
   BAD_PAGE,
@@ -19,6 +18,7 @@ import {
   VUE_BREAKS,
   addFile,
   assertNotInstalled,
+  bothHosts,
   editFile,
   fails,
   line,
@@ -27,7 +27,7 @@ import {
   span,
   withCopy,
 } from '../lib/tsc.ts';
-import {offsetAt, open, startTsserver} from '../lib/tsserver.ts';
+import {offsetAt} from '../lib/tsserver.ts';
 
 // JS `<vue>` and `<svelte>` blocks: their generators still write TypeScript-only syntax into the JS script.
 const PLAIN = `<vue>
@@ -70,35 +70,6 @@ const VUE_PICKS = `<vue>
   </template>
 </vue>
 `;
-
-type Located = Pick<Finding, 'code' | 'line' | 'column' | 'end'>;
-
-// Each file's problems in the real `mf-tsc` and the real tsserver with our plugin.
-async function bothHosts(root: string, files: string[]): Promise<{ours: Located[][]; theirs: Located[][]}> {
-  const {findings} = report((await runMfTsc(root, [...files, '--format', 'json'])).stdout);
-  const ours = files.map((name) =>
-    findings.filter(({file}) => file === name).map(({code, line, column, end}) => ({code, line, column, end}))
-  );
-  const tsserver = startTsserver({cwd: root, plugins: [PLUGIN]});
-  try {
-    const components = files.map((file) => ({filename: join(root, file), source: readFileSync(join(root, file), 'utf8')}));
-    await open(tsserver, components);
-    const theirs: Located[][] = [];
-    for (const {filename} of components) {
-      theirs.push(
-        (await tsserver.diagnostics(filename)).map(({code, start, end}) => ({
-          code: typeof code === 'number' ? `TS${code}` : String(code),
-          line: start.line,
-          column: start.offset,
-          end: {line: end.line, column: end.offset},
-        }))
-      );
-    }
-    return {ours, theirs};
-  } finally {
-    await tsserver.stop();
-  }
-}
 
 describe('mf-tsc over every target', () => {
   it('reports each broken block in its own framework, inside that block, imported or not', async () => {

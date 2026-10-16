@@ -7,8 +7,10 @@ import type {Finding} from '@multifront/core';
 import {expect} from 'vitest';
 import {edited} from '../../build/lib/library.ts';
 import {FIXTURES_DIR, copyApp, removeApp} from '../../fixtures/index.ts';
+import {PLUGIN} from './cases.ts';
+import {runMfTsc} from './commands.ts';
 import type {BinReport} from './commands.ts';
-import {locate} from './tsserver.ts';
+import {locate, open, startTsserver} from './tsserver.ts';
 
 export const BROKEN = 'types-broken';
 export const VALID = 'types-every-target';
@@ -29,6 +31,50 @@ export function span(
   const {line, offset} = locate(source, needle, shift);
   return {line, column: offset, end: {line, column: offset + length}};
 }
+
+export type Located = Pick<Finding, 'code' | 'line' | 'column' | 'end'>;
+
+/** Each file's problems in the real `mf-tsc` and the real tsserver, by default with our plugin from source. */
+export async function bothHosts(
+  root: string,
+  files: string[],
+  options: Omit<Parameters<typeof startTsserver>[0], 'cwd'> = {plugins: [PLUGIN]}
+): Promise<{ours: Located[][]; theirs: Located[][]}> {
+  const {findings} = report((await runMfTsc(root, [...files, '--format', 'json'])).stdout);
+  const ours = files.map((name) =>
+    findings.filter(({file}) => file === name).map(({code, line, column, end}) => ({code, line, column, end}))
+  );
+  const tsserver = startTsserver({cwd: root, ...options});
+  try {
+    const components = files.map((file) => ({filename: join(root, file), source: readFileSync(join(root, file), 'utf8')}));
+    await open(tsserver, components);
+    const theirs: Located[][] = [];
+    for (const {filename} of components) {
+      theirs.push(
+        (await tsserver.diagnostics(filename)).map(({code, start, end}) => ({
+          code: typeof code === 'number' ? `TS${code}` : String(code),
+          line: start.line,
+          column: start.offset,
+          end: {line: end.line, column: end.offset},
+        }))
+      );
+    }
+    return {ours, theirs};
+  } finally {
+    await tsserver.stop();
+  }
+}
+
+// The milestone 7 exit test's edit of fixtures Card.ucf: a number passed to a string attribute in its <svelte> markup.
+const SVELTE_PROPS = '    let { title }: { title: string } = $props()\n';
+const SVELTE_HEADING = '<h2>{title}</h2></div>\n</svelte>';
+
+export const breakSvelteMarkup = (card: string): string =>
+  edited(
+    edited(card, SVELTE_PROPS, `${SVELTE_PROPS}    const count: number = 1\n`),
+    SVELTE_HEADING,
+    SVELTE_HEADING.replace('<h2>', '<h2 title={count}>')
+  );
 
 export const line = ({file, line, column, code, framework, severity, message}: Finding) =>
   `${file}:${line}:${column}: ${severity} ${code}${framework ? ` (${framework})` : ''}: ${message}`;
