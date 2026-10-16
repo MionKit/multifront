@@ -53,23 +53,39 @@ function consumerEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+export interface AppRun extends ToolRun {
+  stdout: string;
+  stderr: string;
+}
+
 /** Never throws on a non-zero exit: the code and the output say what happened. */
-export function runInApp(app: ConsumerApp, [file, ...args]: Command): Promise<ToolRun> {
+export function runInApp(app: ConsumerApp, [file, ...args]: Command, cwd = app.dir): Promise<AppRun> {
   return new Promise((resolve) => {
-    execFile(file, args, {cwd: app.dir, env: consumerEnv(), maxBuffer: 64 * 1024 * 1024}, (err, stdout, stderr) => {
+    execFile(file, args, {cwd, env: consumerEnv(), maxBuffer: 64 * 1024 * 1024}, (err, stdout, stderr) => {
       const output = `${stdout}${stderr}`;
-      if (!err) return resolve({code: 0, output});
+      if (!err) return resolve({code: 0, output, stdout, stderr});
       const {code, signal} = err;
       resolve({
         code: typeof code === 'number' ? code : 1,
         output: signal ? `${output}\nkilled by ${signal}` : output || String(err),
+        stdout,
+        stderr,
       });
     });
   });
 }
 
-/** A `fixtures/apps/<template>` copy outside the workspace, tarballs installed. */
-export async function createConsumerApp(template: string, tarballs: string[]): Promise<ConsumerApp> {
+interface ConsumerAppOptions {
+  // `@multifront/*` from this registry, everything else from npm.
+  registry?: string;
+}
+
+/** A `fixtures/apps/<template>` copy outside the workspace, tarballs (or package specs) installed. */
+export async function createConsumerApp(
+  template: string,
+  tarballs: string[],
+  {registry}: ConsumerAppOptions = {}
+): Promise<ConsumerApp> {
   const dir = await mkdtemp(join(tmpdir(), `mf-consumer-${template}-`));
   const app: ConsumerApp = {
     dir,
@@ -81,7 +97,10 @@ export async function createConsumerApp(template: string, tarballs: string[]): P
   try {
     const skip = new Set(['node_modules', 'dist']);
     await cp(join(FIXTURES_DIR, 'apps', template), dir, {recursive: true, filter: (source) => !skip.has(basename(source))});
-    await writeFile(join(dir, 'pnpm-workspace.yaml'), INSTALL_POLICY);
+    // Packages just published to the registry are younger than any release age.
+    const policy = registry ? INSTALL_POLICY.replace(/^minimumReleaseAgeExclude:\n/m, "$&  - '@multifront/*'\n") : INSTALL_POLICY;
+    await writeFile(join(dir, 'pnpm-workspace.yaml'), policy);
+    if (registry) await writeFile(join(dir, '.npmrc'), `@multifront:registry=${registry}\n`);
     const commands: Command[] = [['pnpm', 'install']];
     if (tarballs.length > 0) commands.push(['pnpm', 'add', ...tarballs]);
     for (const command of commands) {

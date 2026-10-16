@@ -1,0 +1,16 @@
+# Throwaway local registry of the consumer specs, MionKit/mion's pattern: the packed tarballs are published here and a
+# fresh app installs them. Only @multifront/* lives here, with no uplink: the app's .npmrc sends every other package
+# to npm. Anonymous publish and read on purpose (temporary, localhost only). Paths are relative to this file's copy.
+storage: ./storage
+uplinks: {}
+packages:
+  '@multifront/*':
+    access: $all
+    publish: $all
+    unpublish: $all
+publish:
+  allow_offline: true
+log:
+  type: stdout
+  format: pretty
+  level: warn

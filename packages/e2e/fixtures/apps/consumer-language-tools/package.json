@@ -1,0 +1,14 @@
+{
+  "name": "consumer-language-tools",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "oxfmt": "0.67.0",
+    "oxlint": "1.82.0",
+    "react": "19.3.0",
+    "svelte": "5.57.0",
+    "typescript": "6.0.3",
+    "vue": "3.5.42"
+  }
+}

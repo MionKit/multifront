@@ -1,13 +1,13 @@
 import {execFile} from 'node:child_process';
-import {existsSync, readFileSync} from 'node:fs';
-import {writeFile} from 'node:fs/promises';
+import {existsSync, readFileSync, readdirSync, realpathSync} from 'node:fs';
+import {cp, mkdir, mkdtemp, rm, symlink, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {basename, dirname, join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import {TARGETS} from '@multifront/core';
 import type {Target} from '@multifront/core';
 import {buildLibrary} from '@multifront/vite';
-import {LIBRARY_DIR} from '../../fixtures/index.ts';
+import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR} from '../../fixtures/index.ts';
 import {buildFixtureLibrary} from '../../build/lib/library.ts';
 
 const run = promisify(execFile);
@@ -57,6 +57,61 @@ export async function fixtureTarballs(
 export async function tarFiles(tarball: string): Promise<string[]> {
   const {stdout} = await run('tar', ['-tzf', tarball]);
   return stdout.split('\n').filter(Boolean).sort();
+}
+
+const REPO_ROOT = join(FIXTURES_DIR, '..', '..', '..');
+const TSC = join(REPO_ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
+// language-tools last: it depends on core, which the staged workspace links in.
+const STAGED = ['core', 'language-tools'] as const;
+const LEFT_OUT = new Set(['node_modules', 'dist', 'test', 'coverage']);
+
+export interface LanguageToolsTarballs {
+  core: string;
+  languageTools: string;
+  remove: () => Promise<void>;
+}
+
+function entriesOf(modules: string): string[] {
+  return readdirSync(modules)
+    .filter((name) => !name.startsWith('.'))
+    .flatMap((name) => (name.startsWith('@') ? readdirSync(join(modules, name)).map((scoped) => `${name}/${scoped}`) : [name]));
+}
+
+// Real `tsc --build` and `pnpm pack` in a staged workspace, never in the `dist/` built-packages.spec.ts builds at once.
+export async function packLanguageTools(): Promise<LanguageToolsTarballs> {
+  await mkdir(TMP_DIR, {recursive: true});
+  // Inside the repo: TypeScript finds the root `node_modules` above it.
+  const stage = await mkdtemp(join(TMP_DIR, 'language-tools-pack-'));
+  const remove = () => rm(stage, {recursive: true, force: true});
+  try {
+    for (const file of ['LICENSE', 'tsconfig.base.json']) await cp(join(REPO_ROOT, file), join(stage, file));
+    // pnpm pack turns `workspace:*` into the version only inside a workspace.
+    await writeFile(join(stage, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+    for (const name of STAGED) {
+      const from = join(REPO_ROOT, 'packages', name);
+      const to = join(stage, 'packages', name);
+      const filter = (source: string) => !LEFT_OUT.has(basename(source)) && !source.endsWith('.tsbuildinfo');
+      await cp(from, to, {recursive: true, filter});
+      // The real installs, but the staged core: a link to the real one would pull its `src/` into the build.
+      for (const entry of entriesOf(join(from, 'node_modules'))) {
+        const link = join(to, 'node_modules', entry);
+        await mkdir(dirname(link), {recursive: true});
+        const target =
+          entry === '@multifront/core' ? join(stage, 'packages', 'core') : realpathSync(join(from, 'node_modules', entry));
+        await symlink(target, link, 'junction');
+      }
+    }
+    await run(process.execPath, [TSC, '--build', join(stage, 'packages', 'language-tools', 'tsconfig.build.json')]);
+    const packed: string[] = [];
+    for (const name of STAGED) {
+      const {stdout} = await run('pnpm', ['pack', '--pack-destination', stage, '--json'], {cwd: join(stage, 'packages', name)});
+      packed.push((JSON.parse(stdout) as {filename: string}).filename);
+    }
+    return {core: packed[0]!, languageTools: packed[1]!, remove};
+  } catch (err) {
+    await remove();
+    throw err;
+  }
 }
 
 // publint exports no `package.json`; its bin sits beside its main file.
