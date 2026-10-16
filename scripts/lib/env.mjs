@@ -18,7 +18,9 @@ export function loadEnv() {
 // scope: secret = credential, dev = knob with a default, internal = set by the scripts or a tool they run (never in .env).
 export const REGISTRY = [
   {name: 'CI', scope: 'internal', desc: 'set by CI; skips loading .env, and peer-floor runs only with it set'},
+  {name: 'GITHUB_ENV', scope: 'internal', desc: 'set by GitHub Actions; the vscode-release workflow writes MULTIFRONT_VSIX there for its later steps'},
   {name: 'GITHUB_OUTPUT', scope: 'internal', desc: 'set by GitHub Actions; the CI Playwright version step writes the cache key there'},
+  {name: 'GITHUB_REF_NAME', scope: 'internal', desc: 'set by GitHub Actions; on a release, the vscode-release workflow checks it is v<version.json>'},
   {name: 'NODE_ENV', scope: 'internal', desc: 'set to test by Vitest; the e2e build helpers pin production or development around Vite; the consumer helpers clear it for the temp apps'},
   {name: 'NODE_OPTIONS', scope: 'internal', desc: 'the e2e language server helper appends --conditions=source, so the forked bin runs from src'},
   {name: 'NODE_PATH', scope: 'internal', desc: "set by pnpm's bin shims into the repo's packages; the editor and compiler lookup tests and the consumer helpers clear it for their child processes"},
@@ -35,6 +37,8 @@ export const REGISTRY = [
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_VSCODE_DATA', scope: 'internal', desc: 'set by the real VS Code harness: the JSON file the check suite inside VS Code reads its expected results from'},
+  {name: 'VSCE_PAT', scope: 'secret', desc: 'repository secret; the vscode-release workflow hands it to vsce publish (VS Code Marketplace token)'},
+  {name: 'OVSX_PAT', scope: 'secret', desc: 'repository secret; the vscode-release workflow hands it to ovsx publish (Open VSX token)'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
   {name: 'MULTIFRONT_VSIX', scope: 'internal', desc: 'set by the vscode-release workflow: the .vsix pnpm devx vsix packed; editor/vscode/vsix.spec.ts tests that file instead of packing its own, and the publish steps publish it'},
   {name: 'MULTIFRONT_CONSUMER_TARBALLS', scope: 'internal', desc: "set by CI's consumer job: the folder pnpm devx consumer-pack filled; the consumer tests install those tarballs instead of building their own"},
