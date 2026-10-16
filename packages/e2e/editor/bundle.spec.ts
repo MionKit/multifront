@@ -21,9 +21,8 @@ import {
   PLUGIN,
   readApp,
 } from './lib/cases.ts';
-import {runMfFmt} from './lib/commands.ts';
-import {LINT_FORMAT, MESSY, ORIGINAL, read} from './lib/format.ts';
-import {formatDocument, startLanguageServer, TSDK} from './lib/lsp.ts';
+import {formatting, LINT_FORMAT, LINT_FORMAT_SVELTE, ORIGINAL} from './lib/format.ts';
+import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {saveUcf} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
@@ -98,29 +97,13 @@ describe('the bundled server writes Svelte declarations on save', () => {
   });
 });
 
-describe('the bundled server formats with the project oxfmt, as VS Code runs it', () => {
-  let app: string;
-  let other: string;
-  let server: LanguageServer;
+describe.each([LINT_FORMAT, LINT_FORMAT_SVELTE])('the bundled server formats %s/ with the project oxfmt', (app) => {
+  const {mfFmt, format} = formatting(app, {server: () => join(extension, 'dist', 'server.cjs')});
 
-  beforeAll(async () => {
-    [app, other] = await Promise.all([copyApp(LINT_FORMAT), copyApp(LINT_FORMAT)]);
-    server = await startLanguageServer(app, {
-      server: join(extension, 'dist', 'server.cjs'),
-      initializationOptions: {typescript: {tsdk: TSDK}},
-    });
-  });
-
-  afterAll(async () => {
-    await server?.stop();
-    await Promise.all([app, other].filter(Boolean).map((root) => removeApp(root)));
-  });
-
-  it('Format Document on lint-format/Messy.ucf gives what the real mf-fmt writes', async () => {
-    expect(await runMfFmt(other, [MESSY])).toMatchObject({code: 0, stderr: ''});
-    const {text} = await formatDocument(server, join(app, MESSY));
+  it('Format Document on Messy.ucf gives what the real mf-fmt writes', async () => {
+    const {text} = await format(ORIGINAL);
     expect(text).not.toBe(ORIGINAL);
-    expect(text).toBe(read(other, MESSY));
+    expect(text).toBe(await mfFmt(ORIGINAL));
   });
 });
 
