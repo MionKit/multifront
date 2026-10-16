@@ -1,4 +1,4 @@
-// Fails once the pinned oxlint lints `.ucf` files itself, the upstream support `mf-lint` works around.
+// Fails once the pinned oxlint lints `.ucf` files itself, the gap `mf-lint` works around.
 import {spawnSync} from 'node:child_process';
 import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
