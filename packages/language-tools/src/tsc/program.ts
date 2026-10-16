@@ -62,6 +62,9 @@ function mapsAnywhere(language: Language<string>, {file, start, length = 0}: ts.
   return !!serviceScript && !!transformTextSpan(undefined, language, serviceScript, {start: start!, length}, true, () => true);
 }
 
+// TypeScript's "can only be used in TypeScript files": a generator's syntax where it maps nowhere, never the user's.
+const TS_ONLY_SYNTAX = new Set([8002, 8003, 8004, 8005, 8006, 8008, 8009, 8010, 8011, 8012, 8013, 8016, 8017, 8037]);
+
 const inNodeModules = (fileName: string): boolean => fileName.split('/').includes('node_modules');
 
 export function createChecked(
@@ -149,7 +152,8 @@ export function createChecked(
       const mapped = transformDiagnostic(language, diagnostic, program, true);
       if (mapped) return [{diagnostic: mapped, target}];
       // An unused generated helper (`noUnusedLocals`) is the generator's business, never the user's.
-      if (diagnostic.start === undefined || diagnostic.reportsUnnecessary || mapsAnywhere(language, diagnostic)) return [];
+      if (diagnostic.start === undefined || diagnostic.reportsUnnecessary || TS_ONLY_SYNTAX.has(diagnostic.code)) return [];
+      if (mapsAnywhere(language, diagnostic)) return [];
       const {start, contentStart} = split.targets[target]!;
       return [{diagnostic: {...diagnostic, file: ucf, start, length: contentStart - start}, target}];
     });
