@@ -43,12 +43,16 @@ export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   return root;
 }
 
+export const VSIX_FILE = 'multifront-vscode-0.0.0.vsix';
+
+/** Packs and unzips into `dir/extension/`; the packed file stays as `dir/<VSIX_FILE>`. */
 export async function packVsix(dir: string): Promise<string> {
   const root = tempRepo();
   try {
     const result = spawnSync(process.execPath, [join(root, 'scripts', 'devx.mjs'), 'vsix'], {cwd: root, encoding: 'utf8'});
     if (result.status !== 0) throw new Error(`pnpm devx vsix failed:\n${result.stdout}\n${result.stderr}`);
-    await unzipVsix(join(root, 'packages', 'vscode', 'multifront-vscode-0.0.0.vsix'), dir);
+    cpSync(join(root, 'packages', 'vscode', VSIX_FILE), join(dir, VSIX_FILE));
+    await unzipVsix(join(dir, VSIX_FILE), dir);
   } finally {
     rmSync(root, {recursive: true, force: true});
   }
