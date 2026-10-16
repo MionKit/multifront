@@ -79,6 +79,15 @@ function propsMappings(block: Block, code: string, mappings: CodeMapping[]): Cod
   return found;
 }
 
+// svelte2tsx names `$$ComponentProps` for `let props = $props()` too, but declares it only for a destructured one.
+// Its own type for that case, appended so no mapping moves.
+function withComponentProps(code: string, lang: SvelteTypes['lang']): string {
+  if (!code.includes('$$ComponentProps') || /type \$\$ComponentProps =|\} \$\$ComponentProps \*\//.test(code)) return code;
+  return lang === 'ts'
+    ? `${code}\n;type $$ComponentProps = Record<string, any>;\n`
+    : `${code}\n/** @typedef {Record<string, any>} $$ComponentProps */\n`;
+}
+
 // svelte2tsx's script, then `declare const __ucfStyle: {readonly card: string};` per class map the block uses.
 export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
@@ -120,7 +129,7 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
   let code = prefix + script.code;
   for (const [module, local] of locals) code = declareModule(code, local, module.classes, mappings);
   mappings.push(...propsMappings(block, code, mappings));
-  return {code, mappings, lang};
+  return {code: withComponentProps(code, lang), mappings, lang};
 }
 
 function types(block: Block, ctx: EditorContext): EditorFile | undefined {

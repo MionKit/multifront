@@ -47,6 +47,20 @@ const PLAIN = `<vue>
 </svelte>
 `;
 
+const WHOLE = `<svelte>
+  <script lang="ts">
+    let props = $props()
+  </script>
+  <p>{props.label}</p>
+</svelte>
+`;
+
+const WHOLE_IMPORTER = `import type {ComponentProps} from 'svelte';
+import Whole from './Whole.ucf' with {framework: 'svelte'};
+
+export const props: ComponentProps<typeof Whole> = {label: 'any', other: 1};
+`;
+
 const VUE_PICKS = `<vue>
   <script setup lang="ts">
   import ReactBreaks from './ReactBreaks.ucf'
@@ -271,6 +285,26 @@ describe('mf-tsc over every target', () => {
         annotation('vueLabel: string', 'vue'),
         annotation('svelteLabel: string', 'svelte'),
       ]);
+    });
+  });
+
+  it('types an unannotated `let props = $props()` as svelte2tsx means to, open to any prop, in TS and JS', async () => {
+    await withCopy(VALID, async (root) => {
+      addFile(root, 'Whole.ucf', WHOLE);
+      addFile(root, 'whole.ts', WHOLE_IMPORTER);
+      expect(await runMfTsc(root, ['Whole.ucf', 'whole.ts'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 2 files with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+      // A JS block's JSDoc names the same type, which `checkJs` resolves.
+      addFile(root, 'WholeJs.ucf', WHOLE.replace(' lang="ts"', ''));
+      editFile(root, 'tsconfig.json', '"strict": true,', '"strict": true,\n    "allowJs": true,\n    "checkJs": true,');
+      expect(await runMfTsc(root, ['WholeJs.ucf'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 1 file with tsconfig.json: no errors\n',
+        stderr: '',
+      });
     });
   });
 
