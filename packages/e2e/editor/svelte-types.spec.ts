@@ -8,7 +8,7 @@ import {createLanguage} from '@volar/language-core';
 import type {VirtualCode} from '@volar/language-core';
 import typescript from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {FIXTURES_DIR, readComponent} from '../fixtures/index.ts';
+import {FIXTURES_DIR, componentPath, readComponent} from '../fixtures/index.ts';
 import {edit, PLUGIN} from './lib/cases.ts';
 import {locate, open, startTsserver} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
@@ -146,6 +146,22 @@ describe('getTypesScript for the svelte target', () => {
     expect(types.code).not.toContain('__ucfStyle');
     const markupError = readComponent('svelte/errors/UnclosedBrace.ucf');
     expect(getTypesScript(markupError.filename, markupError.source, 'svelte', {svelteCompiler})).toBeUndefined();
+  });
+
+  it("declares svelte2tsx's `$$ComponentProps` once: added for a bare `$props()`, never beside svelte2tsx's own", () => {
+    const declarations = /type \$\$ComponentProps =|@typedef \{.*?\}\s+\$\$ComponentProps \*\//g;
+    // A root of text: no root prop rewrites the annotation, which svelte2tsx then declares itself.
+    const blocks = {
+      bare: '<script lang="ts">\n  let props = $props()\n</script>\n{props.label}',
+      bareJs: '<script>\n  let props = $props()\n</script>\n{props.label}',
+      typed: '<script lang="ts">\n  let {label}: {label?: string} = $props()\n</script>\n{label}',
+      typedJs: '<script>\n  /** @type {{ label?: string }} */\n  let {label} = $props()\n</script>\n{label}',
+    };
+    for (const [name, block] of Object.entries(blocks)) {
+      const filename = componentPath(`svelte/${name}.ucf`);
+      const {code} = getTypesScript(filename, `<svelte>\n${block}\n</svelte>\n`, 'svelte', {svelteCompiler})!;
+      expect(code.match(declarations), name).toHaveLength(1);
+    }
   });
 
   it("resolves the block's own import to PanelItem.ucf.svelte.ts", () => {
