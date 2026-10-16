@@ -135,7 +135,8 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
   const mappings = composeMappings(outer, inner);
   let code = prefix + script.code;
   for (const [module, local] of locals) code = declareModule(code, local, module.classes, mappings);
-  mappings.push(...propsMappings(block, code, mappings));
+  // First: Volar completes at the first mapping with entries, and svelte2tsx also maps a gap's newline.
+  mappings.unshift(...propsMappings(block, code, mappings));
   return {code: withComponentProps(code, lang), mappings, lang};
 }
 
