@@ -1,6 +1,6 @@
 <react>
   export default function ClientHandler() {
-    const handle = () => console.log('clicked')
+    const handle = () => window.alert('clicked')
     return <button onClick={handle}>Click</button>
   }
 </react>
