@@ -1,27 +1,32 @@
-import {execFileSync, spawn} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync} from 'node:fs';
+import {execFileSync, spawn, spawnSync} from 'node:child_process';
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {PassThrough} from 'node:stream';
-import {runTests} from '@vscode/test-electron';
+import {setTimeout as sleep} from 'node:timers/promises';
+import {downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, runTests} from '@vscode/test-electron';
 import {TMP_DIR} from '../../fixtures/index.ts';
 import {REPO_ROOT} from './vsix.ts';
 
 // Newest stable at least 30 days old: the same age floor as npm packages.
 export const VSCODE_VERSION = '1.137.0';
 export const CRASH_DIR = join(TMP_DIR, 'vscode-crashes');
+const CACHE_DIR = join(REPO_ROOT, '.vscode-test');
+// A download takes minutes at most: an older lock was left by a killed run.
+const STALE_LOCK_MS = 15 * 60_000;
 
 interface CheckResult {
   name: string;
   error?: string; // the failed check's stack
 }
 
-interface RunOptions {
-  extension: string; // the development extension folder
+type RunOptions = ({extension: string; vsix?: never} | {vsix: string; extension?: never}) & {
+  // extension: the development extension folder; vsix: a packed file, installed into the fresh extensions folder
   workspace: string;
   suite: string; // a .cjs file whose `run()` calls harness.cjs `runChecks`
   args?: string[]; // more VS Code arguments, such as `--disable-extension <id>`
-}
+  data?: unknown; // JSON the suite reads from the file `MULTIFRONT_VSCODE_DATA` names
+};
 
 interface Display {
   value: string;
@@ -29,19 +34,25 @@ interface Display {
 }
 
 /** Runs `suite` in the pinned VS Code; returns what each check recorded. */
-export async function runInVsCode({extension, workspace, suite, args = []}: RunOptions): Promise<CheckResult[]> {
+export async function runInVsCode({extension, vsix, workspace, suite, args = [], data}: RunOptions): Promise<CheckResult[]> {
+  const vscodeExecutablePath = await vscodeExecutable();
   const display = await startDisplay();
   const temp = mkdtempSync(join(tmpdir(), 'multifront-vscode-'));
   const results = join(temp, 'results.json');
+  const dataFile = join(temp, 'data.json');
+  if (data !== undefined) writeFileSync(dataFile, JSON.stringify(data));
   const output: string[] = [];
   const stream = new PassThrough();
   stream.on('data', (chunk: Buffer) => output.push(chunk.toString()));
   let checks: CheckResult[];
   try {
+    if (vsix) installVsix(vscodeExecutablePath, vsix, temp);
+    // VS Code runs a test suite only beside a development path: an empty one leaves the installed copy in charge.
+    const development = extension ?? join(temp, 'no-development-extension');
+    mkdirSync(development, {recursive: true});
     await runTests({
-      version: VSCODE_VERSION,
-      cachePath: join(REPO_ROOT, '.vscode-test'),
-      extensionDevelopmentPath: extension,
+      vscodeExecutablePath,
+      extensionDevelopmentPath: development,
       extensionTestsPath: suite,
       // Fresh profile: a kept one restores the hot-exit backup of an earlier run's unsaved edit.
       launchArgs: [
@@ -56,6 +67,7 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
       // Electron rejects the host's NODE_OPTIONS at startup; CI never sets it.
       extensionTestsEnv: {
         MULTIFRONT_VSCODE_RESULTS: results,
+        ...(data !== undefined && {MULTIFRONT_VSCODE_DATA: dataFile}),
         NODE_PATH: undefined,
         NODE_OPTIONS: undefined,
         ...(display && {DISPLAY: display.value}),
@@ -118,6 +130,52 @@ function processesNaming(temp: string): number[] {
     .split('\n')
     .filter((line) => line.includes(temp))
     .map((line) => Number.parseInt(line, 10));
+}
+
+/** The pinned VS Code, downloaded once: test-electron's download has no lock, and specs run in parallel. */
+async function vscodeExecutable(): Promise<string> {
+  mkdirSync(CACHE_DIR, {recursive: true});
+  const lock = join(CACHE_DIR, 'download.lock');
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      if (Date.now() - lockTime(lock) > STALE_LOCK_MS) rmSync(lock, {recursive: true, force: true});
+      else await sleep(500);
+    }
+  }
+  try {
+    return await downloadAndUnzipVSCode({version: VSCODE_VERSION, cachePath: CACHE_DIR});
+  } finally {
+    rmSync(lock, {recursive: true, force: true});
+  }
+}
+
+/** Released between the failed mkdir and this read: as good as fresh. */
+function lockTime(lock: string): number {
+  try {
+    return statSync(lock).mtimeMs;
+  } catch {
+    return Date.now();
+  }
+}
+
+/** As a user installs it: VS Code's own CLI, into the run's fresh profile. */
+function installVsix(vscodeExecutablePath: string, vsix: string, temp: string): void {
+  const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {reuseMachineInstall: true});
+  const profile = [`--extensions-dir=${join(temp, 'extensions')}`, `--user-data-dir=${join(temp, 'user-data')}`];
+  const result = spawnSync(cli!, [...cliArgs, '--install-extension', vsix, ...profile], {
+    encoding: 'utf8',
+    env: {...process.env, NODE_OPTIONS: undefined, NODE_PATH: undefined},
+    shell: process.platform === 'win32',
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `installing ${vsix} failed (${result.error?.message ?? `exit ${result.status}`}):\n${result.stdout}\n${result.stderr}`
+    );
+  }
 }
 
 function keepCrashDumps(temp: string): string | undefined {

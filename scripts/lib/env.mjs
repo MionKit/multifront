@@ -34,6 +34,7 @@ export const REGISTRY = [
   {name: 'NEXT_TELEMETRY_DISABLED', scope: 'internal', desc: 'set to 1 by the consumer test helpers for the temp apps, so Next.js sends no telemetry from a test run'},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
+  {name: 'MULTIFRONT_VSCODE_DATA', scope: 'internal', desc: 'set by the real VS Code harness: the JSON file the check suite inside VS Code reads its expected results from'},
   {name: 'MULTIFRONT_CHROMIUM_PATH', scope: 'dev', desc: 'Chromium the browser tests and docs-images use, when the Playwright one is not installed'},
   {name: 'MULTIFRONT_CONSUMER_TARBALLS', scope: 'internal', desc: "set by CI's consumer job: the folder pnpm devx consumer-pack filled; the consumer tests install those tarballs instead of building their own"},
   {name: 'MULTIFRONT_KEEP_CONSUMER_APPS', scope: 'dev', desc: 'keep the temp apps of the consumer tests (packages/e2e/consumer/) in the OS temp dir; each kept path is printed'},

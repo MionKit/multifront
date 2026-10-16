@@ -31,7 +31,7 @@ jobs:
         run: pnpm devx lint
       - name: Agent docs
         run: pnpm devx agent-docs
-      # The VS Code build the editor exit test downloads; its version is pinned in that file.
+      # The VS Code build the editor tests download; its version is pinned in that file.
       - &vscode-cache
         uses: actions/cache@v5
         with:
