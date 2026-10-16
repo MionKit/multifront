@@ -120,7 +120,7 @@ describe('tsserver with our plugin: props in a component start tag', () => {
     expect(await completedIn('  <Icon |', END)).toEqual(PROPS);
   });
 
-  // Milestone 7 QA: as typed at the end of the last markup line, with </svelte> on the next line.
+  // Milestone 7 QA: here </svelte> follows on the next line.
   it('<Icon typed unclosed at the end of the last markup line lists its props', async () => {
     expect(await completedIn('  <Icon |\n', END)).toEqual(PROPS);
   });

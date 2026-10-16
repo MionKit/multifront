@@ -56,7 +56,7 @@ export function runMfLint(cwd: string, args: string[] = [], env?: NodeJS.Process
   return runBin('@multifront/language-tools', 'mf-lint', cwd, args, {env});
 }
 
-/** The findings of a `--format json` run that found some: exit 1, nothing on stderr. */
+/** Findings of a `--format json` run that must find some. */
 export async function jsonFindings(run: Promise<BinRun>): Promise<Finding[]> {
   const {code, stdout, stderr} = await run;
   expect({code, stderr}).toEqual({code: 1, stderr: ''});

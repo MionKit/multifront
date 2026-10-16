@@ -111,7 +111,6 @@ describe('a VS Code that dies by SIGSEGV', () => {
 const FULL_EDITOR = join(import.meta.dirname, 'fullEditor.cjs');
 const {checks: fullEditorChecks} = createRequire(import.meta.url)(FULL_EDITOR) as {checks: Check[]};
 const CARD = 'Card.ucf';
-// The other edit: a debugger in the <vue> script.
 const VUE_PROPS = 'defineProps<{ title: string }>();\n';
 const projects: string[] = [];
 
@@ -119,7 +118,7 @@ afterAll(async () => {
   for (const root of projects) await removeApp(root);
 });
 
-/** Card.ucf of the fixtures in a small project of its own: tsconfig, `.oxlintrc.json` and `.oxfmtrc.json`. */
+/** Fixtures Card.ucf in a copy of card-project: tsconfig, `.oxlintrc.json`, `.oxfmtrc.json`. */
 async function cardProject(): Promise<string> {
   const root = await copyApp('card-project');
   projects.push(root);
@@ -173,7 +172,7 @@ describe('milestone 7 exit test: a real VS Code with the packed .vsix installed,
       runMfFmt(other, [CARD]),
     ]);
     expect({code: fmt.code, stderr: fmt.stderr}).toEqual({code: 0, stderr: ''});
-    // 5.: the Icon.ucf of step 7.5 next to the copy; the suite imports it in the unsaved buffer.
+    // Check 5 imports step 7.5's Icon.ucf from the unsaved Card.ucf buffer.
     copyFileSync(join(FIXTURES_DIR, 'apps', 'svelte-markup', 'Icon.ucf'), join(workspace, 'Icon.ucf'));
     const vsix = join(temp, VSIX_FILE);
     return runInVsCode({vsix, workspace, suite: FULL_EDITOR, data: {tsc, lint, formatted: read(other, CARD)}});
