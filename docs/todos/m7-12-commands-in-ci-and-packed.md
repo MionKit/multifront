@@ -127,7 +127,7 @@ None: the gate runs fixed fixtures.
 
 ## Out of scope
 
-- `mf-lint`'s missing code on an oxlint parse error (its own todo), `.svelte` importers in `mf-tsc`.
+- `.svelte` importers in `mf-tsc`.
 
 ## Done when
 
