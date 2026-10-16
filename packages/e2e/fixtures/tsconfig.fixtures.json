@@ -1,0 +1,72 @@
+{
+  // The CI gate (editor/gate.spec.ts): every valid fixture type-checks in every target, and its .ucf files are oxlint clean.
+  // A file breaks something on purpose only when a test pins that error or its own comment says so; each exclude names which.
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
+  },
+  "include": ["components", "apps", "library/src"],
+  "exclude": [
+    "**/node_modules",
+    // Deliberate errors and the saved fuzz cases, pinned by the specs that read them.
+    "components/invalid",
+    "components/react/fuzz-found",
+    "apps/types-broken",
+    "apps/lint-format",
+    "apps/lint-format-svelte",
+    // Templates of fresh installs (consumer/): their packages exist only there.
+    "apps/consumer-*",
+    // Import errors the rows of apps/imports/expected.ts pin, for editor/imports.spec.ts and build/imports.spec.ts.
+    "apps/imports/src/bad.ts",
+    "apps/imports/src/BlockAttribute.ucf",
+    "apps/imports/no-default/non-literal.ts",
+    "apps/imports/no-default/unknown.ts",
+    // The build errors build/react-target.spec.ts pins.
+    "apps/react-basic/src/errors",
+    // Each imports one .ucf file in two frameworks: TypeScript keeps one resolution per specifier (plan.md, spike 1).
+    "apps/all-targets/src/main.tsx",
+    "apps/root-props/src/main.ts",
+    // The import errors editor/blockImports.spec.ts and editor/tsserver.spec.ts pin.
+    "components/editor/ImportErrors.ucf",
+    "components/editor/TypeError.ucf",
+    // The block rule and parse errors core/test/blocks/*.spec.ts and the build specs pin.
+    "components/react/errors/AttrInBlock.ucf",
+    "components/react/errors/AttrNoDefault.ucf",
+    "components/react/errors/AttrNoJsx.ucf",
+    "components/react/errors/SyntaxError.ucf",
+    "components/react/errors/TwoSyntaxErrors.ucf",
+    "components/svelte/errors/ImportParseError.ucf",
+    "components/svelte/errors/StyleWithoutModule.ucf",
+    "components/svelte/errors/UnclosedBrace.ucf",
+    "components/svelte/imports/AttrInSvelte.ucf",
+    "components/svelte/imports/AttrInSvelteMarkup.ucf",
+    "components/svelte/imports/UsesReactOnly.ucf",
+    "components/vue/AttrInside.ucf",
+    "components/vue/AttrInsideJs.ucf",
+    "components/vue/DuplicateVue.ucf",
+    "components/vue/VueWithUnclosedReact.ucf",
+    // core/test/blocks/svelte.spec.ts pins its `$` names that are no stores and its imports of nothing.
+    "components/svelte/errors/NamedModule.ucf",
+    // core/test/react/scope.spec.ts pins the optional array pattern TypeScript rejects.
+    "components/react/forwarding/ArrayPattern.ucf",
+    // Their comments: a default export that resolves to itself, a `var` that redeclares the pattern.
+    "components/react/forwarding/Cyclic.ucf",
+    "components/react/forwarding/RedeclaredPattern.ucf",
+    // Their comments: build only.
+    "components/react/scope/FragmentImports.ucf",
+    "components/react/scope/Namespaced.ucf",
+    // core/test/svelte/rootProps.spec.ts pins the `class` with no value, which Svelte's own types reject.
+    "components/svelte/root-props/ValuelessClass.ucf",
+    // core/test/svelte/forward.spec.ts pins Svelte's error on its text event attribute.
+    "components/svelte/roots/StringHandlerRoot.ucf",
+    // svelte2tsx writes the backtick of an attribute value into a template literal unescaped.
+    "components/svelte/root-props/Merges.ucf"
+  ]
+}
