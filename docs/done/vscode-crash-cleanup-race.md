@@ -57,6 +57,14 @@ Plan:
 
 ## What shipped
 
-As planned. Without the fix the test fails with CI's exact error:
-`ENOTEMPTY, Directory not empty: '/tmp/multifront-vscode-OcqQaA'`. On Windows the wait is skipped (no `ps`);
-`rm`'s retries remain. `docs/milestones/README.md` "Editor: real VS Code" names the wait.
+As planned, plus two tests the review asked for. Without the fix the first test fails with CI's exact error:
+`ENOTEMPTY, Directory not empty: '/tmp/multifront-vscode-OcqQaA'`.
+
+- Each cleanup step of a failed run goes through one helper that turns its error into a note.
+- Three crash suites share `crash.cjs`: a writer that stops after about 3 s (the harness waits for it), one that
+  never stops (the harness kills it at 10 s), and a file blocking the dump folder (its error is a note, the folder
+  is still deleted). Each new test fails when its branch is removed.
+- No test makes `rm` itself fail: no writer outpaces Node's `rm` here, and as root no permission blocks it.
+  That step uses the same tested helper.
+- On Windows the wait is skipped (no `ps`); `rm`'s retries remain.
+- `docs/milestones/README.md` "Editor: real VS Code" names the wait.
