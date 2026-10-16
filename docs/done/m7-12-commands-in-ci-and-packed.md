@@ -64,7 +64,8 @@ Answers from the orchestrator, one line each:
    `allowImportingTsExtensions`, plugin entry `framework: react`; `include: ["components", "apps", "library/src"]`;
    `exclude`, each with its one-line reason naming the test or comment that shows it is on purpose: the step's
    five (`apps/types-broken`, `apps/lint-format`, `apps/lint-format-svelte`, `components/invalid`,
-   `components/react/fuzz-found`); `apps/consumer-*` (templates of fresh installs); the deliberate-error files and
+   `components/react/fuzz-found`); `apps/consumer-*` (templates of fresh installs); `apps/language-tools-dist` (a consumer of the built package, which
+   `build/built-packages.spec.ts` checks once built); the deliberate-error files and
    folders pinned by their specs (`imports/src/bad.ts`, `BlockAttribute.ucf`, `no-default/non-literal.ts`,
    `unknown.ts`, `react-basic/src/errors`, `editor/ImportErrors.ucf`, `editor/TypeError.ucf`, `react/errors`,
    `svelte/errors`, `svelte/imports/AttrInSvelte*.ucf`, `UsesReactOnly.ucf`, `vue/AttrInside*.ucf`,
@@ -79,7 +80,8 @@ Answers from the orchestrator, one line each:
    pins; `EmptyPropsRoot.ucf`'s `let {} = $props()`, which `core/test/svelte/forward.spec.ts` pins;
    `react/errors/NoDefault.ucf`'s unused component, the missing default export `blocks/react.spec.ts` pins). The
    `react/errors` and `svelte/errors` folders are left out file by file: only those whose error a spec pins.
-   - Real `mf-tsc -p tsconfig.fixtures.json --format json`: exit 0, `errorCount: 0`; on failure the message is the
+   - Real `mf-tsc -p tsconfig.fixtures.json --format json components apps library/src` (the `include` folders: the
+     tsconfig's `customConditions: ["source"]` brings `@multifront/*`'s `src/` into the program, unreported): exit 0, `errorCount: 0`; on failure the message is the
      readable lines.
    - Real `mf-lint --format json <gate files>` under the repo's `.oxlintrc.json`: exit 0, `errorCount: 0`, same.
    - A copy of `fixtures/` under `.tmp/` with `components/ReactBreaks.ucf` (from `types-broken/`, plus a
