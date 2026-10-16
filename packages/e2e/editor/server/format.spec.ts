@@ -16,7 +16,7 @@ import {
   ORIGINAL,
   read,
 } from '../lib/format.ts';
-import {CLIENT_OPTIONS, formatDocument} from '../lib/lsp.ts';
+import {CLIENT_OPTIONS} from '../lib/lsp.ts';
 import {assertNotInstalled} from '../lib/tsc.ts';
 
 const MISSING_SVELTE =
