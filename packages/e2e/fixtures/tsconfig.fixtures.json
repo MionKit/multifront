@@ -10,6 +10,8 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
+    // As the fixture apps run (`--conditions=source`): `@multifront/*` types from `src/`, never a `dist/` CI has not built.
+    "customConditions": ["source"],
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
   },
   "include": ["components", "apps", "library/src"],
@@ -23,6 +25,8 @@
     "apps/lint-format-svelte",
     // Templates of fresh installs (consumer/): their packages exist only there.
     "apps/consumer-*",
+    // Its own comment: a consumer of the built package, which build/built-packages.spec.ts checks once it is built.
+    "apps/language-tools-dist",
     // Import errors the rows of apps/imports/expected.ts pin, for editor/imports.spec.ts and build/imports.spec.ts.
     "apps/imports/src/bad.ts",
     "apps/imports/src/BlockAttribute.ucf",

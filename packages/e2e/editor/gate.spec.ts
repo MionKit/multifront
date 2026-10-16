@@ -23,7 +23,7 @@ const LINT_LEFT_OUT = {
 
 type Report = BinReport<Record<string, unknown>>;
 
-function gateUcfFiles(root: string): string[] {
+function gateConfig(root: string): typescript.ParsedCommandLine {
   const errors: typescript.Diagnostic[] = [];
   const host = {
     ...typescript.sys,
@@ -36,8 +36,12 @@ function gateUcfFiles(root: string): string[] {
     const messages = errors.map(({messageText}) => typescript.flattenDiagnosticMessageText(messageText, ' '));
     throw new Error(`${CONFIG}: ${messages.join('; ')}`);
   }
-  return parsed.fileNames
-    .filter((file) => file.endsWith('.ucf'))
+  return parsed;
+}
+
+function gateUcfFiles(root: string): string[] {
+  return gateConfig(root)
+    .fileNames.filter((file) => file.endsWith('.ucf'))
     .map((file) => relative(root, file).split('\\').join('/'))
     .filter((file) => !Object.hasOwn(LINT_LEFT_OUT, file))
     .sort();
@@ -50,7 +54,9 @@ function expectClean(run: Awaited<ReturnType<typeof runMfTsc>>): void {
   expect(run.code).toBe(0);
 }
 
-const runTsc = (root: string, paths: string[] = []) => runMfTsc(root, ['-p', CONFIG, '--format', 'json', ...paths]);
+// The program also holds the `src/` of `@multifront/*` (the `source` condition): only the fixture folders are reported.
+const gateFolders = (root: string) => gateConfig(root).raw.include as string[];
+const runTsc = (root: string, paths = gateFolders(root)) => runMfTsc(root, ['-p', CONFIG, '--format', 'json', ...paths]);
 const runLint = (root: string, paths: string[]) => runMfLint(root, ['--format', 'json', ...paths]);
 
 async function median(run: () => Promise<{code: number}>): Promise<string> {
@@ -108,7 +114,7 @@ describe('the fixtures gate', () => {
     const times = {
       [`mf-tsc ${CARD}`]: await median(() => runTsc(FIXTURES_DIR, [CARD])),
       [`mf-tsc ${FOLDER}`]: await median(() => runTsc(FIXTURES_DIR, [FOLDER])),
-      [`mf-tsc -p ${CONFIG}`]: await median(() => runTsc(FIXTURES_DIR)),
+      [`mf-tsc -p ${CONFIG} ${gateFolders(FIXTURES_DIR).join(' ')}`]: await median(() => runTsc(FIXTURES_DIR)),
       [`mf-lint ${CARD}`]: await median(() => runLint(FIXTURES_DIR, [CARD])),
       [`mf-lint, ${files.length} files`]: await median(() => runLint(FIXTURES_DIR, files)),
     };
