@@ -74,7 +74,6 @@ describe('a VS Code that dies by SIGSEGV', () => {
     for (const path of leftovers) rmSync(path, {recursive: true, force: true});
   });
 
-  /** Runs a crash suite; returns VS Code's error message. */
   async function crash(suiteFile: string): Promise<string> {
     const suite = join(import.meta.dirname, suiteFile);
     const error = await runInVsCode({extension, workspace: WORKSPACE, suite}).catch((err: unknown) => err);
@@ -84,7 +83,7 @@ describe('a VS Code that dies by SIGSEGV', () => {
     return message;
   }
 
-  /** The kept dumps' folder, named after the run's temp folder. */
+  /** Shares its name with the run's temp folder. */
   function keptDumps(message: string): string {
     const kept = /^crash dump kept in (.+)$/m.exec(message)?.[1];
     expect(kept, message.slice(0, 2000)).toBeDefined();
@@ -99,7 +98,7 @@ describe('a VS Code that dies by SIGSEGV', () => {
     const message = await crash('crash.cjs');
     // The error ends with VS Code's own startup log: Electron names a NODE_OPTIONS it was given.
     expect(message).not.toContain('Most NODE_OPTIONs are not supported');
-    // crash.cjs left a writer in the run's folder: the harness waited for it before deleting the folder.
+    // crash.cjs's writer would recreate the folder had the harness not waited for it.
     expect(existsSync(join(tmpdir(), basename(keptDumps(message))))).toBe(false);
   });
 
