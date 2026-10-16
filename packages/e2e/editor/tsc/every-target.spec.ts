@@ -29,6 +29,24 @@ import {
 } from '../lib/tsc.ts';
 import {offsetAt, open, startTsserver} from '../lib/tsserver.ts';
 
+// JS `<vue>` and `<svelte>` blocks: their generators still write TypeScript-only syntax into the JS script.
+const PLAIN = `<vue>
+  <script setup>
+  const vueLabel = 'vue'
+  </script>
+  <template>
+    <p>{{ vueLabel }}</p>
+  </template>
+</vue>
+
+<svelte>
+  <script>
+    const svelteLabel = 'svelte'
+  </script>
+  <p>{svelteLabel}</p>
+</svelte>
+`;
+
 const VUE_PICKS = `<vue>
   <script setup lang="ts">
   import ReactBreaks from './ReactBreaks.ucf'
@@ -225,6 +243,34 @@ describe('mf-tsc over every target', () => {
         stdout: 'mf-tsc: checked 5 files with tsconfig.json: no errors\n',
         stderr: '',
       });
+    });
+  });
+
+  it("leaves out the TypeScript-only syntax a generator writes into a JS block's script, never the user's", async () => {
+    await withCopy(VALID, async (root) => {
+      addFile(root, 'Plain.ucf', PLAIN);
+      expect(await runMfTsc(root, ['Plain.ucf'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 1 file with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+      editFile(root, 'Plain.ucf', 'const vueLabel = ', 'const vueLabel: string = ');
+      editFile(root, 'Plain.ucf', 'const svelteLabel = ', 'const svelteLabel: string = ');
+      const source = readFileSync(join(root, 'Plain.ucf'), 'utf8');
+      const annotation = (needle: string, framework: 'vue' | 'svelte'): Finding => ({
+        file: 'Plain.ucf',
+        ...span(source, needle, 'string'.length, needle.indexOf('string')),
+        code: 'TS8010',
+        severity: 'error',
+        message: 'Type annotations can only be used in TypeScript files.',
+        block: framework,
+        framework,
+      });
+      const run = await runMfTsc(root, ['Plain.ucf', '--format', 'json']);
+      expect(report(run.stdout).findings).toEqual([
+        annotation('vueLabel: string', 'vue'),
+        annotation('svelteLabel: string', 'svelte'),
+      ]);
     });
   });
 
