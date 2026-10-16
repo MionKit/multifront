@@ -1,8 +1,8 @@
 import {spawnSync} from 'node:child_process';
-import {cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
-import {dirname, join} from 'node:path';
+import {dirname, join, resolve} from 'node:path';
 
 export const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..');
 export const EXTENSION_DIR = join(REPO_ROOT, 'packages', 'vscode');
@@ -43,7 +43,7 @@ export function tempRepo(versionJson = '{"version": "0.0.0"}'): string {
   return root;
 }
 
-export const VSIX_FILE = 'multifront-vscode-0.0.0.vsix';
+const VSIX_FILE = 'multifront-vscode-0.0.0.vsix';
 
 /** Packs and unzips into `dir/extension/`; the packed file stays as `dir/<VSIX_FILE>`. */
 export async function packVsix(dir: string): Promise<string> {
@@ -57,6 +57,16 @@ export async function packVsix(dir: string): Promise<string> {
     rmSync(root, {recursive: true, force: true});
   }
   return join(dir, 'extension');
+}
+
+/** The `.vsix` the release workflow packed (`MULTIFRONT_VSIX`), else a fresh pack; unzipped into `dir/extension/`. */
+export async function vsixUnderTest(dir: string): Promise<{vsix: string; extension: string}> {
+  const given = process.env.MULTIFRONT_VSIX;
+  if (!given) return {extension: await packVsix(dir), vsix: join(dir, VSIX_FILE)};
+  const vsix = resolve(given);
+  if (!existsSync(vsix)) throw new Error(`${vsix} does not exist: run pnpm devx vsix`);
+  await unzipVsix(vsix, dir);
+  return {vsix, extension: join(dir, 'extension')};
 }
 
 /** Same layout VS Code installs: `dir/extension/...`. */

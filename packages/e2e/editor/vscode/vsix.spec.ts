@@ -1,7 +1,7 @@
 import {mkdtempSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join, resolve} from 'node:path';
 import type {Finding} from '@multifront/core';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../../fixtures/index.ts';
@@ -13,7 +13,7 @@ import {labels, markupCompletions} from '../lib/markup.ts';
 import {addFile, assertNotInstalled, editFile, VALID} from '../lib/tsc.ts';
 import {reportChecks, runInVsCode} from '../lib/vscode.ts';
 import type {Check} from '../lib/vscode.ts';
-import {packVsix, readZip, VSIX_FILE} from '../lib/vsix.ts';
+import {readZip, vsixUnderTest} from '../lib/vsix.ts';
 
 const SUITE = join(import.meta.dirname, 'vsix.cjs');
 const {checks} = createRequire(import.meta.url)(SUITE) as {checks: Check[]};
@@ -30,20 +30,28 @@ interface Manifest {
 
 // Everything runs on what `pnpm devx vsix` packs, unzipped outside the repo.
 let temp: string;
+let vsix: string;
 let extension: string;
 
 beforeAll(async () => {
   temp = mkdtempSync(join(tmpdir(), 'multifront-vsix-'));
-  extension = await packVsix(temp);
+  ({vsix, extension} = await vsixUnderTest(temp));
 }, 120_000);
 
 afterAll(() => {
   if (temp) rmSync(temp, {recursive: true, force: true});
 });
 
+describe('MULTIFRONT_VSIX, the .vsix the release workflow tests and publishes', () => {
+  // Only the release workflow sets it; there a slip back to a fresh pack would publish an untested file.
+  it.runIf(process.env.MULTIFRONT_VSIX)('is the file under test', () => {
+    expect(vsix).toBe(resolve(process.env.MULTIFRONT_VSIX!));
+  });
+});
+
 describe('the packed manifest has the Marketplace fields', () => {
   it('a display name, categories and a square PNG icon of at least 128 px', async () => {
-    const packed = await readZip(join(temp, VSIX_FILE), () => true);
+    const packed = await readZip(vsix, () => true);
     const manifest = JSON.parse(packed.get('extension/package.json')!.toString('utf8')) as Manifest;
     expect(manifest.displayName).toBe('multifront');
     expect(manifest.categories).toEqual(['Programming Languages', 'Formatters', 'Linters']);
@@ -137,6 +145,6 @@ describe('a real VS Code with the .vsix installed into a fresh extensions folder
     ]);
     expect({code: fmt.code, stderr: fmt.stderr}).toEqual({code: 0, stderr: ''});
     const data = {tsc, lint, formatted: read(other, GREETING)};
-    return runInVsCode({vsix: join(temp, VSIX_FILE), workspace, suite: SUITE, data});
+    return runInVsCode({vsix, workspace, suite: SUITE, data});
   });
 });
