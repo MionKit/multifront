@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-16
 milestone: 7
 step: 7.11
@@ -43,7 +43,7 @@ oxlint's own language server (`oxlint --lsp`, pinned 1.82.0, on a `.ts` file) se
 - The once-per-root log line on a missing oxlint or a bad config is in (orchestrator, rule 3: clearer error; matches
   7.10's formatting rule).
 
-## Plan
+## Plan (as shipped)
 
 1. **`packages/language-tools/src/server/lint.ts`** (new): `lintService(server)`, the `multifront-lint` plugin,
    `capabilities: {diagnosticProvider: {interFileDependencies: false, workspaceDiagnostics: false}}`.
@@ -76,8 +76,12 @@ devDependency), nothing new. Servers start with a tsdk, as the extension does.
 - **`packages/e2e/editor/lib/lsp.ts`**: the client capabilities match VS Code's: `workspace: {diagnostics:
   {refreshSupport: true}, didChangeWatchedFiles: {dynamicRegistration: true}}`. `LanguageServer` gains `registrations`
   (each `client/registerCapability` the server sent, answered) and `nextDiagnosticRefresh()` (resolves on the next
-  `workspace/diagnostic/refresh`, answered). A helper opens a file, optionally replaces its buffer, pulls, and keeps
-  the `source: 'oxlint'` diagnostics.
+  `workspace/diagnostic/refresh`, answered). `openUcf(server, file, text?)` (open, optional buffer replace) is shared
+  with `formatDocument()`.
+- **`packages/e2e/editor/lib/lint.ts`** (new): `lintDiagnostics(server, file, text?)` pulls and keeps the
+  `source: 'oxlint'` diagnostics in `.ucf` order (oxlint lints the block files in parallel, so its order is not the
+  file's); `mfLintFindings(root, file)` runs the real `mf-lint --format json`; `asLintPoint()` turns a finding into the
+  LSP `{code, range, severity}`.
 - **`packages/e2e/editor/server/lint.spec.ts`** (new). Real server over LSP on a `copyApp('lint-format')` copy, the real
   `mf-lint --format json` on the same copy's files on disk:
   1. Open `Lint.ucf`, pull: the oxlint diagnostics equal the `mf-lint` findings for `Lint.ucf`: `code`, range
@@ -85,7 +89,8 @@ devDependency), nothing new. Servers start with a tsdk, as the extension does.
      rule's `codeDescription.href`, a message that is the finding's message, `\nhelp: ` and the help. The text before
      each `debugger;` is not ASCII. No warning logged.
   2. The server registered a watcher with the globs `**/.oxlintrc.json` and `**/.oxlintrc.jsonc`.
-  3. A real `didChange` removes `debugger;` from `<vue>`: only that diagnostic goes, the other three keep their ranges;
+  3. A real `didChange` blanks the `debugger;` of `<vue>` (spaces, so no line moves): only that diagnostic goes, the
+     other three keep their ranges;
      the file on disk is unchanged (`mf-lint` still reports four).
   4. `.oxlintrc.json` edited on disk to turn `no-debugger` off, then `workspace/didChangeWatchedFiles` as VS Code sends
      it: the server asks for a diagnostic refresh, and the next pull holds only `no-unused-vars`. Config restored.
@@ -99,7 +104,7 @@ devDependency), nothing new. Servers start with a tsdk, as the extension does.
      `multifront: no linting in <root> (oxlint is not installed in <root>; add it to devDependencies)` over two pulls,
      the pull still answers (`kind: 'full'`), the server process alive.
 
-  Red first: case 1 fails before the change. Case 4 fails without the reload (stale cache) or without the watcher.
+  Red first: without the plugin six of the seven cases fail; without the reload cases 4 and 6 fail (stale cache).
 - **`packages/e2e/editor/bundle.spec.ts`**: the bundled `dist/server.cjs` gives the same oxlint diagnostics on
   `Lint.ucf` of `lint-format/` as `mf-lint`, so the bundle left nothing out of the lint path.
 
