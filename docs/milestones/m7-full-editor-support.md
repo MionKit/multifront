@@ -237,11 +237,12 @@ oxfmt 0.67.0 formats `.svelte` files when the config sets `svelte` (true or an o
   7. `--help` and `-h`: exit 0, the exact help.
 - Status: done
 
-### 7.9 Propose `.ucf` support to oxc, with a canary test
+### 7.9 A canary test for `.ucf` files in oxlint
 
-- Build: open an issue (and, if the maintainers agree, a PR) on `oxc-project/oxc` proposing a `.ucf` loader next to the `.vue` / `.svelte` / `.astro` ones in oxlint's partial loader. The issue gives the format rules (spec 2 and 3.2: raw-text root split, the first closing tag wins), what to lint per block (`<react>` whole as TSX, `<vue>` and `<svelte>` through their existing loaders at an offset) and a link to our lint fixtures. As a second option it asks for a pluggable file loader. The link goes into docs/plan.md under milestone 7.
-- Deliverable: the upstream proposal, linked from the plan, and a test that tells us when it lands.
+- Build: no upstream proposal (the user declined one). oxlint cannot be set up to read `.ucf` files: its file types are hard-coded (`Loader::can_load` takes the known source types plus `LINT_PARTIAL_LOADER_EXTENSIONS = ["vue", "astro", "svelte"]`), so even `oxlint Lint.ucf` finds no file to lint, and `mf-lint`'s per-block temp files stay the way. The step adds only the canary test below, with `OXLINT_DIR` / `OXLINT` in `packages/e2e/editor/lib/format.ts` beside the oxfmt ones.
+- Deliverable: a test that tells us the day the pinned oxlint reads `.ucf` files.
 - Test: area Editor, `packages/e2e/editor/lint/oxlint-ucf-canary.spec.ts`. Runs the real pinned `oxlint -f json` directly on `packages/e2e/fixtures/apps/lint-format/` and checks that it lints no `.ucf` file today. When an oxlint upgrade starts reading `.ucf` files, this test fails with a message saying to compare its findings with `mf-lint` and switch `mf-lint` to plain oxlint.
+- Status: done
 
 ### 7.10 Language server: formatting (format on save)
 
@@ -289,7 +290,7 @@ M7 is the last planned milestone. These are what it leaves for every release aft
 - `blockFile(fileName, block)` in `packages/language-tools/src/blocks/blockFile.ts`. A new block kind must give its file ending here; the registry loop of 7.6 fails otherwise.
 - Every served target's script (`targetScriptName`, the editor kind's `serviceScript`) as a root of `mf-tsc`'s program, through `programTargetScripts`. A new target row is checked by `mf-tsc` once its kind has a `serviceScript`.
 - `packages/e2e/editor/gate.spec.ts` and `packages/e2e/fixtures/tsconfig.fixtures.json`. Every fixture added later must type-check in every target and be oxlint clean.
-- `packages/e2e/editor/lint/oxlint-ucf-canary.spec.ts`. Tells us when upstream `.ucf` support lands.
+- `packages/e2e/editor/lint/oxlint-ucf-canary.spec.ts`. Tells us when an oxlint upgrade reads `.ucf` files, so `mf-lint` can switch to plain oxlint.
 - `pnpm devx vsix`, `packages/vscode/multifront-vscode-<version>.vsix` and `.github/workflows/vscode-release.yml`. Used by every release.
 - Fixtures: `packages/e2e/fixtures/apps/types-every-target/`, `types-broken/`, `lint-format/`, `lint-format-svelte/`, `svelte-markup/`.
 
@@ -312,13 +313,13 @@ Risks:
 - **Volar has no extra service scripts on the `tsc` path either.** `@volar/typescript` 2.4.28 `proxyCreateProgram` warns `getExtraServiceScripts() is not available in this use case.`, as its tsserver plugin does (spike 1, answer 3). 7.2 makes each target's script a root of `mf-tsc`'s program instead, as M4 does in tsserver.
 - **oxfmt and oxlint are young.** oxfmt is 0.x and oxlint's JSON shape is not a promised contract. Both are exact-pinned in the repo, and the parity tests (7.6, 7.8, 7.11) fail on any change in a bump. Users bring their own versions through the peer ranges.
 - **Svelte formatting depends on install layout.** oxfmt loads `svelte/compiler` from its own location. With pnpm's strict layout this works only when `svelte` is installed so pnpm links it as oxfmt's peer. 7.7 warns and skips instead of failing.
-- **Linting a block alone.** Block files sit in a temp folder, so rules that follow imports (`import/no-cycle`) do not see across files, and type-aware linting (`--type-aware`, tsgolint) is not supported. Upstream support (7.9) would fix both.
+- **Linting a block alone.** Block files sit in a temp folder, so rules that follow imports (`import/no-cycle`) do not see across files, and type-aware linting (`--type-aware`, tsgolint) is not supported. oxlint reading `.ucf` itself would fix both; its file types are hard-coded today, and the 7.9 canary flags the day that changes.
 - **`mf-tsc` builds on TypeScript's JS API.** It creates its program through Volar's `proxyCreateProgram`, the proxy `vue-tsc` gets through `runTsc`. The native TypeScript port (TypeScript 7) has no such API to proxy. `vue-tsc` faces the same problem; we follow Volar's answer when it comes.
 - **One file still parses the whole project.** A one-file `mf-tsc` check costs program creation (every file parsed and bound) plus that file's check. A long-lived process would remove the parsing, and is out of scope.
 - **`svelte2tsx` output shape.** Prop completions (7.5) map into the props object `svelte2tsx` generates. Its shape can change between versions; it is pinned, and the 7.5 test catches a change.
 - **Packaging.** `vsce` and pnpm workspaces clash on dependencies, hence `--no-dependencies` and a full bundle. The TypeScript plugin folder under the extension's `node_modules` must survive packing; the 7.13 test checks the unzipped file. Real VS Code tests need a display (M2's harness starts Xvfb) and a pinned VS Code download, cached in CI.
 - **Store accounts.** Marketplace tokens expire (Azure DevOps PATs); Open VSX needs the namespace claimed and the Eclipse publisher agreement signed. A maintainer does this once by hand.
-- **Other extensions.** Vue's and Svelte's extensions do not claim `.ucf`, and the default formatter is set only for `[ucf]`. The oxc VS Code extension ignores `.ucf` today; if upstream support lands it would lint `.ucf` too and show findings twice.
+- **Other extensions.** Vue's and Svelte's extensions do not claim `.ucf`, and the default formatter is set only for `[ucf]`. The oxc VS Code extension ignores `.ucf` today; if oxlint ever reads `.ucf` it would lint them too and show findings twice.
 
 Open questions:
 
@@ -340,5 +341,5 @@ Open questions:
 - oxlint and oxfmt configs written in JS or TS (`oxfmt.config.ts`). Only JSON / JSONC configs are read.
 - Type-aware lint rules.
 - Packaging for other editors (WebStorm, Neovim). They can load the server and the TypeScript plugin from the npm package.
-- Proposing `.ucf` support to oxfmt upstream (the 7.9 issue mentions it as a follow-up only).
+- Proposing `.ucf` support to oxc upstream, for oxlint or oxfmt (the user declined it).
 - Running `mf-fmt` over this repo's own files.
