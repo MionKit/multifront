@@ -1,10 +1,23 @@
 import {execFileSync, spawn, spawnSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {
+  cpSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
 import {PassThrough} from 'node:stream';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, runTests} from '@vscode/test-electron';
+import {beforeAll, expect, it} from 'vitest';
 import {TMP_DIR} from '../../fixtures/index.ts';
 import {REPO_ROOT} from './vsix.ts';
 
@@ -12,8 +25,12 @@ import {REPO_ROOT} from './vsix.ts';
 export const VSCODE_VERSION = '1.137.0';
 export const CRASH_DIR = join(TMP_DIR, 'vscode-crashes');
 const CACHE_DIR = join(REPO_ROOT, '.vscode-test');
-// A download takes minutes at most: an older lock was left by a killed run.
-const STALE_LOCK_MS = 15 * 60_000;
+const LOCK = join(CACHE_DIR, 'download.lock');
+
+/** A check of a suite .cjs file, as the spec reads it outside VS Code. */
+export interface Check {
+  name: string;
+}
 
 interface CheckResult {
   name: string;
@@ -132,33 +149,77 @@ function processesNaming(temp: string): number[] {
     .map((line) => Number.parseInt(line, 10));
 }
 
+/** One test per check of `names`, from the results of one VS Code run that `start` makes. */
+export function reportChecks(names: Check[], start: () => Promise<CheckResult[]>): void {
+  let results: CheckResult[];
+
+  // Long timeout: the first run downloads VS Code; later ones start it in seconds.
+  beforeAll(async () => {
+    results = await start();
+  }, 900_000);
+
+  it.each(names.map(({name}) => name))('%s', (name) => {
+    const result = results.find((row) => row.name === name);
+    // A missing result: the suite died before this check.
+    expect(result, `${name} did not run`).toBeDefined();
+    if (result?.error) throw new Error(result.error);
+  });
+}
+
 /** The pinned VS Code, downloaded once: test-electron's download has no lock, and specs run in parallel. */
 async function vscodeExecutable(): Promise<string> {
   mkdirSync(CACHE_DIR, {recursive: true});
-  const lock = join(CACHE_DIR, 'download.lock');
-  for (;;) {
-    try {
-      mkdirSync(lock);
-      break;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-      if (Date.now() - lockTime(lock) > STALE_LOCK_MS) rmSync(lock, {recursive: true, force: true});
-      else await sleep(500);
-    }
-  }
+  const token = `${process.pid} ${randomUUID()}`;
+  while (!takeLock(token)) await sleep(500);
   try {
     return await downloadAndUnzipVSCode({version: VSCODE_VERSION, cachePath: CACHE_DIR});
   } finally {
-    rmSync(lock, {recursive: true, force: true});
+    if (readLock(LOCK) === token) rmSync(LOCK, {force: true});
   }
 }
 
-/** Released between the failed mkdir and this read: as good as fresh. */
-function lockTime(lock: string): number {
+/** The lock file holds `<pid> <uuid>`: a run killed mid-download leaves it, and a waiter retires it once that pid is gone. */
+function takeLock(token: string): boolean {
   try {
-    return statSync(lock).mtimeMs;
+    writeFileSync(LOCK, token, {flag: 'wx'});
+    return true;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  }
+  const held = readLock(LOCK);
+  const owner = Number(held?.split(' ')[0]);
+  // Empty: its owner is still writing it.
+  if (!owner || isAlive(owner)) return false;
+  const retired = `${LOCK}.${process.pid}`;
+  try {
+    renameSync(LOCK, retired);
   } catch {
-    return Date.now();
+    return false;
+  }
+  // Another waiter retired the same dead lock first and took a fresh one: put that one back.
+  if (readLock(retired) !== held) {
+    try {
+      linkSync(retired, LOCK);
+    } catch {}
+  }
+  rmSync(retired, {force: true});
+  return false;
+}
+
+function readLock(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
   }
 }
 
@@ -166,14 +227,16 @@ function lockTime(lock: string): number {
 function installVsix(vscodeExecutablePath: string, vsix: string, temp: string): void {
   const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {reuseMachineInstall: true});
   const profile = [`--extensions-dir=${join(temp, 'extensions')}`, `--user-data-dir=${join(temp, 'user-data')}`];
-  const result = spawnSync(cli!, [...cliArgs, '--install-extension', vsix, ...profile], {
+  // A shell joins the arguments unquoted, and these paths may hold spaces.
+  const quote = (arg: string) => (process.platform === 'win32' ? `"${arg}"` : arg);
+  const result = spawnSync(quote(cli!), [...cliArgs, '--install-extension', vsix, ...profile].map(quote), {
     encoding: 'utf8',
     env: {...process.env, NODE_OPTIONS: undefined, NODE_PATH: undefined},
     shell: process.platform === 'win32',
   });
   if (result.status !== 0) {
     throw new Error(
-      `installing ${vsix} failed (${result.error?.message ?? `exit ${result.status}`}):\n${result.stdout}\n${result.stderr}`
+      `installing ${vsix} failed (${result.error?.message ?? (result.signal ? `signal ${result.signal}` : `exit ${result.status}`)}):\n${result.stdout}\n${result.stderr}`
     );
   }
 }
