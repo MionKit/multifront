@@ -79,6 +79,13 @@ function propsMappings(block: Block, code: string, mappings: CodeMapping[]): Cod
   return found;
 }
 
+// svelte2tsx writes attribute text into a template literal as is, so a backtick or backslash there breaks it.
+// Spaces in their place keep every offset; outside `{…}` and `<script>` they are text, typed `string` either way.
+function withoutLiteralBreakers(svelte: string): string {
+  const markup = scanMarkup(svelte).code;
+  return svelte.replace(/[`\\]/g, (char, at: number) => (markup[at] === char ? ' ' : char));
+}
+
 // svelte2tsx names `$$ComponentProps` for `let props = $props()` too, but declares it only for a destructured one.
 // Its own type for that case, appended so no mapping moves.
 function withComponentProps(code: string, lang: SvelteTypes['lang']): string {
@@ -95,7 +102,7 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
   const {code: svelte, locals, lang, mappings: renameMappings} = svelteEditorSource(block, ctx.split, compiler, ctx.modules);
   let script: ReturnType<typeof svelte2tsx>;
   try {
-    script = svelte2tsx(svelte, {
+    script = svelte2tsx(withoutLiteralBreakers(svelte), {
       filename: `${ctx.split.filename}.svelte.svelte`, // the build's id (spec 4.3)
       isTsFile: lang === 'ts',
       mode: 'ts',

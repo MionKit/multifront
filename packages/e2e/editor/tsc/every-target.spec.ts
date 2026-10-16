@@ -308,6 +308,18 @@ describe('mf-tsc over every target', () => {
     });
   });
 
+  it('types attribute text holding a backtick or a backslash, which svelte2tsx writes into a template literal', async () => {
+    await withCopy(VALID, async (root) => {
+      copyFileSync(componentPath('svelte/root-props/Merges.ucf'), join(root, 'Merges.ucf'));
+      addFile(root, 'Escapes.ucf', '<svelte>\n  <p title="C:\\users" data-tick="`">x</p>\n</svelte>\n');
+      expect(await runMfTsc(root, ['Merges.ucf', 'Escapes.ucf'])).toEqual({
+        code: 0,
+        stdout: 'mf-tsc: checked 2 files with tsconfig.json: no errors\n',
+        stderr: '',
+      });
+    });
+  });
+
   it("reports <svelte> markup Svelte cannot parse with the build's code", async () => {
     await withCopy(BROKEN, async (root) => {
       copyFileSync(componentPath('svelte/errors/UnclosedBrace.ucf'), join(root, 'UnclosedBrace.ucf'));
