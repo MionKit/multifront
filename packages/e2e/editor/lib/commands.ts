@@ -3,6 +3,7 @@ import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import type {Finding} from '@multifront/core';
+import {expect} from 'vitest';
 import {E2E_DIR} from './tsserver.ts';
 
 export interface BinRun {
@@ -53,4 +54,11 @@ export function runMfFmt(cwd: string, args: string[] = [], env?: NodeJS.ProcessE
 
 export function runMfLint(cwd: string, args: string[] = [], env?: NodeJS.ProcessEnv): Promise<BinRun> {
   return runBin('@multifront/language-tools', 'mf-lint', cwd, args, {env});
+}
+
+/** The findings of a `--format json` run that found some: exit 1, nothing on stderr. */
+export async function jsonFindings(run: Promise<BinRun>): Promise<Finding[]> {
+  const {code, stdout, stderr} = await run;
+  expect({code, stderr}).toEqual({code: 1, stderr: ''});
+  return (JSON.parse(stdout) as BinReport<object>).findings;
 }

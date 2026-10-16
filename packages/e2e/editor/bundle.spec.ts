@@ -5,7 +5,7 @@ import {rewriteImportAttributes} from '@multifront/core';
 import {emitSvelteTypes} from '@multifront/language-tools';
 import type * as ts from 'typescript';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {copyApp, FIXTURES_DIR, removeApp} from '../fixtures/index.ts';
+import {copyApp, FIXTURES_DIR, readComponent, removeApp} from '../fixtures/index.ts';
 import {
   APP,
   APP_DIR,
@@ -22,6 +22,7 @@ import {
   readApp,
 } from './lib/cases.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
+import {addFile, bothHosts, breakSvelteMarkup, BROKEN} from './lib/tsc.ts';
 import type {LanguageServer} from './lib/lsp.ts';
 import {saveUcf} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
@@ -208,5 +209,27 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
     const [vue, react] = MIXED_LINES;
     expect(codesOnLine(diagnostics, vue)).toEqual([]);
     expect(onLine(diagnostics, react)).toMatchObject([{code: 'mixed-frameworks', category: 'warning'}]);
+  });
+});
+
+describe('mf-tsc and the plugin pack alone, on the same broken .ucf files', () => {
+  // Card.ucf as the milestone 7 exit test edits it: a number passed to a string attribute in its <svelte> markup.
+  const files = ['ReactBreaks.ucf', 'VueBreaks.ucf', 'SvelteBreaks.ucf', 'MarkupBreaks.ucf'];
+  let root: string;
+
+  beforeAll(async () => {
+    root = await copyApp(BROKEN);
+    addFile(root, 'MarkupBreaks.ucf', breakSvelteMarkup(readComponent('Card.ucf').source));
+  });
+
+  afterAll(async () => {
+    if (root) await removeApp(root);
+  });
+
+  it('give the same codes at the same spans, a <svelte> markup attribute included', async () => {
+    const {ours, theirs} = await bothHosts(root, files, {plugins: [PACK], probeLocations: [extension], isolated: true});
+    expect(ours.map((found) => found.length)).toEqual([1, 1, 1, 1]);
+    const byFile = (found: typeof ours) => Object.fromEntries(files.map((name, index) => [name, found[index]]));
+    expect(byFile(theirs)).toEqual(byFile(ours));
   });
 });
