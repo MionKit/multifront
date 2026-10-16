@@ -6,7 +6,16 @@ import {tmpdir} from 'node:os';
 import {dirname, join, parse, resolve} from 'node:path';
 import {promisify, stripVTControlCharacters} from 'node:util';
 import {findingOf, locate, moduleName, rootRelativePath, runCommand, splitBlocks} from '@multifront/core';
-import type {Block, CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
+import type {
+  Block,
+  CommandResult,
+  CommandSpec,
+  CommandValues,
+  DiagnosticCode,
+  Finding,
+  SplitResult,
+  Target,
+} from '@multifront/core';
 import {blockFile} from '../blocks/blockFile.ts';
 import {counted, isIgnored, nearestFile, parseJsonc, problems, resolveInProject, slashed, ucfFiles} from '../files.ts';
 import type {UcfLintDiagnostic} from '../types.ts';
@@ -137,7 +146,7 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
         start,
         end,
         block: block.type as Target,
-        code: code ?? 'lint-parse-error',
+        code: code ?? ('lint-parse-error' satisfies DiagnosticCode),
         message,
         severity,
         ...(url && {url}),
