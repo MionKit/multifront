@@ -1,11 +1,11 @@
 name: vscode-release
 
-# A published GitHub release v<version.json> packs the extension once, runs the packed-.vsix tests on that file,
-# then publishes the same file to the VS Code Marketplace and Open VSX. One-time setup: SETUP.md, "Publishing the extension".
+# Publishes the exact .vsix it tested to the VS Code Marketplace and Open VSX.
+# One-time setup: SETUP.md, "Publishing the extension".
 on:
   release:
     types: [published]
-  # A dry run on a PR that changes this release path: every step but the two publishes.
+  # PR dry run: every step but the publishes.
   pull_request:
     branches: [main]
     paths:
@@ -31,7 +31,6 @@ jobs:
         with:
           node-version: 26
           cache: pnpm
-      # Both stores take major.minor.patch only: no pre-release suffix. A PR dry run checks all but the tag.
       - name: version.json is major.minor.patch, the release tag v + it
         run: |
           version=$(node -p "require('./version.json').version")
@@ -46,14 +45,14 @@ jobs:
           echo "MULTIFRONT_VSIX=${{ github.workspace }}/packages/vscode/multifront-vscode-$version.vsix" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       - run: pnpm devx vsix
-      # The VS Code build the tests download; same key as ci.yml, so a release reuses its cache.
+      # Same key as ci.yml, so a release reuses its VS Code download.
       - uses: actions/cache@v5
         with:
           path: .vscode-test
           key: vscode-test-${{ runner.os }}-${{ hashFiles('packages/e2e/editor/lib/vscode.ts') }}
       # A crashed VS Code otherwise hangs in the kernel, piping its huge core to systemd-coredump.
       - run: sudo sysctl -w kernel.core_pattern=/dev/null
-      # Verbose: the log names every test that ran on the file about to be published.
+      # The log names every test that ran on the file about to be published.
       - name: Test the packed file
         run: pnpm devx test --reporter verbose packages/e2e/editor/vscode/vsix.spec.ts
       # --skip-duplicate: a re-run after a failed Open VSX publish passes over the version already on the Marketplace.

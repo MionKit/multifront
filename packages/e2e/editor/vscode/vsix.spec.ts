@@ -43,7 +43,7 @@ afterAll(() => {
 });
 
 describe('MULTIFRONT_VSIX, the .vsix the release workflow tests and publishes', () => {
-  // Only the release workflow sets it; there a slip back to a fresh pack would publish an untested file.
+  // Set only by the release workflow, where a fallback to a fresh pack would publish an untested file.
   it.runIf(process.env.MULTIFRONT_VSIX)('is the file under test', () => {
     expect(vsix).toBe(resolve(process.env.MULTIFRONT_VSIX!));
   });
