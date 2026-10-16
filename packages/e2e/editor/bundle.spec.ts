@@ -33,7 +33,7 @@ const NON_LITERAL = readApp('no-default/non-literal.ts');
 const VUE_PICK = readApp('no-default/attribute-over-importer.tsx');
 const SVELTE_PICK = readApp('src/lazy.ts');
 const GLOBAL_TYPES = ['template-helpers.d.ts', 'props-fallback.d.ts'];
-const SVELTE_SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
+const SVELTE_SHIMS = 'svelte-shims-v4.d.ts';
 const STEPS_ASIDE = 'multifront: another copy of the TypeScript plugin already serves this project; this one steps aside';
 
 // Every check runs on what the .vsix ships, not on packages/vscode/dist.
@@ -149,10 +149,15 @@ describe('tsserver with the plugin pack alone, as VS Code with its own TypeScrip
       file: SVELTE_PICK.filename,
       needFileNameList: true,
     });
-    for (const name of SVELTE_SHIMS) expect(fileNames).toContain(join(extension, 'dist', 'svelte-types', name));
-    // The shims' `import('svelte')` reads the project's Svelte: beside the bundle there is none.
-    const svelteTypes = fileNames.filter((name) => name.endsWith('/svelte/types/index.d.ts')).map((name) => realpathSync(name));
-    expect(svelteTypes).toEqual([realpathSync(join(REPO_ROOT, 'node_modules', 'svelte', 'types', 'index.d.ts'))]);
+    expect(fileNames).toContain(join(extension, 'dist', 'svelte-types', SVELTE_SHIMS));
+    // The shims' `import('svelte')` and the element types' `svelte/elements` read the project's Svelte: beside the bundle there is none.
+    const svelte = realpathSync(join(REPO_ROOT, 'node_modules', 'svelte'));
+    const svelteTypes = fileNames.filter((name) => /\/svelte\/(types\/index|svelte-html|elements)\.d\.ts$/.test(name));
+    // A file reached through a link and through its real path is one file.
+    expect([...new Set(svelteTypes.map((name) => realpathSync(name)))].sort()).toEqual(
+      ['elements.d.ts', 'svelte-html.d.ts', join('types', 'index.d.ts')].map((name) => join(svelte, name))
+    );
+    expect(fileNames.filter((name) => name.endsWith('svelte-jsx-v4.d.ts'))).toEqual([]);
     expect(fileNames.filter((name) => name.includes('svelte2tsx'))).toEqual([]);
   });
 
