@@ -1,6 +1,6 @@
 # Errors
 
-Every error in a `.ucf` file or an import has a code and a one-line message that names the problem. The build prints the file, line and column, and ends the message with the code: `(react-no-default-export)`.
+Every error in a `.ucf` file or an import has a code and a one-line message that names the problem. The build prints the file, line and column, and ends the message with the code: `(react-no-default-export)`. The [check commands](05-editor-setup.md#installing-the-check-commands) print the same codes.
 
 > **Note:** Library build errors have their own codes, `name-clash` say. [Fixing a Failed Build](06-building-a-library.md#fixing-a-failed-build) lists them.
 
@@ -40,3 +40,25 @@ These sit on the path of a `.ucf` import. [Imports](04-imports.md) says how an i
 | `target-not-enabled` | Pick one of the frameworks the message names, or add this one to the `frameworks` option. |
 | `no-target` | Add `with {framework: 'react'}`, import from a `.tsx` file, or set the `framework` option. |
 | `mixed-frameworks` | A warning: one file imports the same path as two frameworks. Import each from its own small file that re-exports it. |
+
+## Check Command Errors
+
+`mf-tsc` reports TypeScript's codes, `TS2322` say, and `mf-lint` oxlint's, `eslint(no-debugger)` say. These codes are multifront's own:
+
+| Code | Fix |
+| --- | --- |
+| `unformatted` | Run `mf-fmt` on the file. `mf-fmt --check` marks the first character that differs. |
+| `format-error` | Fix the syntax error the message names, inside that block. `mf-fmt` leaves the file as written until then. |
+| `missing-svelte` | A warning: oxfmt cannot load `svelte/compiler`, so `<svelte>` blocks stay as written. Add `svelte` to the project's devDependencies. |
+| `lint-parse-error` | Fix the syntax error the message names, inside that block. |
+
+These stop a command with exit code 2, one line on stderr after the command's name:
+
+| Message | Fix |
+| --- | --- |
+| `oxlint is not installed in <folder>; add it to devDependencies`, or the same for `typescript`, `svelte` or `oxfmt` | Install the package the message names in the project. |
+| `notes/Loose.ts is not part of tsconfig.json; add it to "include" or pass -p` | Add the file to that tsconfig, or pass the one that holds it with `-p`. |
+| `react.ts is not a .ucf file; lint it with oxlint` | Run oxlint or oxfmt on it. `mf-lint` and `mf-fmt` take `.ucf` files only. |
+| `old/Lint.ucf is ignored by .oxlintrc.json` | Remove the file from the config's `ignorePatterns`, or do not name it. |
+| `ReactBreaks.ucf has no <svelte> block` | Pick a framework the file has a block for with `--framework`. |
+| `empty holds no .ucf file` | Name a folder that holds `.ucf` files. |

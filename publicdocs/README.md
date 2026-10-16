@@ -10,6 +10,6 @@ Write one component file with a Vue, a React and a Svelte version side by side, 
 - [Component Files](02-component-files.md): the blocks of a `.ucf` file and their rules.
 - [Styles](03-styles.md): style blocks, `$style` and scoped styles across components.
 - [Imports](04-imports.md): which framework an import of a `.ucf` file gets, and several frameworks in one app.
-- [Editor Setup](05-editor-setup.md): the VS Code extension and what it does.
+- [Editor Setup](05-editor-setup.md): the VS Code extension, and the `mf-tsc`, `mf-lint` and `mf-fmt` checks.
 - [Building a Library](06-building-a-library.md): one npm package per framework, and using them in apps.
 - [Errors](07-errors.md): every error code and its fix.
