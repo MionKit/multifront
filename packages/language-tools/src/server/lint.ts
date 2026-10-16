@@ -21,7 +21,11 @@ export function lintService(server: LanguageServer): LanguageServicePlugin {
   const {console} = server.connection;
   // Per root: the reason last logged, cleared when a lint there succeeds.
   const failures = new Map<string, string>();
-  server.onInitialized(() => void server.fileWatcher.watchFiles([...CONFIG_NAMES].map((name) => `**/${name}`)));
+  server.onInitialized(() => {
+    server.fileWatcher
+      .watchFiles([...CONFIG_NAMES].map((name) => `**/${name}`))
+      .catch((err: unknown) => console.warn(`multifront: no .oxlintrc.json watcher (${String(err)})`));
+  });
   server.fileWatcher.onDidChangeWatchedFiles(({changes}) => {
     if (!changes.some(({uri}) => CONFIG_NAMES.has(basename(URI.parse(uri).path)))) return;
     server.project.reload();
