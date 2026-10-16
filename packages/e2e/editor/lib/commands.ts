@@ -5,7 +5,7 @@ import {promisify} from 'node:util';
 import type {Finding} from '@multifront/core';
 import {E2E_DIR} from './tsserver.ts';
 
-interface BinRun {
+export interface BinRun {
   code: number;
   stdout: string;
   stderr: string;
