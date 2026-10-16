@@ -11,8 +11,16 @@ interface LogMessage {
   message: string;
 }
 
+/** One `client/registerCapability` entry. */
+interface Registration {
+  method: string;
+  registerOptions?: unknown;
+}
+
 export interface LanguageServer extends LanguageServerHandle {
   log: LogMessage[]; // every message the server logged; a plugin that throws logs a warning
+  registrations: Registration[]; // every capability the server registered with the client
+  nextDiagnosticRefresh(): Promise<void>; // the next `workspace/diagnostic/refresh` the server sends
   stop(): Promise<void>;
 }
 
@@ -54,6 +62,16 @@ export async function startLanguageServer(
   const log: LogMessage[] = [];
   // Replaces test-utils' own handler, which only prints.
   handle.connection.onNotification('window/logMessage', (params: LogMessage) => log.push(params));
+  const registrations: Registration[] = [];
+  handle.connection.onRequest('client/registerCapability', (params: {registrations: Registration[]}) => {
+    registrations.push(...params.registrations);
+  });
+  let refreshed: (() => void)[] = [];
+  handle.connection.onRequest('workspace/diagnostic/refresh', () => {
+    for (const resolve of refreshed) resolve();
+    refreshed = [];
+  });
+  const nextDiagnosticRefresh = () => new Promise<void>((resolve) => refreshed.push(resolve));
   const kill = () => {
     handle.connection.dispose();
     handle.process.kill();
@@ -61,9 +79,9 @@ export async function startLanguageServer(
   try {
     const uris = folders.map((folder) => ({uri: pathToFileURL(folder).href, name: basename(folder)}));
     await handle.initialize(Array.isArray(workspace) ? uris : uris[0]!.uri, options.initializationOptions ?? {}, {
-      // VS Code's: Vue's template completions are snippets.
+      // VS Code's: Vue's template completions are snippets; the server registers its file watchers.
       textDocument: {diagnostic: {}, completion: {completionItem: {snippetSupport: true}}},
-      workspace: {diagnostics: {}},
+      workspace: {diagnostics: {refreshSupport: true}, didChangeWatchedFiles: {dynamicRegistration: true}},
     });
   } catch (err) {
     kill();
@@ -77,7 +95,7 @@ export async function startLanguageServer(
       kill();
     }
   };
-  return Object.assign(handle, {log, stop});
+  return Object.assign(handle, {log, registrations, nextDiagnosticRefresh, stop});
 }
 
 /** Relays the server's `tsserver/request` notifications to a tsserver, as the extension does. */
@@ -101,13 +119,19 @@ export interface FormattedDocument {
 /** Unlike every fixture's config: the server must ignore what the client sends. */
 export const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
 
+type OpenDocument = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
+
+/** Opens `file` as `ucf`, its buffer then set to `text`, as a real edit. */
+export async function openUcf(server: LanguageServer, file: string, text?: string): Promise<OpenDocument> {
+  const document = await server.openTextDocument(file, 'ucf');
+  if (text === undefined) return document;
+  const whole = {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};
+  return server.updateTextDocument(document.uri, [{range: whole, newText: text}]);
+}
+
 /** Format Document on `file`, its buffer first set to `text`. */
 export async function formatDocument(server: LanguageServer, file: string, text?: string): Promise<FormattedDocument> {
-  let document = await server.openTextDocument(file, 'ucf');
-  if (text !== undefined) {
-    const whole = {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};
-    document = await server.updateTextDocument(document.uri, [{range: whole, newText: text}]);
-  }
+  const document = await openUcf(server, file, text);
   const edits = (await server.sendDocumentFormattingRequest(document.uri, CLIENT_OPTIONS)) ?? [];
   const spans = edits.map(({range, newText}) => ({
     start: document.offsetAt(range.start),

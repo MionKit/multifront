@@ -11,6 +11,7 @@ import {workspaceRoot} from './files.ts';
 import {createUcfLanguagePlugin} from './languagePlugin.ts';
 import {multifrontService} from './multifrontService.ts';
 import {formatService} from './server/format.ts';
+import {lintService} from './server/lint.ts';
 import {emitSvelteTypes} from './svelteDeclarations.ts';
 import {svelteBlocksService, svelteHtmlService} from './svelteMarkupService.ts';
 import type {ServerOptions, TypeScript} from './types.ts';
@@ -136,6 +137,7 @@ export function startServer(options: ServerOptions = {}): void {
       formatService(server),
       createCssService(),
       multifrontService,
+      lintService(server),
       svelteHtmlService(),
       svelteBlocksService,
       ...(ts ? vuePlugins(ts, connection) : []),
