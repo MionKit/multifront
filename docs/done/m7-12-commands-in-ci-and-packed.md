@@ -144,5 +144,5 @@ None: the gate runs fixed fixtures.
 ## Done when
 
 - `pnpm devx check` green; CI `check` runs the gate and `consumer` runs the new spec, seen executing in the logs.
-- The CI speed numbers are in the milestone doc; this todo is in `docs/done/`.
+- The CI speed numbers are in the milestone doc (run 38937352587); this todo is in `docs/done/`.
 - The simplify-comments pass ran on every touched source file, committed on its own.
