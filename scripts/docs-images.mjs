@@ -6,6 +6,8 @@ import {chromium} from 'playwright';
 import {REPO_ROOT} from './lib/env.mjs';
 
 const DIRS = ['docs', 'publicdocs'].map((dir) => join(REPO_ROOT, dir, 'assets')).filter((dir) => existsSync(join(dir, 'src')));
+// The one graphic that ships outside the docs: vsce packs the icon only from the extension folder.
+const OUTPUTS = {'vscode-icon': join(REPO_ROOT, 'packages', 'vscode', 'assets', 'icon.png')};
 
 export async function renderDocsImages(names = []) {
   const pages = DIRS.flatMap((out) =>
@@ -20,7 +22,7 @@ export async function renderDocsImages(names = []) {
     for (const {out, name} of pages) {
       await page.goto(pathToFileURL(join(out, 'src', `${name}.html`)).href);
       await page.evaluate(() => document.fonts.ready);
-      const path = join(out, `${name}.png`);
+      const path = OUTPUTS[name] ?? join(out, `${name}.png`);
       await page.locator('.canvas').screenshot({path, omitBackground: true});
       console.log(path.slice(REPO_ROOT.length + 1));
     }

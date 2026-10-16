@@ -40,7 +40,7 @@ pnpm devx test          # all vitest projects; extra args go to vitest
 pnpm devx format        # oxfmt (add --check to only report)
 pnpm devx build         # tsc --build into each package's dist/
 pnpm devx clean         # delete dist/, coverage/, *.tsbuildinfo (--deps, --dry-run)
-pnpm devx docs-images   # render the docs graphics to PNG (Playwright)
+pnpm devx docs-images   # render the docs graphics and the extension icon to PNG (Playwright)
 pnpm devx consumer-pack <dir>  # build the e2e fixture library, pack one tarball per framework into <dir> (CI's consumer-pack job)
 pnpm devx vsix          # bundle and pack the VS Code extension into packages/vscode/multifront-vscode-<version>.vsix
 pnpm devx commitlint    # check commit messages (CI: --from <base> --to <head>; the commit-msg hook: --edit)
@@ -63,4 +63,4 @@ Fuzz tests run on a fixed seed. A failure prints the line that replays it; a lon
 
 ## Docs graphics
 
-`pnpm devx docs-images` renders `docs/assets/src/*.html` with Playwright's Chromium. If that browser is not installed, point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
+`pnpm devx docs-images` renders `docs/assets/src/*.html` with Playwright's Chromium, `vscode-icon.html` to the extension's `packages/vscode/assets/icon.png`. If that browser is not installed, point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).

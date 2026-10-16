@@ -1,5 +1,6 @@
 {
   "name": "multifront-vscode",
+  "displayName": "multifront",
   "version": "0.0.0",
   "description": "VS Code extension for multifront component files: the .ucf grammar, the language server and the TypeScript plugin.",
   "private": true,
@@ -14,6 +15,8 @@
   "engines": {
     "vscode": "^1.100.0"
   },
+  "icon": "assets/icon.png",
+  "categories": ["Programming Languages", "Formatters", "Linters"],
   "main": "./dist/extension.cjs",
   "exports": {
     "./grammar": {
@@ -26,6 +29,7 @@
     "syntaxes/vendor/*/LICENSE",
     "syntaxes/vendor/sources.json",
     "icons",
+    "assets/icon.png",
     "language-configuration.json",
     "README.md",
     "LICENSE"
