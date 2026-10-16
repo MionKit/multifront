@@ -5,10 +5,10 @@ import {URI} from 'vscode-uri';
 import {isIgnored, workspaceRoot} from '../files.ts';
 import {findFormatConfig, formatUcf, MISSING_SVELTE} from '../format/index.ts';
 
-/** The `multifront-format` plugin; every embedded code has formatting off, so no other service formats a block. */
+/** Every embedded code has formatting off, so no other service formats a block. */
 export function formatService(server: LanguageServer): LanguageServicePlugin {
   const {console} = server.connection;
-  // Per root: the reason last logged, until a format there succeeds; and whether `missing-svelte` was logged.
+  // Per root: the reason last logged, cleared when a format there succeeds.
   const failures = new Map<string, string>();
   const missingSvelte = new Set<string>();
   return {
@@ -19,7 +19,7 @@ export function formatService(server: LanguageServer): LanguageServicePlugin {
         async provideDocumentFormattingEdits(document, range): Promise<TextEdit[] | undefined> {
           const source = context.decodeEmbeddedDocumentUri(URI.parse(document.uri))?.[0];
           if (source?.scheme !== 'file') return undefined;
-          // Range formatting is out of scope: a selection gets nothing.
+          // Range formatting is out of scope.
           const text = document.getText();
           if (document.offsetAt(range.start) !== 0 || document.offsetAt(range.end) !== text.length) return undefined;
           const file = source.fsPath;
