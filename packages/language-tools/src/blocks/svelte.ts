@@ -1,6 +1,5 @@
-import {existsSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
+import {dirname, isAbsolute, join} from 'node:path';
 import {svelteEditorSource} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import type {CodeInformation, CodeMapping, VirtualCode} from '@volar/language-core';
@@ -24,21 +23,24 @@ const MARKUP_FEATURES: CodeInformation = {completion: true};
 const PROPS_OBJECT = 'props: {';
 
 let installedTypesRoot: string | undefined;
-const svelteHtmlByFolder = new Map<string, string>();
+// A Svelte installed later needs a restart, as its compiler does.
+const svelteHtmlByFolder = new Map<string, string | undefined>();
 
-// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file's `import 'svelte'` reads.
+// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file's `import 'svelte'` reads; every Svelte 5 has the file.
 function projectSvelteHtml(fileName: string): string | undefined {
   const folder = dirname(fileName);
-  const found = svelteHtmlByFolder.get(folder);
-  if (found) return found;
-  try {
-    const path = join(dirname(createRequire(join(folder, 'index.js')).resolve('svelte/package.json')), SVELTE_HTML);
-    if (!existsSync(path)) return undefined;
-    svelteHtmlByFolder.set(folder, path);
-    return path;
-  } catch {
-    return undefined;
+  if (svelteHtmlByFolder.has(folder)) return svelteHtmlByFolder.get(folder);
+  let path: string | undefined;
+  // An untitled document has no folder to resolve from.
+  if (isAbsolute(folder)) {
+    try {
+      path = join(dirname(createRequire(join(folder, 'index.js')).resolve('svelte/package.json')), SVELTE_HTML);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') throw err;
+    }
   }
+  svelteHtmlByFolder.set(folder, path);
+  return path;
 }
 
 type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof svelteEditorSource>, 'lang'>;
