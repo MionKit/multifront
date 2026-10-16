@@ -13,6 +13,7 @@ interface LogMessage {
 
 /** One `client/registerCapability` entry. */
 interface Registration {
+  id: string;
   method: string;
   registerOptions?: unknown;
 }
@@ -66,12 +67,12 @@ export async function startLanguageServer(
   handle.connection.onRequest('client/registerCapability', (params: {registrations: Registration[]}) => {
     registrations.push(...params.registrations);
   });
-  let refreshed: (() => void)[] = [];
-  handle.connection.onRequest('workspace/diagnostic/refresh', () => {
-    for (const resolve of refreshed) resolve();
-    refreshed = [];
-  });
-  const nextDiagnosticRefresh = () => new Promise<void>((resolve) => refreshed.push(resolve));
+  let refreshed = () => {};
+  handle.connection.onRequest('workspace/diagnostic/refresh', () => refreshed());
+  const nextDiagnosticRefresh = () => new Promise<void>((resolve) => (refreshed = resolve));
+  // Volar refreshes these too, and warns once for a client that cannot.
+  for (const method of ['workspace/inlayHint/refresh', 'workspace/semanticTokens/refresh'])
+    handle.connection.onRequest(method, () => {});
   const kill = () => {
     handle.connection.dispose();
     handle.process.kill();
@@ -81,7 +82,12 @@ export async function startLanguageServer(
     await handle.initialize(Array.isArray(workspace) ? uris : uris[0]!.uri, options.initializationOptions ?? {}, {
       // VS Code's: Vue's template completions are snippets; the server registers its file watchers.
       textDocument: {diagnostic: {}, completion: {completionItem: {snippetSupport: true}}},
-      workspace: {diagnostics: {refreshSupport: true}, didChangeWatchedFiles: {dynamicRegistration: true}},
+      workspace: {
+        diagnostics: {refreshSupport: true},
+        inlayHint: {refreshSupport: true},
+        semanticTokens: {refreshSupport: true},
+        didChangeWatchedFiles: {dynamicRegistration: true},
+      },
     });
   } catch (err) {
     kill();
@@ -97,6 +103,13 @@ export async function startLanguageServer(
   };
   return Object.assign(handle, {log, registrations, nextDiagnosticRefresh, stop});
 }
+
+/** Errors and warnings (type <= 2) the server logged from log index `from` on, in order. */
+export const loggedWarnings = (server: LanguageServer, from = 0): string[] =>
+  server.log
+    .slice(from)
+    .filter(({type}) => type <= 2)
+    .map(({message}) => message);
 
 /** Relays the server's `tsserver/request` notifications to a tsserver, as the extension does. */
 export function relayTsserver(server: LanguageServer, tsserver: Tsserver): void {
@@ -119,10 +132,10 @@ export interface FormattedDocument {
 /** Unlike every fixture's config: the server must ignore what the client sends. */
 export const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
 
-type OpenDocument = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
+export type Document = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
 
 /** Opens `file` as `ucf`, its buffer then set to `text`, as a real edit. */
-export async function openUcf(server: LanguageServer, file: string, text?: string): Promise<OpenDocument> {
+export async function openUcf(server: LanguageServer, file: string, text?: string): Promise<Document> {
   const document = await server.openTextDocument(file, 'ucf');
   if (text === undefined) return document;
   const whole = {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};

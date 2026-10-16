@@ -5,11 +5,10 @@ import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {EXPECTED_IMPORTS} from '../../fixtures/apps/imports/expected.ts';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../../fixtures/index.ts';
-import type {LanguageServer} from './lsp.ts';
+import type {Document, LanguageServer} from './lsp.ts';
 import {inBlock, locate} from './tsserver.ts';
 import type {Component, TsDefinitions, TsDiagnostic, TsLocation, TsQuickInfo, Tsserver} from './tsserver.ts';
 
-type Document = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
 type Range = Parameters<LanguageServer['sendInlayHintRequest']>[1];
 
 const SEVERITY = {error: 1, warning: 2} as const;
@@ -95,7 +94,7 @@ function rangeOf(document: Document, start: number, end: number): Range {
   return {start: document.positionAt(start), end: document.positionAt(end)};
 }
 
-function byStart(first: {range: Range; code: unknown}, second: {range: Range; code: unknown}): number {
+export function byStart(first: {range: Range; code?: unknown}, second: {range: Range; code?: unknown}): number {
   const {start: firstStart} = first.range;
   const {start: secondStart} = second.range;
   const byLine = firstStart.line - secondStart.line;
