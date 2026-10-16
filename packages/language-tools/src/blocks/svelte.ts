@@ -1,3 +1,4 @@
+import {existsSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {svelteEditorSource} from '@multifront/core';
@@ -11,7 +12,10 @@ import {SVELTE_MARKUP_LANGUAGE, isComponent, scanMarkup} from '../svelteMarkup.t
 import type {EditorBlockKind, EditorContext, EditorFile, TargetScript} from '../types.ts';
 
 // svelte2tsx's global types; their `import('svelte')` needs no install beside them: Svelte's types declare it globally.
-const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
+const SHIMS = 'svelte-shims-v4.d.ts';
+// Element types import `svelte/elements`, which resolves only beside a Svelte: the project's file, else svelte2tsx's.
+const SVELTE_HTML = 'svelte-html.d.ts';
+const SVELTE_JSX = 'svelte-jsx-v4.d.ts';
 
 // TypeScript features only: `mf-fmt` formats the block, and generated wrappers have no outline of the user's.
 const SVELTE_FEATURES: CodeInformation = {verification: true, completion: true, semantic: true, navigation: true};
@@ -20,6 +24,22 @@ const MARKUP_FEATURES: CodeInformation = {completion: true};
 const PROPS_OBJECT = 'props: {';
 
 let installedTypesRoot: string | undefined;
+const svelteHtmlByFolder = new Map<string, string>();
+
+// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file's `import 'svelte'` reads.
+function projectSvelteHtml(fileName: string): string | undefined {
+  const folder = dirname(fileName);
+  const found = svelteHtmlByFolder.get(folder);
+  if (found) return found;
+  try {
+    const path = join(dirname(createRequire(join(folder, 'index.js')).resolve('svelte/package.json')), SVELTE_HTML);
+    if (!existsSync(path)) return undefined;
+    svelteHtmlByFolder.set(folder, path);
+    return path;
+  } catch {
+    return undefined;
+  }
+}
 
 type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof svelteEditorSource>, 'lang'>;
 
@@ -119,7 +139,8 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
   // Resolved only when needed: the VS Code bundle passes its copy and ships no svelte2tsx folder.
   const root =
     ctx.svelteTypesRoot ?? (installedTypesRoot ??= dirname(createRequire(import.meta.url).resolve('svelte2tsx/package.json')));
-  const prefix = SHIMS.map((name) => `/// <reference path="${join(root, name).replaceAll('\\', '/')}" />\n`).join('');
+  const references = [join(root, SHIMS), projectSvelteHtml(ctx.split.filename) ?? join(root, SVELTE_JSX)];
+  const prefix = references.map((path) => `/// <reference path="${path.replaceAll('\\', '/')}" />\n`).join('');
   // svelte2tsx reads the renamed block: its map ends there, the rename's goes on into the `.ucf` file.
   const outer = sourceMapMappings(script.map, svelte, script.code, SVELTE_FEATURES).map((mapping) => ({
     ...mapping,

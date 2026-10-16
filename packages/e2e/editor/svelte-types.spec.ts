@@ -25,7 +25,11 @@ const svelteCompiler = loadSvelteCompiler(FIXTURES_DIR);
 const compiler = loadVueCompiler(FIXTURES_DIR);
 const fromLanguageTools = createRequire(createRequire(import.meta.url).resolve('@multifront/language-tools'));
 const INSTALLED_SHIMS = dirname(fromLanguageTools.resolve('svelte2tsx/package.json'));
-const SHIMS = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'];
+// What svelte2tsx's `get_global_types` picks: its shims, and the element types of the project's Svelte.
+const REFERENCES = [
+  join(INSTALLED_SHIMS, 'svelte-shims-v4.d.ts'),
+  join(dirname(createRequire(PANEL.filename).resolve('svelte/package.json')), 'svelte-html.d.ts'),
+];
 
 const quickInfo = (server: Tsserver, {filename, source}: Component, needle: string, shift = 0) =>
   server.request<TsQuickInfo>('quickinfo', {file: filename, ...locate(source, needle, shift)});
@@ -130,9 +134,9 @@ describe('getTypesScript for the svelte target', () => {
     expect(code).toContain('declare const __ucfStyle: {readonly title: string};');
   });
 
-  it("references svelte2tsx's shims in the installed package", () => {
+  it("references svelte2tsx's shims in the installed package and the project's svelte-html.d.ts", () => {
     const references = [...panelScript()!.code.matchAll(/^\/\/\/ <reference path="(.*)" \/>$/gm)].map(([, path]) => path);
-    expect(references).toEqual(SHIMS.map((name) => join(INSTALLED_SHIMS, name)));
+    expect(references).toEqual(REFERENCES);
   });
 
   it('has no script without the Svelte compiler', () => {
