@@ -351,3 +351,21 @@ Open questions:
 - Packaging for other editors (WebStorm, Neovim). They can load the server and the TypeScript plugin from the npm package.
 - Proposing `.ucf` support to oxc upstream, for oxlint or oxfmt (the user declined it).
 - Running `mf-fmt` over this repo's own files.
+
+## Manual QA
+
+Run from the repo root after `pnpm install`. `B=$PWD/packages/language-tools/bin` runs the bins from source: `node --conditions=source $B/mf-tsc.js` stands for `mf-tsc`. Marks: the QA run on 2026-10-16.
+
+1. `cd packages/e2e/fixtures/apps/types-broken && node --conditions=source $B/mf-tsc.js`: exit 1, one error in each of `BadPage.vue`, `ReactBreaks.ucf`, `SvelteBreaks.ucf`, `VueBreaks.ucf`, `main.ts`, `pages/main.tsx`, then `mf-tsc: checked 8 files with tsconfig.json: 6 errors`. **pass**
+2. Same folder, `mf-tsc SvelteBreaks.ucf --framework svelte`: only `SvelteBreaks.ucf:20:16: error TS2551 (svelte): ...`, exit 1; `--framework react` on the same file: `no errors`, exit 0. **pass**
+3. `mf-tsc --help`, `mf-fmt --help`, `mf-lint --help`: exit 0, the help texts of "Help texts" above. **pass**
+4. `cd packages/e2e/fixtures/apps/lint-format && node --conditions=source $B/mf-lint.js`: four findings in `Lint.ucf` (`no-unused-vars` and `no-debugger` in `<react>` as warnings, `no-debugger` in `<vue>` and `<svelte>` as errors), `mf-lint: linted 2 files: 2 errors, 2 warnings`, exit 1. **pass**
+5. Same folder, `mf-fmt --check`: `Messy.ucf:3:9: error unformatted: not formatted; run mf-fmt Messy.ucf`, exit 1. On a copy, `mf-fmt Messy.ucf` then `mf-fmt --check Messy.ucf`: `formatted 1 of 1 files`, then `0 of 1 files not formatted`, exit 0. **pass**
+6. A path the commands refuse: `mf-lint react.ts` in `lint-format/` gives exit 2, stdout empty, and `mf-lint: react.ts is not a .ucf file; lint it with oxlint`; `mf-fmt old/Messy.ucf` with `old/**` ignored gives `is ignored by .oxfmtrc.json`. **pass**
+7. A folder with `Card.ucf` of the fixtures, `.oxlintrc.json` `{"rules": {"no-debugger": "error"}}`, `.oxfmtrc.json` `{}` and a tsconfig with the plugin entry: `mf-tsc` and `mf-lint` exit 0, `mf-fmt --check` exits 0 (the exit test's step 1). **fail**: `mf-fmt --check` exits 1, `Card.ucf:2:1: error unformatted`.
+8. `pnpm devx vsix`: `packages/vscode/multifront-vscode-0.0.0.vsix` (one file, about 2.7 MB). **pass**
+9. `code --install-extension packages/vscode/multifront-vscode-0.0.0.vsix`, open a copy of `packages/e2e/fixtures/apps/types-every-target/`: `Greeting.ucf` has the `ucf` language id, a type error in `<react>` and a `debugger` in `<vue>` show in Problems, Format Document gives what `mf-fmt` writes, a hover on `<Greeting` in `main.tsx` shows its props. **needs a person** (the automated `vsix.spec.ts` passes)
+10. In that VS Code, inside a `<svelte>` block's markup: `<input bi` lists `bind:value`; `<sv` lists `svelte:window`; `{#` lists `if` and `each`. **needs a person** (`<input bi` passes in the automated exit test)
+11. In that VS Code, with `Icon.ucf` of `svelte-markup/` imported in a `<svelte>` block: `<Icon ` typed at the end of the last markup line lists `name` and `size`. **fail** in the automated exit test: it lists names in scope (`$$render`, `Icon`, ...), as tsserver does with no editor.
+12. In that VS Code, `<h2 title={1}>` in `<svelte>` markup shows TS2322, as `mf-tsc` reports it. **fail** in the automated exit test: VS Code shows no error there.
+13. The first release: publish a GitHub release `v<version>`; the extension installs from the VS Code Marketplace and from Open VSX into a clean VS Code and a clean VSCodium, and check 9 holds there. **needs a person**
