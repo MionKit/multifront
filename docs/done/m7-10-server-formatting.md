@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-16
 milestone: 7
 step: 7.10
@@ -32,15 +32,16 @@ formats the root code, then each embedded code whose mappings have `format` on. 
 - The bundled-server format case and the VS Code default-formatter check are in (orchestrator, rule 1: the Deliverable
   is about VS Code, and new behaviour has Vitest coverage).
 
-## Plan
+## Plan (as shipped)
 
 1. **Formatting off in every embedded code** (`packages/language-tools/src/mappings.ts`): `ALL_FEATURES` becomes
    `BLOCK_FEATURES`, every feature but `format`. New `withoutFormat(mappings)`: copies with `data.format: false`, cached
    per array in a `WeakMap`, never mutating the shared data objects. The root mapping (`languagePlugin.ts:52`) keeps
    `format: true`: Volar formats a code only when a mapping has it, and the root is where our plugin answers.
-2. **Vue's codes** (`packages/language-tools/src/blocks/vue.ts`): the per-instance getter on the `VueVirtualCode` also
-   overrides `mappings` with `withoutFormat(...)`; `stripStyles` copies every kept nested code with format-off mappings.
-   The `<svelte>` codes and `moduleTypes.ts` never set `format`.
+2. **Vue's codes** (`packages/language-tools/src/blocks/vue.ts`): `asBlockCode()` (was `ownStylesOnly()`) puts
+   per-instance getters on the `VueVirtualCode`: `embeddedCodes` through `blockCodes()` (was `stripStyles()`), which
+   drops Vue's style codes and copies every kept nested code with format-off mappings, and `mappings` through
+   `withoutFormat()`. The `<svelte>` codes and `moduleTypes.ts` never set `format`.
 3. **`packages/language-tools/src/server/workspace.ts`** (new): `workspaceRoot(fileName, folders)` moves here from
    `src/server.ts`, used by `emitOnSave` and the new plugin.
 4. **`packages/language-tools/src/server/format.ts`** (new): `formatService(server)`, the `multifront-format` plugin,
@@ -74,6 +75,9 @@ as the extension does.
   8. `lint-format-svelte/`: equals `mf-fmt`, the `<svelte>` block changed.
   9. No oxfmt (copy outside the repo): no edits, one warning, still one after a second request, the server still answers.
   10. oxfmt without svelte: equals `mf-fmt` there, `<svelte>` as written, one `missing-svelte` line.
+
+  Red first: every case failed before the change. With any one format flag left on (ours, the `VueVirtualCode`'s
+  own, Vue's nested codes), 6 to 10 of the 10 cases fail.
 - **`packages/e2e/editor/bundle.spec.ts`**: the bundled `dist/server.cjs` formats `lint-format/Messy.ucf` as `mf-fmt`.
 - **`packages/e2e/editor/vscode/suite.cjs`**: the extension is the default formatter of `[ucf]` files.
 - **`packages/e2e/editor/virtualCode.spec.ts`**: the `<react>` and `<style>` pieces pin `format: false`.
