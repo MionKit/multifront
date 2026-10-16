@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-15
 ---
 
@@ -67,10 +67,17 @@ No human could approve the plan in this delegated session; it was decided under 
 
 - `runInVsCode` (`packages/e2e/editor/lib/vscode.ts`) gives VS Code `FONTCONFIG_SYSROOT`, on Linux only:
   `packages/e2e/.tmp/vscode-fontconfig/`, holding one `etc/fonts/fonts.conf` (`/usr/share/fonts` + a cache dir inside
-  the root) and a link to the host's fonts. A sysroot, not `FONTCONFIG_FILE`: with `FONTCONFIG_FILE` fontconfig still
-  scans the 46 templates. Pango's thread now parses 1 file in about 0.2 ms, done about 12 ms before the first
-  `setenv`. The font cache inside the root warms on the first run.
+  the root) and a link to the host's fonts. `fc-cache` warms that cache before every run (5 ms when warm).
+  A sysroot, not `FONTCONFIG_FILE`: with `FONTCONFIG_FILE` fontconfig still scans the 46 templates.
+  Pango's thread now parses 1 file in about 0.2 ms, done about 12 ms before the first `setenv`.
 - Test: `exit.spec.ts` runs `fontconfig.cjs` in VS Code (Linux). It reads the main process's real environment from
   `/proc`, runs the host's `fc-match` with that `FONTCONFIG_SYSROOT` and `FC_DEBUG=1024`, and checks one config file
   loaded, no template scan, a font found. It fails without the fix ("the main process has no FONTCONFIG_SYSROOT").
 - `mainProcess()` moved from `crash.cjs` to `harness.cjs`, shared by both suites.
+
+### Shipped against Done when
+
+- Named from the dump: the crashed thread (pango's `FcInit`) and what it was doing (starting a fontconfig XML parse).
+  Fixed: that parse now takes about 0.2 ms instead of about 10 ms. Not named: the thread it raced with.
+- Repeated runs: one full `pnpm devx check` on the cloud host passed with the fix, plus this PR's CI.
+- Split off as a new todo: count repeated gates and CI runs for a recurrence, and on a new dump name the other thread.

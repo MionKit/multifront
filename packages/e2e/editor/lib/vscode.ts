@@ -27,7 +27,7 @@ export const VSCODE_VERSION = '1.137.0';
 export const CRASH_DIR = join(TMP_DIR, 'vscode-crashes');
 const CACHE_DIR = join(REPO_ROOT, '.vscode-test');
 const LOCK = join(CACHE_DIR, 'download.lock');
-export const FONTCONFIG_ROOT = join(TMP_DIR, 'vscode-fontconfig');
+const FONTCONFIG_ROOT = join(TMP_DIR, 'vscode-fontconfig');
 // Paths inside FONTCONFIG_ROOT: fontconfig prefixes every path with its sysroot.
 const FONTCONFIG = `<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
@@ -265,11 +265,10 @@ function keepCrashDumps(temp: string): string | undefined {
 
 /**
  * The main process crashed once inside pango's background FcInit, while it parsed the host's 64 font config files.
- * This root holds one config file and no template dir, so that parse takes well under a millisecond.
+ * This root holds one config file, no template dir and a warm cache, so that parse takes well under a millisecond.
  */
 function fontconfigRoot(): string {
   const config = join(FONTCONFIG_ROOT, 'etc', 'fonts', 'fonts.conf');
-  if (existsSync(config)) return FONTCONFIG_ROOT;
   mkdirSync(dirname(config), {recursive: true});
   mkdirSync(join(FONTCONFIG_ROOT, 'usr', 'share'), {recursive: true});
   try {
@@ -281,6 +280,8 @@ function fontconfigRoot(): string {
   const part = `${config}.${randomUUID()}`;
   writeFileSync(part, FONTCONFIG);
   renameSync(part, config);
+  // A cold cache would make pango's thread scan every font file at startup; warm, this only stats the dirs.
+  execFileSync('fc-cache', [], {env: {PATH: process.env.PATH, FONTCONFIG_SYSROOT: FONTCONFIG_ROOT}});
   return FONTCONFIG_ROOT;
 }
 

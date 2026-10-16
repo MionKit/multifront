@@ -49,7 +49,7 @@ pnpm devx peer-floor vue    # CI only: install the oldest react, vue or svelte v
 
 Single test file: `pnpm devx test packages/vite/test/vueCompiler.spec.ts`. One e2e area: `pnpm devx test packages/e2e/build`.
 
-The editor exit test (`packages/e2e/editor/vscode/`) runs a real VS Code. Its first run downloads the pinned build into `.vscode-test/` (about 360 MB). On Linux with no display it starts its own Xvfb, so install `xvfb` on a headless machine.
+The editor exit test (`packages/e2e/editor/vscode/`) runs a real VS Code. Its first run downloads the pinned build into `.vscode-test/` (about 360 MB). On Linux with no display it starts its own Xvfb, so install `xvfb` on a headless machine. On Linux it also runs fontconfig's `fc-cache` and `fc-match` (package `fontconfig`).
 
 The browser tests (`packages/e2e/browser/`) drive Playwright's Chromium: install it once with `pnpm exec playwright install chromium`, or point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
 

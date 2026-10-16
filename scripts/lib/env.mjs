@@ -35,6 +35,8 @@ export const REGISTRY = [
   {name: 'npm_lifecycle_*', scope: 'internal', desc: "set by pnpm's script runner; the consumer test helpers clear them for the temp apps"},
   {name: 'NEXT_TELEMETRY_DISABLED', scope: 'internal', desc: 'set to 1 by the consumer test helpers for the temp apps, so Next.js sends no telemetry from a test run'},
   {name: 'DISPLAY', scope: 'internal', desc: 'X display of the real VS Code tests; unset on Linux, the harness starts its own Xvfb'},
+  {name: 'FONTCONFIG_SYSROOT', scope: 'internal', desc: "set on Linux by the real VS Code harness to its one-file fontconfig root; editor/vscode/fontconfig.cjs reads it from VS Code's main process"},
+  {name: 'FC_DEBUG', scope: 'internal', desc: 'set to 1024 by editor/vscode/fontconfig.cjs for fc-match, which then logs each config file it loads'},
   {name: 'MULTIFRONT_VSCODE_RESULTS', scope: 'internal', desc: 'set by the real VS Code harness: where the check suite inside VS Code writes its results'},
   {name: 'MULTIFRONT_VSCODE_DATA', scope: 'internal', desc: 'set by the real VS Code harness: the JSON file the check suite inside VS Code reads its expected results from'},
   {name: 'VSCE_PAT', scope: 'secret', desc: 'repository secret; the vscode-release workflow hands it to vsce publish (VS Code Marketplace token)'},
