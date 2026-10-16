@@ -1,5 +1,4 @@
-// The bins of the packed @multifront/language-tools, installed from a local registry into a fresh project: the same
-// output as from source, on copies of the same fixture apps.
+// Packed language-tools bins, installed from a local registry, print what the source bins print on the same fixtures.
 import {readFileSync} from 'node:fs';
 import {cp} from 'node:fs/promises';
 import {join} from 'node:path';
@@ -47,7 +46,6 @@ afterAll(async () => {
   await Promise.all([...sources.values()].map((root) => removeApp(root)));
 }, SETUP_TIMEOUT);
 
-/** The installed bin, from `node_modules/.bin`, inside the fresh project's copy of `folder`. */
 async function installed(bin: Bin, folder: string, args: string[] = []) {
   const {code, stdout, stderr} = await runInApp(
     app!,
@@ -57,7 +55,7 @@ async function installed(bin: Bin, folder: string, args: string[] = []) {
   return {code, stdout, stderr};
 }
 
-/** The same bin from `src/`, inside the in-repo copy of `folder`. */
+/** The same bin from `src/`. */
 const fromSource = (bin: Bin, folder: string, args: string[] = []) =>
   runBin('@multifront/language-tools', bin, sources.get(folder)!, args);
 

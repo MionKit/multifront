@@ -73,8 +73,7 @@ export function runInApp(app: ConsumerApp, [file, ...args]: Command, cwd = app.d
   });
 }
 
-/** A `fixtures/apps/<template>` copy outside the workspace, `packages` (tarballs or specs) installed. */
-// `registry`: where `@multifront/*` comes from; everything else from npm.
+/** A `fixtures/apps/<template>` copy outside the workspace, `packages` installed; `registry` serves `@multifront/*`. */
 export async function createConsumerApp(template: string, packages: string[], registry?: string): Promise<ConsumerApp> {
   const dir = await mkdtemp(join(tmpdir(), `mf-consumer-${template}-`));
   const app: ConsumerApp = {
