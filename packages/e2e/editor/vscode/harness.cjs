@@ -84,7 +84,7 @@ function parentOf(pid) {
   return Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(pid)], {encoding: 'utf8'}).trim());
 }
 
-/** VS Code's main process: the first ancestor of this extension host with no `--type=` argument. */
+/** Electron's helper processes carry `--type=`; the main process does not. */
 function mainProcess() {
   for (let pid = parentOf(process.pid); pid > 1; pid = parentOf(pid)) {
     if (!execFileSync('ps', ['-o', 'args=', '-p', String(pid)], {encoding: 'utf8'}).includes('--type=')) return pid;

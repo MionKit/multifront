@@ -1,4 +1,4 @@
-// exit.spec.ts's font config run: fontconfig, as VS Code's main process sets it up, reads one config file.
+// exit.spec.ts's font config suite, run inside VS Code.
 const assert = require('node:assert/strict');
 const {execFileSync} = require('node:child_process');
 const {readFileSync} = require('node:fs');
