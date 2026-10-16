@@ -30,7 +30,7 @@
     "apps/imports/no-default/unknown.ts",
     // The build errors build/react-target.spec.ts pins.
     "apps/react-basic/src/errors",
-    // Each imports one .ucf file in two frameworks: TypeScript keeps one resolution per specifier (plan.md, spike 1).
+    // Each imports one .ucf file in two frameworks, which one program types as one (architecture.md, plan.md spike 1).
     "apps/all-targets/src/main.tsx",
     "apps/root-props/src/main.ts",
     // The import errors editor/blockImports.spec.ts and editor/tsserver.spec.ts pin.
