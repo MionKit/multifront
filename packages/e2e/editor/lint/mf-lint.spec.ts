@@ -242,6 +242,7 @@ describe('mf-lint exit codes', () => {
       );
     });
   });
+
   it('gives lint-parse-error for a block oxlint cannot parse or a redeclaration, which oxlint reports with no code', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       const source = LINT_SOURCE.replace("const unused = 'é ü'", "const = 'é ü'").replace(
