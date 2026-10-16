@@ -5,11 +5,10 @@ import {cp, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {FIXTURES_DIR} from '../../fixtures/index.ts';
-import {freePort} from './app.ts';
+import {REPO_ROOT, freePort} from './app.ts';
 
 const run = promisify(execFile);
-const VERDACCIO = join(FIXTURES_DIR, '..', '..', '..', 'node_modules', 'verdaccio', 'bin', 'verdaccio');
+const VERDACCIO = join(REPO_ROOT, 'node_modules', 'verdaccio', 'bin', 'verdaccio');
 const CONFIG = join(import.meta.dirname, 'verdaccio.yaml');
 const READY_TIMEOUT = 60_000;
 
@@ -30,6 +29,8 @@ export async function startRegistry(): Promise<Registry> {
     stdio: ['ignore', openSync(log, 'w'), openSync(log, 'a')],
     detached: true,
   });
+  // A child a signal ended keeps `exitCode` null.
+  const exited = () => child.exitCode !== null || child.signalCode !== null;
   const kill = () => {
     try {
       process.kill(-child.pid!);
@@ -41,23 +42,17 @@ export async function startRegistry(): Promise<Registry> {
   process.once('exit', kill);
   const stop = async () => {
     process.off('exit', kill);
-    if (child.exitCode === null) {
-      const exited = new Promise((resolve) => child.once('exit', resolve));
+    if (!exited()) {
+      const gone = new Promise((resolve) => child.once('exit', resolve));
       kill();
-      await exited;
+      await gone;
     }
     await rm(dir, {recursive: true, force: true});
   };
   try {
     for (const deadline = Date.now() + READY_TIMEOUT; ;) {
-      if (child.exitCode !== null) throw new Error(`verdaccio exited with code ${child.exitCode}`);
-      if (
-        await fetch(`${url}-/ping`).then(
-          (res) => res.ok,
-          () => false
-        )
-      )
-        break;
+      if (exited()) throw new Error(`verdaccio exited (${child.exitCode ?? child.signalCode})`);
+      if ((await fetch(`${url}-/ping`).catch(() => undefined))?.ok) break;
       if (Date.now() > deadline) throw new Error(`verdaccio did not answer on ${url} within ${READY_TIMEOUT / 1000} s`);
       await new Promise((resolve) => setTimeout(resolve, 200));
     }

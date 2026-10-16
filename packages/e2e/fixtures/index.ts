@@ -50,7 +50,7 @@ const OUTSIDE_PREFIX = 'mf-library-';
 // The repo's installed packages, then the e2e package's own (the workspace packages).
 const INSTALLED = [join(FIXTURES_DIR, '..', '..', '..', 'node_modules'), join(FIXTURES_DIR, '..', 'node_modules')];
 
-function packagesIn(dir: string): string[] {
+export function packagesIn(dir: string): string[] {
   return readdirSync(dir)
     .filter((name) => !name.startsWith('.'))
     .flatMap((name) => (name.startsWith('@') ? readdirSync(join(dir, name)).map((scoped) => `${name}/${scoped}`) : [name]));

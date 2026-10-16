@@ -1,5 +1,5 @@
 import {execFile} from 'node:child_process';
-import {existsSync, readFileSync, readdirSync, realpathSync} from 'node:fs';
+import {existsSync, readFileSync, realpathSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rm, symlink, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {basename, dirname, join, resolve} from 'node:path';
@@ -7,7 +7,7 @@ import {promisify} from 'node:util';
 import {TARGETS} from '@multifront/core';
 import type {Target} from '@multifront/core';
 import {buildLibrary} from '@multifront/vite';
-import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR} from '../../fixtures/index.ts';
+import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, packagesIn} from '../../fixtures/index.ts';
 import {buildFixtureLibrary} from '../../build/lib/library.ts';
 
 const run = promisify(execFile);
@@ -71,12 +71,6 @@ export interface LanguageToolsTarballs {
   remove: () => Promise<void>;
 }
 
-function entriesOf(modules: string): string[] {
-  return readdirSync(modules)
-    .filter((name) => !name.startsWith('.'))
-    .flatMap((name) => (name.startsWith('@') ? readdirSync(join(modules, name)).map((scoped) => `${name}/${scoped}`) : [name]));
-}
-
 // Real `tsc --build` and `pnpm pack` in a staged workspace, never in the `dist/` built-packages.spec.ts builds at once.
 export async function packLanguageTools(): Promise<LanguageToolsTarballs> {
   await mkdir(TMP_DIR, {recursive: true});
@@ -93,7 +87,7 @@ export async function packLanguageTools(): Promise<LanguageToolsTarballs> {
       const filter = (source: string) => !LEFT_OUT.has(basename(source)) && !source.endsWith('.tsbuildinfo');
       await cp(from, to, {recursive: true, filter});
       // The real installs, but the staged core: a link to the real one would pull its `src/` into the build.
-      for (const entry of entriesOf(join(from, 'node_modules'))) {
+      for (const entry of packagesIn(join(from, 'node_modules'))) {
         const link = join(to, 'node_modules', entry);
         await mkdir(dirname(link), {recursive: true});
         const target =

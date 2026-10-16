@@ -14,6 +14,7 @@ import {styles} from '../../browser/lib/parity.ts';
 import {scopeAttribute} from '../../browser/lib/scope.ts';
 import {fixtureTarballs} from './pack.ts';
 import type {ToolRun} from './pack.ts';
+import type {BinRun} from '../../editor/lib/commands.ts';
 
 export const REPO_ROOT = join(FIXTURES_DIR, '..', '..', '..');
 
@@ -53,10 +54,7 @@ function consumerEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-export interface AppRun extends ToolRun {
-  stdout: string;
-  stderr: string;
-}
+type AppRun = ToolRun & BinRun;
 
 /** Never throws on a non-zero exit: the code and the output say what happened. */
 export function runInApp(app: ConsumerApp, [file, ...args]: Command, cwd = app.dir): Promise<AppRun> {
@@ -75,17 +73,9 @@ export function runInApp(app: ConsumerApp, [file, ...args]: Command, cwd = app.d
   });
 }
 
-interface ConsumerAppOptions {
-  // `@multifront/*` from this registry, everything else from npm.
-  registry?: string;
-}
-
-/** A `fixtures/apps/<template>` copy outside the workspace, tarballs (or package specs) installed. */
-export async function createConsumerApp(
-  template: string,
-  tarballs: string[],
-  {registry}: ConsumerAppOptions = {}
-): Promise<ConsumerApp> {
+/** A `fixtures/apps/<template>` copy outside the workspace, `packages` (tarballs or specs) installed. */
+// `registry`: where `@multifront/*` comes from; everything else from npm.
+export async function createConsumerApp(template: string, packages: string[], registry?: string): Promise<ConsumerApp> {
   const dir = await mkdtemp(join(tmpdir(), `mf-consumer-${template}-`));
   const app: ConsumerApp = {
     dir,
@@ -102,7 +92,7 @@ export async function createConsumerApp(
     await writeFile(join(dir, 'pnpm-workspace.yaml'), policy);
     if (registry) await writeFile(join(dir, '.npmrc'), `@multifront:registry=${registry}\n`);
     const commands: Command[] = [['pnpm', 'install']];
-    if (tarballs.length > 0) commands.push(['pnpm', 'add', ...tarballs]);
+    if (packages.length > 0) commands.push(['pnpm', 'add', ...packages]);
     for (const command of commands) {
       const {code, output} = await runInApp(app, command);
       if (code !== 0) throw new Error(`${command.join(' ')} failed in ${template}:\n${output}`);

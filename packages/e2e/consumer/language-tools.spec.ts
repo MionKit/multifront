@@ -6,8 +6,8 @@ import {join} from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, copyApp, removeApp} from '../fixtures/index.ts';
 import {runBin} from '../editor/lib/commands.ts';
-import {editFile} from '../editor/lib/tsc.ts';
-import {createConsumerApp, runInApp} from './lib/app.ts';
+import {editFile, report} from '../editor/lib/tsc.ts';
+import {REPO_ROOT, createConsumerApp, runInApp} from './lib/app.ts';
 import type {ConsumerApp} from './lib/app.ts';
 import {packLanguageTools} from './lib/pack.ts';
 import type {LanguageToolsTarballs} from './lib/pack.ts';
@@ -17,7 +17,7 @@ import type {Registry} from './lib/registry.ts';
 const VALID = 'types-every-target';
 const LINT_FORMAT = 'lint-format';
 const BINS = ['mf-tsc', 'mf-lint', 'mf-fmt'] as const;
-const {version} = JSON.parse(readFileSync(join(FIXTURES_DIR, '..', '..', '..', 'version.json'), 'utf8')) as {version: string};
+const {version} = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'), 'utf8')) as {version: string};
 const SETUP_TIMEOUT = 240_000;
 
 type Bin = (typeof BINS)[number];
@@ -33,9 +33,7 @@ beforeAll(async () => {
   registry = await startRegistry();
   await registry.publish(tarballs.core);
   await registry.publish(tarballs.languageTools);
-  app = await createConsumerApp('consumer-language-tools', [`@multifront/language-tools@${version}`], {
-    registry: registry.url,
-  });
+  app = await createConsumerApp('consumer-language-tools', [`@multifront/language-tools@${version}`], registry.url);
   for (const name of [VALID, LINT_FORMAT]) {
     await cp(join(FIXTURES_DIR, 'apps', name), join(app.dir, name), {recursive: true});
     sources.set(name, await copyApp(name));
@@ -84,8 +82,8 @@ describe('the bins of the packed @multifront/language-tools', () => {
     const run = await installed('mf-tsc', VALID, ['--format', 'json']);
     expect(run.code).toBe(1);
     expect(
-      JSON.parse(run.stdout)
-        .findings.map(({framework}: {framework: string}) => framework)
+      report(run.stdout)
+        .findings.map(({framework}) => framework)
         .sort()
     ).toEqual(['react', 'svelte', 'vue']);
     expect(run).toEqual(await fromSource('mf-tsc', VALID, ['--format', 'json']));
