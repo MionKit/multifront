@@ -23,7 +23,6 @@ function sameRange({range}, {line, column, end}) {
 
 const describe = ({code, line, column}) => `${code} at ${line}:${column}`;
 
-/** Waits until Greeting.ucf's diagnostics hold one `matches` diagnostic at each finding of `expected()[key]`. */
 async function holdsEvery(key, what, matches) {
   const findings = expected()[key];
   assert.ok(findings.length > 0, `the real mf-${key} found nothing`);

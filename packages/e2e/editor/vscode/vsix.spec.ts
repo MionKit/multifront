@@ -96,7 +96,7 @@ describe(`the server from the unzipped .vsix formats ${LINT_FORMAT_SVELTE}/ with
   });
 });
 
-/** A types-every-target/ copy with its own configs (the repo's ignore `.tmp/`), a type error and a `debugger`. */
+/** Own configs, as the repo's ignore `.tmp/`; plus a type error and a `debugger`. */
 async function brokenCopy(): Promise<string> {
   const root = await copyApp(VALID);
   try {
