@@ -1,4 +1,4 @@
-import {spawn} from 'node:child_process';
+import {execFileSync, spawn} from 'node:child_process';
 import {cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename, join} from 'node:path';
@@ -36,6 +36,7 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
   const output: string[] = [];
   const stream = new PassThrough();
   stream.on('data', (chunk: Buffer) => output.push(chunk.toString()));
+  let checks: CheckResult[];
   try {
     await runTests({
       version: VSCODE_VERSION,
@@ -62,20 +63,73 @@ export async function runInVsCode({extension, workspace, suite, args = []}: RunO
       stdout: stream,
       stderr: stream,
     });
-    return JSON.parse(readFileSync(results, 'utf8')) as CheckResult[];
+    checks = JSON.parse(readFileSync(results, 'utf8')) as CheckResult[];
   } catch (err) {
-    let keptNote = '';
-    try {
-      const crashFolder = keepCrashDumps(temp);
-      if (crashFolder) keptNote = `\ncrash dump kept in ${crashFolder}`;
-    } catch (copyErr) {
-      keptNote = `\ncrash dump not kept: ${String(copyErr)}`;
-    }
-    throw new Error(`VS Code run failed: ${String(err)}${keptNote}\n${output.join('').slice(-20_000)}`, {cause: err});
+    const notes = await cleanUp(temp, true);
+    throw new Error(`VS Code run failed: ${String(err)}${notes}\n${output.join('').slice(-20_000)}`, {cause: err});
   } finally {
     display?.stop();
-    rmSync(temp, {recursive: true, force: true});
   }
+  await cleanUp(temp, false);
+  return checks;
+}
+
+/** Deletes `temp` once nothing of the run writes into it, keeping a failed run's dumps; returns notes for its error. */
+async function cleanUp(temp: string, failed: boolean): Promise<string> {
+  let notes = '';
+  try {
+    await leftoversGone(temp);
+  } catch (waitErr) {
+    if (!failed) throw waitErr;
+    notes += `\nleftover VS Code processes not awaited: ${String(waitErr)}`;
+  }
+  if (failed) {
+    try {
+      const crashFolder = keepCrashDumps(temp);
+      if (crashFolder) notes += `\ncrash dump kept in ${crashFolder}`;
+    } catch (copyErr) {
+      notes += `\ncrash dump not kept: ${String(copyErr)}`;
+    }
+  }
+  try {
+    rmSync(temp, {recursive: true, force: true, maxRetries: 5});
+  } catch (rmErr) {
+    // A failed run's own error matters more than its leftover folder.
+    if (!failed) throw rmErr;
+    notes += `\ntemp folder not removed: ${String(rmErr)}`;
+  }
+  return notes;
+}
+
+// Crashpad runs in its own process group and outlives a crash, still writing the dump into `temp`.
+async function leftoversGone(temp: string): Promise<void> {
+  const deadline = Date.now() + 10_000;
+  for (let pids = processesNaming(temp); pids.length > 0; pids = processesNaming(temp)) {
+    if (Date.now() > deadline) {
+      for (const pid of pids) killIfAlive(pid);
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
+function killIfAlive(pid: number): void {
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch (err) {
+    // ESRCH: it exited since `ps` listed it.
+    if ((err as NodeJS.ErrnoException).code !== 'ESRCH') throw err;
+  }
+}
+
+/** Every process with `temp` in its command line: each VS Code process names its profile or dump folder. */
+function processesNaming(temp: string): number[] {
+  if (process.platform === 'win32') return [];
+  const list = execFileSync('ps', ['-A', '-ww', '-o', 'pid=,args='], {encoding: 'utf8'});
+  return list
+    .split('\n')
+    .filter((line) => line.includes(temp))
+    .map((line) => Number.parseInt(line, 10));
 }
 
 function keepCrashDumps(temp: string): string | undefined {

@@ -1,7 +1,7 @@
 ---
 type: fix
 spec: guidelines
-status: ready
+status: done
 created: 2026-10-16
 ---
 
@@ -38,3 +38,25 @@ None expected. If the harness gains a rule, the "Editor: real VS Code" row of `d
 - The SIGSEGV case passes again and again; a crash's leftover writers never turn its error into `ENOTEMPTY`.
 - A test proves it and fails without the fix.
 - The simplify-comments pass ran on every touched source file, committed on its own.
+
+## Plan: wait out the crash reporter, never let cleanup replace the error (approved 2026-10-16, automatic mode)
+
+Findings, from a real crash logged at the moment `runTests` rejected:
+
+- Only `chrome_crashpad_handler` is still alive then: parent 1, its own process group, `--database=<temp>/crashes`.
+  It still moves the dump from `new/` to `pending/` and writes `.meta` and `settings.dat`. It is gone within 100 ms
+  here; on a slower CI runner the `rm` lands in that window. `keepCrashDumps` races it the same way.
+
+Plan:
+
+- `runInVsCode` waits until no process has its temp folder in its command line (`ps -A -ww`, 10 s cap, then
+  SIGKILL), before it copies the dumps and before it deletes the folder. `rm` gets `maxRetries`.
+- A failed run: a cleanup error becomes a note in VS Code's error, never thrown in its place.
+- Test: `crash.cjs` leaves a detached writer in the run's folder for about 3 s, as Crashpad does for a moment;
+  `exit.spec.ts` checks the error is still VS Code's and the folder is gone.
+
+## What shipped
+
+As planned. Without the fix the test fails with CI's exact error:
+`ENOTEMPTY, Directory not empty: '/tmp/multifront-vscode-OcqQaA'`. On Windows the wait is skipped (no `ps`);
+`rm`'s retries remain. `docs/milestones/README.md` "Editor: real VS Code" names the wait.
