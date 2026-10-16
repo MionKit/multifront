@@ -129,7 +129,7 @@ const TSCONFIG = {
 // The only edits: a number passed to a string prop in <svelte>, a debugger in the <vue> script.
 const SVELTE_PROPS = '    let { title }: { title: string } = $props()\n';
 const SVELTE_HEADING = '<h2>{title}</h2></div>\n</svelte>';
-const VUE_PROPS = '  defineProps<{ title: string }>()\n';
+const VUE_PROPS = 'defineProps<{ title: string }>();\n';
 
 /** Card.ucf of the fixtures in a small project of its own, under the repo's `.tmp/` so its tools resolve. */
 function cardProject(): string {
