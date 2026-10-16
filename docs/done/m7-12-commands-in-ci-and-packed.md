@@ -1,7 +1,7 @@
 ---
 type: feature
 spec: full-plan
-status: ready
+status: done
 created: 2026-10-16
 milestone: 7
 step: 7.12
@@ -41,7 +41,8 @@ Answers from the orchestrator, one line each:
 - Core as a dependency: a local verdaccio registry, mion's pattern (pin, config, start and stop), not a pnpm `overrides` entry; the fresh app's `.npmrc` scopes only `@multifront` to it, no uplink; verdaccio a root devDependency, exact pin.
 - A file is left out only when it breaks something on purpose (a spec pins the error, or its own comment says build only or deliberately broken); its exclude comment names that test or comment. Generated-types errors are our bugs (fixed here, own commit and test); plain mistakes are fixed in the fixture.
 - A limit of one `mf-tsc` program that spec or architecture does not state: fixed, or a guidelines todo in this PR with the file left out for the todo's reason (the two-framework importers).
-- `Merges.ucf` (svelte2tsx leaves a backtick in an attribute value unescaped): left out, plus a guidelines todo for a workaround on our side.
+- Changed after review: the two-framework importers stay left out (smaller, easier to undo; the HMR fixtures keep their shape), and `docs/architecture.md` now states the one-resolution-per-specifier limit of `mf-tsc`, so no todo.
+- `Merges.ucf` (svelte2tsx leaves a backtick in an attribute value unescaped): first a todo; changed after review to a fix here (own `fix(language-tools)` commit and test, the same kind of svelte2tsx patch as Fix 2), so the gate checks it.
 - Fix 1 (unmapped TypeScript-only-syntax codes dropped): yes, as tsserver and vue-tsc never show a diagnostic the user cannot map to their code; 7.2's Build sentence updated.
 - The consumer spec's `mf-tsc` check with one broken block per framework: yes, the installed bin must match the source bin on the same edit.
 
@@ -69,8 +70,9 @@ Answers from the orchestrator, one line each:
    `svelte/errors`, `svelte/imports/AttrInSvelte*.ucf`, `UsesReactOnly.ucf`, `vue/AttrInside*.ucf`,
    `DuplicateVue.ucf`, `VueWithUnclosedReact.ucf`); the transform cases whose error the core specs pin or whose
    comment says so (`ArrayPattern`, `Cyclic`, `RedeclaredPattern`, `FragmentImports`, `Namespaced`,
-   `ValuelessClass`, `StringHandlerRoot`); `Merges.ucf` and the two two-framework importers (todos above);
-   `**/node_modules`.
+   `ValuelessClass`, `StringHandlerRoot`); the two two-framework importers (the limit `docs/architecture.md`
+   states); `**/node_modules`. `react/errors` and `svelte/errors` go file by file. `vue/GlobalProps.ucf` type-checks
+   because `include: ["components"]` takes its `global-props.d.ts` too.
 5. **`packages/e2e/editor/gate.spec.ts`**, cwd `FIXTURES_DIR`. `gateUcfFiles(root)`: the `.ucf` files of
    `tsconfig.fixtures.json` (TypeScript's `getParsedCommandLineOfConfigFile`, `.ucf` as extra extension), minus
    `LINT_LEFT_OUT` (name → reason: `TsxEdges.ucf`'s `<\/react>` escape, the splitter case `core/test/split.spec.ts`
@@ -84,24 +86,24 @@ Answers from the orchestrator, one line each:
      `debugger;`) and an `.oxlintrc.json` with the repo's config minus `ignorePatterns`: `mf-tsc` exits 1 with
      exactly the TS2322, `mf-lint` exits 1 with exactly the `eslint(no-debugger)`.
    - Speed: median of 5 fresh runs of `mf-tsc -p … components/Card.ucf`, `… apps/types-every-target`, the whole
-     set, `mf-lint components/Card.ucf`, `mf-lint` over every gate file; one stdout line, no time assertion.
+     set, `mf-lint components/Card.ucf`, `mf-lint` over every gate file; one stdout block (a header, a line per command), no time assertion.
 6. **Packed package** (new infra, `packages/e2e/consumer/lib/`):
    - `packLanguageTools()`: a staged workspace under `TMP_DIR` (`LICENSE`, `tsconfig.base.json`, a
      `pnpm-workspace.yaml`, copies of `packages/core` and `packages/language-tools` minus `node_modules`, `dist`,
-     `test`, `*.tsbuildinfo`; each `node_modules` a folder of links to the real entries, `@multifront/core` to the
+     `test`, `coverage`, `*.tsbuildinfo`; each `node_modules` a folder of links to the real entries, `@multifront/core` to the
      staged core), the repo's `tsc --build` on the staged language-tools, real `pnpm pack` per package.
    - `startRegistry()`: mion's host pattern. `verdaccio@6.7.2` (root devDependency, exact pin) with a config that
      serves only `@multifront/*`, no uplink, storage in a temp folder; started detached on a free port with its
      log in a file, ready on `/-/ping`, its process group killed after. The tarballs are published with
      `npm publish --registry`, a throwaway token in a temp `--userconfig`.
-   - `createConsumerApp(template, packages, {registry})` writes the app's `.npmrc`
+   - `createConsumerApp(template, packages, registry)` writes the app's `.npmrc`
      (`@multifront:registry=http://127.0.0.1:<port>/`) and adds `@multifront/*` to its `minimumReleaseAgeExclude`
      (just published); `runInApp(app, command, cwd)` gains `cwd` and returns `stdout` and `stderr` too.
 7. **`packages/e2e/consumer/language-tools.spec.ts`**, template `fixtures/apps/consumer-language-tools/package.json`
    (typescript, oxlint, oxfmt, svelte, vue, react, @types/react at the repo's versions; `@multifront/language-tools`
    from the registry). The bins run from `node_modules/.bin` inside copies of `types-every-target/` and
    `lint-format/`:
-   - `mf-tsc`: exit 0, `mf-tsc: checked 5 files with tsconfig.json: no errors`; then one wrong prop in each block of
+   - `mf-tsc`: exit 0, `mf-tsc: checked 5 files with tsconfig.json: no errors`; then one type error in each block of
      `Greeting.ucf`: the same output as the source bin on an in-repo copy with the same edit, exit 1.
    - `mf-lint --format json` and `mf-fmt --check --format json` in `lint-format`: exit 1, the source bin's output.
    - Each bin: `--help` exit 0, the source bin's text; `--bogus` exit 2, stdout empty, one stderr line.
@@ -113,9 +115,14 @@ Answers from the orchestrator, one line each:
 - Consumer: `consumer/language-tools.spec.ts`, here and CI's `consumer` job (`registry.npmjs.org`, a localhost
   port). CI log lines showing it ran are quoted.
 - Fix 1: `editor/tsc/every-target.spec.ts`, a `types-every-target` copy with JS `<vue>` and `<svelte>` blocks: exit
-  0; `let n: number = 1` in each JS script: one TS8010 per block at `number`.
+  0; `: string` added to each JS script's `const`: one TS8010 per block, at `string`.
 - Fix 2: same spec, a copy with a TS `<svelte>` `let props = $props()` and a `.ts` importer using
-  `ComponentProps<typeof Whole>` with any prop: exit 0.
+  `ComponentProps<typeof Whole>` with any prop: exit 0; the same block in JS under `checkJs`: exit 0.
+  `editor/svelte-types.spec.ts`: `getTypesScript` declares `$$ComponentProps` once for a bare and a typed
+  `$props()`, TS and JS (svelte2tsx's JSDoc typedef has two spaces before the name).
+- Fix 3 (review): `every-target.spec.ts`, `Merges.ucf` and a block with `C:\users` and a backtick in attribute
+  text: exit 0. `svelteTypes` puts a space in place of each backtick and backslash of markup text before svelte2tsx
+  reads it, offsets kept.
 - Fixture fixes: the gate. Snapshot diffs checked.
 
 ## Docs
