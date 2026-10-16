@@ -179,7 +179,7 @@ export interface UcfLintDiagnostic {
   start: number; // UTF-16 offsets into the .ucf source
   end: number;
   block: Target;
-  code: string; // oxlint's: `eslint(no-debugger)`
+  code: string; // oxlint's (`eslint(no-debugger)`), or `lint-parse-error` for a block oxlint cannot parse
   message: string;
   severity: Diagnostic['severity'] | 'advice';
   url?: string;

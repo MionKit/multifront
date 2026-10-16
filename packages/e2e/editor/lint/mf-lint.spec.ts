@@ -15,6 +15,7 @@ import {offsetAt, tsLocation} from '../lib/tsserver.ts';
 
 const LINT = 'Lint.ucf';
 const CLEAN = 'Clean.ucf';
+const BROKEN = 'Broken.ucf';
 const UNUSED = "Variable 'unused' is declared but never used. Unused variables should start with a '_'.";
 const DEBUGGER = '`debugger` statement is not allowed';
 const LINT_SOURCE = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), LINT);
@@ -239,6 +240,27 @@ describe('mf-lint exit codes', () => {
       expect(report(run.stdout).findings).toEqual(
         split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.ucf'}))
       );
+    });
+  });
+  it('gives lint-parse-error for a block oxlint cannot parse or a redeclaration, which oxlint reports with no code', async () => {
+    await withCopy(LINT_FORMAT, async (root) => {
+      const source = LINT_SOURCE.replace("const unused = 'é ü'", "const = 'é ü'").replace(
+        "const unused = 'é ü'\ndebugger;",
+        'let twice = 1\nlet twice = 2'
+      );
+      writeFileSync(join(root, BROKEN), source);
+      const findings = [
+        lintFinding(BROKEN, 'react', '=', 'lint-parse-error', 'error', 'Unexpected token', source),
+        lintFinding(BROKEN, 'vue', 'twice', 'lint-parse-error', 'error', 'Identifier `twice` has already been declared', source),
+        lintFinding(BROKEN, 'svelte', 'debugger;', 'eslint(no-debugger)', 'error', DEBUGGER, source),
+      ];
+      expect(await runMfLint(root, [BROKEN])).toEqual({
+        code: 1,
+        stdout: `${[...findings.map(line), 'mf-lint: linted 1 file: 3 errors'].join('\n')}\n`,
+        stderr: '',
+      });
+      const json = await runMfLint(root, [BROKEN, '--format', 'json']);
+      expect(JSON.parse(json.stdout)).toEqual({findings, errorCount: 3, warningCount: 0, files: 1});
     });
   });
 });
