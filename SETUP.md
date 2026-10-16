@@ -64,3 +64,16 @@ Fuzz tests run on a fixed seed. A failure prints the line that replays it; a lon
 ## Docs graphics
 
 `pnpm devx docs-images` renders `docs/assets/src/*.html` with Playwright's Chromium, `vscode-icon.html` to the extension's `packages/vscode/assets/icon.png`. If that browser is not installed, point `MULTIFRONT_CHROMIUM_PATH` at another Chromium (see `.env.sample`).
+
+## Publishing the extension
+
+A published GitHub release tagged `v<version>` runs [.github/workflows/vscode-release.yml](.github/workflows/vscode-release.yml): `pnpm devx vsix` once, `packages/e2e/editor/vscode/vsix.spec.ts` on that file, then the same file to the VS Code Marketplace (`vsce publish`) and Open VSX (`ovsx publish`).
+
+To release: set `version.json` to a plain `major.minor.patch` (the stores refuse `0.1.0-beta.1`), merge, then publish a GitHub release tagged `v<version>`. Any other tag or version fails before anything is packed.
+
+One-time setup, by a maintainer:
+
+- **Marketplace:** create the publisher `mionkit` at [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage). In Azure DevOps, create a personal access token with the **Marketplace: Manage** scope for **All accessible organizations**, and save it as the repository secret `VSCE_PAT`. These tokens expire: renew it before a release.
+- **Open VSX:** sign in at [open-vsx.org](https://open-vsx.org) with GitHub, link an Eclipse account and sign the Eclipse Foundation Open VSX Publisher Agreement. Create an access token and save it as the repository secret `OVSX_PAT`. Create the namespace once with `pnpm exec ovsx create-namespace mionkit -p <token>`, then ask for its ownership to be verified (an issue at [EclipseFdn/open-vsx.org](https://github.com/EclipseFdn/open-vsx.org)).
+
+The first release is checked by hand: install the extension from each store into a clean VS Code and a clean VSCodium, and the checks of `vsix.spec.ts` (language id, lint and type diagnostics, Format Document, the `.tsx` hover) hold there.
