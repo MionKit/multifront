@@ -1,12 +1,15 @@
 // Shared by the format/ and lint/ specs: real oxfmt and oxlint CLIs, the fixture app, its expected outputs.
 import {execFileSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, symlinkSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {splitBlocks} from '@multifront/core';
 import type {BlockTag} from '@multifront/core';
-import {expect} from 'vitest';
-import {FIXTURES_DIR} from '../../fixtures/index.ts';
+import {afterAll, beforeAll, expect} from 'vitest';
+import {copyApp, FIXTURES_DIR, removeApp} from '../../fixtures/index.ts';
+import {runMfFmt} from './commands.ts';
 import type {BinReport} from './commands.ts';
+import {formatDocument, startLanguageServer, TSDK} from './lsp.ts';
+import type {LanguageServer} from './lsp.ts';
 import {E2E_DIR} from './tsserver.ts';
 
 export const LINT_FORMAT = 'lint-format';
@@ -84,4 +87,49 @@ export function formatConfigsAbove(dir: string): string[] {
     if (['.oxfmtrc.json', '.oxfmtrc.jsonc'].some((name) => existsSync(join(folder, name)))) found.push(folder);
     if (dirname(folder) === folder) return found;
   }
+}
+
+interface FormattingOptions {
+  copy?: typeof copyApp;
+  prepare?: (root: string) => void; // run on both copies before the server starts
+  server?: () => string; // a bundled server file; default: the bin, from source
+}
+
+/** A language server on one copy of `app`, with a tsdk as VS Code passes one, and a second copy for the real `mf-fmt`. */
+export function formatting(app: string, {copy = copyApp, prepare = () => {}, server}: FormattingOptions = {}) {
+  const state = {root: '', other: '', server: undefined as unknown as LanguageServer};
+
+  beforeAll(async () => {
+    state.root = await copy(app);
+    state.other = await copy(app);
+    prepare(state.root);
+    prepare(state.other);
+    state.server = await startLanguageServer(state.root, {
+      ...(server && {server: server()}),
+      initializationOptions: {typescript: {tsdk: TSDK}},
+    });
+  });
+
+  afterAll(async () => {
+    await state.server?.stop();
+    await Promise.all([state.root, state.other].filter(Boolean).map((root) => removeApp(root)));
+  });
+
+  /** What the real `mf-fmt` writes for `text` as `Messy.ucf`; no `NODE_PATH`, as the server has none. */
+  async function mfFmt(text: string): Promise<string> {
+    writeFileSync(join(state.other, MESSY), text);
+    const run = await runMfFmt(state.other, [MESSY], {NODE_PATH: undefined});
+    expect({code: run.code, stderr: run.stderr}).toEqual({code: 0, stderr: ''});
+    return read(state.other, MESSY);
+  }
+
+  const format = (text?: string, file = join(state.root, MESSY)) => formatDocument(state.server, file, text);
+  // Server warnings from `from` on, in order.
+  const warnings = (from = 0) =>
+    state.server.log
+      .slice(from)
+      .filter(({type}) => type <= 2)
+      .map(({message}) => message);
+
+  return {state, mfFmt, format, warnings};
 }

@@ -1,7 +1,7 @@
 import {BLOCK_KINDS, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript} from '@multifront/language-tools';
-import {createLanguage} from '@volar/language-core';
+import {createLanguage, forEachEmbeddedCode} from '@volar/language-core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import ts from 'typescript';
 import {readdirSync, readFileSync} from 'node:fs';
@@ -216,6 +216,16 @@ describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () =>
 
     it('has a vue code exactly when the splitter kept the block', () => {
       expect(code?.languageId).toBe(vue ? 'vue' : undefined);
+    });
+
+    it.runIf(vue)('has formatting off in every mapping, its nested codes too: only the root formats', () => {
+      const codes = [...forEachEmbeddedCode(code!)];
+      expect(codes.length).toBeGreaterThan(1);
+      for (const {id, mappings} of codes)
+        expect(
+          mappings.filter(({data}) => data.format),
+          id
+        ).toEqual([]);
     });
 
     it.runIf(vue)('keeps only our style codes: Vue’s own are left out', () => {

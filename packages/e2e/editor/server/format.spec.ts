@@ -2,56 +2,27 @@
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {findFormatConfig, formatUcf} from '@multifront/language-tools';
-import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import {describe, expect, it} from 'vitest';
 import {edited} from '../../build/lib/library.ts';
-import {copyApp, copyAppOutside, removeApp} from '../../fixtures/index.ts';
+import {copyAppOutside} from '../../fixtures/index.ts';
 import {runMfFmt} from '../lib/commands.ts';
-import {contents, copyOxfmtWithoutSvelte, LINT_FORMAT, LINT_FORMAT_SVELTE, MESSY, ORIGINAL, read} from '../lib/format.ts';
-import {formatDocument, startLanguageServer, TSDK} from '../lib/lsp.ts';
-import type {LanguageServer} from '../lib/lsp.ts';
+import {
+  contents,
+  copyOxfmtWithoutSvelte,
+  formatting,
+  LINT_FORMAT,
+  LINT_FORMAT_SVELTE,
+  MESSY,
+  ORIGINAL,
+  read,
+} from '../lib/format.ts';
+import {CLIENT_OPTIONS, formatDocument} from '../lib/lsp.ts';
 import {assertNotInstalled} from '../lib/tsc.ts';
 
 const MISSING_SVELTE =
   'multifront: oxfmt cannot load svelte/compiler, so <svelte> blocks stay as written; add svelte to devDependencies';
 const noOxfmt = (root: string) =>
   `multifront: no formatting in ${root} (oxfmt is not installed in ${root}; add it to devDependencies)`;
-
-type Copy = (name: string) => Promise<string>;
-
-/** A server on one copy of `app`, and a second copy for the real `mf-fmt`. */
-function formatting(app: string, copy: Copy = copyApp, prepare: (root: string) => void = () => {}) {
-  const state = {root: '', other: '', server: undefined as unknown as LanguageServer};
-
-  beforeAll(async () => {
-    [state.root, state.other] = await Promise.all([copy(app), copy(app)]);
-    prepare(state.root);
-    prepare(state.other);
-    state.server = await startLanguageServer(state.root, {initializationOptions: {typescript: {tsdk: TSDK}}});
-  });
-
-  afterAll(async () => {
-    await state.server?.stop();
-    await Promise.all([state.root, state.other].filter(Boolean).map((root) => removeApp(root)));
-  });
-
-  /** What the real `mf-fmt` writes for `text` as `Messy.ucf`; no `NODE_PATH`, as the server has none. */
-  async function mfFmt(text: string): Promise<string> {
-    writeFileSync(join(state.other, MESSY), text);
-    const run = await runMfFmt(state.other, [MESSY], {NODE_PATH: undefined});
-    expect({code: run.code, stderr: run.stderr}).toEqual({code: 0, stderr: ''});
-    return read(state.other, MESSY);
-  }
-
-  const format = (text?: string, file = MESSY) => formatDocument(state.server, join(state.root, file), text);
-  // Server warnings from `from` on: the log as a test sees it, in order.
-  const warnings = (from = 0) =>
-    state.server.log
-      .slice(from)
-      .filter(({type}) => type <= 2)
-      .map(({message}) => message);
-
-  return {state, mfFmt, format, warnings};
-}
 
 const wholeDocument = (text: string) => {
   const lines = text.split('\n');
@@ -85,7 +56,19 @@ describe('Format Document on lint-format/', () => {
     const file = join(state.root, 'Lint.ucf');
     const source = read(state.root, 'Lint.ucf');
     expect((await formatUcf(file, source, findFormatConfig(file, state.root))).text).not.toBe(source);
-    expect((await format(undefined, 'Lint.ucf')).edits).toEqual([]);
+    expect((await format(undefined, file)).edits).toEqual([]);
+  });
+
+  it('formats a file outside every workspace folder from its own folder, as mf-fmt run there', async () => {
+    const expected = await mfFmt(ORIGINAL);
+    expect((await format(ORIGINAL, join(state.other, MESSY))).text).toBe(expected);
+  });
+
+  it('gives no edits and logs nothing for an untitled document', async () => {
+    const from = state.server.log.length;
+    const document = await state.server.openUntitledDocument('ucf', ORIGINAL);
+    expect((await state.server.sendDocumentFormattingRequest(document.uri, CLIENT_OPTIONS)) ?? []).toEqual([]);
+    expect(warnings(from)).toEqual([]);
   });
 
   it('gives no edits and logs nothing when a block does not parse', async () => {
@@ -95,33 +78,44 @@ describe('Format Document on lint-format/', () => {
   });
 
   it('gives no edits for a range: neither our plugin nor any other service formats a selection', async () => {
-    const document = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');
+    const {uri} = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');
     await format(ORIGINAL);
     const line = ORIGINAL.split('\n').indexOf('.messy{padding:$gap;  &:hover{opacity:.8}}');
     const range = {start: {line, character: 0}, end: {line: line + 1, character: 0}};
-    const edits = await state.server.sendDocumentRangeFormattingRequestRequest(document.uri, range, {
-      tabSize: 2,
-      insertSpaces: true,
-    });
-    expect(edits ?? []).toEqual([]);
+    expect((await state.server.sendDocumentRangeFormattingRequestRequest(uri, range, CLIENT_OPTIONS)) ?? []).toEqual([]);
   });
 
-  it("gives no edits for a config mf-fmt rejects, and logs mf-fmt's message once until a format succeeds", async () => {
+  it("gives no edits for a config mf-fmt rejects, and logs mf-fmt's message once per reason until a format succeeds", async () => {
     const config = read(state.root, '.oxfmtrc.json');
-    for (const root of [state.root, state.other]) writeFileSync(join(root, '.oxfmtrc.json'), '{"semi": false');
-    try {
+    const setConfig = (text: string) => {
+      for (const root of [state.root, state.other]) writeFileSync(join(root, '.oxfmtrc.json'), text);
+    };
+    // The message mf-fmt prints for `text`.
+    const rejected = async (text: string) => {
+      setConfig(text);
       const run = await runMfFmt(state.other, [MESSY]);
       expect(run).toMatchObject({code: 2, stdout: ''});
-      const message = run.stderr.replace(/^mf-fmt: /, '').trimEnd();
-      expect(message).toMatch(/^\.oxfmtrc\.json: /);
-      const from = state.server.log.length;
+      return run.stderr.replace(/^mf-fmt: /, '').trimEnd();
+    };
+    const logged = (message: string) => `multifront: no formatting in ${state.root} (${message})`;
+    const from = state.server.log.length;
+    try {
+      const notJson = await rejected('{"semi": false');
+      expect(notJson).toMatch(/^\.oxfmtrc\.json: /);
       expect((await format(ORIGINAL)).edits).toEqual([]);
       expect((await format(ORIGINAL)).edits).toEqual([]);
-      expect(warnings(from)).toEqual([`multifront: no formatting in ${state.root} (${message})`]);
+      const notObject = await rejected('[]');
+      expect(notObject).toBe('.oxfmtrc.json: not a JSON object');
+      expect((await format(ORIGINAL)).edits).toEqual([]);
+      setConfig(config);
+      expect((await format(ORIGINAL)).text).toBe(await mfFmt(ORIGINAL));
+      // The reason last logged, again after a successful format.
+      await rejected('[]');
+      expect((await format(ORIGINAL)).edits).toEqual([]);
+      expect(warnings(from)).toEqual([logged(notJson), logged(notObject), logged(notObject)]);
     } finally {
-      for (const root of [state.root, state.other]) writeFileSync(join(root, '.oxfmtrc.json'), config);
+      setConfig(config);
     }
-    expect((await format(ORIGINAL)).text).toBe(await mfFmt(ORIGINAL));
   });
 });
 
@@ -137,10 +131,16 @@ describe('Format Document on lint-format-svelte/, which turns on the svelte opti
 });
 
 describe('Format Document with no oxfmt in the project', () => {
-  const {state, format, warnings} = formatting(LINT_FORMAT, copyAppOutside, (root) => assertNotInstalled(root, 'oxfmt'));
+  const {state, format, warnings} = formatting(LINT_FORMAT, {
+    copy: copyAppOutside,
+    prepare: (root) => assertNotInstalled(root, 'oxfmt'),
+  });
 
   it('gives no edits, logs one line, and the server keeps answering', async () => {
     expect((await format(ORIGINAL)).edits).toEqual([]);
+    expect((await format(ORIGINAL)).edits).toEqual([]);
+    // A file the splitter rejects never reaches oxfmt: that is no successful format.
+    expect((await format(`${ORIGINAL}<react>\n</react>\n`)).edits).toEqual([]);
     expect((await format(ORIGINAL)).edits).toEqual([]);
     expect(warnings()).toEqual([noOxfmt(state.root)]);
     const document = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');
@@ -150,9 +150,12 @@ describe('Format Document with no oxfmt in the project', () => {
 });
 
 describe('Format Document when oxfmt cannot load svelte/compiler', () => {
-  const {mfFmt, format, warnings} = formatting(LINT_FORMAT_SVELTE, copyAppOutside, (root) => {
-    copyOxfmtWithoutSvelte(root);
-    assertNotInstalled(root, 'svelte');
+  const {mfFmt, format, warnings} = formatting(LINT_FORMAT_SVELTE, {
+    copy: copyAppOutside,
+    prepare: (root) => {
+      copyOxfmtWithoutSvelte(root);
+      assertNotInstalled(root, 'svelte');
+    },
   });
 
   it('applies what mf-fmt writes, the <svelte> block as written, and logs one line', async () => {
