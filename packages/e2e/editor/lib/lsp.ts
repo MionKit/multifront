@@ -101,7 +101,7 @@ export interface FormattedDocument {
 /** Unlike every fixture's config: the server must ignore what the client sends. */
 export const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
 
-/** Format Document on `file`, its buffer first set to `text`; `text` in the result is the buffer with the edits. */
+/** Format Document on `file`, its buffer first set to `text`. */
 export async function formatDocument(server: LanguageServer, file: string, text?: string): Promise<FormattedDocument> {
   let document = await server.openTextDocument(file, 'ucf');
   if (text !== undefined) {

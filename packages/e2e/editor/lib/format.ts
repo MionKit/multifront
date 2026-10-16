@@ -115,7 +115,7 @@ export function formatting(app: string, {copy = copyApp, prepare = () => {}, ser
     await Promise.all([state.root, state.other].filter(Boolean).map((root) => removeApp(root)));
   });
 
-  /** What the real `mf-fmt` writes for `text` as `Messy.ucf`; no `NODE_PATH`, as the server has none. */
+  /** No `NODE_PATH`: the server has none. */
   async function mfFmt(text: string): Promise<string> {
     writeFileSync(join(state.other, MESSY), text);
     const run = await runMfFmt(state.other, [MESSY], {NODE_PATH: undefined});
@@ -124,7 +124,7 @@ export function formatting(app: string, {copy = copyApp, prepare = () => {}, ser
   }
 
   const format = (text?: string, file = join(state.root, MESSY)) => formatDocument(state.server, file, text);
-  // Server warnings from `from` on, in order.
+  // Errors and warnings (type <= 2) logged from log index `from` on, in order.
   const warnings = (from = 0) =>
     state.server.log
       .slice(from)

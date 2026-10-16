@@ -90,7 +90,6 @@ describe('Format Document on lint-format/', () => {
     const setConfig = (text: string) => {
       for (const root of [state.root, state.other]) writeFileSync(join(root, '.oxfmtrc.json'), text);
     };
-    // The message mf-fmt prints for `text`.
     const rejected = async (text: string) => {
       setConfig(text);
       const run = await runMfFmt(state.other, [MESSY]);
