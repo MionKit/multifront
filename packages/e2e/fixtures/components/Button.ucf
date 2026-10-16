@@ -17,7 +17,7 @@
   <script lang="ts">
     let { label }: { label: string } = $props()
   </script>
-  <button class="button {classes.primary}">{label}</button>
+  <button class="button {$classes.primary}">{label}</button>
 </svelte>
 
 <style scoped>

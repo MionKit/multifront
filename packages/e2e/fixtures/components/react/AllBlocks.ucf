@@ -26,7 +26,7 @@
     const marker = 'all-blocks-svelte-marker'
   </script>
   <div class={$style.card}>
-    <p class={classes.title}>All blocks</p>
+    <p class={$classes.title}>All blocks</p>
     <p class="all-blocks-global">{marker}</p>
   </div>
 </svelte>

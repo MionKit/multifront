@@ -21,9 +21,9 @@
     "type": "svelte",
     "attrs": {},
     "start": 351,
-    "end": 510,
+    "end": 511,
     "contentStart": 359,
-    "contentEnd": 501,
+    "contentEnd": 502,
     "index": 0
   },
   {
@@ -31,10 +31,10 @@
     "attrs": {
       "scoped": true
     },
-    "start": 512,
-    "end": 609,
-    "contentStart": 526,
-    "contentEnd": 601,
+    "start": 513,
+    "end": 610,
+    "contentStart": 527,
+    "contentEnd": 602,
     "index": 0
   },
   {
@@ -42,10 +42,10 @@
     "attrs": {
       "module": "classes"
     },
-    "start": 611,
-    "end": 702,
-    "contentStart": 635,
-    "contentEnd": 694,
+    "start": 612,
+    "end": 703,
+    "contentStart": 636,
+    "contentEnd": 695,
     "index": 1
   }
 ]
