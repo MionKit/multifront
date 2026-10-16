@@ -16,7 +16,6 @@ function paths() {
 }
 
 function extension() {
-  // Found by name: the id gains a publisher in M7.
   const found = vscode.extensions.all.find(({packageJSON}) => packageJSON.name === 'multifront-vscode');
   assert.ok(found, 'multifront-vscode is not loaded');
   return found;
@@ -203,6 +202,13 @@ const checks = [
       }
       assert.equal(card.getText(), onDisk);
       await until(() => vscode.languages.getDiagnostics(app.uri).length === 0, 'App.tsx without diagnostics after the revert');
+    },
+  },
+  {
+    name: '7.10 the extension is the default formatter of .ucf files, so format on save uses it',
+    async run() {
+      const formatter = vscode.workspace.getConfiguration('editor', {languageId: 'ucf'}).get('defaultFormatter');
+      assert.equal(formatter, extension().id);
     },
   },
   {
