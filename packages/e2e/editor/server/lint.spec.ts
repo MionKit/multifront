@@ -15,7 +15,7 @@ const CONFIG = '.oxlintrc.json';
 // The `<vue>` block's `debugger;`, blanked so every other range stays where it was.
 const VUE_DEBUGGER = 'debugger;\n</script>';
 const WITHOUT_VUE_DEBUGGER = edited(LINT_SOURCE, VUE_DEBUGGER, `${' '.repeat('debugger;'.length)}\n</script>`);
-// oxlint's parse error: no rule URL, no help, and no code of oxlint's.
+// oxlint's parse error: no oxlint code, rule URL or help.
 const VUE_PARSE_ERROR = edited(
   LINT_SOURCE,
   '<script setup lang="ts">\nconst unused = \'é ü\'',
