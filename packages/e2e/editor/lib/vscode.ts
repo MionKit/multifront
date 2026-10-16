@@ -10,10 +10,11 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import {tmpdir} from 'node:os';
-import {basename, join} from 'node:path';
+import {basename, dirname, join} from 'node:path';
 import {PassThrough} from 'node:stream';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, runTests} from '@vscode/test-electron';
@@ -26,6 +27,15 @@ export const VSCODE_VERSION = '1.137.0';
 export const CRASH_DIR = join(TMP_DIR, 'vscode-crashes');
 const CACHE_DIR = join(REPO_ROOT, '.vscode-test');
 const LOCK = join(CACHE_DIR, 'download.lock');
+export const FONTCONFIG_ROOT = join(TMP_DIR, 'vscode-fontconfig');
+// Paths inside FONTCONFIG_ROOT: fontconfig prefixes every path with its sysroot.
+const FONTCONFIG = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <dir>/usr/share/fonts</dir>
+  <cachedir>/cache</cachedir>
+</fontconfig>
+`;
 
 /** A check of a suite .cjs file, as the spec reads it outside VS Code. */
 export interface Check {
@@ -88,6 +98,7 @@ export async function runInVsCode({extension, vsix, workspace, suite, args = [],
         NODE_PATH: undefined,
         NODE_OPTIONS: undefined,
         ...(display && {DISPLAY: display.value}),
+        ...(process.platform === 'linux' && {FONTCONFIG_SYSROOT: fontconfigRoot()}),
       },
       stdout: stream,
       stderr: stream,
@@ -250,6 +261,27 @@ function keepCrashDumps(temp: string): string | undefined {
   mkdirSync(kept, {recursive: true});
   for (const dump of dumps) cpSync(join(crashes, dump), join(kept, basename(dump)));
   return kept;
+}
+
+/**
+ * The main process crashed once inside pango's background FcInit, while it parsed the host's 64 font config files.
+ * This root holds one config file and no template dir, so that parse takes well under a millisecond.
+ */
+function fontconfigRoot(): string {
+  const config = join(FONTCONFIG_ROOT, 'etc', 'fonts', 'fonts.conf');
+  if (existsSync(config)) return FONTCONFIG_ROOT;
+  mkdirSync(dirname(config), {recursive: true});
+  mkdirSync(join(FONTCONFIG_ROOT, 'usr', 'share'), {recursive: true});
+  try {
+    symlinkSync('/usr/share/fonts', join(FONTCONFIG_ROOT, 'usr', 'share', 'fonts'));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+  }
+  // Parallel specs build it at once: a rename shows a reader the whole file or none.
+  const part = `${config}.${randomUUID()}`;
+  writeFileSync(part, FONTCONFIG);
+  renameSync(part, config);
+  return FONTCONFIG_ROOT;
 }
 
 /** A headless Linux host has no display: start Xvfb on a free one. */
