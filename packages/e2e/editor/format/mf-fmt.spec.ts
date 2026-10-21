@@ -352,7 +352,7 @@ describe('mf-fmt on blocks it cannot format', () => {
       return 'Unclosed.ucf';
     });
     const message = "<vue> does not parse: TypeError: Cannot read properties of null (reading 'end')";
-    expect(findings).toEqual([formatError('Unclosed.ucf', span(source, '<vue>'), message)]);
+    expect(findings).toEqual([formatError('Unclosed.ucf', span(source, '<vue lang="vue">'), message)]);
   });
 
   it("reports the splitter's errors and leaves the file as written", async () => {
