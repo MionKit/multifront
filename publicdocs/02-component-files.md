@@ -4,12 +4,12 @@ A `.ucf` file holds one component, written once per framework, plus the styles t
 
 ## Blocks
 
-Each block holds what you would write in that framework's own file. Write only the frameworks you need: one block is enough.
+Each block holds what you would write in that framework's own file. Write only the frameworks you need: one block is enough. Each framework block names its language in `lang`, and `<react>` comes last.
 
 `Card.ucf`
 
-```html
-<vue>
+```vue
+<vue lang="vue">
 <script setup lang="ts">
 defineProps<{ title: string }>()
 </script>
@@ -18,13 +18,7 @@ defineProps<{ title: string }>()
 </template>
 </vue>
 
-<react>
-export default function Card({ title }: { title: string }) {
-  return <div className={$style.card}><h2>{title}</h2></div>
-}
-</react>
-
-<svelte>
+<svelte lang="html">
 <script lang="ts">
   let { title }: { title: string } = $props()
 </script>
@@ -34,6 +28,12 @@ export default function Card({ title }: { title: string }) {
 <style module lang="scss">
 .card { padding: 1rem; }
 </style>
+
+<react lang="tsx">
+export default function Card({ title }: { title: string }) {
+  return <div className={$style.card}><h2>{title}</h2></div>
+}
+</react>
 ```
 
 | Block | Holds |
@@ -43,14 +43,16 @@ export default function Card({ title }: { title: string }) {
 | `<svelte>` | The inside of a `.svelte` file, no `<style>` |
 | `<style>` | CSS for every block. `scoped`, `module` and `lang` work as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style) |
 
+> **Tip:** `lang` and the order are for tools that do not know `.ucf` files, such as GitHub: read as a Vue file, each block gets its own colors. Vue's highlighter colors everything after `<react lang="tsx">` as TSX, so `<react>` goes last. [Colors Outside VS Code](05-editor-setup.md#colors-outside-vs-code) sets it up.
+
 ## Class, Style and Ref on Components
 
 Every `<react>` component passes the `className`, `style` and `ref` its parent gives on to its root element, and every `<svelte>` component the `class` and `style`: the same root a parent's [scoped style](03-styles.md#styling-a-child-component) reaches. The editor and a [library's](06-building-a-library.md) `.d.ts` files type them, `ref` for the root's tag. A Vue component does the same on its own.
 
 `Button.ucf`
 
-```html
-<react>
+```vue
+<react lang="tsx">
 import type { MouseEventHandler } from 'react'
 import { cx } from './utils/cx.js'
 
@@ -90,6 +92,8 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 
 - Only `<vue>`, `<react>`, `<svelte>` and `<style>` at the top level. Text between blocks goes in an HTML comment.
 - At least one of `<vue>`, `<react>` and `<svelte>`, each at most once. Any number of `<style>` blocks.
+- `<vue lang="vue">`, `<react lang="tsx">` and `<svelte lang="html">`, each with exactly that `lang`.
+- `<react>` is the last block of the file.
 - Every block has its closing tag: `<react/>` is not a block.
 - `<vue>` holds a `<template>` or a `<script>`, as a `.vue` file does.
 - `<react>` exports the component as default.

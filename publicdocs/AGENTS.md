@@ -62,7 +62,7 @@ publicdocs/
 
 One or two sentences.    <- what it does and when you use it. No lead-in sentence.
 
-```html                  <- the example: 5 to 15 lines, only what this section explains
+```vue                   <- the example: 5 to 15 lines, only what this section explains
 ```
 
 | … |                    <- optional: one table for the variants
@@ -76,7 +76,8 @@ One or two sentences.    <- what it does and when you use it. No lead-in sentenc
 - Copy the lines that matter. Name the file above the block when the reader needs it (`Card.ucf`, `vite.config.ts`).
 - 5 to 15 lines. No setup the reader does not need, no second feature.
 - Comments: one-liners on the line they explain.
-- Fence languages: `html` for `.ucf` files, `ts`, `tsx`, `vue`, `svelte`, `css`, `scss`, `bash`, `json`.
+- Fence languages: `vue` for `.ucf` files (GitHub colors each block by its `lang`), `ts`, `tsx`, `svelte`, `css`,
+  `scss`, `bash`, `json`.
 
 ## Cards
 

@@ -32,6 +32,7 @@ interface BlockKind {
   tag: 'react' | 'vue' | 'svelte' | 'style';
   role: 'target' | 'shared';         // target = a framework component, shared = used by every target
   grammar: {scopeName, languageId, byLang?}; // VS Code highlighting; byLang picked by <style lang>
+  lang?: string;                     // targets: the lang the opening tag must name, as Vue's grammar colors it
   check(block, split): Diagnostic[]; // rules for the block, e.g. "react must export default"
   fillContext?(blocks, ctx): Promise<void>; // shared kinds only: fill ctx before any build
   build(block, ctx): VirtualFile;    // the file the bundler compiles

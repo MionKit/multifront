@@ -15,6 +15,8 @@ These mark a `.ucf` file that breaks a [block rule](02-component-files.md#block-
 | `unclosed-block` | Add the closing tag, or the `>` or quote the message names. |
 | `missing-target` | Add a `<vue>`, `<react>` or `<svelte>` block. |
 | `duplicate-target` | Keep one block per framework. |
+| `block-lang` | Write the `lang` the message names: `<vue lang="vue">`, `<react lang="tsx">` or `<svelte lang="html">`. |
+| `react-not-last` | Move the `<react>` block to the end of the file. |
 | `vue-empty-block` | Add a `<template>` or a `<script>` to the `<vue>` block. |
 | `react-no-default-export` | Add `export default` to the component. A type-only export does not count. |
 | `react-syntax-error` | Fix the syntax error the message names, inside the `<react>` block. |

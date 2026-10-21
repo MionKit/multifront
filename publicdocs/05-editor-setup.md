@@ -35,16 +35,16 @@ In `<react>`, `$style` holds the class names of `<style module>`: completion lis
 
 `Card.ucf`
 
-```html
-<react>
+```vue
+<style module lang="scss">
+.card { padding: 1rem; }
+</style>
+
+<react lang="tsx">
 export default function Card({ title }: { title: string }) {
   return <div className={$style.card}><h2>{title}</h2></div>
 }
 </react>
-
-<style module lang="scss">
-.card { padding: 1rem; }
-</style>
 ```
 
 > **Tip:** In `<react>`, a `lang="scss"` or `lang="less"` module gets its class names only when the project has `vue` and that preprocessor (`sass`, `less`) installed. Otherwise `$style` accepts any name.
@@ -103,6 +103,20 @@ Format Document formats a `.ucf` file exactly as `mf-fmt` does, and oxlint findi
 
 > **Tip:** To format on save, turn on `editor.formatOnSave`. The extension is already the default formatter of `.ucf` files.
 
+## Colors Outside VS Code
+
+GitHub, docs sites built on Shiki and editors without the extension do not know `.ucf` files. Have them read the file as Vue: Vue's highlighter colors each block by its `lang`.
+
+`.gitattributes`
+
+```
+*.ucf linguist-language=Vue
+```
+
+In Markdown, open a `.ucf` example with ` ```vue `.
+
+> **Note:** In another editor, map `*.ucf` to Vue for colors only. Vue's language tools would report errors a `.ucf` file does not have.
+
 ## Installing the Check Commands
 
 The three commands come with `@multifront/language-tools`. Each one runs a tool the project installs:
@@ -121,8 +135,8 @@ The three commands come with `@multifront/language-tools`. Each one runs a tool 
 
 `SvelteBreaks.ucf`
 
-```html
-<svelte>
+```vue
+<svelte lang="html">
 <script lang="ts">
   let { label }: { label: string } = $props()
 </script>
@@ -175,14 +189,14 @@ mf-lint: linted 2 files: 2 errors, 2 warnings
 
 `Messy.ucf` before and after `mf-fmt Messy.ucf`
 
-```html
+```vue
 <style   module lang="scss">
 $gap:4px;
 .messy{padding:$gap;  &:hover{opacity:.8}}
 </style>
 ```
 
-```html
+```vue
 <style   module lang="scss">
 $gap: 4px;
 .messy {

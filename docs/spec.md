@@ -14,8 +14,8 @@ Write one component file that contains a full Vue, React (TSX) and/or Svelte imp
 
 ## 2. File format
 
-```html
-<vue>
+```vue
+<vue lang="vue">
 <script setup lang="ts">
 defineProps<{ title: string }>()
 </script>
@@ -24,13 +24,7 @@ defineProps<{ title: string }>()
 </template>
 </vue>
 
-<react>
-export default function Card({ title }: { title: string }) {
-  return <div className={$style.card}><h2>{title}</h2></div>
-}
-</react>
-
-<svelte>
+<svelte lang="html">
 <script lang="ts">
   let { title }: { title: string } = $props()
 </script>
@@ -40,11 +34,18 @@ export default function Card({ title }: { title: string }) {
 <style module lang="scss">
 .card { padding: 1rem; }
 </style>
+
+<react lang="tsx">
+export default function Card({ title }: { title: string }) {
+  return <div className={$style.card}><h2>{title}</h2></div>
+}
+</react>
 ```
 
 Rules:
 
 - **Root blocks:** `<vue>`, `<react>`, `<svelte>`, and any number of `<style>` blocks. Each target block may appear at most once. At least one target block is required.
+- **Target `lang`:** `<vue lang="vue">`, `<react lang="tsx">`, `<svelte lang="html">`; no `lang` or another value is an error (`block-lang`). `<react>` is the last block (`react-not-last`). Tools that know no `.ucf` can read the file as a Vue file (`*.ucf linguist-language=Vue` in `.gitattributes` for GitHub), and Vue's TextMate grammar colors a root tag's content by its `lang`. It ends a `lang="tsx"` block only at the end of the file, so any block after `<react>` would be colored as TSX. Vue's grammar has no Svelte: `html` is the nearest.
 - **Target block content** is a complete component in that language:
   - `<vue>`: the inner content of a normal `.vue` SFC (`<script>`, `<script setup>`, `<template>`). It must not contain its own `<style>` blocks; styles live at the root.
   - `<react>`: a TSX module. It **must** export default the component.
@@ -77,7 +78,7 @@ The full picture, with graphics: [architecture.md](architecture.md).
 - Scan only for top-level opening tags `<vue>`, `<react>`, `<svelte>`, `<style ...>`. Take content as **raw text** up to the matching closing tag (browser `<script>` semantics: the first `</react>` closes it).
 - Output per block: `{ type, attrs, content, start, end, contentStart, contentEnd, index }`, used for source maps; `index` is the block's position among blocks of its type.
 - Errors with exact locations (offsets, line and column): duplicate target block, unknown root tag, unclosed block, missing target block, text outside a block. The splitter keeps going after an error, so every readable block still comes back.
-- `checkBlocks(split)` adds the block rules of section 2, each block checked by its kind, with the same locations: `<react>` without a default export, a `<react>` block that does not parse, a `framework` attribute on an import inside `<react>`, a `<style>` at the top level of `<vue>` or `<svelte>`, an unknown style `lang`, two `<style>` blocks injecting the same module name, a `v-bind()` or a scoped `:slotted()` in a file with a `<react>` or `<svelte>` block (found in the block's text with comments skipped, as compiler-sfc finds `v-bind()`; `::slotted()` is left alone, and a `:slotted(` Vue leaves as written, inside `:deep()` or a string, is flagged too). The React and Svelte style modules report this last one, so the Vue target of the same file still builds. It returns the splitter errors too, in source order: the one call hosts make.
+- `checkBlocks(split)` adds the block rules of section 2, each block checked by its kind, with the same locations: a target block without its own `lang`, a `<react>` with another kind of block after it, `<react>` without a default export, a `<react>` block that does not parse, a `framework` attribute on an import inside `<react>`, a `<style>` at the top level of `<vue>` or `<svelte>`, an unknown style `lang`, two `<style>` blocks injecting the same module name, a `v-bind()` or a scoped `:slotted()` in a file with a `<react>` or `<svelte>` block (found in the block's text with comments skipped, as compiler-sfc finds `v-bind()`; `::slotted()` is left alone, and a `:slotted(` Vue leaves as written, inside `:deep()` or a string, is flagged too). The React and Svelte style modules report this last one, so the Vue target of the same file still builds. It returns the splitter errors too, in source order: the one call hosts make.
 
 ### 3.3 Style pipeline
 
@@ -192,16 +193,16 @@ How an import of a `.ucf` file picks the framework. This covers the library's ow
 
 An import inside a target block always gets that block's framework. Nothing to write:
 
-```html
-<react>
-import Icon from './Icon.ucf'   // the React Icon
-</react>
-
-<vue>
+```vue
+<vue lang="vue">
 <script setup lang="ts">
 import Icon from './Icon.ucf'   // the Vue Icon
 </script>
 </vue>
+
+<react lang="tsx">
+import Icon from './Icon.ucf'   // the React Icon
+</react>
 ```
 
 - A `framework` attribute inside a block is a build error: a React component cannot render a Vue one.
