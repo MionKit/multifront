@@ -8,8 +8,14 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 
 `AllBlocks.ucf`
 
-```html
-<react>
+```vue
+<style module="classes">
+.title {
+  color: rgb(20, 90, 160);
+}
+</style>
+
+<react lang="tsx">
 export default function AllBlocks() {
   return (
     <div className={$style.card}>
@@ -19,12 +25,6 @@ export default function AllBlocks() {
   )
 }
 </react>
-
-<style module="classes">
-.title {
-  color: rgb(20, 90, 160);
-}
-</style>
 ```
 
 | Block | In `<react>` and `<svelte>` |
@@ -40,7 +40,7 @@ export default function AllBlocks() {
 
 Use a CSS variable in place of `v-bind()`, and [`:deep()`](#styling-content-passed-to-a-child) in place of `:slotted()`. `Vars.ucf`:
 
-```html
+```vue
 <style scoped>
 .vars {
   color: var(--accent, rgb(1, 2, 3));
@@ -60,8 +60,18 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 
 `ScopedPanel.ucf`
 
-```html
-<react>
+```vue
+<style scoped>
+.badge {
+  color: rgb(30, 120, 60);
+}
+/* Must not reach ScopedBadge's inner element. */
+.badge-label {
+  text-decoration: underline;
+}
+</style>
+
+<react lang="tsx">
 import ScopedBadge from './ScopedBadge.ucf'
 
 export default function ScopedPanel() {
@@ -73,22 +83,12 @@ export default function ScopedPanel() {
   )
 }
 </react>
-
-<style scoped>
-.badge {
-  color: rgb(30, 120, 60);
-}
-/* Must not reach ScopedBadge's inner element. */
-.badge-label {
-  text-decoration: underline;
-}
-</style>
 ```
 
 `ScopedBadge.ucf`
 
-```html
-<react>
+```vue
+<react lang="tsx">
 type Props = { label: string; className?: string }
 
 export default function ScopedBadge({label, className = ''}: Props) {
@@ -117,7 +117,7 @@ Content a parent passes in, as a Vue slot, React `children` or a Svelte snippet,
 
 `Frame.ucf`
 
-```html
+```vue
 <style scoped>
 /* The parent's elements carry the parent's scope, not this one: never reaches them. */
 .from-parent {

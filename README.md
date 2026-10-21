@@ -2,18 +2,12 @@
 
 Write one component file with a Vue, React and Svelte version, plus shared styles. Build it into one package per framework.
 
-```html
-<vue>
+```vue
+<vue lang="vue">
 <template><div :class="$style.card"><slot /></div></template>
 </vue>
 
-<react>
-export default function Card({children}) {
-  return <div className={$style.card}>{children}</div>
-}
-</react>
-
-<svelte>
+<svelte lang="html">
 <script lang="ts">
   import type {Snippet} from 'svelte'
   let {children}: {children?: Snippet} = $props()
@@ -24,6 +18,12 @@ export default function Card({children}) {
 <style module>
 .card { padding: 1rem; }
 </style>
+
+<react lang="tsx">
+export default function Card({children}) {
+  return <div className={$style.card}>{children}</div>
+}
+</react>
 ```
 
 > **Status:** early development, nothing published yet. See the [spec](docs/spec.md), the [architecture](docs/architecture.md) and the [plan](docs/plan.md).

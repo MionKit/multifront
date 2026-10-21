@@ -36,20 +36,7 @@ Write the component in a `<react>` block, with its styles beside it.
 
 `Counter.ucf`
 
-```html
-<react>
-import { useState } from 'react'
-
-export default function Counter({start = 0}: {start?: number}) {
-  const [count, setCount] = useState(start)
-  return (
-    <div className="counter">
-      <button className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
-    </div>
-  )
-}
-</react>
-
+```vue
 <style scoped>
 .counter {
   color: rgb(120, 40, 160);
@@ -61,6 +48,19 @@ export default function Counter({start = 0}: {start?: number}) {
   padding: 4px 12px;
 }
 </style>
+
+<react lang="tsx">
+import { useState } from 'react'
+
+export default function Counter({start = 0}: {start?: number}) {
+  const [count, setCount] = useState(start)
+  return (
+    <div className="counter">
+      <button className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
+    </div>
+  )
+}
+</react>
 ```
 
 Then import it from a `.tsx` file. [Imports](04-imports.md) says how other files pick the framework.
@@ -87,8 +87,8 @@ Add a `<vue>` block to the same file. It shares the `<style>` blocks, so `$style
 
 `Counter.ucf`
 
-```html
-<vue>
+```vue
+<vue lang="vue">
 <script setup lang="ts">
 import { ref } from 'vue'
 
@@ -124,8 +124,8 @@ Add a `<svelte>` block to the same file. It is a Svelte 5 component and shares t
 
 `Counter.ucf`
 
-```html
-<svelte>
+```vue
+<svelte lang="html">
 <script lang="ts">
   import { untrack } from 'svelte'
 

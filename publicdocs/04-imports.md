@@ -8,8 +8,8 @@ An import in `<react>` always gets the React component, one in `<vue>` the Vue c
 
 `Profile.ucf`
 
-```html
-<react>
+```vue
+<react lang="tsx">
 import Badge from '../Badge.ucf'
 import Card from '../Card.ucf'
 
