@@ -55,7 +55,7 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
       {code: 'unknown-style-lang', line: 13, column: 0},
     ],
   },
-  // No lang, a bare lang and another language than the block's own.
+  // No lang, a bare `lang`, a wrong lang.
   {
     fixture: 'invalid/BlockLang.ucf',
     errors: [
