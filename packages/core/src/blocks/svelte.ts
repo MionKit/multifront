@@ -349,6 +349,7 @@ export const svelteKind: BlockKind = {
   tag: 'svelte',
   role: 'target',
   grammar: {scopeName: 'source.svelte', languageId: 'svelte'},
+  lang: 'html', // Vue's grammar has no Svelte; HTML is the nearest it has
   check,
   build,
 };

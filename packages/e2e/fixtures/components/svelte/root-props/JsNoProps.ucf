@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <svelte:options runes />
   <script>
     let count = $state(1)

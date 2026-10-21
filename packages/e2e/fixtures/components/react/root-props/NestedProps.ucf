@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   type Props = { items: { label: string; className?: string }[] }
 
   // The inner `props` is an item, not the component's props: the list still merges the parent's className.

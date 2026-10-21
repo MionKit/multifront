@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.inner {
+  font-style: italic;
+}
+</style>
+
+<react lang="tsx">
   const ITEMS = ['one', 'two']
 
   export default function MultiReturn(props: { branch?: string }) {
@@ -15,9 +21,3 @@
     )
   }
 </react>
-
-<style scoped>
-.inner {
-  font-style: italic;
-}
-</style>

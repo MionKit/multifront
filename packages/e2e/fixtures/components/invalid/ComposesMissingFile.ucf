@@ -1,11 +1,11 @@
-<react>
-  export default function Tag({ label }: { label: string }) {
-    return <span className={$style.tag}>{label}</span>
-  }
-</react>
-
 <style module>
 .tag {
   composes: base from './no-such-file.css';
 }
 </style>
+
+<react lang="tsx">
+  export default function Tag({ label }: { label: string }) {
+    return <span className={$style.tag}>{label}</span>
+  }
+</react>

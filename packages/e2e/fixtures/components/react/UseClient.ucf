@@ -1,4 +1,10 @@
-<react>
+<style module>
+.button {
+  padding: 4px 8px;
+}
+</style>
+
+<react lang="tsx">
   'use client';
 
   import { useState } from 'react';
@@ -12,9 +18,3 @@
     );
   }
 </react>
-
-<style module>
-.button {
-  padding: 4px 8px;
-}
-</style>

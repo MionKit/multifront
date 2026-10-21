@@ -1,12 +1,12 @@
 <!-- A module the editor cannot read: no less installed, so it is typed loosely. -->
 
-<react>
-  export default function LessModule({ label }: { label: string }) {
-    return <p className={$style.note}>{label}</p>
-  }
-</react>
-
 <style module lang="less">
 @pad: 1rem;
 .note { padding: @pad; }
 </style>
+
+<react lang="tsx">
+  export default function LessModule({ label }: { label: string }) {
+    return <p className={$style.note}>{label}</p>
+  }
+</react>

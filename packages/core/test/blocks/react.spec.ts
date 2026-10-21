@@ -34,14 +34,20 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
   {
     fixture: 'react/errors/AttrNoDefault.ucf',
     errors: [
-      {code: 'react-no-default-export', line: 1, column: 0, text: '<react>'},
+      {code: 'react-no-default-export', line: 1, column: 0, text: '<react lang="tsx">'},
       {code: IN_BLOCK, line: 2, column: 45, text: "framework: 'vue'"},
     ],
   },
   // No JSX, so the block also parses as a .ts file: the editor must not read it through the build's rewrite.
   {fixture: 'react/errors/AttrNoJsx.ucf', errors: [{code: IN_BLOCK, line: 5, column: 61, text: 'framework'}]},
-  {fixture: 'react/errors/NamedOnly.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0, text: '<react>'}]},
-  {fixture: 'react/errors/NoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0, text: '<react>'}]},
+  {
+    fixture: 'react/errors/NamedOnly.ucf',
+    errors: [{code: 'react-no-default-export', line: 1, column: 0, text: '<react lang="tsx">'}],
+  },
+  {
+    fixture: 'react/errors/NoDefault.ucf',
+    errors: [{code: 'react-no-default-export', line: 7, column: 0, text: '<react lang="tsx">'}],
+  },
   // Column 38 counts the emoji as two UTF-16 units.
   {fixture: 'react/errors/SyntaxError.ucf', errors: [{code: 'react-syntax-error', line: 4, column: 38, text: 'div'}]},
   {
@@ -132,9 +138,9 @@ const BUILD_CASES: {
     css: [0, 1, 2, 3],
     modules: {$style: 0, theme: 1, rows: 2},
     tokens: [
-      {text: 'StyleModuleEdges(', line: 4, column: 26},
-      {text: '$style.card}', line: 6, column: 29},
-      {text: "theme['fade-in']", line: 7, column: 25},
+      {text: 'StyleModuleEdges(', line: 103, column: 26},
+      {text: '$style.card}', line: 105, column: 29},
+      {text: "theme['fade-in']", line: 106, column: 25},
     ],
   },
   {
@@ -142,9 +148,9 @@ const BUILD_CASES: {
     css: [0, 1, 2, 3, 4],
     modules: {$style: 4, classes: 1},
     tokens: [
-      {text: 'DuplicateStyleModule(', line: 2, column: 26},
-      {text: '$style.first', line: 3, column: 28},
-      {text: 'classes.second', line: 3, column: 44},
+      {text: 'DuplicateStyleModule(', line: 32, column: 26},
+      {text: '$style.first', line: 33, column: 28},
+      {text: 'classes.second', line: 33, column: 44},
     ],
   },
   {
@@ -152,9 +158,9 @@ const BUILD_CASES: {
     css: [0, 1, 2],
     modules: {$style: 0, classes: 1},
     tokens: [
-      {text: 'AllBlocks(', line: 14, column: 26},
-      {text: '$style.card', line: 16, column: 22},
-      {text: 'all-blocks-react-marker', line: 18, column: 41},
+      {text: 'AllBlocks(', line: 42, column: 26},
+      {text: '$style.card', line: 44, column: 22},
+      {text: 'all-blocks-react-marker', line: 46, column: 41},
     ],
     foreign: ['all-blocks-vue-marker', 'all-blocks-svelte-marker', '<script', ':class=', 'class={'],
   },
@@ -163,9 +169,9 @@ const BUILD_CASES: {
     css: [0],
     modules: {$style: 0},
     tokens: [
-      {text: "'use client'", line: 2, column: 2},
-      {text: "'use strict'", line: 3, column: 2},
-      {text: '$style.note', line: 6, column: 25},
+      {text: "'use client'", line: 8, column: 2},
+      {text: "'use strict'", line: 9, column: 2},
+      {text: '$style.note', line: 12, column: 25},
     ],
     directives: ['use client', 'use strict'],
   },
@@ -185,10 +191,10 @@ const BUILD_CASES: {
     css: [0],
     modules: {},
     tokens: [
-      {text: 'ScopedPanel(', line: 4, column: 26},
+      {text: 'ScopedPanel(', line: 17, column: 26},
       // Now the first argument of the className merge.
-      {text: '"panel"', line: 6, column: 25},
-      {text: '<ScopedBadge', line: 8, column: 8},
+      {text: '"panel"', line: 19, column: 25},
+      {text: '<ScopedBadge', line: 21, column: 8},
     ],
   },
   {
@@ -196,9 +202,9 @@ const BUILD_CASES: {
     css: [0],
     modules: {$style: 0},
     tokens: [
-      {text: '{label}', line: 6, column: 54},
-      {text: '<b>', line: 6, column: 62},
-      {text: 'énd', line: 6, column: 65},
+      {text: '{label}', line: 12, column: 54},
+      {text: '<b>', line: 12, column: 62},
+      {text: 'énd', line: 12, column: 65},
     ],
   },
   {
@@ -206,9 +212,9 @@ const BUILD_CASES: {
     css: [0],
     modules: {$style: 0},
     tokens: [
-      {text: "'use client'", line: 2, column: 2},
-      {text: 'useState(0)', line: 7, column: 30},
-      {text: '$style.button', line: 9, column: 25},
+      {text: "'use client'", line: 8, column: 2},
+      {text: 'useState(0)', line: 13, column: 30},
+      {text: '$style.button', line: 15, column: 25},
     ],
     directives: ['use client'],
   },

@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<svelte> does not parse: Unterminated regular expression",
     "filename": "svelte/errors/UnclosedBrace.ucf",
-    "start": 114,
-    "end": 114,
+    "start": 126,
+    "end": 126,
     "line": 5,
     "column": 28
   }

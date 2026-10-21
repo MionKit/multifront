@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <p class={$style.card}>A module named style</p>
 </svelte>
 

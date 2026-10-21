@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let {tag = 'section'}: {tag?: string} = $props()
   </script>

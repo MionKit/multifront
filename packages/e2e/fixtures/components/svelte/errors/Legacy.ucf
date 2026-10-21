@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script>
     export let count = 0
     $: doubled = count * 2

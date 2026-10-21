@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<style/> cannot self-close; write <style></style>",
     "filename": "invalid/BrokenOpeningTags.ucf",
-    "start": 127,
-    "end": 142,
+    "start": 138,
+    "end": 153,
     "line": 7,
     "column": 0
   },
@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "<style> has an attribute quote left open",
     "filename": "invalid/BrokenOpeningTags.ucf",
-    "start": 144,
-    "end": 150,
+    "start": 155,
+    "end": 161,
     "line": 9,
     "column": 0
   },
@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "<style> opening tag has no '>'",
     "filename": "invalid/BrokenOpeningTags.ucf",
-    "start": 206,
-    "end": 212,
+    "start": 217,
+    "end": 223,
     "line": 15,
     "column": 0
   }

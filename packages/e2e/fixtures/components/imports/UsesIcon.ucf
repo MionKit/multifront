@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import Icon from './Icon.ucf'
   </script>
@@ -8,19 +8,7 @@
   </template>
 </vue>
 
-<react>
-  import Icon from './Icon.ucf'
-
-  export default function UsesIcon() {
-    return (
-      <span className="uses-icon">
-        <Icon /> uses-icon-react-marker
-      </span>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import Icon from './Icon.ucf'
   </script>
@@ -34,3 +22,15 @@
   gap: 4px;
 }
 </style>
+
+<react lang="tsx">
+  import Icon from './Icon.ucf'
+
+  export default function UsesIcon() {
+    return (
+      <span className="uses-icon">
+        <Icon /> uses-icon-react-marker
+      </span>
+    )
+  }
+</react>

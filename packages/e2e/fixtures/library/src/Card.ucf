@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import Icon from './Icon.ucf'
   import { cx } from './utils/cx.js'
@@ -14,22 +14,7 @@
   </template>
 </vue>
 
-<react>
-  import type { ReactNode } from 'react'
-  import Icon from './Icon.ucf'
-  import { cx } from './utils/cx.js'
-
-  export default function Card({ title, children }: { title: string; children?: ReactNode }) {
-    return (
-      <article className={cx($style.card, 'card')}>
-        <h2 className={$style.title}><Icon /> {title}</h2>
-        {children}
-      </article>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import type { Snippet } from 'svelte'
   import Icon from './Icon.ucf'
@@ -71,3 +56,18 @@
   }
 }
 </style>
+
+<react lang="tsx">
+  import type { ReactNode } from 'react'
+  import Icon from './Icon.ucf'
+  import { cx } from './utils/cx.js'
+
+  export default function Card({ title, children }: { title: string; children?: ReactNode }) {
+    return (
+      <article className={cx($style.card, 'card')}>
+        <h2 className={$style.title}><Icon /> {title}</h2>
+        {children}
+      </article>
+    )
+  }
+</react>

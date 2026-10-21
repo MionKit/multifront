@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.inner {
+  font-style: italic;
+}
+</style>
+
+<react lang="tsx">
   import { Fragment } from 'react'
 
   // Found by the scope fuzz: a const's fragment warns at each return naming it, only as the const's whole value; `mixed` never warns.
@@ -16,9 +22,3 @@
     return <div className="shape"><span className="inner">element</span></div>
   }
 </react>
-
-<style scoped>
-.inner {
-  font-style: italic;
-}
-</style>

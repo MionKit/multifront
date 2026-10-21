@@ -4,8 +4,18 @@
     "severity": "error",
     "message": "<style module> injects $style more than once; give each module its own name",
     "filename": "invalid/DuplicateStyleModule.ucf",
-    "start": 274,
-    "end": 288,
+    "start": 112,
+    "end": 126,
+    "line": 13,
+    "column": 0
+  },
+  {
+    "code": "duplicate-style-module",
+    "severity": "error",
+    "message": "<style module> injects $style more than once; give each module its own name",
+    "filename": "invalid/DuplicateStyleModule.ucf",
+    "start": 164,
+    "end": 181,
     "line": 19,
     "column": 0
   },
@@ -14,19 +24,9 @@
     "severity": "error",
     "message": "<style module> injects $style more than once; give each module its own name",
     "filename": "invalid/DuplicateStyleModule.ucf",
-    "start": 326,
-    "end": 343,
+    "start": 220,
+    "end": 243,
     "line": 25,
-    "column": 0
-  },
-  {
-    "code": "duplicate-style-module",
-    "severity": "error",
-    "message": "<style module> injects $style more than once; give each module its own name",
-    "filename": "invalid/DuplicateStyleModule.ucf",
-    "start": 382,
-    "end": 405,
-    "line": 31,
     "column": 0
   }
 ]

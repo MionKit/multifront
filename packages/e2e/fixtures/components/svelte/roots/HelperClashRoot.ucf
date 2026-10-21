@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     // Named like the build's helpers: the build imports them under other names.
     const __ucfScopeAttrs = 'own'

@@ -1,13 +1,13 @@
-<react>
-  export default function TemplateError() {
-    return <p>template-error-react</p>
-  }
-</react>
-
-<vue>
+<vue lang="vue">
   <template>
     <div class="box">
       <span>never closed
     </div>
   </template>
 </vue>
+
+<react lang="tsx">
+  export default function TemplateError() {
+    return <p>template-error-react</p>
+  }
+</react>

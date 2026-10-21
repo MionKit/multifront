@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let {value = Promise.resolve(1), ready = 2}: {value?: Promise<number>; ready?: number} = $props()
   </script>

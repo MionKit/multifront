@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // The block's own names: the build imports its helpers under other ones.
   const __ucfScopeAttrs = 'author'
   const __ucfClass = (name: string) => `${name}-${__ucfScopeAttrs}`

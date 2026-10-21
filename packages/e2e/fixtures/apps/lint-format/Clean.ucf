@@ -1,17 +1,11 @@
 <!-- mf-lint's fixture with nothing to report. -->
-<react>
-export default function Clean({label}: {label: string}) {
-  return <p className={$style.card}>{label}</p>
-}
-</react>
-
-<vue>
+<vue lang="vue">
 <template>
   <p :class="$style.card">clean</p>
 </template>
 </vue>
 
-<svelte>
+<svelte lang="html">
 <p class={$style.card}>clean</p>
 </svelte>
 
@@ -20,3 +14,9 @@ export default function Clean({label}: {label: string}) {
   color: green;
 }
 </style>
+
+<react lang="tsx">
+export default function Clean({label}: {label: string}) {
+  return <p className={$style.card}>{label}</p>
+}
+</react>

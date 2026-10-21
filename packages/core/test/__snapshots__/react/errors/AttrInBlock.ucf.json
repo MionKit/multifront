@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 89,
-    "end": 105,
+    "start": 100,
+    "end": 116,
     "line": 3,
     "column": 45
   },
@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 174,
-    "end": 194,
+    "start": 185,
+    "end": 205,
     "line": 4,
     "column": 66
   },
@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 257,
-    "end": 276,
+    "start": 268,
+    "end": 287,
     "line": 5,
     "column": 60
   },
@@ -34,8 +34,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 320,
-    "end": 336,
+    "start": 331,
+    "end": 347,
     "line": 6,
     "column": 41
   },
@@ -44,8 +44,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 559,
-    "end": 575,
+    "start": 570,
+    "end": 586,
     "line": 12,
     "column": 61
   },
@@ -54,8 +54,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 644,
-    "end": 663,
+    "start": 655,
+    "end": 674,
     "line": 13,
     "column": 63
   },
@@ -64,8 +64,8 @@
     "severity": "error",
     "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
     "filename": "react/errors/AttrInBlock.ucf",
-    "start": 734,
-    "end": 743,
+    "start": 745,
+    "end": 754,
     "line": 14,
     "column": 65
   }

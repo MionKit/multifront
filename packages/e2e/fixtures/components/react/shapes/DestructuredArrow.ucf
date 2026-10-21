@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default ({ branch }: { branch?: string }) => (
     <p className="shape"><span className="inner">destructured arrow {branch}</span></p>
   )

@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import Counter from './Counter.ucf'
 
@@ -10,15 +10,7 @@
   </template>
 </vue>
 
-<react>
-  import Counter from './Counter.ucf'
-
-  export default function Panel({ heading }: { heading: string }) {
-    return <section className="panel"><h3>{heading}</h3><Counter /></section>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import Counter from './Counter.ucf'
 
@@ -34,3 +26,11 @@
   border-left: 2px solid rgb(40, 90, 160);
 }
 </style>
+
+<react lang="tsx">
+  import Counter from './Counter.ucf'
+
+  export default function Panel({ heading }: { heading: string }) {
+    return <section className="panel"><h3>{heading}</h3><Counter /></section>
+  }
+</react>

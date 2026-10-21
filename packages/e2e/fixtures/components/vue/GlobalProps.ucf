@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   const props = defineProps<GlobalLabelProps>()
   </script>

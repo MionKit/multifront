@@ -94,7 +94,7 @@ const checks = [
     async run() {
       const document = await show(card());
       try {
-        const script = '<svelte>\n  <script lang="ts">';
+        const script = '<svelte lang="html">\n  <script lang="ts">';
         await type(document, [
           ["\n    import Icon from './Icon.ucf'", script],
           ['\n  <Icon ', ...MARKUP_END],

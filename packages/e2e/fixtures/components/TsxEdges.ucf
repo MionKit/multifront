@@ -1,4 +1,12 @@
-<react>
+<!-- a <style> in a comment is not a block -->
+
+<style scoped lang="css">
+.edge {
+  font-family: monospace;
+}
+</style>
+
+<react lang="tsx">
   // <style> in a comment is not a block
   const identity = <T,>(x: T) => x
 
@@ -17,11 +25,3 @@
     )
   }
 </react>
-
-<!-- a <style> in a comment is not a block -->
-
-<style scoped lang="css">
-.edge {
-  font-family: monospace;
-}
-</style>

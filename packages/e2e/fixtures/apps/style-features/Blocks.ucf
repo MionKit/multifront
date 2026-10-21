@@ -1,5 +1,5 @@
 <!-- Each style block kind on its own element. -->
-<vue>
+<vue lang="vue">
   <template>
     <div class="blocks">
       <p class="global-rule">global</p>
@@ -11,21 +11,7 @@
   </template>
 </vue>
 
-<react>
-  export default function Blocks() {
-    return (
-      <div className="blocks">
-        <p className="global-rule">global</p>
-        <p className="scoped-rule">scoped</p>
-        <p className={$style.moduleRule}>module</p>
-        <p className={classes.namedRule}>named module</p>
-        <p className={scopedClasses.scopedModuleRule}>scoped module</p>
-      </div>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <svelte:options runes />
 
   <div class="blocks">
@@ -66,3 +52,17 @@
   color: rgb(130, 140, 150);
 }
 </style>
+
+<react lang="tsx">
+  export default function Blocks() {
+    return (
+      <div className="blocks">
+        <p className="global-rule">global</p>
+        <p className="scoped-rule">scoped</p>
+        <p className={$style.moduleRule}>module</p>
+        <p className={classes.namedRule}>named module</p>
+        <p className={scopedClasses.scopedModuleRule}>scoped module</p>
+      </div>
+    )
+  }
+</react>

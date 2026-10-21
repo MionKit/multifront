@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     // `props` is declared by its rune: `$props` stays a rune, not a store.
     let props = $props()

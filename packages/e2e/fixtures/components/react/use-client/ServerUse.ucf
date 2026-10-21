@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { use } from 'react'
 
   function useless(text: string): string {

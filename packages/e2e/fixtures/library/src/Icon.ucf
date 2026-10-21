@@ -1,20 +1,10 @@
-<vue>
+<vue lang="vue">
   <template>
     <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" /></svg>
   </template>
 </vue>
 
-<react>
-  export default function Icon() {
-    return (
-      <svg className="icon" viewBox="0 0 16 16" aria-hidden="true">
-        <circle cx="8" cy="8" r="6" />
-      </svg>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" /></svg>
 </svelte>
 
@@ -25,3 +15,13 @@
   fill: currentColor;
 }
 </style>
+
+<react lang="tsx">
+  export default function Icon() {
+    return (
+      <svg className="icon" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="6" />
+      </svg>
+    )
+  }
+</react>

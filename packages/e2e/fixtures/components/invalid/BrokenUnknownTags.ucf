@@ -1,10 +1,10 @@
 <div>
   <p>a tag left open</p>
-<react>
-  export default function BrokenUnknownTags() {
-    return <div className="unknown">Broken unknown tags</div>
-  }
-</react>
+<svelte lang="html">
+  <div class="unknown">
+    Broken unknown tags
+  </div>
+</svelte>
 
 <baz x="open
 <style scoped>

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import Card from '../../Card.ucf'
   import Badge from '../../Badge.ucf' with { framework: 'vue' }
   import Button from '../../Button.ucf' with { type: 'component', "framework": 'react' }

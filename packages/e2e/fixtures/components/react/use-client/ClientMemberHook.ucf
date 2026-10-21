@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import * as React from 'react'
 
   export default function ClientMemberHook() {

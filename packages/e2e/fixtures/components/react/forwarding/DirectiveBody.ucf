@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // The directive must stay first in the body, so the props line goes after it.
   export default function DirectiveBody({ branch }: { branch?: string }) {
     'use no memo'

@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     const icon = import('../../imports/Icon.ucf')
   </script>

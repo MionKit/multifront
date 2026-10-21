@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = []}: {
       rows?: {id: number; cells: string[]}[]

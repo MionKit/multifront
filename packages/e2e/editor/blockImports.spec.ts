@@ -90,7 +90,7 @@ describe('.ucf imports through tsserver with our plugin', () => {
 
   it('an unsaved edit that adds the <react> block resolves the import at once', async () => {
     const end = locate(VUE_ONLY.source, '</vue>', '</vue>'.length);
-    const newText = '\n<react>\n  export default function VueOnly() { return <p /> }\n</react>';
+    const newText = '\n<react lang="tsx">\n  export default function VueOnly() { return <p /> }\n</react>';
     await server.request('updateOpen', {
       changedFiles: [{fileName: VUE_ONLY.filename, textChanges: [{start: end, end, newText}]}],
     });

@@ -35,7 +35,7 @@ export const PARENT_CLASS = 'fuzz-extra';
 export const PARENT_STYLE = '--fuzz: 1';
 
 // Renders every case as a stamped child, so its scope, class and style reach the case as props, as from any parent.
-export const PARENT_SOURCE = `<svelte>
+export const PARENT_SOURCE = `<svelte lang="html">
   <script lang="ts">
     import type {Component} from 'svelte'
 
@@ -650,7 +650,7 @@ export function caseAt(seed: number, runIndex: number, dir: string): SvelteCase 
 }
 
 export function ucfSource(fuzzCase: SvelteCase): string {
-  return `<svelte>${fuzzCase.block}</svelte>\n\n<style module scoped>\n${STYLE}\n</style>\n`;
+  return `<svelte lang="html">${fuzzCase.block}</svelte>\n\n<style module scoped>\n${STYLE}\n</style>\n`;
 }
 
 /** Also copies the shapes' `Child.svelte`, which the cases render, and writes the parent that renders them. */

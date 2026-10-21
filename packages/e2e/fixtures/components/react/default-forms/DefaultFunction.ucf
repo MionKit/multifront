@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default function DefaultFunction() {
     return <p>export default function</p>
   }

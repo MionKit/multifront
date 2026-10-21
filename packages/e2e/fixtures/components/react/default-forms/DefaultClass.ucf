@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { Component } from 'react'
 
   export default class DefaultClass extends Component {

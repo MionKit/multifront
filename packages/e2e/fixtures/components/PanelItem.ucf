@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   defineProps<{ label: string }>()
   </script>
@@ -7,13 +7,7 @@
   </template>
 </vue>
 
-<react>
-  export default function PanelItem({ label }: { label: string }) {
-    return <p className="item" data-marker="panel-item-react-marker">{label}</p>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   let { label }: { label: string } = $props()
   </script>
@@ -27,3 +21,9 @@
   color: rgb(60, 60, 60);
 }
 </style>
+
+<react lang="tsx">
+  export default function PanelItem({ label }: { label: string }) {
+    return <p className="item" data-marker="panel-item-react-marker">{label}</p>
+  }
+</react>

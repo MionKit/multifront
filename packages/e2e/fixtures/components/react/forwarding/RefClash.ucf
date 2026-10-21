@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { forwardRef } from 'react'
 
   // The block uses `__props` and `__ref`, so the parameters the build adds are `__props1` and `__ref1`.

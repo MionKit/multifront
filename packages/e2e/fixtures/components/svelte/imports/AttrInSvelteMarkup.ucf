@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   {#await import('../../imports/Icon.ucf', { with: { framework: 'svelte' } }) then { default: Icon }}
     <Icon />
   {/await}

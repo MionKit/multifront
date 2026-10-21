@@ -1,15 +1,5 @@
 <!-- CSS module keys the editor must find as the build does: nesting, :global, keyframes, @value, :export, sass. -->
 
-<react>
-  export default function StyleModuleEdges({ label }: { label: string }) {
-    return (
-      <section className={`${$style.card} ${$style.card__body} ${$style['card-title']}`}>
-        <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>
-      </section>
-    )
-  }
-</react>
-
 <style module lang="scss">
 // .wide in a line comment is no jump target
 /* nor .wide in a block comment */
@@ -108,3 +98,13 @@
   color: red;
 }
 </style>
+
+<react lang="tsx">
+  export default function StyleModuleEdges({ label }: { label: string }) {
+    return (
+      <section className={`${$style.card} ${$style.card__body} ${$style['card-title']}`}>
+        <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>
+      </section>
+    )
+  }
+</react>

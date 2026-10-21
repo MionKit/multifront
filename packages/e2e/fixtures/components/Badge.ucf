@@ -1,9 +1,3 @@
-<react>
-  export default function Badge({ label }: { label: string }) {
-    return <span className="badge">{label}</span>
-  }
-</react>
-
 <style scoped>
 .badge {
   display: inline-block;
@@ -12,3 +6,9 @@
   background: #eef;
 }
 </style>
+
+<react lang="tsx">
+  export default function Badge({ label }: { label: string }) {
+    return <span className="badge">{label}</span>
+  }
+</react>

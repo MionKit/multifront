@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   type Props = { branch?: string }
 
   // A JSX string keeps line breaks and `\` as written and decodes entities; a JS string does neither.

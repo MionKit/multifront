@@ -4,7 +4,7 @@
 }
 </style>
 
-<react>
+<react lang="tsx">
   function NoDefault() {
     return <p className="plain">No export at all</p>
   }

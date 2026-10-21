@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "<react> appears more than once; keep one",
     "filename": "invalid/MixedErrors.ucf",
-    "start": 155,
-    "end": 162,
+    "start": 166,
+    "end": 184,
     "line": 13,
     "column": 0
   }

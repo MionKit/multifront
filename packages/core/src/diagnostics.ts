@@ -37,6 +37,16 @@ export function styleInsideTarget(
     );
 }
 
+// Vue's grammar colors a root tag's content by its `lang`, so GitHub and Shiki color the block in its own language.
+export function blockLang(block: Block, split: SplitResult, lang: string | undefined): Diagnostic[] {
+  const written = block.attrs.lang;
+  if (lang === undefined || written === lang) return [];
+  const tag =
+    written === undefined ? `<${block.type}>` : written === true ? `<${block.type} lang>` : `<${block.type} lang="${written}">`;
+  const message = `${tag} needs lang="${lang}"; write <${block.type} lang="${lang}">`;
+  return [createDiagnostic(split, 'block-lang', block.start, block.contentStart, message)];
+}
+
 /** A file's errors, thrown by host functions such as `buildTarget`. */
 export class DiagnosticsError extends Error {
   readonly diagnostics: Diagnostic[];

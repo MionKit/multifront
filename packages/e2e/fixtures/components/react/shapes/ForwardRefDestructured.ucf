@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { forwardRef } from 'react'
 
   export default forwardRef<HTMLDivElement, { branch?: string }>(({ branch }, ref) => (

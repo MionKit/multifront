@@ -467,8 +467,8 @@ function renderSource(model: Model, name: string): string {
     ...STATEMENTS,
     renderComponent(model, name),
   ];
-  const react = `<react>\n${lines.map((line) => `  ${line}`).join('\n')}\n</react>\n`;
-  return `${react}\n<style${model.scoped ? ' scoped' : ''}>${STYLE}</style>\n`;
+  const react = `<react lang="tsx">\n${lines.map((line) => `  ${line}`).join('\n')}\n</react>\n`;
+  return `<style${model.scoped ? ' scoped' : ''}>${STYLE}</style>\n\n${react}`;
 }
 
 // --- evaluation: what each branch renders ----------------------------------------------------------------------

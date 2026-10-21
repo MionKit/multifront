@@ -29,7 +29,7 @@ function token(tokens, text, blockScope) {
 
 function blockRange(document, tag) {
   const text = document.getText();
-  const start = text.indexOf(`<${tag}>`) + `<${tag}>`.length;
+  const start = text.indexOf('>', text.search(new RegExp(`<${tag}[\\s>]`))) + 1;
   return {start, end: text.indexOf(`</${tag}>`, start)};
 }
 

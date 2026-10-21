@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script lang="ts">
   export {default as AgainIcon} from '../imports/Icon.ucf' with {framework: 'vue'}
   </script>

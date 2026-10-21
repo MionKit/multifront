@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { useEffect, useRef } from 'react'
 
   type Props = { branch?: string; tone?: string }

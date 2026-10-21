@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script>
     export let depth = 0
     export let Child

@@ -275,7 +275,7 @@ describe("mf-build on a type-only module with a component's exact name (M6 6.1 b
 });
 
 describe('mf-build on a Svelte compiler error (spec 8.1: never a position in generated code)', () => {
-  const bad = `<svelte>
+  const bad = `<svelte lang="html">
   <script lang="ts">
     let { label }: { label: string } = $props()
     let count = $state(0)
@@ -327,7 +327,7 @@ describe('mf-build when a style preprocessor is not installed (spec 8.1: a missi
     await withEditedLibrary([{file, content: source}], (root) => expectMissing(root, 'react'));
   });
 
-  const everyFramework = `<vue>\n  <template><span class="pill">x</span></template>\n</vue>\n\n<svelte>\n  <span class="pill">x</span>\n</svelte>\n\n${source}`;
+  const everyFramework = `<vue lang="vue">\n  <template><span class="pill">x</span></template>\n</vue>\n\n<svelte lang="html">\n  <span class="pill">x</span>\n</svelte>\n\n${source}`;
 
   it.each(['vue', 'svelte'] as const)('names the file and the package to install in the %s build', async (framework) => {
     await withEditedLibrary([{file, content: everyFramework}], (root) => expectMissing(root, framework));

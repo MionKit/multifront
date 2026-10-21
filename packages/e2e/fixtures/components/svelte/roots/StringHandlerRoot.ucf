@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let { label = 'handler' }: { label?: string } = $props()
   </script>

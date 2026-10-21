@@ -1,0 +1,32 @@
+[
+  {
+    "code": "block-lang",
+    "severity": "error",
+    "message": "<vue> needs lang=\"vue\"; write <vue lang=\"vue\">",
+    "filename": "invalid/BlockLang.ucf",
+    "start": 0,
+    "end": 5,
+    "line": 1,
+    "column": 0
+  },
+  {
+    "code": "block-lang",
+    "severity": "error",
+    "message": "<svelte lang> needs lang=\"html\"; write <svelte lang=\"html\">",
+    "filename": "invalid/BlockLang.ucf",
+    "start": 50,
+    "end": 63,
+    "line": 7,
+    "column": 0
+  },
+  {
+    "code": "block-lang",
+    "severity": "error",
+    "message": "<react lang=\"ts\"> needs lang=\"tsx\"; write <react lang=\"tsx\">",
+    "filename": "invalid/BlockLang.ucf",
+    "start": 89,
+    "end": 106,
+    "line": 11,
+    "column": 0
+  }
+]

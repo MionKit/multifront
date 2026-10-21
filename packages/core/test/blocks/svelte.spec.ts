@@ -121,7 +121,7 @@ describe('the <svelte> rules', () => {
     .map((name) => name.split(sep).join('/'))
     .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|svelte\/roots|invalid)\//.test(name))
     .filter((name) => name !== ATTR_IN_SVELTE)
-    .filter((name) => readComponent(name).source.includes('<svelte>'))
+    .filter((name) => /<svelte[\s>]/.test(readComponent(name).source))
     .sort();
 
   it('covers the other fixtures with a <svelte> block', () => {
@@ -410,7 +410,7 @@ describe('svelteEditorSource matches the rename of build()', () => {
   const FIXTURES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
     .filter((name) => name.endsWith('.ucf') && !name.startsWith('invalid/'))
-    .filter((name) => readComponent(name).source.includes('<svelte>'))
+    .filter((name) => /<svelte[\s>]/.test(readComponent(name).source))
     .sort();
   // build() rejects these, so they have no rename to ship.
   const REJECTED = [

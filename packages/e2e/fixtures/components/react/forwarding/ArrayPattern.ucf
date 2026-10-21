@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // An array pattern, optional, with a comment holding its closing bracket before the annotation.
   export default function ArrayPattern([ first ] /* ] */ ?: [string?]) {
     return <div className="shape">{first}</div>

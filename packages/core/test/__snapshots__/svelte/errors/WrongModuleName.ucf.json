@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
     "filename": "svelte/errors/WrongModuleName.ucf",
-    "start": 40,
-    "end": 46,
+    "start": 52,
+    "end": 58,
     "line": 3,
     "column": 20
   },
@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "<svelte> uses $style, but no <style module> exists; add one",
     "filename": "svelte/errors/WrongModuleName.ucf",
-    "start": 116,
-    "end": 122,
+    "start": 128,
+    "end": 134,
     "line": 6,
     "column": 14
   },
@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
     "filename": "svelte/errors/WrongModuleName.ucf",
-    "start": 160,
-    "end": 166,
+    "start": 172,
+    "end": 178,
     "line": 7,
     "column": 14
   },
@@ -34,8 +34,8 @@
     "severity": "error",
     "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
     "filename": "svelte/errors/WrongModuleName.ucf",
-    "start": 215,
-    "end": 221,
+    "start": 227,
+    "end": 233,
     "line": 8,
     "column": 23
   },
@@ -44,8 +44,8 @@
     "severity": "error",
     "message": "<svelte> uses $constructor, but no <style module=\"constructor\"> or store named constructor exists",
     "filename": "svelte/errors/WrongModuleName.ucf",
-    "start": 244,
-    "end": 256,
+    "start": 256,
+    "end": 268,
     "line": 9,
     "column": 8
   }

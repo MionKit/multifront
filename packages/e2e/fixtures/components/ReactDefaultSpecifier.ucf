@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   defineProps<{ title: string }>()
   </script>
@@ -7,7 +7,18 @@
   </template>
 </vue>
 
-<react>
+<svelte lang="html">
+  <script lang="ts">
+    let { title }: { title: string } = $props()
+  </script>
+  <div class={$style.card}><h2>{title}</h2></div>
+</svelte>
+
+<style module lang="scss">
+.card { padding: 1rem; }
+</style>
+
+<react lang="tsx">
   // A props type with the component's name: the default specifier still exports the function.
   interface Card {
     title: string
@@ -19,14 +30,3 @@
 
   export { Card as default }
 </react>
-
-<svelte>
-  <script lang="ts">
-    let { title }: { title: string } = $props()
-  </script>
-  <div class={$style.card}><h2>{title}</h2></div>
-</svelte>
-
-<style module lang="scss">
-.card { padding: 1rem; }
-</style>

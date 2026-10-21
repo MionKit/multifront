@@ -1,0 +1,11 @@
+<react lang="tsx">
+export default function ReactNotLast() {
+  return <p className={$style.note}>React before the style</p>
+}
+</react>
+
+<style module>
+.note {
+  color: teal;
+}
+</style>

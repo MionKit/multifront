@@ -1,0 +1,15 @@
+<vue>
+<template>
+  <p>Vue</p>
+</template>
+</vue>
+
+<svelte lang>
+<p>Svelte</p>
+</svelte>
+
+<react lang="ts">
+export default function BlockLang() {
+  return <p>React</p>
+}
+</react>

@@ -1,23 +1,25 @@
 [
   {
-    "type": "react",
-    "attrs": {},
-    "start": 0,
-    "end": 513,
-    "contentStart": 7,
-    "contentEnd": 505,
-    "index": 0
-  },
-  {
     "type": "style",
     "attrs": {
       "scoped": true,
       "lang": "css"
     },
-    "start": 563,
-    "end": 633,
-    "contentStart": 588,
-    "contentEnd": 625,
+    "start": 48,
+    "end": 118,
+    "contentStart": 73,
+    "contentEnd": 110,
+    "index": 0
+  },
+  {
+    "type": "react",
+    "attrs": {
+      "lang": "tsx"
+    },
+    "start": 120,
+    "end": 644,
+    "contentStart": 138,
+    "contentEnd": 636,
     "index": 0
   }
 ]

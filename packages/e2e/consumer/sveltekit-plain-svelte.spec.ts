@@ -15,7 +15,7 @@ export function double(): number {
 }
 `;
 // A component importing a plain file: the .ucf -> .svelte direction.
-const SHELL = `<svelte>
+const SHELL = `<svelte lang="html">
   <script lang="ts">
   import Child from './Child.svelte'
   </script>

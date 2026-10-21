@@ -1,4 +1,10 @@
-<react>
+<style module>
+.note {
+  color: olive;
+}
+</style>
+
+<react lang="tsx">
   'use client'
   'use strict';
 
@@ -6,9 +12,3 @@
     return <p className={$style.note}>Two directives</p>;
   }
 </react>
-
-<style module>
-.note {
-  color: olive;
-}
-</style>

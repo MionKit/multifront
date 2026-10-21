@@ -17,7 +17,7 @@ const COMPONENTS = {
   vue: ['Badge', 'Button', 'Card', 'Counter', 'Icon', 'Panel', 'Tooltip', 'VueOnly', 'forms/Field'],
 };
 const PEERS = {react: {react: '^19.0.0', 'react-dom': '^19.0.0'}, vue: {vue: '^3.5.0'}};
-const PLAIN = `<react>
+const PLAIN = `<react lang="tsx">
   export default function Plain() {
     return <p>plain</p>
   }

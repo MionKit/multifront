@@ -281,7 +281,7 @@ describe('.svelte importer errors', () => {
   });
 
   it("points a .ucf component's Svelte compiler error into the .ucf file, mapped once in the build and the dev server", async () => {
-    const source = `<svelte>
+    const source = `<svelte lang="html">
   <script lang="ts">
     let count = $state(0)
     const doubled = $derived(count * 2)

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import type { CSSProperties, Ref } from 'react'
 
   type Props = { className?: string; style?: CSSProperties; ref?: Ref<HTMLDivElement> }

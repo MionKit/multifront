@@ -1,11 +1,13 @@
 [
   {
     "type": "react",
-    "attrs": {},
+    "attrs": {
+      "lang": "tsx"
+    },
     "start": 0,
-    "end": 116,
-    "contentStart": 7,
-    "contentEnd": 107,
+    "end": 127,
+    "contentStart": 18,
+    "contentEnd": 118,
     "index": 0
   }
 ]

@@ -63,10 +63,10 @@ function lintFinding(
 /** What the fixture config reports on `Lint.ucf`: oxlint runs no `no-unused-vars` in `.vue` or `.svelte` files. */
 function lintFindings(file = LINT): Finding[] {
   return [
-    lintFinding(file, 'react', 'unused', 'eslint(no-unused-vars)', 'warning', UNUSED),
-    lintFinding(file, 'react', 'debugger;', 'eslint(no-debugger)', 'warning', DEBUGGER),
     lintFinding(file, 'vue', 'debugger;', 'eslint(no-debugger)', 'error', DEBUGGER),
     lintFinding(file, 'svelte', 'debugger;', 'eslint(no-debugger)', 'error', DEBUGGER),
+    lintFinding(file, 'react', 'unused', 'eslint(no-unused-vars)', 'warning', UNUSED),
+    lintFinding(file, 'react', 'debugger;', 'eslint(no-debugger)', 'warning', DEBUGGER),
   ];
 }
 
@@ -88,13 +88,13 @@ describe('mf-lint on the fixture', () => {
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       const {findings} = report(run.stdout);
       expect(findings.map(({code, severity, block}) => [code, severity, block])).toEqual([
+        ['eslint(no-debugger)', 'error', 'vue'],
+        ['eslint(no-debugger)', 'error', 'svelte'],
         ['eslint(no-unused-vars)', 'warning', 'react'],
         // The config's `**/*.tsx` override reaches the <react> block only.
         ['eslint(no-debugger)', 'warning', 'react'],
-        ['eslint(no-debugger)', 'error', 'vue'],
-        ['eslint(no-debugger)', 'error', 'svelte'],
       ]);
-      expect(findings.map((finding) => text(LINT_SOURCE, finding))).toEqual(['unused', 'debugger;', 'debugger;', 'debugger;']);
+      expect(findings.map((finding) => text(LINT_SOURCE, finding))).toEqual(['debugger;', 'debugger;', 'unused', 'debugger;']);
       expect(readdirSync(dir)).toEqual([]);
       // The run's temp folder is the one the test watches: with it gone, mf-lint cannot write its block files.
       const gone = join(dir, 'gone');
@@ -122,9 +122,8 @@ describe('mf-lint on the fixture', () => {
         undefinedClasses(CLEAN),
         ...lintFindings(),
         ...lintFindings('[slug]/Lint.ucf'),
-        ...lintFindings('bare/Lint.ucf').slice(0, 2),
+        ...lintFindings('bare/Lint.ucf'),
         undefinedClasses('bare/Lint.ucf'),
-        ...lintFindings('bare/Lint.ucf').slice(2),
       ]);
     });
   });
@@ -155,10 +154,10 @@ describe('lintUcf', () => {
         severity,
       ]);
       expect(shown).toEqual([
-        [LINT, 'unused', 'react', 'eslint(no-unused-vars)', 'warning'],
-        [LINT, 'debugger;', 'react', 'eslint(no-debugger)', 'warning'],
         [LINT, 'debugger;', 'vue', 'eslint(no-debugger)', 'error'],
         [LINT, 'debugger;', 'svelte', 'eslint(no-debugger)', 'error'],
+        [LINT, 'unused', 'react', 'eslint(no-unused-vars)', 'warning'],
+        [LINT, 'debugger;', 'react', 'eslint(no-debugger)', 'warning'],
       ]);
       for (const {url, help, code} of diagnostics) {
         expect(url).toBe(`https://oxc.rs/docs/guide/usage/linter/rules/eslint/${code.slice('eslint('.length, -1)}.html`);
@@ -195,7 +194,8 @@ describe('mf-lint on one file or one folder', () => {
       writeFileSync(join(root, 'nested', '.oxlintrc.json'), '{"rules": {"no-debugger": "off"}}\n');
       writeFileSync(join(root, 'other', '.oxlintrc.jsonc'), '{\n  "rules": {"no-debugger": "off"}, // like nested/\n}\n');
       const {findings} = report((await runMfLint(root, ['--format', 'json'])).stdout);
-      expect(findings).toEqual([...lintFindings(), lintFindings('nested/Lint.ucf')[0]!, lintFindings('other/Lint.ucf')[0]!]);
+      const unusedIn = (file: string) => lintFindings(file).find(({code}) => code === 'eslint(no-unused-vars)')!;
+      expect(findings).toEqual([...lintFindings(), unusedIn('nested/Lint.ucf'), unusedIn('other/Lint.ucf')]);
     });
   });
 
@@ -245,15 +245,15 @@ describe('mf-lint exit codes', () => {
 
   it('gives lint-parse-error for a block oxlint cannot parse or a redeclaration, which oxlint reports with no code', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      const source = LINT_SOURCE.replace("const unused = 'é ü'", "const = 'é ü'").replace(
-        "const unused = 'é ü'\ndebugger;",
-        'let twice = 1\nlet twice = 2'
+      const source = LINT_SOURCE.replace("const unused = 'é ü'\ndebugger;", 'let twice = 1\nlet twice = 2').replace(
+        "  const unused = 'é ü'\n  debugger;",
+        "  const = 'é ü'\n  debugger;"
       );
       writeFileSync(join(root, BROKEN), source);
       const findings = [
-        lintFinding(BROKEN, 'react', '=', 'lint-parse-error', 'error', 'Unexpected token', source),
         lintFinding(BROKEN, 'vue', 'twice', 'lint-parse-error', 'error', 'Identifier `twice` has already been declared', source),
         lintFinding(BROKEN, 'svelte', 'debugger;', 'eslint(no-debugger)', 'error', DEBUGGER, source),
+        lintFinding(BROKEN, 'react', '=', 'lint-parse-error', 'error', 'Unexpected token', source),
       ];
       expect(await runMfLint(root, [BROKEN])).toEqual({
         code: 1,

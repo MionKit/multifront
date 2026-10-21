@@ -30,7 +30,7 @@ import {
 import {offsetAt} from '../lib/tsserver.ts';
 
 // JS `<vue>` and `<svelte>` blocks: their generators still write TypeScript-only syntax into the JS script.
-const PLAIN = `<vue>
+const PLAIN = `<vue lang="vue">
   <script setup>
   const vueLabel = 'vue'
   </script>
@@ -39,7 +39,7 @@ const PLAIN = `<vue>
   </template>
 </vue>
 
-<svelte>
+<svelte lang="html">
   <script>
     const svelteLabel = 'svelte'
   </script>
@@ -47,7 +47,7 @@ const PLAIN = `<vue>
 </svelte>
 `;
 
-const WHOLE = `<svelte>
+const WHOLE = `<svelte lang="html">
   <script lang="ts">
     let props = $props()
   </script>
@@ -61,7 +61,7 @@ import Whole from './Whole.ucf' with {framework: 'svelte'};
 export const props: ComponentProps<typeof Whole> = {label: 'any', other: 1};
 `;
 
-const VUE_PICKS = `<vue>
+const VUE_PICKS = `<vue lang="vue">
   <script setup lang="ts">
   import ReactBreaks from './ReactBreaks.ucf'
   </script>
@@ -182,7 +182,7 @@ describe('mf-tsc over every target', () => {
       } as const;
       const run = await runMfTsc(root, ['Greeting.ucf', '--format', 'json']);
       expect(report(run.stdout).findings.filter(({code}) => code === 'TS2451')).toEqual([
-        {...redeclared, ...span(source, '<react>')},
+        {...redeclared, ...span(source, '<react lang="tsx">')},
         {...redeclared, ...span(source, 'const $style', '$style'.length, 'const '.length)},
       ]);
     });
@@ -195,8 +195,8 @@ describe('mf-tsc over every target', () => {
       editFile(
         root,
         'SvelteBreaks.ucf',
-        '<svelte>\n',
-        `<svelte>\n  <script module lang="ts">\n    const ${name} = 1\n  </script>\n`
+        '<svelte lang="html">\n',
+        `<svelte lang="html">\n  <script module lang="ts">\n    const ${name} = 1\n  </script>\n`
       );
       const source = readFileSync(join(root, 'SvelteBreaks.ucf'), 'utf8');
       const redeclared = {
@@ -209,7 +209,7 @@ describe('mf-tsc over every target', () => {
       } as const;
       const run = await runMfTsc(root, ['SvelteBreaks.ucf', '--format', 'json']);
       expect(report(run.stdout).findings.filter(({code}) => code === 'TS2451')).toEqual([
-        {...redeclared, ...span(source, '<svelte>')},
+        {...redeclared, ...span(source, '<svelte lang="html">')},
         {...redeclared, ...span(source, `const ${name}`, name.length, 'const '.length)},
       ]);
     });
@@ -282,7 +282,7 @@ describe('mf-tsc over every target', () => {
   it('types attribute text holding a backtick or a backslash, which svelte2tsx writes into a template literal', async () => {
     await withCopy(VALID, async (root) => {
       copyFileSync(componentPath('svelte/root-props/Merges.ucf'), join(root, 'Merges.ucf'));
-      addFile(root, 'Escapes.ucf', '<svelte>\n  <p title="C:\\users" data-tick="`">x</p>\n</svelte>\n');
+      addFile(root, 'Escapes.ucf', '<svelte lang="html">\n  <p title="C:\\users" data-tick="`">x</p>\n</svelte>\n');
       expect(await runMfTsc(root, ['Merges.ucf', 'Escapes.ucf'])).toEqual({
         code: 0,
         stdout: 'mf-tsc: checked 2 files with tsconfig.json: no errors\n',

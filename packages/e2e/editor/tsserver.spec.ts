@@ -201,7 +201,9 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
     const codes = (await server.diagnostics(card.filename)).map(({code}) => code);
     expect(codes).not.toContain(2304); // "Cannot find name '$style'": the raw file read as TSX
     expect(codes).not.toContain(2339);
-    const info = await server.request<TsQuickInfo>('quickinfo', {file: card.filename, ...locate(card.source, '<h2>{title}', 5)});
+    // The indented `<h2>` is the <react> block's; the <svelte> block's sits inline before it.
+    const at = locate(card.source, '      <h2>{title}', '      <h2>{'.length);
+    const info = await server.request<TsQuickInfo>('quickinfo', {file: card.filename, ...at});
     expect(info.displayString).toContain('title: string');
   });
 

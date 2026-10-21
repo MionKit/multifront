@@ -102,7 +102,7 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
     expect(tokenIn(card, 'svelte', '{title}', 1).scopes).toContain('meta.embedded.expression.svelte');
     // Svelte embeds its <script> through its own injections, lifted to the root grammar.
     expect(tokenIn(card, 'svelte', 'let').scopes).toContain('source.ts');
-    expect(tokenAt(card, card.source.indexOf('<react>') + 1).scopes).toContain('entity.name.tag.ucf');
+    expect(tokenAt(card, card.source.indexOf('<react lang="tsx">') + 1).scopes).toContain('entity.name.tag.ucf');
   });
 
   it('Panel.ucf: the <style lang = scss> block uses the SCSS grammar', async () => {

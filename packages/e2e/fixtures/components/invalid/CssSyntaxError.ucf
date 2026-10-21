@@ -1,10 +1,10 @@
-<react>
-  export default function Note({ text }: { text: string }) {
-    return <p className="note">{text}</p>
-  }
-</react>
-
 <style scoped lang="postcss">
 .note {
   color: gray;
 </style>
+
+<react lang="tsx">
+  export default function Note({ text }: { text: string }) {
+    return <p className="note">{text}</p>
+  }
+</react>

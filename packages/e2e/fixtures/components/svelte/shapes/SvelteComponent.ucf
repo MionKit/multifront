@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script>
     export let Child
   </script>

@@ -1,5 +1,5 @@
 <!-- Props, element refs and slots, each framework's own way. -->
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import { onMounted, ref } from 'vue'
 
@@ -22,27 +22,7 @@
   </template>
 </vue>
 
-<react>
-  import { useEffect, useRef, useState, type ReactNode } from 'react'
-
-  export default function Api({label, item}: {label: string; item?: (value: number) => ReactNode}) {
-    const root = useRef<HTMLDivElement>(null)
-    const inner = useRef<HTMLElement>(null)
-    const [refs, setRefs] = useState('')
-    useEffect(() => {
-      setRefs(`${root.current?.tagName}/${inner.current?.tagName}`)
-    }, [])
-    return (
-      <div ref={root} className="api">
-        <b className="label">{label}</b>
-        <em ref={inner} className="refs">{refs}</em>
-        {item?.(7)}
-      </div>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import type { Snippet } from 'svelte'
 
@@ -65,3 +45,23 @@
     {@render item?.(7)}
   </div>
 </svelte>
+
+<react lang="tsx">
+  import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+  export default function Api({label, item}: {label: string; item?: (value: number) => ReactNode}) {
+    const root = useRef<HTMLDivElement>(null)
+    const inner = useRef<HTMLElement>(null)
+    const [refs, setRefs] = useState('')
+    useEffect(() => {
+      setRefs(`${root.current?.tagName}/${inner.current?.tagName}`)
+    }, [])
+    return (
+      <div ref={root} className="api">
+        <b className="label">{label}</b>
+        <em ref={inner} className="refs">{refs}</em>
+        {item?.(7)}
+      </div>
+    )
+  }
+</react>

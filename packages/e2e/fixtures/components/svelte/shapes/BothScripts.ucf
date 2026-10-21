@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script module lang="ts">
     export const moduleClass: string = $style.text
   </script>

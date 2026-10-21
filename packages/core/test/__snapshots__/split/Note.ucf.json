@@ -1,29 +1,24 @@
 [
   {
     "type": "vue",
-    "attrs": {},
+    "attrs": {
+      "lang": "vue"
+    },
     "start": 0,
-    "end": 220,
-    "contentStart": 5,
-    "contentEnd": 214,
-    "index": 0
-  },
-  {
-    "type": "react",
-    "attrs": {},
-    "start": 222,
-    "end": 397,
-    "contentStart": 229,
-    "contentEnd": 389,
+    "end": 231,
+    "contentStart": 16,
+    "contentEnd": 225,
     "index": 0
   },
   {
     "type": "svelte",
-    "attrs": {},
-    "start": 399,
-    "end": 575,
-    "contentStart": 407,
-    "contentEnd": 566,
+    "attrs": {
+      "lang": "html"
+    },
+    "start": 233,
+    "end": 421,
+    "contentStart": 253,
+    "contentEnd": 412,
     "index": 0
   },
   {
@@ -31,10 +26,21 @@
     "attrs": {
       "scoped": true
     },
-    "start": 577,
-    "end": 669,
-    "contentStart": 591,
-    "contentEnd": 661,
+    "start": 423,
+    "end": 515,
+    "contentStart": 437,
+    "contentEnd": 507,
+    "index": 0
+  },
+  {
+    "type": "react",
+    "attrs": {
+      "lang": "tsx"
+    },
+    "start": 517,
+    "end": 703,
+    "contentStart": 535,
+    "contentEnd": 695,
     "index": 0
   }
 ]

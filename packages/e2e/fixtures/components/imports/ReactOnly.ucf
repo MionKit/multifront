@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default function ReactOnly() {
     return <p>Only React</p>
   }

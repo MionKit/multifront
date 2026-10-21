@@ -1,14 +1,8 @@
-<vue>
+<vue lang="vue">
   <template>
     <span :class="[$style.tag, $style.chip]">tag</span>
   </template>
 </vue>
-
-<react>
-  export default function ComposesFile() {
-    return <span className={`${$style.tag} ${$style.chip}`}>tag</span>
-  }
-</react>
 
 <style module>
 .tag {
@@ -20,3 +14,9 @@
   composes: round from '../tag-round.css';
 }
 </style>
+
+<react lang="tsx">
+  export default function ComposesFile() {
+    return <span className={`${$style.tag} ${$style.chip}`}>tag</span>
+  }
+</react>

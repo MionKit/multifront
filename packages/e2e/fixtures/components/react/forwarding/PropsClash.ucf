@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // The block uses `__props` and `__props1`, so the build names the props `__props2`.
   const __props = 'module'
   const __props1 = 'module too'

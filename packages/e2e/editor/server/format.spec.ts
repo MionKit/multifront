@@ -139,7 +139,7 @@ describe('Format Document with no oxfmt in the project', () => {
     expect((await format(ORIGINAL)).edits).toEqual([]);
     expect((await format(ORIGINAL)).edits).toEqual([]);
     // A file the splitter rejects never reaches oxfmt: that is no successful format.
-    expect((await format(`${ORIGINAL}<react>\n</react>\n`)).edits).toEqual([]);
+    expect((await format(`${ORIGINAL}<react lang="tsx">\n</react>\n`)).edits).toEqual([]);
     expect((await format(ORIGINAL)).edits).toEqual([]);
     expect(warnings()).toEqual([noOxfmt(state.root)]);
     const document = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');

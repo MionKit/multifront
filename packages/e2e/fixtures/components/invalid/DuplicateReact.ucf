@@ -1,23 +1,23 @@
-<react>
-  export default function First() {
-    return <p className="twice">First</p>
-  }
-</react>
-
-<react>
-  export default function Second() {
-    return <p className="twice">Second</p>
-  }
-</react>
-
-<react>
-  export default function Third() {
-    return <p className="twice">Third</p>
-  }
-</react>
-
 <style scoped>
 .twice {
   color: teal;
 }
 </style>
+
+<react lang="tsx">
+  export default function First() {
+    return <p className="twice">First</p>
+  }
+</react>
+
+<react lang="tsx">
+  export default function Second() {
+    return <p className="twice">Second</p>
+  }
+</react>
+
+<react lang="tsx">
+  export default function Third() {
+    return <p className="twice">Third</p>
+  }
+</react>

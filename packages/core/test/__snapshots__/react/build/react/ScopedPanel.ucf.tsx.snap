@@ -5,9 +5,9 @@ import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
 
   export default function ScopedPanel(__props) {
     return (
-      <section data-v-726170eb="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("panel", __props.className)}>
-        <h2 data-v-726170eb="" className="title">Scoped panel</h2>
-        <ScopedBadge data-v-726170eb="" label="new" className="badge" />
+      <section data-v-81173329="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("panel", __props.className)}>
+        <h2 data-v-81173329="" className="title">Scoped panel</h2>
+        <ScopedBadge data-v-81173329="" label="new" className="badge" />
       </section>
     )
   }

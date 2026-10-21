@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import PanelItem from './PanelItem.ucf'
 
@@ -8,15 +8,6 @@
     <section class="panel"><h3 :class="['heading', $style.title]">{{ heading }}</h3><PanelItem label="first item" /><slot /></section>
   </template>
 </vue>
-
-<react>
-  import type { ReactNode } from 'react'
-  import PanelItem from './PanelItem.ucf'
-
-  export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
-    return <section className="panel"><h3 className={`heading ${$style.title}`}>{heading}</h3><PanelItem label="first item" />{children}</section>
-  }
-</react>
 
 <style scoped lang = scss>
 $pad: 1rem;
@@ -50,7 +41,7 @@ $accent: rgb(40, 90, 160);
 }
 </style>
 
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import type { Snippet } from 'svelte'
   import PanelItem from './PanelItem.ucf'
@@ -64,3 +55,12 @@ $accent: rgb(40, 90, 160);
     {@render children?.()}
   </section>
 </svelte>
+
+<react lang="tsx">
+  import type { ReactNode } from 'react'
+  import PanelItem from './PanelItem.ucf'
+
+  export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
+    return <section className="panel"><h3 className={`heading ${$style.title}`}>{heading}</h3><PanelItem label="first item" />{children}</section>
+  }
+</react>

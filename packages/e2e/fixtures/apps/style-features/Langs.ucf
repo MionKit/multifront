@@ -1,5 +1,5 @@
 <!-- One element per style lang, and a plain CSS @import. -->
-<vue>
+<vue lang="vue">
   <template>
     <div class="langs">
       <p class="scss">scss</p>
@@ -11,21 +11,7 @@
   </template>
 </vue>
 
-<react>
-  export default function Langs() {
-    return (
-      <div className="langs">
-        <p className="scss">scss</p>
-        <p className="sass">sass</p>
-        <p className="stylus">stylus</p>
-        <p className="pcss">postcss</p>
-        <p className="imported">imported</p>
-      </div>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <svelte:options runes />
 
   <div class="langs">
@@ -66,3 +52,17 @@ $color: rgb(11, 12, 13);
 <style>
 @import './imported.css';
 </style>
+
+<react lang="tsx">
+  export default function Langs() {
+    return (
+      <div className="langs">
+        <p className="scss">scss</p>
+        <p className="sass">sass</p>
+        <p className="stylus">stylus</p>
+        <p className="pcss">postcss</p>
+        <p className="imported">imported</p>
+      </div>
+    )
+  }
+</react>

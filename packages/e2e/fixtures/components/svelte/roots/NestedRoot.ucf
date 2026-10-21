@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let props = $props()
     const value = $derived(props.fail ? Promise.reject(new Error('fail')) : Promise.resolve(String(props.value ?? 'then')))

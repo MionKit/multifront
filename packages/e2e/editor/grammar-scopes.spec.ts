@@ -41,6 +41,34 @@ function rootOnlyText(content: string, scopeName: string): string[] {
   return rootOnly;
 }
 
+// The scope Vue's grammar gives a target tag's content, by the tag's `lang`; a `<style>` gets the registry's.
+const VUE_GRAMMAR_SCOPES: Record<string, string> = {tsx: 'source.tsx', vue: 'text.html.vue', html: 'text.html.derivative'};
+
+// The whole file through Vue's grammar, as GitHub and Shiki color a `.ucf` file read as Vue.
+function asVue(name: string): {block: Block | undefined; text: string; scopes: string[]}[] {
+  const {filename, source} = readComponent(name);
+  const {blocks} = splitBlocks(source, filename);
+  const grammar = highlighter.getLanguage('vue');
+  const tokens = [];
+  let state = null;
+  let lineStart = 0;
+  for (const line of source.split('\n')) {
+    const result = grammar.tokenizeLine(line, state);
+    state = result.ruleStack;
+    for (const token of result.tokens) {
+      const start = lineStart + token.startIndex;
+      const block = blocks.find(({contentStart, contentEnd}) => contentStart <= start && start < contentEnd);
+      tokens.push({block, text: line.slice(token.startIndex, token.endIndex), scopes: token.scopes.slice(1)});
+    }
+    lineStart += line.length + 1;
+  }
+  return tokens.filter(({text}) => text.trim() !== '');
+}
+
+function vueScopeOf(block: Block): string {
+  return block.type === 'style' ? pickGrammar(block).scopeName : VUE_GRAMMAR_SCOPES[String(block.attrs.lang)]!;
+}
+
 function blocksOf(name: string): Block[] {
   const {filename, source} = readComponent(name);
   return splitBlocks(source, filename).blocks;
@@ -65,5 +93,41 @@ describe('grammar data of the block kinds, against the real shiki grammars', () 
     const scss = blocksOf('Panel.ucf').find((block) => block.attrs.lang === 'scss')!;
     expect(pickGrammar(scss).scopeName).toBe('source.css.scss');
     expect(rootOnlyText(scss.content, 'source.css')).not.toEqual([]);
+  });
+});
+
+describe('a .ucf file read as Vue by the real Vue grammar, as GitHub and Shiki read it', () => {
+  it('names a Vue grammar scope for the lang of every target kind', () => {
+    for (const kind of BLOCK_KINDS.filter(({role}) => role === 'target')) expect(VUE_GRAMMAR_SCOPES).toHaveProperty(kind.lang!);
+  });
+
+  it.each(listComponents())('%s: each block is colored by the language its lang names, and TSX stays in <react>', (name) => {
+    const tokens = asVue(name);
+    const types = new Set(tokens.flatMap(({block}) => block?.type ?? []));
+    expect(types.size).toBeGreaterThan(0);
+    const wrong = tokens.filter(({block, scopes}) => (block ? !scopes.includes(vueScopeOf(block)) : false));
+    expect(wrong).toEqual([]);
+    const leaked = tokens.filter(({block, scopes}) => block?.type !== 'react' && scopes.includes('source.tsx'));
+    // Only the closing tag: Vue's grammar ends a `lang="tsx"` block at the end of the file.
+    expect(leaked.map(({text}) => text).join('')).toBe(types.has('react') ? '</react>' : '');
+  });
+
+  it('Card.ucf: all four blocks, nested Vue code in <vue>', () => {
+    const tokens = asVue('Card.ucf');
+    expect(new Set(tokens.flatMap(({block}) => block?.type ?? []))).toEqual(new Set(['vue', 'svelte', 'style', 'react']));
+    expect(tokens.find(({text}) => text === 'defineProps')?.scopes).toContain('source.ts');
+  });
+
+  it('invalid/BlockLang.ucf: a <vue> with no lang stays plain text', () => {
+    const vue = asVue('invalid/BlockLang.ucf').filter(({block}) => block?.type === 'vue');
+    expect(vue.length).toBeGreaterThan(0);
+    expect(vue.filter(({scopes}) => scopes.length > 1 && scopes[0] !== 'text')).toEqual([]);
+  });
+
+  // Why react-lang-not-last exists.
+  it('invalid/ReactNotLast.ucf: the <style> after <react lang="tsx"> is colored as TSX', () => {
+    const style = asVue('invalid/ReactNotLast.ucf').filter(({block}) => block?.type === 'style');
+    expect(style.length).toBeGreaterThan(0);
+    expect(style.every(({scopes}) => scopes.includes('source.tsx') && !scopes.includes('source.css'))).toBe(true);
   });
 });
