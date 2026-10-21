@@ -10,14 +10,14 @@ Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spe
 
 ```html
 <react>
-  export default function AllBlocks() {
-    return (
-      <div className={$style.card}>
-        <p className={classes.title}>All blocks</p>
-        <p className="all-blocks-global">all-blocks-react-marker</p>
-      </div>
-    )
-  }
+export default function AllBlocks() {
+  return (
+    <div className={$style.card}>
+      <p className={classes.title}>All blocks</p>
+      <p className="all-blocks-global">all-blocks-react-marker</p>
+    </div>
+  )
+}
 </react>
 
 <style module="classes">
@@ -62,16 +62,16 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 
 ```html
 <react>
-  import ScopedBadge from './ScopedBadge.ucf'
+import ScopedBadge from './ScopedBadge.ucf'
 
-  export default function ScopedPanel() {
-    return (
-      <section className="panel">
-        <h2 className="title">Scoped panel</h2>
-        <ScopedBadge label="new" className="badge" />
-      </section>
-    )
-  }
+export default function ScopedPanel() {
+  return (
+    <section className="panel">
+      <h2 className="title">Scoped panel</h2>
+      <ScopedBadge label="new" className="badge" />
+    </section>
+  )
+}
 </react>
 
 <style scoped>
@@ -89,11 +89,11 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 
 ```html
 <react>
-  type Props = { label: string; className?: string }
+type Props = { label: string; className?: string }
 
-  export default function ScopedBadge({label, className = ''}: Props) {
-    return <span className={className}><em className="badge-label">{label}</em></span>
-  }
+export default function ScopedBadge({label, className = ''}: Props) {
+  return <span className={className}><em className="badge-label">{label}</em></span>
+}
 </react>
 ```
 

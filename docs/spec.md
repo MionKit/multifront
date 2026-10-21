@@ -16,25 +16,25 @@ Write one component file that contains a full Vue, React (TSX) and/or Svelte imp
 
 ```html
 <vue>
-  <script setup lang="ts">
-  defineProps<{ title: string }>()
-  </script>
-  <template>
-    <div :class="$style.card"><h2>{{ title }}</h2></div>
-  </template>
+<script setup lang="ts">
+defineProps<{ title: string }>()
+</script>
+<template>
+  <div :class="$style.card"><h2>{{ title }}</h2></div>
+</template>
 </vue>
 
 <react>
-  export default function Card({ title }: { title: string }) {
-    return <div className={$style.card}><h2>{title}</h2></div>
-  }
+export default function Card({ title }: { title: string }) {
+  return <div className={$style.card}><h2>{title}</h2></div>
+}
 </react>
 
 <svelte>
-  <script lang="ts">
-    let { title }: { title: string } = $props()
-  </script>
-  <div class={$style.card}><h2>{title}</h2></div>
+<script lang="ts">
+  let { title }: { title: string } = $props()
+</script>
+<div class={$style.card}><h2>{title}</h2></div>
 </svelte>
 
 <style module lang="scss">
@@ -194,13 +194,13 @@ An import inside a target block always gets that block's framework. Nothing to w
 
 ```html
 <react>
-  import Icon from './Icon.ucf'   // the React Icon
+import Icon from './Icon.ucf'   // the React Icon
 </react>
 
 <vue>
-  <script setup lang="ts">
-  import Icon from './Icon.ucf'   // the Vue Icon
-  </script>
+<script setup lang="ts">
+import Icon from './Icon.ucf'   // the Vue Icon
+</script>
 </vue>
 ```
 

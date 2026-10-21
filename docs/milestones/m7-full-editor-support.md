@@ -332,7 +332,7 @@ Risks:
 Open questions:
 
 1. **Settled:** spec 6.1 on Svelte. oxfmt 0.67.0 formats `.svelte` with its `svelte` option; `<svelte>` blocks stay as written by default and are formatted only when the project turns the option on (7.7), which updated spec 6.1.
-2. **Settled:** block text is written flush left (7.6). `mf-fmt` writes block text flush left, like Vue's default for `<script>` and `<style>`. The spec's examples indent block text by two spaces. Re-indenting after oxfmt would change multi-line template literals, so this plan does not. Is flush left acceptable?
+2. **Settled:** block text is written flush left (7.6). `mf-fmt` writes block text flush left, like Vue's default for `<script>` and `<style>`. Re-indenting after oxfmt would change multi-line template literals, so it does not. Accepted by the maintainer; the spec and the docs show block text flush left too.
 3. **`.svelte` importers on the command line.** `mf-tsc` checks `.ts`, `.tsx`, `.vue` and every `.ucf` target, but not `.svelte` files that import `.ucf` (svelte-check does not run our TypeScript plugin). Add `.svelte` files to `mf-tsc` through `svelte2tsx`, or leave it?
 4. **Settled:** M4's `types()` returns the script `@vue/language-core` generates and M5's the `svelte2tsx` output, both with the template and markup check code.
 5. **Settled:** pre-release. The publisher id is `mionkit` (7.10), for the Marketplace publisher and the Open VSX namespace, as Vue's extension uses its org (`Vue.volar`). No store pre-release channel (7.14): the stores do not accept semver pre-release tags like `0.1.0-beta.1`, so a release version is plain `major.minor.patch` (docs/plan.md, "Framework versions"), and a release with any other version fails before anything is packed.

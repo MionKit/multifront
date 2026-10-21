@@ -38,16 +38,16 @@ Write the component in a `<react>` block, with its styles beside it.
 
 ```html
 <react>
-  import { useState } from 'react'
+import { useState } from 'react'
 
-  export default function Counter({start = 0}: {start?: number}) {
-    const [count, setCount] = useState(start)
-    return (
-      <div className="counter">
-        <button className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
-      </div>
-    )
-  }
+export default function Counter({start = 0}: {start?: number}) {
+  const [count, setCount] = useState(start)
+  return (
+    <div className="counter">
+      <button className={$style.button} onClick={() => setCount(count + 1)}>{count}</button>
+    </div>
+  )
+}
 </react>
 
 <style scoped>
@@ -89,18 +89,18 @@ Add a `<vue>` block to the same file. It shares the `<style>` blocks, so `$style
 
 ```html
 <vue>
-  <script setup lang="ts">
-  import { ref } from 'vue'
+<script setup lang="ts">
+import { ref } from 'vue'
 
-  const props = defineProps<{start?: number}>()
-  const count = ref(props.start ?? 0)
-  </script>
+const props = defineProps<{start?: number}>()
+const count = ref(props.start ?? 0)
+</script>
 
-  <template>
-    <div class="counter">
-      <button :class="$style.button" @click="count++">{{ count }}</button>
-    </div>
-  </template>
+<template>
+  <div class="counter">
+    <button :class="$style.button" @click="count++">{{ count }}</button>
+  </div>
+</template>
 </vue>
 ```
 
@@ -126,16 +126,16 @@ Add a `<svelte>` block to the same file. It is a Svelte 5 component and shares t
 
 ```html
 <svelte>
-  <script lang="ts">
+<script lang="ts">
   import { untrack } from 'svelte'
 
   let { start = 0 }: { start?: number } = $props()
   let count = $state(untrack(() => start))
-  </script>
+</script>
 
-  <div class="counter">
-    <button class={$style.button} onclick={() => count++}>{count}</button>
-  </div>
+<div class="counter">
+  <button class={$style.button} onclick={() => count++}>{count}</button>
+</div>
 </svelte>
 ```
 
