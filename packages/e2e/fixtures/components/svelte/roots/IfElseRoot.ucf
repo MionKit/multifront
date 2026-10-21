@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let { branch /* the case */, }: { branch: string } = $props()
   </script>

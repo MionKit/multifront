@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <svelte:boundary>
     <p class={$style.text}>Inside the boundary</p>
     {#snippet failed(error, reset)}

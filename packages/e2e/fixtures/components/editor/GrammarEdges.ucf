@@ -1,6 +1,6 @@
 <!-- Grammar edges the splitter reads: an attribute over several lines, every lang quote, a lang inside another value. -->
 
-<vue>
+<vue lang="vue">
   <script setup>
   const limit = 2
   const small = 1
@@ -11,7 +11,7 @@
   </template>
 </vue>
 
-<svelte>
+<svelte lang="html">
   <template>
     <p>{limit}</p>
   </template>

@@ -86,7 +86,7 @@ describe('buildLibrary(): "use client" per output file', () => {
     const ucfFile = join(LIBRARY_DIR, 'src', 'Counter.ucf');
     expect(resolve(dirname(join(result.outDir, 'Counter.js.map')), original.source)).toBe(ucfFile);
     const ucf = readFileSync(ucfFile, 'utf8');
-    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('useState(0)', ucf.indexOf('<react>'))).split('\n').length);
+    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('useState(0)', ucf.indexOf('<react lang="tsx">'))).split('\n').length);
   });
 
   it('logs no warning', () => {
@@ -96,8 +96,8 @@ describe('buildLibrary(): "use client" per output file', () => {
   it("keeps a plain module's own directive first, and adds it to a client component without CSS", async () => {
     const toggle = readFileSync(join(LIBRARY_DIR, 'src', 'hooks', 'useToggle.ts'), 'utf8');
     const clicker =
-      '<vue>\n  <template><button>click</button></template>\n</vue>\n\n' +
-      '<react>\n  export default function Clicker() {\n    return <button onClick={() => alert(1)}>click</button>\n  }\n</react>\n';
+      '<vue lang="vue">\n  <template><button>click</button></template>\n</vue>\n\n' +
+      '<react lang="tsx">\n  export default function Clicker() {\n    return <button onClick={() => alert(1)}>click</button>\n  }\n</react>\n';
     const edits = [
       {file: 'src/hooks/useToggle.ts', content: `'use client';\n${toggle}`},
       {file: 'src/Clicker.ucf', content: clicker},

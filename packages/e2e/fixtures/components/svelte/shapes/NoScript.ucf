@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <div class={$style.box}><p class={$style.text}>No script</p></div>
 </svelte>
 

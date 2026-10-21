@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   function track(value: unknown) {
     return value
   }

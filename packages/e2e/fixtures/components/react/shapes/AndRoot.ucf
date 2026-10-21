@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   type Props = { branch?: string; fallback?: string }
 
   export default function AndRoot(props: Props) {

@@ -1,9 +1,3 @@
-<react>
-  export default function Tag({ label }: { label: string }) {
-    return <span className="tag-large">{label}</span>
-  }
-</react>
-
 <style module lang="scss">
 $size: large;
 
@@ -11,3 +5,9 @@ $size: large;
   padding: 0.5rem;
 }
 </style>
+
+<react lang="tsx">
+  export default function Tag({ label }: { label: string }) {
+    return <span className="tag-large">{label}</span>
+  }
+</react>

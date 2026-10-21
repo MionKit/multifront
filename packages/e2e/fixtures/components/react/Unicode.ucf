@@ -1,4 +1,10 @@
-<react>
+<style module>
+.text {
+  color: teal;
+}
+</style>
+
+<react lang="tsx">
   // Café, naïve, 😀: accents and an emoji before the JSX.
   const label = 'Ünïcödé 🎉';
 
@@ -6,9 +12,3 @@
     return <p className={$style.text}>Crème brûlée 🍮 {label} <b>énd</b></p>;
   }
 </react>
-
-<style module>
-.text {
-  color: teal;
-}
-</style>

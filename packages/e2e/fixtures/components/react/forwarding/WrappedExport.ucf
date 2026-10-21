@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { memo } from 'react'
 
   function Inner(props: { branch?: string }) {

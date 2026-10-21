@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import { derived, readable } from 'svelte/store'
 

@@ -1,9 +1,3 @@
-<react>
-  export default function Fader() {
-    return <div className={`${$style.wrap} ${$style.fade}`} />
-  }
-</react>
-
 <style module scoped>
 .wrap :global(.theme-dark) {
   color: white;
@@ -27,3 +21,9 @@
   }
 }
 </style>
+
+<react lang="tsx">
+  export default function Fader() {
+    return <div className={`${$style.wrap} ${$style.fade}`} />
+  }
+</react>

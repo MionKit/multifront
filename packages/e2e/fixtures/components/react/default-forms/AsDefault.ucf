@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   function AsDefault() {
     return <p>export as default</p>
   }

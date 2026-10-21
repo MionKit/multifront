@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.note {
+  color: gray;
+}
+</style>
+
+<react lang="tsx">
   export default function UnknownRootTag() {
     return <p className="note">Unknown root tags</p>
   }
@@ -13,9 +19,3 @@
     return <p>old</p>
   }
 </react_old>
-
-<style scoped>
-.note {
-  color: gray;
-}
-</style>

@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<style> cannot sit inside the <vue> block; move it to the root of the file",
     "filename": "invalid/StyleInVue.ucf",
-    "start": 370,
-    "end": 384,
+    "start": 381,
+    "end": 395,
     "line": 17,
     "column": 2
   }

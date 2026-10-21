@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.inner {
+  font-weight: 700;
+}
+</style>
+
+<react lang="tsx">
   import { Component } from 'react'
 
   // Class components are stamped but not forwarded.
@@ -8,9 +14,3 @@
     }
   }
 </react>
-
-<style scoped>
-.inner {
-  font-weight: 700;
-}
-</style>

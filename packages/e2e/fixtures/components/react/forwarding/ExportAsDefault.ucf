@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   type Props = { branch?: string }
 
   // A default-valued parameter still names every prop.

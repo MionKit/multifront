@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   function DefaultIdentifier() {
     return <p>export default identifier</p>
   }

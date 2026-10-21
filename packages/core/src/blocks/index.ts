@@ -1,4 +1,4 @@
-import {DiagnosticsError, createDiagnostic} from '../diagnostics.ts';
+import {DiagnosticsError, createDiagnostic, blockLang} from '../diagnostics.ts';
 import {findClosingTag} from '../scan.ts';
 import type {Block, BlockKind, BlockTag, BuildContext, Diagnostic, SplitResult, Target, VirtualFile} from '../types.ts';
 import {reactKind} from './react.ts';
@@ -28,9 +28,14 @@ export function blockScripts(block: Block): Block[] {
     });
 }
 
+function checkBlock(block: Block, split: SplitResult): Diagnostic[] {
+  const kind = getBlockKind(block.type);
+  return [...blockLang(block, split, kind.lang), ...kind.check(block, split)];
+}
+
 /** Hosts call this, never the kinds' `check` one by one. */
 export function checkBlocks(split: SplitResult): Diagnostic[] {
-  const blockErrors = split.blocks.flatMap((block) => getBlockKind(block.type).check(block, split));
+  const blockErrors = split.blocks.flatMap((block) => checkBlock(block, split));
   return [...split.errors, ...blockErrors].sort((first, second) => first.start - second.start);
 }
 
@@ -44,7 +49,7 @@ export function buildTarget(split: SplitResult, ctx: BuildContext, target: Targe
   }
   const kind = getBlockKind(target);
   // Style errors belong to the style modules, other targets' to their own builds: one problem, one error.
-  const errors = [...split.errors, ...kind.check(block, split)].sort((first, second) => first.start - second.start);
+  const errors = [...split.errors, ...checkBlock(block, split)].sort((first, second) => first.start - second.start);
   if (errors.length > 0) throw new DiagnosticsError(errors);
   return kind.build(block, ctx);
 }

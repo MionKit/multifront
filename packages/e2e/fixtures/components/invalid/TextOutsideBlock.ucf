@@ -1,13 +1,13 @@
-<react>
+<style scoped>
+.stray {
+  color: olive;
+}
+</style>
+
+<react lang="tsx">
   export default function TextOutsideBlock() {
     return <p className="stray">Stray text</p>
   }
 </react>
 
   This line sits outside every block.
-
-<style scoped>
-.stray {
-  color: olive;
-}
-</style>

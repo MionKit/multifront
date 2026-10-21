@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import { onMounted, ref } from 'vue'
   import Api from './Api.ucf'
@@ -40,42 +40,7 @@
   </template>
 </vue>
 
-<react>
-  import { useEffect, useRef, useState } from 'react'
-  import type { CSSProperties } from 'react'
-  import Api from './Api.ucf'
-  import Blocks from './Blocks.ucf'
-  import Frame from './Frame.ucf'
-  import Langs from './Langs.ucf'
-  import Vars from './Vars.ucf'
-
-  export default function Parent() {
-    const api = useRef<HTMLDivElement>(null)
-    const [parentRef, setParentRef] = useState('')
-    useEffect(() => {
-      setParentRef(`${api.current?.tagName}`)
-    }, [])
-    return (
-      <section className="parent">
-        <div data-case="blocks"><Blocks /></div>
-        <div data-case="langs"><Langs /></div>
-        <div data-case="vars"><Vars style={{ '--accent': 'rgb(200, 0, 0)', '--pad': '4px' } as CSSProperties} /></div>
-        <div data-case="fallback"><Vars /></div>
-        <div data-case="frame">
-          <Frame footer={<b className="from-parent">footer</b>}>
-            <span className="from-parent deep-target global-target">content</span>
-          </Frame>
-        </div>
-        <div data-case="api">
-          <Api ref={api} label="Label" item={(value) => <i className="item">item {value}</i>} />
-          <s className="parent-ref">{parentRef}</s>
-        </div>
-      </section>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import Api from './Api.ucf'
     import Blocks from './Blocks.ucf'
@@ -122,3 +87,38 @@
   margin: 5px;
 }
 </style>
+
+<react lang="tsx">
+  import { useEffect, useRef, useState } from 'react'
+  import type { CSSProperties } from 'react'
+  import Api from './Api.ucf'
+  import Blocks from './Blocks.ucf'
+  import Frame from './Frame.ucf'
+  import Langs from './Langs.ucf'
+  import Vars from './Vars.ucf'
+
+  export default function Parent() {
+    const api = useRef<HTMLDivElement>(null)
+    const [parentRef, setParentRef] = useState('')
+    useEffect(() => {
+      setParentRef(`${api.current?.tagName}`)
+    }, [])
+    return (
+      <section className="parent">
+        <div data-case="blocks"><Blocks /></div>
+        <div data-case="langs"><Langs /></div>
+        <div data-case="vars"><Vars style={{ '--accent': 'rgb(200, 0, 0)', '--pad': '4px' } as CSSProperties} /></div>
+        <div data-case="fallback"><Vars /></div>
+        <div data-case="frame">
+          <Frame footer={<b className="from-parent">footer</b>}>
+            <span className="from-parent deep-target global-target">content</span>
+          </Frame>
+        </div>
+        <div data-case="api">
+          <Api ref={api} label="Label" item={(value) => <i className="item">item {value}</i>} />
+          <s className="parent-ref">{parentRef}</s>
+        </div>
+      </section>
+    )
+  }
+</react>

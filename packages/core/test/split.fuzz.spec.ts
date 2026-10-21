@@ -333,10 +333,14 @@ function checkKnownOutcomes(fuzzCase: FuzzCase, {split, diagnostics}: Outcome): 
     const actual = split.errors.map((error) => [error.code, error.start, error.end]);
     if (JSON.stringify(actual) !== JSON.stringify(expected))
       return fail(`undamaged file: expected errors ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    if (JSON.stringify(diagnostics) !== JSON.stringify(split.errors))
-      return fail(
-        `undamaged file: checkBlocks added ${JSON.stringify(diagnostics.filter((found) => !split.errors.includes(found)))}`
-      );
+    // The one block rule order breaks: a <react> with another kind of block after it.
+    const notLast = placed.filter(
+      (block, index) => block.type === 'react' && placed.slice(index + 1).some(({type}) => type !== 'react')
+    );
+    const want = notLast.map((block) => ['react-not-last', block.start, block.contentStart]);
+    const added = diagnostics.filter((found) => !split.errors.includes(found));
+    if (JSON.stringify(added.map((found) => [found.code, found.start, found.end])) !== JSON.stringify(want))
+      return fail(`undamaged file: checkBlocks added ${JSON.stringify(added)}, expected ${JSON.stringify(want)}`);
     return [];
   }
   const missing = extraTargetCopies(intactPrefix(placed)).find((block) => !hasError('duplicate-target', block.start));
@@ -471,7 +475,7 @@ describe('splitBlocks fuzz', () => {
     ]);
     const shrunk = await shrink(input, (candidate) => (candidate.source.match(/<react/g) ?? []).length > 1);
     expect(shrunk.applied).toEqual(['duplicate']);
-    expect(shrunk.source).toBe('<react>\n<react>\n');
+    expect(shrunk.source).toBe('<react lang="tsx">\n<react lang="tsx">\n');
   });
 
   describe('env knobs', () => {

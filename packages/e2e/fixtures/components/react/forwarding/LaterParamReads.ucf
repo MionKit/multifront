@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // The second parameter's default reads `size`; moved into the body, it would no longer see it: no forwarding.
   export default function LaterParamReads({ size }: { size?: number }, scale = size) {
     return <div className="shape">{size} {scale}</div>

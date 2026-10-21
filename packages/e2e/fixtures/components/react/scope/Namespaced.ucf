@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.named {
+  fill: rgb(1, 2, 3);
+}
+</style>
+
+<react lang="tsx">
   // Build only: React's JSX transform rejects namespace tags, so no app renders this file.
   export default function Namespaced() {
     return (
@@ -9,9 +15,3 @@
     )
   }
 </react>
-
-<style scoped>
-.named {
-  fill: rgb(1, 2, 3);
-}
-</style>

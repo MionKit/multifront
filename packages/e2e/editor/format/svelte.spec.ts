@@ -90,7 +90,7 @@ describe('mf-fmt with the svelte option on', () => {
         findings: [
           {
             file: MESSY,
-            ...span(source, '<svelte>'),
+            ...span(source, '<svelte lang="html">'),
             code: 'format-error',
             severity: 'error',
             message: '<svelte> does not parse: expected_whitespace: Expected whitespace',
@@ -109,7 +109,7 @@ describe('mf-fmt with the svelte option on', () => {
   it('checks the instance <script> after the module one, lang="typescript" too, and never a <script> in markup', async () => {
     await withCopy(LINT_FORMAT_SVELTE, async (root) => {
       const head = '<svelte:head><script type="application/ld+json">{"@context":"https://schema.org"}</script></svelte:head>';
-      const valid = `<svelte>\n<script module lang="ts">export const size = 1</script>\n<script lang="typescript">let a = 1</script>\n${head}\n</svelte>\n`;
+      const valid = `<svelte lang="html">\n<script module lang="ts">export const size = 1</script>\n<script lang="typescript">let a = 1</script>\n${head}\n</svelte>\n`;
       addFile(root, 'Scripts.ucf', valid);
       expect(await runMfFmt(root, ['Scripts.ucf'])).toEqual(FORMATTED_ONE);
       addFile(root, 'Scripts.ucf', valid.replace('let a = 1', 'let a = 1 +'));
@@ -194,7 +194,7 @@ describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
           MISSING_SVELTE,
           expect.objectContaining({file: 'nested/Messy.ucf', code: 'format-error', block: 'react'}),
         ]);
-        addFile(root, 'Plain.ucf', '<react>\nexport default function Plain() {\n  return <p />;\n}\n</react>\n');
+        addFile(root, 'Plain.ucf', '<react lang="tsx">\nexport default function Plain() {\n  return <p />;\n}\n</react>\n');
         const plain = await runMfFmt(root, ['Plain.ucf', '--format', 'json'], env);
         expect({code: plain.code, stderr: plain.stderr}).toEqual({code: 0, stderr: ''});
         expect(report(plain.stdout)).toMatchObject({findings: [], warningCount: 0});

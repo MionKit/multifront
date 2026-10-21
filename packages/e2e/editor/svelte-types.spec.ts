@@ -172,7 +172,7 @@ describe('getTypesScript for the svelte target', () => {
     };
     for (const [name, block] of Object.entries(blocks)) {
       const filename = componentPath(`svelte/${name}.ucf`);
-      const {code} = getTypesScript(filename, `<svelte>\n${block}\n</svelte>\n`, 'svelte', {svelteCompiler})!;
+      const {code} = getTypesScript(filename, `<svelte lang="html">\n${block}\n</svelte>\n`, 'svelte', {svelteCompiler})!;
       expect(code.match(declarations), name).toHaveLength(1);
     }
   });

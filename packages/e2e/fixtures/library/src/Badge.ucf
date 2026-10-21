@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   defineProps<{ label: string }>()
   </script>
@@ -8,14 +8,6 @@
   </template>
 </vue>
 
-<react>
-  import { cx } from './utils/cx.js'
-
-  export default function Badge({ label, className }: { label: string; className?: string }) {
-    return <span className={cx('badge', className)}>{label}</span>
-  }
-</react>
-
 <style scoped>
 .badge {
   display: inline-block;
@@ -23,3 +15,11 @@
   border-radius: 999px;
 }
 </style>
+
+<react lang="tsx">
+  import { cx } from './utils/cx.js'
+
+  export default function Badge({ label, className }: { label: string; className?: string }) {
+    return <span className={cx('badge', className)}>{label}</span>
+  }
+</react>

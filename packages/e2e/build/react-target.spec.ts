@@ -193,7 +193,7 @@ describe('vite build with the plugin options', () => {
     try {
       const plugins = [react(), multifront()];
       const write = (marker: string) =>
-        writeFile(join(root, 'Card.ucf'), `<react>\n  export default () => <p>${marker}</p>\n</react>\n`);
+        writeFile(join(root, 'Card.ucf'), `<react lang="tsx">\n  export default () => <p>${marker}</p>\n</react>\n`);
       await writeFile(join(root, 'main.tsx'), "import Card from './Card.ucf';\nconsole.log(Card);\n");
       const build = async () => {
         const config = {configFile: false as const, plugins, build: {rolldownOptions: {input: join(root, 'main.tsx')}}};

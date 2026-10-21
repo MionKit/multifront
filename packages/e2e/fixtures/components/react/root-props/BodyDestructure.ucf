@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import type { Ref } from 'react'
 
   type Props = { branch?: string; ref?: Ref<HTMLElement>; title?: string }

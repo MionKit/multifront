@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default function BrokenOpeningTags() {
     return <p className="broken">Broken opening tags</p>
   }

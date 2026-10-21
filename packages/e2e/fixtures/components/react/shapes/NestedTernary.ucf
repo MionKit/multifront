@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import type { ReactNode } from 'react'
 
   export default function NestedTernary(props: { branch?: string }) {

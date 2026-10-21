@@ -16,9 +16,9 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   {
     fixture: 'invalid/DuplicateStyleModule.ucf',
     errors: [
+      {code: 'duplicate-style-module', line: 13, column: 0},
       {code: 'duplicate-style-module', line: 19, column: 0},
       {code: 'duplicate-style-module', line: 25, column: 0},
-      {code: 'duplicate-style-module', line: 31, column: 0},
     ],
   },
   // A block error before a splitter error; the second <react> exports `as "default"`.
@@ -29,11 +29,13 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
       {code: 'duplicate-target', line: 13, column: 0},
     ],
   },
+  // Vue's grammar would color the <style> after it as TSX.
+  {fixture: 'invalid/ReactNotLast.ucf', errors: [{code: 'react-not-last', line: 1, column: 0}]},
   {fixture: 'invalid/ReactNoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
   // `export type` exports no value, so no runtime default.
-  {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0}]},
+  {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
   // `export {type X as default}`, `export default interface` and type-only names export no value either.
-  {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [{code: 'react-no-default-export', line: 1, column: 0}]},
+  {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
   {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
   {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
   // Only a comment: no <template> or <script> for Vue to compile.
@@ -49,8 +51,17 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   {
     fixture: 'invalid/UnknownStyleLang.ucf',
     errors: [
+      {code: 'unknown-style-lang', line: 7, column: 0},
       {code: 'unknown-style-lang', line: 13, column: 0},
-      {code: 'unknown-style-lang', line: 19, column: 0},
+    ],
+  },
+  // No lang, a bare lang and another language than the block's own.
+  {
+    fixture: 'invalid/BlockLang.ucf',
+    errors: [
+      {code: 'block-lang', line: 1, column: 0},
+      {code: 'block-lang', line: 7, column: 0},
+      {code: 'block-lang', line: 11, column: 0},
     ],
   },
 ];
@@ -84,8 +95,8 @@ describe('checkBlocks', () => {
     it('points at the opening tag each rule is about, names it, and gives its real position', () => {
       for (const diagnostic of diagnostics) {
         expect(diagnostic.filename).toBe(split.filename);
-        expect(diagnostic.message).toMatch(/^<(react|style|vue)[ >]/);
-        expect(source.slice(diagnostic.start, diagnostic.end)).toMatch(/^<(react|style|vue)(\s[^]*)?>$/);
+        expect(diagnostic.message).toMatch(/^<(react|style|svelte|vue)[ >]/);
+        expect(source.slice(diagnostic.start, diagnostic.end)).toMatch(/^<(react|style|svelte|vue)(\s[^]*)?>$/);
         const before = source.slice(0, diagnostic.start).split('\n');
         expect({line: diagnostic.line, column: diagnostic.column}).toEqual({line: before.length, column: before.at(-1)!.length});
       }
@@ -107,11 +118,11 @@ describe('checkBlocks', () => {
 
     it('reports each v-bind() and each scoped :slotted() on its own text, never one in a /* */ or // comment or ::slotted()', () => {
       expect(diagnostics.map(({code, line, column, message}) => ({code, line, column, message}))).toEqual([
-        {code: 'vue-only-style', line: 33, column: 9, message: V_BIND},
-        {code: 'vue-only-style', line: 35, column: 0, message: SLOTTED},
-        {code: 'vue-only-style', line: 38, column: 0, message: SLOTTED},
-        {code: 'vue-only-style', line: 53, column: 13, message: V_BIND},
-        {code: 'vue-only-style', line: 60, column: 10, message: V_BIND},
+        {code: 'vue-only-style', line: 25, column: 9, message: V_BIND},
+        {code: 'vue-only-style', line: 27, column: 0, message: SLOTTED},
+        {code: 'vue-only-style', line: 30, column: 0, message: SLOTTED},
+        {code: 'vue-only-style', line: 45, column: 13, message: V_BIND},
+        {code: 'vue-only-style', line: 52, column: 10, message: V_BIND},
       ]);
       expect(diagnostics.map(({start, end}) => source.slice(start, end))).toEqual([
         'v-bind(',
@@ -133,7 +144,7 @@ describe('checkBlocks', () => {
     });
 
     it('names only the blocks the file has', () => {
-      const vueAndReact = source.replace(/<svelte>[^]*<\/svelte>/, '');
+      const vueAndReact = source.replace(/<svelte[^]*<\/svelte>/, '');
       const messages = checkBlocks(splitBlocks(vueAndReact, filename)).map(({message}) => message);
       expect(messages[0]).toBe(V_BIND.replace('<react> or <svelte>', '<react>'));
       expect(messages).toHaveLength(5);
@@ -141,7 +152,7 @@ describe('checkBlocks', () => {
 
     it('reports nothing in a file with only a <vue> block', () => {
       expect(check('vue/VBind.ucf').diagnostics).toEqual([]);
-      const onlyVue = source.replace(/<react>[^]*<\/svelte>/, '');
+      const onlyVue = source.replace(/<svelte[^]*<\/svelte>/, '').replace(/<react[^]*<\/react>/, '');
       expect(checkBlocks(splitBlocks(onlyVue, filename))).toEqual([]);
     });
   });

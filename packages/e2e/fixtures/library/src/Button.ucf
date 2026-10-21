@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import { cx } from './utils/cx.js'
 
@@ -11,16 +11,7 @@
   </template>
 </vue>
 
-<react>
-  import type { MouseEventHandler } from 'react'
-  import { cx } from './utils/cx.js'
-
-  export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
-    return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import type { MouseEventHandler } from 'svelte/elements'
   import { cx } from './utils/cx.js'
@@ -38,3 +29,12 @@
   background: rgb(90, 50, 160);
 }
 </style>
+
+<react lang="tsx">
+  import type { MouseEventHandler } from 'react'
+  import { cx } from './utils/cx.js'
+
+  export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
+    return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
+  }
+</react>

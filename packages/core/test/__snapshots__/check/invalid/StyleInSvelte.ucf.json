@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<style> cannot sit inside the <svelte> block; move it to the root of the file",
     "filename": "invalid/StyleInSvelte.ucf",
-    "start": 496,
-    "end": 503,
+    "start": 508,
+    "end": 515,
     "line": 18,
     "column": 2
   }

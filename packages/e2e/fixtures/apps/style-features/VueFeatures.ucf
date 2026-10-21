@@ -1,5 +1,5 @@
 <!-- The style features that work in <vue> only: a file with another block fails to build. -->
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   const color = 'rgb(10, 120, 60)'
   </script>

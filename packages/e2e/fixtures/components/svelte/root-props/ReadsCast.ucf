@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     type Props = { label?: string; class?: string; style?: string }
 

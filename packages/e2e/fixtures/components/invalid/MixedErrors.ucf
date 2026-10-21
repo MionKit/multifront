@@ -4,13 +4,13 @@
 }
 </style>
 
-<react>
+<react lang="tsx">
   export default function First() {
     return <p className="mixed">First</p>
   }
 </react>
 
-<react>
+<react lang="tsx">
   function Second() {
     return <p className="mixed">Second</p>
   }

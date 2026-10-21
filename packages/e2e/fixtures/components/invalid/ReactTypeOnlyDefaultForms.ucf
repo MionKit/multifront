@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+p {
+  color: olive;
+}
+</style>
+
+<react lang="tsx">
   import type { ReactNode } from 'react'
 
   function ReactTypeOnlyDefaultForms() {
@@ -15,9 +21,3 @@
 
   export { Label as default, ReactNode as default }
 </react>
-
-<style scoped>
-p {
-  color: olive;
-}
-</style>

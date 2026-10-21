@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { Fragment } from 'react'
 
   export default function FragmentRoot(props: { branch?: string }) {

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   type Props = { branch?: string; tone?: string }
 
   // The last of several own `className` is merged; a string `style` or `ref` is left as written.

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default function ClientHandler() {
     const handle = () => window.alert('clicked')
     return <button onClick={handle}>Click</button>

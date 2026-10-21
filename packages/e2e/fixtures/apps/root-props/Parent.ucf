@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import Button from '../../library/src/Button.ucf'
   import Note from '../../components/Note.ucf'
@@ -14,23 +14,7 @@
   </template>
 </vue>
 
-<react>
-  import Button from '../../library/src/Button.ucf'
-  import Note from '../../components/Note.ucf'
-  import PanelItem from '../../components/PanelItem.ucf'
-
-  export default function Parent() {
-    return (
-      <section className="parent">
-        <div data-case="button"><Button label="Press" className="extra" style={{ color: 'red', fontWeight: 700 }} /></div>
-        <div data-case="note"><Note className="extra" style={{ padding: 6 }} /></div>
-        <div data-case="item"><PanelItem label="Item" className="extra" style={{ padding: 6 }} /></div>
-      </section>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import Button from '../../library/src/Button.ucf'
     import Note from '../../components/Note.ucf'
@@ -51,3 +35,19 @@
   text-decoration: underline;
 }
 </style>
+
+<react lang="tsx">
+  import Button from '../../library/src/Button.ucf'
+  import Note from '../../components/Note.ucf'
+  import PanelItem from '../../components/PanelItem.ucf'
+
+  export default function Parent() {
+    return (
+      <section className="parent">
+        <div data-case="button"><Button label="Press" className="extra" style={{ color: 'red', fontWeight: 700 }} /></div>
+        <div data-case="note"><Note className="extra" style={{ padding: 6 }} /></div>
+        <div data-case="item"><PanelItem label="Item" className="extra" style={{ padding: 6 }} /></div>
+      </section>
+    )
+  }
+</react>

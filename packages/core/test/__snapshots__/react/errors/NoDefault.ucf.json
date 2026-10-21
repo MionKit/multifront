@@ -5,7 +5,7 @@
     "message": "<react> has no default export; add export default to the component",
     "filename": "react/errors/NoDefault.ucf",
     "start": 51,
-    "end": 58,
+    "end": 69,
     "line": 7,
     "column": 0
   }

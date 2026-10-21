@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script module lang="ts">
     import {writable} from 'svelte/store'
 

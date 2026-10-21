@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   function Toggle(props: { onToggle: string; onClick: string; onBlur: string; onclick: string; onActive?: boolean }) {
     return <p title={props.onToggle}>{props.onClick}</p>
   }

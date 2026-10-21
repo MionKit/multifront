@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     const shown = 'shown', { label = 'rest', ...rest }: { label?: string; note?: string } = $props()
   </script>

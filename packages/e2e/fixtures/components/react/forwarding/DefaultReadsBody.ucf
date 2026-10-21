@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   // The default reads the module's `fallback`; moved into the body, it would read the body's: no forwarding.
   const fallback = 'module'
 

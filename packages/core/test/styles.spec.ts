@@ -127,12 +127,12 @@ describe('compileStyles on valid fixtures', () => {
 
 // Written by hand from the fixtures. `rule` is the error's whole line, `text` its span (opening tag when unplaced).
 const ERROR_CASES = [
-  {fixture: 'invalid/ScssSyntaxError.ucf', line: 10, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
-  {fixture: 'invalid/CssSyntaxError.ucf', line: 8, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
+  {fixture: 'invalid/ScssSyntaxError.ucf', line: 4, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
+  {fixture: 'invalid/CssSyntaxError.ucf', line: 2, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
   // Error is in the imported _broken-partial.scss: its offsets say nothing about the block.
   {
     fixture: 'invalid/ScssPartialError.ucf',
-    line: 7,
+    line: 1,
     column: 0,
     rule: '<style lang="scss">',
     text: '<style lang="scss">',
@@ -141,17 +141,17 @@ const ERROR_CASES = [
   // Each error is in a composed file and has no offsets into the block.
   {
     fixture: 'invalid/ComposesCycle.ucf',
-    line: 7,
+    line: 1,
     column: 0,
     rule: '<style module>',
     text: '<style module>',
     tag: '<style>',
     reason: /composes cycle: \S+\/cycle-b\.css composes from \S+\/cycle-a\.css$/,
   },
-  {fixture: 'invalid/ComposesBrokenFile.ucf', line: 7, column: 0, rule: '<style module>', text: '<style module>', tag: '<style>'},
+  {fixture: 'invalid/ComposesBrokenFile.ucf', line: 1, column: 0, rule: '<style module>', text: '<style module>', tag: '<style>'},
   {
     fixture: 'invalid/ComposesMissingFile.ucf',
-    line: 7,
+    line: 1,
     column: 0,
     rule: '<style module>',
     text: '<style module>',
@@ -160,7 +160,7 @@ const ERROR_CASES = [
   // Neither a package nor a file: the package error names what the user wrote.
   {
     fixture: 'invalid/ComposesMissingPackage.ucf',
-    line: 7,
+    line: 1,
     column: 0,
     rule: '<style module>',
     text: '<style module>',
@@ -212,10 +212,10 @@ describe('compileStyles where the preprocessor is not installed', () => {
 
   it('reports one missing-preprocessor error on the opening tag, naming the package to install', () => {
     expect(style.errors.map(({code, line, column, filename: file, message}) => ({code, line, column, file, message}))).toEqual([
-      {code: 'missing-preprocessor', line: 7, column: 0, file: filename, message: '<style lang="less"> needs less; install it'},
+      {code: 'missing-preprocessor', line: 1, column: 0, file: filename, message: '<style lang="less"> needs less; install it'},
     ]);
     const [error] = style.errors;
-    expect(error!.start).toBe(offsetOf(source, 7, 0));
+    expect(error!.start).toBe(offsetOf(source, 1, 0));
     expect(source.slice(error!.start, error!.end)).toBe('<style lang="less">');
     expect(style.code).toBe('');
     expect(style.map).toBeUndefined();

@@ -4,8 +4,8 @@
     "severity": "error",
     "message": "<svelte> uses $style, but no <style module> exists; add one",
     "filename": "svelte/errors/StyleWithoutModule.ucf",
-    "start": 52,
-    "end": 58,
+    "start": 64,
+    "end": 70,
     "line": 3,
     "column": 22
   },
@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "<svelte> uses $style, but no <style module> exists; add one",
     "filename": "svelte/errors/StyleWithoutModule.ucf",
-    "start": 86,
-    "end": 92,
+    "start": 98,
+    "end": 104,
     "line": 4,
     "column": 22
   },
@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "<svelte> uses $style, but no <style module> exists; add one",
     "filename": "svelte/errors/StyleWithoutModule.ucf",
-    "start": 176,
-    "end": 182,
+    "start": 188,
+    "end": 194,
     "line": 7,
     "column": 14
   }

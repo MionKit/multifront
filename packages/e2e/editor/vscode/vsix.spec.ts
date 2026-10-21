@@ -76,7 +76,7 @@ describe('the server from the unzipped .vsix, with no repo node_modules beside i
 
   it('completes bind:value after <input bi in the <svelte> markup', async () => {
     const {complete} = markupCompletions(() => state.server, clean());
-    expect(labels(await complete('<svelte>\n', '<input bi|'))).toContain('bind:value');
+    expect(labels(await complete('<svelte lang="html">\n', '<input bi|'))).toContain('bind:value');
   });
 
   it("gives Lint.ucf's oxlint diagnostics as the real mf-lint reports them", async () => {

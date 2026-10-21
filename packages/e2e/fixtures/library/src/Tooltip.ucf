@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   defineProps<{ text: string }>()
   </script>
@@ -8,16 +8,7 @@
   </template>
 </vue>
 
-<react>
-  'use client'
-  import type { ReactNode } from 'react'
-
-  export default function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
-    return <span className="tooltip" title={text}>{children}</span>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import type { Snippet } from 'svelte'
 
@@ -32,3 +23,12 @@
   text-decoration: underline dotted;
 }
 </style>
+
+<react lang="tsx">
+  'use client'
+  import type { ReactNode } from 'react'
+
+  export default function Tooltip({ text, children }: { text: string; children?: ReactNode }) {
+    return <span className="tooltip" title={text}>{children}</span>
+  }
+</react>

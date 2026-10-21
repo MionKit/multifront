@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     // Named like the build's warning: the build imports it under another name.
     const __ucfWarnFragment = 'own'

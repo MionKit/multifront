@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { memo } from 'react'
 
   // An explicit `memo` type argument decides the export's props: the root props go there.

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { createContext } from 'react'
 
   export const Theme = createContext('light')

@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     const html = '<div>'
     const other = "<p class='x'>"

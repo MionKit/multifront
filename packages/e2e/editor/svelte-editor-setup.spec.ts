@@ -140,7 +140,7 @@ describe('emitSvelteTypes edge cases', () => {
     mkdirSync(join(copy, 'components', 'Plain'), {recursive: true});
     writeFileSync(
       uses,
-      '<svelte>\n  <script lang="ts">\n    import Plain from \'./Plain.svelte\'\n  </script>\n  <Plain />\n</svelte>\n'
+      '<svelte lang="html">\n  <script lang="ts">\n    import Plain from \'./Plain.svelte\'\n  </script>\n  <Plain />\n</svelte>\n'
     );
     const written = emitSvelteTypes({root: copy});
     expect(written).toContain(join(copy, OUT, 'components', 'UsesPlain.ucf.d.ts'));

@@ -1,9 +1,3 @@
-<react>
-  export default function UnknownStyleLang() {
-    return <p className="lang">Unknown style lang</p>
-  }
-</react>
-
 <style lang="postcss">
 .lang {
   color: plum;
@@ -21,3 +15,9 @@
   padding: 0;
 }
 </style>
+
+<react lang="tsx">
+  export default function UnknownStyleLang() {
+    return <p className="lang">Unknown style lang</p>
+  }
+</react>

@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import EachRoot from '../../components/svelte/roots/EachRoot.ucf'
     import EmptyPropsRoot from '../../components/svelte/roots/EmptyPropsRoot.ucf'

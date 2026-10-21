@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import Badge from '../../Badge.ucf' with { framework: 'vue' }
 
   export function AttrNoDefault() {

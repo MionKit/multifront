@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   defineProps<{size?: number}>()
   </script>
@@ -10,17 +10,7 @@
   </template>
 </vue>
 
-<react>
-  export default function Icon() {
-    return (
-      <svg className={$style.icon} viewBox="0 0 16 16" aria-label="icon-react-marker">
-        <circle cx="8" cy="8" r="6" />
-      </svg>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <svg class={$style.icon} viewBox="0 0 16 16" aria-label="icon-svelte-marker">
     <circle cx="8" cy="8" r="6" />
   </svg>
@@ -32,3 +22,13 @@
   height: 1em;
 }
 </style>
+
+<react lang="tsx">
+  export default function Icon() {
+    return (
+      <svg className={$style.icon} viewBox="0 0 16 16" aria-label="icon-react-marker">
+        <circle cx="8" cy="8" r="6" />
+      </svg>
+    )
+  }
+</react>

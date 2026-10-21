@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script>
     const keyed = {[$theme]: 'accent'}
   </script>

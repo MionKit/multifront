@@ -4,9 +4,9 @@
     "severity": "error",
     "message": "<react> has no default export; add export default to the component",
     "filename": "invalid/ReactTypeOnlyDefault.ucf",
-    "start": 0,
-    "end": 7,
-    "line": 1,
+    "start": 46,
+    "end": 64,
+    "line": 7,
     "column": 0
   }
 ]

@@ -24,6 +24,7 @@ export const vueKind: BlockKind = {
   tag: 'vue',
   role: 'target',
   grammar: {scopeName: 'text.html.vue', languageId: 'vue'}, // the official Vue extension's scope name
+  lang: 'vue',
   check,
   build: (_block, ctx) => ({ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks, ctx.filename)}),
 };

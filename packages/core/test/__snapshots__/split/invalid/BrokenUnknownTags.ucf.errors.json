@@ -14,8 +14,8 @@
     "severity": "error",
     "message": "<baz> is not a root tag; use <style>, <vue>, <react> or <svelte>",
     "filename": "invalid/BrokenUnknownTags.ucf",
-    "start": 163,
-    "end": 167,
+    "start": 120,
+    "end": 124,
     "line": 9,
     "column": 0
   },
@@ -24,8 +24,8 @@
     "severity": "error",
     "message": "<foo> is not a root tag; use <style>, <vue>, <react> or <svelte>",
     "filename": "invalid/BrokenUnknownTags.ucf",
-    "start": 230,
-    "end": 234,
+    "start": 187,
+    "end": 191,
     "line": 16,
     "column": 0
   },
@@ -34,8 +34,8 @@
     "severity": "error",
     "message": "Text outside a block; move it into a block or an HTML comment",
     "filename": "invalid/BrokenUnknownTags.ucf",
-    "start": 239,
-    "end": 274,
+    "start": 196,
+    "end": 231,
     "line": 17,
     "column": 2
   }

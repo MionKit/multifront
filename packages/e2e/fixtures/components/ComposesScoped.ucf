@@ -1,9 +1,3 @@
-<react>
-  export default function Tag({ label }: { label: string }) {
-    return <span className={`${$style.tag} ${$style.chip}`}>{label}</span>
-  }
-</react>
-
 <style module scoped>
 .accent {
   color: teal;
@@ -20,3 +14,9 @@
   margin: 0;
 }
 </style>
+
+<react lang="tsx">
+  export default function Tag({ label }: { label: string }) {
+    return <span className={`${$style.tag} ${$style.chip}`}>{label}</span>
+  }
+</react>

@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <svelte:options customElement="x-runes" />
   <script lang="ts">
     let {value = $bindable(0)}: {value?: number} = $props()

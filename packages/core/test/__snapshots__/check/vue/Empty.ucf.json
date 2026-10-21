@@ -5,7 +5,7 @@
     "message": "<vue> has no <template> or <script>; add one",
     "filename": "vue/Empty.ucf",
     "start": 0,
-    "end": 5,
+    "end": 16,
     "line": 1,
     "column": 0
   }

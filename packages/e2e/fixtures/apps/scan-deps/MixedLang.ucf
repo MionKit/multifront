@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <!-- compileScript() refuses a <script> and a <script setup> of two languages. -->
   <script lang="ts">
   export const kind: string = 'mixed'

@@ -1,16 +1,3 @@
-<react>
-  import ScopedBadge from './ScopedBadge.ucf'
-
-  export default function ScopedPanel() {
-    return (
-      <section className="panel">
-        <h2 className="title">Scoped panel</h2>
-        <ScopedBadge label="new" className="badge" />
-      </section>
-    )
-  }
-</react>
-
 <style scoped>
 .panel {
   padding: 8px;
@@ -23,3 +10,16 @@
   text-decoration: underline;
 }
 </style>
+
+<react lang="tsx">
+  import ScopedBadge from './ScopedBadge.ucf'
+
+  export default function ScopedPanel() {
+    return (
+      <section className="panel">
+        <h2 className="title">Scoped panel</h2>
+        <ScopedBadge label="new" className="badge" />
+      </section>
+    )
+  }
+</react>

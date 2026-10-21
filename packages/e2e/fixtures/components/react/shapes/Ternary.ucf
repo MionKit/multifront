@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import type { ReactElement } from 'react'
 
   export default function Ternary(props: { branch?: string }) {

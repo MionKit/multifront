@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { memo } from 'react'
 
   export default memo(function DefaultMemo() {

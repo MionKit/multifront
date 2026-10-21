@@ -296,7 +296,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
 
   it('fails on a plain .svelte file written where a component ships', async () => {
     const edits = [
-      {file: 'src/Plain.ucf', content: '<svelte>\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
       {file: 'src/Plain.svelte', content: '<p>plain</p>\n'},
       {file: 'src/Card.ucf', content: cardUsing('Plain', './Plain.svelte')},
     ];
@@ -309,7 +309,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
 
   it('fails on a plain .svelte file whose name differs only by case from a component', async () => {
     const edits = [
-      {file: 'src/Plain.ucf', content: '<svelte>\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
       {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
       {file: 'src/Card.ucf', content: cardUsing('PlainFile', './plain.svelte')},
     ];

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   import { useState } from 'react'
 
   type Props = { className?: string; onChange?: (value: string) => void }

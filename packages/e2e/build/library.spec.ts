@@ -132,7 +132,7 @@ describe('buildLibrary(): one JS file per component, per target', () => {
     const ucfFile = join(LIBRARY_DIR, 'src', 'Card.ucf');
     expect(resolve(dirname(join(output('react').outDir, 'Card.js.map')), original.source)).toBe(ucfFile);
     const ucf = readFileSync(ucfFile, 'utf8');
-    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('return (', ucf.indexOf('<react>'))).split('\n').length);
+    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('return (', ucf.indexOf('<react lang="tsx">'))).split('\n').length);
   });
 });
 
@@ -248,7 +248,10 @@ describe('buildLibrary() errors', () => {
     const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
     const edits = [
       {file: 'shared/tokens.ts', content: "export const accent = 'rgb(1, 2, 3)';\n"},
-      {file: 'src/Card.ucf', content: card.replace('<react>\n', "<react>\n  import '../shared/tokens.js'\n")},
+      {
+        file: 'src/Card.ucf',
+        content: card.replace('<react lang="tsx">\n', '<react lang="tsx">\n  import \'../shared/tokens.js\'\n'),
+      },
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow('buildLibrary: shared/tokens.ts is outside src');

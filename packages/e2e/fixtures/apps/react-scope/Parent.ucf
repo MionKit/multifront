@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.shape {
+  color: rgb(200, 40, 80);
+}
+</style>
+
+<react lang="tsx">
   import { useEffect, useRef } from 'react'
   import AndRoot from '../../components/react/shapes/AndRoot.ucf'
   import ArrowExpression from '../../components/react/shapes/ArrowExpression.ucf'
@@ -62,9 +68,3 @@
     )
   }
 </react>
-
-<style scoped>
-.shape {
-  color: rgb(200, 40, 80);
-}
-</style>

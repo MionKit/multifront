@@ -72,7 +72,19 @@ export function reactRootProps(block: Block, filename: string): ReactRootProps |
   return rootPropsOf(parseBlock(block, filename), block.content);
 }
 
+// Vue's grammar ends a `lang="tsx"` block only at the end of the file, so it would color every later block as TSX.
+function notLast(block: Block, split: SplitResult): Diagnostic[] {
+  // A duplicate <react> has its own error; only another kind of block after it is colored wrong.
+  if (split.blocks.slice(split.blocks.indexOf(block) + 1).every(({type}) => type === 'react')) return [];
+  const message = "<react> must be the last block, or Vue's highlighter colors the blocks after it as TSX; move it to the end";
+  return [createDiagnostic(split, 'react-not-last', block.start, block.contentStart, message)];
+}
+
 function check(block: Block, split: SplitResult): Diagnostic[] {
+  return [...notLast(block, split), ...codeRules(block, split)];
+}
+
+function codeRules(block: Block, split: SplitResult): Diagnostic[] {
   const {program, errors} = parseBlock(block, split.filename);
   // A recovered program says nothing sure about exports or imports.
   if (errors.length > 0) return errors.map((error) => syntaxError(block, split, error));
@@ -128,6 +140,7 @@ export const reactKind: BlockKind = {
   tag: 'react',
   role: 'target',
   grammar: {scopeName: 'source.tsx', languageId: 'typescriptreact'},
+  lang: 'tsx',
   check,
   build,
 };

@@ -48,6 +48,7 @@ export interface BlockKind {
   tag: BlockTag;
   role: BlockRole;
   grammar: BlockGrammar;
+  lang?: string; // targets: the `lang` the opening tag must name, the one Vue's grammar colors the block by
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
   fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
   build(block: Block, ctx: BuildContext): VirtualFile;
@@ -73,6 +74,8 @@ export type DiagnosticCode =
   | 'react-syntax-error'
   | 'style-inside-target'
   | 'unknown-style-lang'
+  | 'block-lang'
+  | 'react-not-last'
   | 'duplicate-style-module'
   | 'style-compile-error'
   | 'missing-preprocessor'

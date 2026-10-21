@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <style>
   p { color: red; }
   </style>

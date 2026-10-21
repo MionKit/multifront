@@ -61,7 +61,7 @@ describe('buildLibrary(): CSS as real files', () => {
       for (const file of others) expect(cssImports(result, file), `${target}/${file}`).toEqual([]);
     }
     const plain =
-      '<vue>\n  <template><p>plain</p></template>\n</vue>\n\n<react>\n  export default () => <p>plain</p>\n</react>\n';
+      '<vue lang="vue">\n  <template><p>plain</p></template>\n</vue>\n\n<react lang="tsx">\n  export default () => <p>plain</p>\n</react>\n';
     await withEditedLibrary([{file: 'src/Plain.ucf', content: plain}], async (root) => {
       const built = await buildFixtureLibrary(root);
       try {
@@ -121,7 +121,7 @@ describe('buildLibrary(): CSS as real files', () => {
 describe('buildLibrary() CSS edge cases', () => {
   it('writes an empty CSS file, still imported, for a component whose style block compiles to nothing', async () => {
     const empty =
-      '<vue>\n  <template><p>empty</p></template>\n</vue>\n\n<react>\n  export default () => <p>empty</p>\n</react>\n\n<style lang="scss">\n$unused: 1px;\n</style>\n';
+      '<vue lang="vue">\n  <template><p>empty</p></template>\n</vue>\n\n<style lang="scss">\n$unused: 1px;\n</style>\n\n<react lang="tsx">\n  export default () => <p>empty</p>\n</react>\n';
     await withEditedLibrary([{file: 'src/Empty.ucf', content: empty}], async (root) => {
       const built = await buildFixtureLibrary(root);
       try {

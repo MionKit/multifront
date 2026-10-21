@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   const color = 'rgb(10, 120, 60)'
   const size = '12px'
@@ -9,15 +9,7 @@
   </template>
 </vue>
 
-<react>
-  import type {ReactNode} from 'react'
-
-  export default function VueOnlyStyle({children}: {children?: ReactNode}) {
-    return <div className="box">{children}</div>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     import type {Snippet} from 'svelte'
 
@@ -60,3 +52,11 @@
   margin: v-bind (size);
 }
 </style>
+
+<react lang="tsx">
+  import type {ReactNode} from 'react'
+
+  export default function VueOnlyStyle({children}: {children?: ReactNode}) {
+    return <div className="box">{children}</div>
+  }
+</react>

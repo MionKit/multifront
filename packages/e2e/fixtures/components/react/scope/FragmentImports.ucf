@@ -1,4 +1,10 @@
-<react>
+<style scoped>
+.const-shadow {
+  color: rgb(1, 2, 3);
+}
+</style>
+
+<react lang="tsx">
   // Build only: './other' does not exist. Each way an import binds React's Fragment, or does not.
   import { default as R, 'Fragment' as Quoted, type Fragment as SpecFrag } from 'react'
   import type { Fragment as TypeFrag } from 'react'
@@ -32,9 +38,3 @@
     )
   }
 </react>
-
-<style scoped>
-.const-shadow {
-  color: rgb(1, 2, 3);
-}
-</style>

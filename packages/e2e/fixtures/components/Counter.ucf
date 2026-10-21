@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   import { ref } from 'vue'
 
@@ -14,21 +14,7 @@
   </template>
 </vue>
 
-<react>
-  import { useState } from 'react'
-
-  export default function Counter({start = 0}: {start?: number}) {
-    const [count, setCount] = useState(start)
-    return (
-      <div className="counter">
-        <span className="label">Clicks</span>
-        <button className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
-      </div>
-    )
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <script lang="ts">
   import { untrack } from 'svelte'
 
@@ -53,3 +39,17 @@
   padding: 4px 12px;
 }
 </style>
+
+<react lang="tsx">
+  import { useState } from 'react'
+
+  export default function Counter({start = 0}: {start?: number}) {
+    const [count, setCount] = useState(start)
+    return (
+      <div className="counter">
+        <span className="label">Clicks</span>
+        <button className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
+      </div>
+    )
+  }
+</react>

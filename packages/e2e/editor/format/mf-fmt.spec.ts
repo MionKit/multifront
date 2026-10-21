@@ -236,7 +236,7 @@ describe('mf-fmt on one file or one folder', () => {
   it('checks only root <script>s of known lang: not one in a comment, a kebab-case tag or lang="coffee"', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       const source =
-        '<vue>\n<template><!-- <script>let a = ;</script> --><script-editor  v-model="code"></script-editor></template>\n' +
+        '<vue lang="vue">\n<template><!-- <script>let a = ;</script> --><script-editor  v-model="code"></script-editor></template>\n' +
         '<script lang="coffee">square = (x) -> x * x</script>\n</vue>\n';
       addFile(root, 'Lookalikes.ucf', source);
       expect(await runMfFmt(root, ['Lookalikes.ucf'])).toEqual(FORMATTED_ONE);
@@ -331,7 +331,7 @@ describe('mf-fmt on blocks it cannot format', () => {
       addFile(
         root,
         'Scripts.ucf',
-        '<vue>\n<script>\nexport default {}\n</script>\n<script setup>\nconst a = 1 +;\n</script>\n</vue>\n'
+        '<vue lang="vue">\n<script>\nexport default {}\n</script>\n<script setup>\nconst a = 1 +;\n</script>\n</vue>\n'
       );
       return 'Scripts.ucf';
     });
@@ -340,7 +340,7 @@ describe('mf-fmt on blocks it cannot format', () => {
 
   it('reports the config oxfmt rejects before a <vue> <script> that does not parse', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      addFile(root, 'Only.ucf', '<vue>\n<script setup lang="ts">let a = ;</script>\n</vue>\n');
+      addFile(root, 'Only.ucf', '<vue lang="vue">\n<script setup lang="ts">let a = ;</script>\n</vue>\n');
       writeFileSync(join(root, '.oxfmtrc.json'), '{"printWidth": 1000}\n');
       expect(await runMfFmt(root, ['Only.ucf'])).toEqual(fails(`.oxfmtrc.json: ${INVALID_PRINT_WIDTH}`));
     });
@@ -348,7 +348,7 @@ describe('mf-fmt on blocks it cannot format', () => {
 
   it("reports an error with no position at all on the block's opening tag", async () => {
     const {source, findings} = await formatErrors((root) => {
-      addFile(root, 'Unclosed.ucf', '<vue>\n<template><p a="1></p></template>\n</vue>\n');
+      addFile(root, 'Unclosed.ucf', '<vue lang="vue">\n<template><p a="1></p></template>\n</vue>\n');
       return 'Unclosed.ucf';
     });
     const message = "<vue> does not parse: TypeError: Cannot read properties of null (reading 'end')";

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export default (props: { branch?: string }) => (
     <div className="shape"><span className="inner">arrow {props.branch}</span></div>
   )

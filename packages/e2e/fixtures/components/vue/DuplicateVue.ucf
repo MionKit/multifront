@@ -1,10 +1,10 @@
-<vue>
+<vue lang="vue">
   <template>
     <p>first-vue-block</p>
   </template>
 </vue>
 
-<vue>
+<vue lang="vue">
   <template>
     <p>second-vue-block</p>
   </template>

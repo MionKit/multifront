@@ -27,10 +27,11 @@ function expectPanelMappings(map: SourceMapInput): void {
     if (/(?:^|\/)Panel\.ucf$/.test(mapping.source ?? '')) lines.push(mapping.originalLine!);
   });
   expect(lines.length).toBeGreaterThan(0);
-  for (const line of lines) expect(line).toBeGreaterThanOrEqual(lineOf(source.indexOf('<svelte>')));
+  const svelte = source.indexOf('<svelte lang="html">');
+  for (const line of lines) expect(line).toBeGreaterThanOrEqual(lineOf(svelte));
   for (const line of lines) expect(line).toBeLessThanOrEqual(lineOf(source.indexOf('</svelte>')));
-  // The React block holds `{heading}` too; the Svelte block comes last.
-  expect(lines).toContain(lineOf(source.lastIndexOf('{heading}')));
+  // The React block holds `{heading}` too, after the Svelte block.
+  expect(lines).toContain(lineOf(source.indexOf('{heading}', svelte)));
 }
 
 describe('vite build of svelte-vite', () => {

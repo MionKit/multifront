@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <!-- <div> -->
   <div class={$style.box}>
     <!-- <p class="hidden">not an element</p> -->

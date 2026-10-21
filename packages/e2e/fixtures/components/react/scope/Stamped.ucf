@@ -1,4 +1,28 @@
-<react>
+<style scoped>
+.box {
+  color: rgb(10, 20, 30);
+}
+.dot {
+  fill: rgb(40, 50, 60);
+}
+my-el {
+  color: rgb(70, 80, 90);
+}
+.item {
+  color: rgb(100, 110, 120);
+}
+.member {
+  color: rgb(130, 140, 150);
+}
+.lookalike {
+  color: rgb(160, 170, 180);
+}
+.list {
+  color: rgb(190, 200, 210);
+}
+</style>
+
+<react lang="tsx">
   import { Fragment, Fragment as Frag } from 'react'
   import * as React from 'react'
   import type { ReactNode } from 'react'
@@ -45,27 +69,3 @@
     )
   }
 </react>
-
-<style scoped>
-.box {
-  color: rgb(10, 20, 30);
-}
-.dot {
-  fill: rgb(40, 50, 60);
-}
-my-el {
-  color: rgb(70, 80, 90);
-}
-.item {
-  color: rgb(100, 110, 120);
-}
-.member {
-  color: rgb(130, 140, 150);
-}
-.lookalike {
-  color: rgb(160, 170, 180);
-}
-.list {
-  color: rgb(190, 200, 210);
-}
-</style>

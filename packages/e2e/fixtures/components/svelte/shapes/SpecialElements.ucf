@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <svelte:options runes />
   <script lang="ts">
     let {title = 'Page'}: {title?: string} = $props()

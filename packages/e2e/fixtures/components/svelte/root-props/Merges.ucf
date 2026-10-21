@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     // Named like the class merge: the build imports it under another name.
     const __ucfClass = 'own-merge'

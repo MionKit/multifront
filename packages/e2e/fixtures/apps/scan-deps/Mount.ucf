@@ -1,4 +1,4 @@
-<vue>
+<vue lang="vue">
   <script setup lang="ts">
   // Imported only here, and used only in the template: TypeScript stripping alone would drop it.
   import { TraceMap } from '@jridgewell/trace-mapping'
@@ -12,7 +12,7 @@
   </template>
 </vue>
 
-<react>
+<react lang="tsx">
   import { useEffect, useRef } from 'react'
   import { createRoot } from 'react-dom/client'
 

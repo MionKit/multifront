@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <p class={$style.text} title="a > b" data-arrow='>'>Arrow</p>
   <div class={$style.text} data-html="<div>"><span class={$style.text} title=">">Inner</span></div>
 </svelte>

@@ -206,7 +206,9 @@ describe('mf-build on errors in the library files', () => {
           message: '<react> appears more than once; keep one',
         });
         const from = offsetAt(twice.source, {line: line!, offset: column!});
-        expect(twice.source.slice(from, offsetAt(twice.source, {line: end!.line, offset: end!.column}))).toBe('<react>');
+        expect(twice.source.slice(from, offsetAt(twice.source, {line: end!.line, offset: end!.column}))).toBe(
+          '<react lang="tsx">'
+        );
       }
       const run = await runMfBuild(root, ['--framework', 'react', '--no-dts']);
       expect(run.code).toBe(1);
@@ -228,7 +230,7 @@ import {defineLibrary} from '@multifront/vite';
 export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new URL('./src', import.meta.url))}}}});
 `;
   const usesVueOnly =
-    "<react>\n  import VueOnly from './VueOnly.ucf'\n\n  export default function UsesVueOnly() {\n    return <VueOnly />\n  }\n</react>\n";
+    '<react lang="tsx">\n  import VueOnly from \'./VueOnly.ucf\'\n\n  export default function UsesVueOnly() {\n    return <VueOnly />\n  }\n</react>\n';
   const cases: {name: string; edits: {file: string; content: string}[]; args: string[]; findings: Finding[]}[] = [
     {
       name: 'an import that is not a peer',
@@ -250,7 +252,10 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       name: 'a file outside src',
       edits: [
         {file: 'shared/tokens.ts', content: "export const accent = 'rgb(1, 2, 3)';\n"},
-        {file: 'src/Card.ucf', content: CARD.replace('<react>\n', "<react>\n  import '../shared/tokens.js'\n")},
+        {
+          file: 'src/Card.ucf',
+          content: CARD.replace('<react lang="tsx">\n', '<react lang="tsx">\n  import \'../shared/tokens.js\'\n'),
+        },
       ],
       args: ['--framework', 'react', '--no-dts'],
       findings: [
@@ -298,7 +303,7 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
     {
       name: 'a plain Svelte file named like a component',
       edits: [
-        {file: 'src/Plain.ucf', content: '<svelte>\n  <p>component</p>\n</svelte>\n'},
+        {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
         {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
         {
           file: 'src/Card.ucf',

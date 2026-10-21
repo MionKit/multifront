@@ -1,4 +1,4 @@
-<svelte>
+<svelte lang="html">
   <script lang="ts">
     let { name, size = 16 }: { name: string; size?: number } = $props()
   </script>

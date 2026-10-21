@@ -4,9 +4,9 @@
     "severity": "error",
     "message": "<style lang=\"foo\"> is not a known style language; use css, scss, sass, less, styl, stylus or postcss",
     "filename": "invalid/UnknownStyleLang.ucf",
-    "start": 181,
-    "end": 199,
-    "line": 13,
+    "start": 58,
+    "end": 76,
+    "line": 7,
     "column": 0
   },
   {
@@ -14,9 +14,9 @@
     "severity": "error",
     "message": "<style lang> is not a known style language; use css, scss, sass, less, styl, stylus or postcss",
     "filename": "invalid/UnknownStyleLang.ucf",
-    "start": 233,
-    "end": 245,
-    "line": 19,
+    "start": 110,
+    "end": 122,
+    "line": 13,
     "column": 0
   }
 ]

@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   function Label({ text }: { text: string }) {
     return <span>{text}</span>
   }

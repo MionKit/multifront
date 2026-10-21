@@ -1,4 +1,4 @@
-<react>
+<react lang="tsx">
   export function NamedOnly() {
     return <p>Named exports only</p>
   }

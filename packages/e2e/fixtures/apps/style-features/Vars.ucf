@@ -1,17 +1,11 @@
 <!-- CSS variables a parent sets, with fallbacks for the ones it does not. -->
-<vue>
+<vue lang="vue">
   <template>
     <p class="vars"><em class="inner">inner</em></p>
   </template>
 </vue>
 
-<react>
-  export default function Vars() {
-    return <p className="vars"><em className="inner">inner</em></p>
-  }
-</react>
-
-<svelte>
+<svelte lang="html">
   <svelte:options runes />
 
   <p class="vars"><em class="inner">inner</em></p>
@@ -26,3 +20,9 @@
   background-color: var(--accent, rgb(4, 5, 6));
 }
 </style>
+
+<react lang="tsx">
+  export default function Vars() {
+    return <p className="vars"><em className="inner">inner</em></p>
+  }
+</react>
