@@ -10,25 +10,25 @@ Each block holds what you would write in that framework's own file. Write only t
 
 ```html
 <vue>
-  <script setup lang="ts">
-  defineProps<{ title: string }>()
-  </script>
-  <template>
-    <div :class="$style.card"><h2>{{ title }}</h2></div>
-  </template>
+<script setup lang="ts">
+defineProps<{ title: string }>()
+</script>
+<template>
+  <div :class="$style.card"><h2>{{ title }}</h2></div>
+</template>
 </vue>
 
 <react>
-  export default function Card({ title }: { title: string }) {
-    return <div className={$style.card}><h2>{title}</h2></div>
-  }
+export default function Card({ title }: { title: string }) {
+  return <div className={$style.card}><h2>{title}</h2></div>
+}
 </react>
 
 <svelte>
-  <script lang="ts">
-    let { title }: { title: string } = $props()
-  </script>
-  <div class={$style.card}><h2>{title}</h2></div>
+<script lang="ts">
+  let { title }: { title: string } = $props()
+</script>
+<div class={$style.card}><h2>{title}</h2></div>
 </svelte>
 
 <style module lang="scss">
@@ -51,12 +51,12 @@ Every `<react>` component passes the `className`, `style` and `ref` its parent g
 
 ```html
 <react>
-  import type { MouseEventHandler } from 'react'
-  import { cx } from './utils/cx.js'
+import type { MouseEventHandler } from 'react'
+import { cx } from './utils/cx.js'
 
-  export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
-    return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
-  }
+export default function Button({ label, onClick }: { label: string; onClick?: MouseEventHandler<HTMLButtonElement> }) {
+  return <button className={cx($style.button)} style={{ fontWeight: 600 }} onClick={onClick}>{label}</button>
+}
 </react>
 ```
 

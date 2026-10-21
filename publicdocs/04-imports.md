@@ -10,12 +10,12 @@ An import in `<react>` always gets the React component, one in `<vue>` the Vue c
 
 ```html
 <react>
-  import Badge from '../Badge.ucf'
-  import Card from '../Card.ucf'
+import Badge from '../Badge.ucf'
+import Card from '../Card.ucf'
 
-  export default function Profile() {
-    return <section><Card title="Ada" /><Badge label="Admin" /></section>
-  }
+export default function Profile() {
+  return <section><Card title="Ada" /><Badge label="Admin" /></section>
+}
 </react>
 ```
 

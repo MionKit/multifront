@@ -37,9 +37,9 @@ In `<react>`, `$style` holds the class names of `<style module>`: completion lis
 
 ```html
 <react>
-  export default function Card({ title }: { title: string }) {
-    return <div className={$style.card}><h2>{title}</h2></div>
-  }
+export default function Card({ title }: { title: string }) {
+  return <div className={$style.card}><h2>{title}</h2></div>
+}
 </react>
 
 <style module lang="scss">
@@ -123,10 +123,10 @@ The three commands come with `@multifront/language-tools`. Each one runs a tool 
 
 ```html
 <svelte>
-  <script lang="ts">
-    let { label }: { label: string } = $props()
-  </script>
-  <span>{label.toFixed(2)}</span>
+<script lang="ts">
+  let { label }: { label: string } = $props()
+</script>
+<span>{label.toFixed(2)}</span>
 </svelte>
 ```
 
