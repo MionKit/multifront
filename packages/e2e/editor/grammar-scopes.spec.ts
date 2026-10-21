@@ -41,10 +41,10 @@ function rootOnlyText(content: string, scopeName: string): string[] {
   return rootOnly;
 }
 
-// The scope Vue's grammar gives a target tag's content, by the tag's `lang`; a `<style>` gets the registry's.
+// Vue grammar's scope for a target block's content, keyed by its `lang`.
 const VUE_GRAMMAR_SCOPES: Record<string, string> = {tsx: 'source.tsx', vue: 'text.html.vue', html: 'text.html.derivative'};
 
-// The whole file through Vue's grammar, as GitHub and Shiki color a `.ucf` file read as Vue.
+// GitHub and Shiki color a `.ucf` file with Vue's grammar.
 function asVue(name: string): {block: Block | undefined; text: string; scopes: string[]}[] {
   const {filename, source} = readComponent(name);
   const {blocks} = splitBlocks(source, filename);
@@ -124,7 +124,7 @@ describe('a .ucf file read as Vue by the real Vue grammar, as GitHub and Shiki r
     expect(vue.filter(({scopes}) => scopes.length > 1 && scopes[0] !== 'text')).toEqual([]);
   });
 
-  // Why react-lang-not-last exists.
+  // Why react-not-last exists.
   it('invalid/ReactNotLast.ucf: the <style> after <react lang="tsx"> is colored as TSX', () => {
     const style = asVue('invalid/ReactNotLast.ucf').filter(({block}) => block?.type === 'style');
     expect(style.length).toBeGreaterThan(0);

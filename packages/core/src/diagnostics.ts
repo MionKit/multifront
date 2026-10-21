@@ -37,7 +37,7 @@ export function styleInsideTarget(
     );
 }
 
-// Vue's grammar colors a root tag's content by its `lang`, so GitHub and Shiki color the block in its own language.
+// Vue's grammar, which GitHub and Shiki use, colors a root tag's content by its `lang`.
 export function blockLang(block: Block, split: SplitResult, lang: string | undefined): Diagnostic[] {
   const written = block.attrs.lang;
   if (lang === undefined || written === lang) return [];

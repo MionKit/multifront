@@ -48,7 +48,7 @@ export interface BlockKind {
   tag: BlockTag;
   role: BlockRole;
   grammar: BlockGrammar;
-  lang?: string; // targets: the `lang` the opening tag must name, the one Vue's grammar colors the block by
+  lang?: string; // targets: the `lang` the opening tag must name, which Vue's grammar colors by
   check(block: Block, split: SplitResult): Diagnostic[]; // the block's own rules; splitter errors stay in split.errors
   fillContext?(blocks: Block[], ctx: BuildContext): Promise<void>; // shared kinds only; runs before any build
   build(block: Block, ctx: BuildContext): VirtualFile;
