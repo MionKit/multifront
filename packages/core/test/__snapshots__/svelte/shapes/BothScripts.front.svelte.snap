@@ -1,0 +1,11 @@
+
+  <script module lang="ts">
+import "<fixtures>/components/svelte/shapes/BothScripts.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/BothScripts.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    export const moduleClass: string = __frontStyle.text
+  </script>
+  <script lang="ts">
+    let {label = 'Both', ...__frontRest}: {label?: string} = $props()
+  </script>
+  <p data-v-4cb4c580="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(moduleClass, __frontRest.class)}><b data-v-4cb4c580="" class={__frontStyle.text}>{label}</b></p>

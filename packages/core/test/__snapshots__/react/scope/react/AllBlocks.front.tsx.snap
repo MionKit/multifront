@@ -1,0 +1,15 @@
+import "<fixtures>/components/react/AllBlocks.front?front&type=style&index=0&lang.css";
+import "<fixtures>/components/react/AllBlocks.front?front&type=style&index=1&lang.css";
+import "<fixtures>/components/react/AllBlocks.front?front&type=style&index=2&lang.css";
+import $style from "<fixtures>/components/react/AllBlocks.front?front&type=style&index=0&module&lang.js";
+import classes from "<fixtures>/components/react/AllBlocks.front?front&type=style&index=1&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function AllBlocks(__props) {
+    return (
+      <div {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass($style.card, __props.className)}>
+        <p className={classes.title}>All blocks</p>
+        <p className="all-blocks-global">all-blocks-react-marker</p>
+      </div>
+    )
+  }

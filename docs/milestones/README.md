@@ -19,7 +19,7 @@ What we build: [../spec.md](../spec.md). How the pieces fit: [../architecture.md
 
 **We test the real thing, end to end.** No unit tests of internals, no mocks, no stubs, no fake data.
 
-- Every test feeds **real files** (real `.ucf` components, real apps) through **real tools** (real Vite, real plugin-vue / plugin-react / plugin-svelte, real TypeScript, the real language server, a real browser) and checks the real output.
+- Every test feeds **real files** (real `.front` components, real apps) through **real tools** (real Vite, real plugin-vue / plugin-react / plugin-svelte, real TypeScript, the real language server, a real browser) and checks the real output.
 - When two tools meet (our plugin and plugin-vue, a parser and a compiler), the test runs both for real. Never replace one with a fake.
 - The smallest allowed test is: a real fixture file, through a public function or command, with its real output checked. That is where a package's own `test/` tests sit.
 - Fuzz tests are allowed only as **generated real files**: real fixtures mutated or recombined, run through the real tools (see the fuzzy-testing skill).
@@ -31,7 +31,7 @@ The e2e tests live in one private workspace package, `packages/e2e` (never publi
 
 | Area | Folder | What it runs |
 | --- | --- | --- |
-| Fixtures | `packages/e2e/fixtures/` | Real `.ucf` components (`components/`), and the small real apps that use them (`apps/`). Every milestone adds to them (see "Shared names and fixtures"). |
+| Fixtures | `packages/e2e/fixtures/` | Real `.front` components (`components/`), and the small real apps that use them (`apps/`). Every milestone adds to them (see "Shared names and fixtures"). |
 | Build | `packages/e2e/build/` | Real Vite builds and dev servers of the fixture apps, with the real framework plugins. Checks the output modules, CSS and source maps. |
 | Browser | `packages/e2e/browser/` | Playwright against the built or served apps: rendering, styles, HMR, hydration, visual parity across targets. |
 | Editor | `packages/e2e/editor/` | The real language server over LSP, the real tsserver with our TypeScript plugin, `mf-tsc`, `mf-lint`, `mf-fmt` on the fixtures. |
@@ -66,9 +66,9 @@ The reference for all of it is [MionKit/mion](https://github.com/MionKit/mion)'s
 Decided when the seven documents were checked against each other. Where a document and this list disagree, this list wins.
 
 - **Fixture names are unique** across `fixtures/components/`, so a name always means one file. Edge cases for one target live in that target's folder (`react/`, `vue/`, `svelte/`).
-- **Shared fixtures grow a block at a time.** `Card.ucf`, `Panel.ucf` (M1), `Counter.ucf` (M3) and `imports/` (`Icon`, `UsesIcon`, `VueOnly`, `ReactOnly`) get a new target block in the milestone that adds that target. That milestone updates the snapshots the file feeds.
+- **Shared fixtures grow a block at a time.** `Card.front`, `Panel.front` (M1), `Counter.front` (M3) and `imports/` (`Icon`, `UsesIcon`, `VueOnly`, `ReactOnly`) get a new target block in the milestone that adds that target. That milestone updates the snapshots the file feeds.
 - **One imports fixture set:** `fixtures/apps/imports/` with `expected.ts` (M2). M3, M4 and M5 add rows and sub-projects; the build and the editor must both match every row.
-- **Test helpers** live in `<area>/lib/` (`editor/lib/`, `browser/lib/`, `consumer/lib/`). Temp copies come from M1's `copyApp()`, with the shared `components/` beside the app so relative `.ucf` imports work; `removeApp()` deletes one.
+- **Test helpers** live in `<area>/lib/` (`editor/lib/`, `browser/lib/`, `consumer/lib/`). Temp copies come from M1's `copyApp()`, with the shared `components/` beside the app so relative `.front` imports work; `removeApp()` deletes one.
 - **Test tools are root devDependencies** (AGENTS.md), never `packages/e2e` ones.
 - **Core names:** `BuildContext` (M1, with `split`), `buildTarget(split, ctx, target)` (M3), `resolveTarget(importer, attribute, options)` with `Importer` and `TargetChoice` (M2, extended by M3), `importerFromId(id)` (M3), `getTypesScript()` (M2), `classMapId()` / `styleId()` (M1).
 - **One code per error.** `framework-in-block` (not `framework-attribute-in-block`). Codes join M1's `DiagnosticCode` union.
@@ -76,7 +76,7 @@ Decided when the seven documents were checked against each other. Where a docume
 - **Core checks never load a compiler.** Rules that need the Vue or Svelte compiler run in `build()`.
 - **Users see the word "framework".** The import attribute `with { framework }`, the plugin options `frameworks` / `framework` / `importers`, the TypeScript plugin options and the CLI flags (`--framework`). "Target" stays internal (the `Target` type, `resolveTarget`, module ids).
 - **Scope forwarding is the same in every framework** (spec 3.5.1): always on, pinned by browser tests in each framework and by fuzz tests.
-- **Hybrid mode from day one** (spec 6): tsserver with our plugin does every TypeScript job, inside `.ucf` files too; our language server does CSS, template HTML, our diagnostics, formatting and linting.
+- **Hybrid mode from day one** (spec 6): tsserver with our plugin does every TypeScript job, inside `.front` files too; our language server does CSS, template HTML, our diagnostics, formatting and linting.
 
 ## Document template
 

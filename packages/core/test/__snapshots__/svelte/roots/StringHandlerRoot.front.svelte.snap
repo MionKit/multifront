@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let { label = 'handler', ...__frontRest }: { label?: string } = $props()
+  </script>
+  <!-- Svelte rejects a text event attribute; forwarding must leave it for that error. -->
+  <button {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)} onclick="go('<a>')">{label}</button>

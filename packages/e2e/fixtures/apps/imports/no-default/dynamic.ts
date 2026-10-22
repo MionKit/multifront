@@ -1,1 +1,1 @@
-export const ReactCard = await import('../../../components/Card.ucf', {with: {framework: 'react'}});
+export const ReactCard = await import('../../../components/Card.front', {with: {framework: 'react'}});

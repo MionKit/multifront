@@ -1,7 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-    let count = $state(1)
-let {...__ucfRest} = $props();
-  </script>
-  <button {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(`shape`, __ucfRest.class)} onclick={() => count++}><span class="inner">{count}</span></button>

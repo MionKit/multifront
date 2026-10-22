@@ -1,0 +1,10 @@
+import "<fixtures>/components/react/Unicode.front?front&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/react/Unicode.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  // Café, naïve, 😀: accents and an emoji before the JSX.
+  const label = 'Ünïcödé 🎉';
+
+  export default function Unicode(__props) {
+    return <p {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass($style.text, __props.className)}>Crème brûlée 🍮 {label} <b>énd</b></p>;
+  }

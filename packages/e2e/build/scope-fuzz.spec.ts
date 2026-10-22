@@ -1,4 +1,4 @@
-// Seeded fuzz of the React scope transform over generated real `.ucf` files (fuzzy-testing skill).
+// Seeded fuzz of the React scope transform over generated real `.front` files (fuzzy-testing skill).
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {join, relative} from 'node:path';
 import {format} from 'node:util';
@@ -58,9 +58,9 @@ function lineStarts(text: string): number[] {
 }
 
 const ROOT_PROPS = [
-  ['className', '__ucfClass'],
-  ['style', '__ucfStyle'],
-  ['ref', '__ucfRef'],
+  ['className', '__frontClass'],
+  ['style', '__frontStyle'],
+  ['ref', '__frontRef'],
 ];
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -70,8 +70,8 @@ function insertPattern(fuzzCase: ScopeCase, ctx: BuildContext): {insert: RegExp;
   const {props, name} = fuzzCase;
   const fixed = [
     ` data-v-${ctx.scopeId}=""`,
-    ` {...__ucfScopeAttrs(${props})}`,
-    `(__ucfWarnFragment(${props}, ${JSON.stringify(name)}), `,
+    ` {...__frontScopeAttrs(${props})}`,
+    `(__frontWarnFragment(${props}, ${JSON.stringify(name)}), `,
     ` = ${props}; return `,
     ` = ${props};`,
     `${props}, __ref`,
@@ -177,13 +177,13 @@ const breakerPlugin: Plugin = {
   name: 'scope-fuzz:breaker',
   enforce: 'pre',
   transform(code, id) {
-    if (active?.breaker && id.startsWith(active.dir) && id.endsWith('.ucf.react.tsx')) return active.breaker(code);
+    if (active?.breaker && id.startsWith(active.dir) && id.endsWith('.front.react.tsx')) return active.breaker(code);
     return undefined;
   },
 };
 
 const ENTRY = (name: string) => `import { renderToString } from 'react-dom/server'
-import Case from './${name}.ucf'
+import Case from './${name}.front'
 
 export function render(branch?: string) {
   return renderToString(
@@ -363,7 +363,7 @@ describe('scope transform fuzz', () => {
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const STAMP = / data-v-[0-9a-f]+=""/;
-    const SPREAD = / \{\.\.\.__ucfScopeAttrs\(\w+\)\}/;
+    const SPREAD = / \{\.\.\.__frontScopeAttrs\(\w+\)\}/;
     let unknownProps = 0;
     const BROKEN: [string, Rule, Breaker][] = [
       ['a forwarding spread left open', 'parses', (code) => code.replace(SPREAD, (spread) => spread.slice(0, -1))],

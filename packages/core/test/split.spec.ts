@@ -8,27 +8,27 @@ import {tsxSyntaxErrors} from './tsx.ts';
 describe('splitBlocks on valid fixtures', () => {
   it('finds every valid fixture', () => {
     expect(listComponents()).toEqual([
-      'Badge.ucf',
-      'Button.ucf',
-      'Card.ucf',
-      'ComposesFrom.ucf',
-      'ComposesScoped.ucf',
-      'Counter.ucf',
-      'Hello.ucf',
-      'Note.ucf',
-      'Panel.ucf',
-      'PanelItem.ucf',
-      'ReactDefaultSpecifier.ucf',
-      'ScopedModuleScss.ucf',
-      'TsxEdges.ucf',
+      'Badge.front',
+      'Button.front',
+      'Card.front',
+      'ComposesFrom.front',
+      'ComposesScoped.front',
+      'Counter.front',
+      'Hello.front',
+      'Note.front',
+      'Panel.front',
+      'PanelItem.front',
+      'ReactDefaultSpecifier.front',
+      'ScopedModuleScss.front',
+      'TsxEdges.front',
     ]);
   });
 
   it('reads every attribute form', () => {
     const styleAttrs = (name: string) => splitBlocks(readComponent(name).source, name).styles.map((block) => block.attrs);
-    expect(styleAttrs('Card.ucf')).toEqual([{module: true, lang: 'scss'}]);
-    expect(styleAttrs('Button.ucf')).toEqual([{scoped: true}, {module: 'classes'}]);
-    expect(styleAttrs('Panel.ucf')).toEqual([{scoped: true, lang: 'scss'}, {}, {module: true, lang: 'scss'}]);
+    expect(styleAttrs('Card.front')).toEqual([{module: true, lang: 'scss'}]);
+    expect(styleAttrs('Button.front')).toEqual([{scoped: true}, {module: 'classes'}]);
+    expect(styleAttrs('Panel.front')).toEqual([{scoped: true, lang: 'scss'}, {}, {module: true, lang: 'scss'}]);
   });
 
   describe.each(listComponents())('%s', (name) => {
@@ -85,9 +85,9 @@ interface InvalidCase {
 
 // Written by hand from the fixture files.
 const INVALID_CASES: InvalidCase[] = [
-  {fixture: 'invalid/BlockLang.ucf', errors: [], blocks: ['vue', 'svelte', 'react']},
+  {fixture: 'invalid/BlockLang.front', errors: [], blocks: ['vue', 'svelte', 'react']},
   {
-    fixture: 'invalid/BrokenOpeningTags.ucf',
+    fixture: 'invalid/BrokenOpeningTags.front',
     errors: [
       {code: 'unclosed-block', line: 7, column: 0},
       {code: 'unclosed-block', line: 9, column: 0},
@@ -96,7 +96,7 @@ const INVALID_CASES: InvalidCase[] = [
     blocks: ['react'],
   },
   {
-    fixture: 'invalid/BrokenUnknownTags.ucf',
+    fixture: 'invalid/BrokenUnknownTags.front',
     errors: [
       {code: 'unknown-root-tag', line: 1, column: 0},
       {code: 'unknown-root-tag', line: 9, column: 0},
@@ -105,67 +105,67 @@ const INVALID_CASES: InvalidCase[] = [
     ],
     blocks: ['svelte', 'style'],
   },
-  {fixture: 'invalid/ComposesBrokenFile.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ComposesCycle.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ComposesMissingFile.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ComposesMissingPackage.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/CssSyntaxError.ucf', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ComposesBrokenFile.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ComposesCycle.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ComposesMissingFile.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ComposesMissingPackage.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/CssSyntaxError.front', errors: [], blocks: ['style', 'react']},
   {
-    fixture: 'invalid/DuplicateReact.ucf',
+    fixture: 'invalid/DuplicateReact.front',
     errors: [
       {code: 'duplicate-target', line: 13, column: 0},
       {code: 'duplicate-target', line: 19, column: 0},
     ],
     blocks: ['style', 'react', 'react', 'react'],
   },
-  {fixture: 'invalid/DuplicateStyleModule.ucf', errors: [], blocks: ['style', 'style', 'style', 'style', 'style', 'react']},
-  {fixture: 'invalid/MissingPreprocessor.ucf', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/DuplicateStyleModule.front', errors: [], blocks: ['style', 'style', 'style', 'style', 'style', 'react']},
+  {fixture: 'invalid/MissingPreprocessor.front', errors: [], blocks: ['style', 'react']},
   {
-    fixture: 'invalid/MixedErrors.ucf',
+    fixture: 'invalid/MixedErrors.front',
     errors: [{code: 'duplicate-target', line: 13, column: 0}],
     blocks: ['style', 'react', 'react'],
   },
   {
-    fixture: 'invalid/ReactCloseInString.ucf',
+    fixture: 'invalid/ReactCloseInString.front',
     errors: [{code: 'text-outside-block', line: 9, column: 29}],
     blocks: ['style', 'react'],
   },
-  {fixture: 'invalid/ReactNoDefault.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ReactNotLast.ucf', errors: [], blocks: ['react', 'style']},
-  {fixture: 'invalid/ReactSyntaxError.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ScssPartialError.ucf', errors: [], blocks: ['style', 'react']},
-  {fixture: 'invalid/ScssSyntaxError.ucf', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ReactNoDefault.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ReactNotLast.front', errors: [], blocks: ['react', 'style']},
+  {fixture: 'invalid/ReactSyntaxError.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ReactTypeOnlyDefault.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ReactTypeOnlyDefaultForms.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ScssPartialError.front', errors: [], blocks: ['style', 'react']},
+  {fixture: 'invalid/ScssSyntaxError.front', errors: [], blocks: ['style', 'react']},
   {
-    fixture: 'invalid/StrayClosingTag.ucf',
+    fixture: 'invalid/StrayClosingTag.front',
     errors: [{code: 'text-outside-block', line: 12, column: 0}],
     blocks: ['style', 'react'],
   },
-  {fixture: 'invalid/StyleInSvelte.ucf', errors: [], blocks: ['svelte', 'style']},
-  {fixture: 'invalid/StyleInVue.ucf', errors: [], blocks: ['vue', 'style']},
-  {fixture: 'invalid/StylesOnly.ucf', errors: [{code: 'missing-target', line: 1, column: 0}], blocks: ['style', 'style']},
+  {fixture: 'invalid/StyleInSvelte.front', errors: [], blocks: ['svelte', 'style']},
+  {fixture: 'invalid/StyleInVue.front', errors: [], blocks: ['vue', 'style']},
+  {fixture: 'invalid/StylesOnly.front', errors: [{code: 'missing-target', line: 1, column: 0}], blocks: ['style', 'style']},
   {
-    fixture: 'invalid/TextOutsideBlock.ucf',
+    fixture: 'invalid/TextOutsideBlock.front',
     errors: [{code: 'text-outside-block', line: 13, column: 2}],
     blocks: ['style', 'react'],
   },
   {
-    fixture: 'invalid/UnclosedComment.ucf',
+    fixture: 'invalid/UnclosedComment.front',
     errors: [{code: 'text-outside-block', line: 13, column: 0}],
     blocks: ['style', 'react'],
   },
-  {fixture: 'invalid/UnclosedReact.ucf', errors: [{code: 'unclosed-block', line: 1, column: 0}], blocks: ['style']},
+  {fixture: 'invalid/UnclosedReact.front', errors: [{code: 'unclosed-block', line: 1, column: 0}], blocks: ['style']},
   {
-    fixture: 'invalid/UnknownRootTag.ucf',
+    fixture: 'invalid/UnknownRootTag.front',
     errors: [
       {code: 'unknown-root-tag', line: 13, column: 0},
       {code: 'unknown-root-tag', line: 17, column: 0},
     ],
     blocks: ['style', 'react'],
   },
-  {fixture: 'invalid/UnknownStyleLang.ucf', errors: [], blocks: ['style', 'style', 'style', 'react']},
-  {fixture: 'invalid/VueOnlyStyle.ucf', errors: [], blocks: ['vue', 'svelte', 'style', 'style', 'style', 'react']},
+  {fixture: 'invalid/UnknownStyleLang.front', errors: [], blocks: ['style', 'style', 'style', 'react']},
+  {fixture: 'invalid/VueOnlyStyle.front', errors: [], blocks: ['vue', 'svelte', 'style', 'style', 'style', 'react']},
 ];
 
 describe('splitBlocks on invalid fixtures', () => {
@@ -213,36 +213,36 @@ describe('splitBlocks on invalid fixtures', () => {
   });
 
   it('points at <react_old as one unknown tag, not a <react> block', () => {
-    const split = splitFixture('invalid/UnknownRootTag.ucf');
+    const split = splitFixture('invalid/UnknownRootTag.front');
     const oldTag = split.errors[1]!;
     expect(split.source.slice(oldTag.start, oldTag.end)).toBe('<react_old');
     expect(split.blocks.filter((block) => block.type === 'react')).toHaveLength(1);
   });
 
   it('keeps the first of three <react> blocks as the target and flags the others', () => {
-    const split = splitFixture('invalid/DuplicateReact.ucf');
+    const split = splitFixture('invalid/DuplicateReact.front');
     const [first, second, third] = split.blocks.filter((block) => block.type === 'react');
     expect(split.targets.react).toBe(first);
     expect(split.errors.map((error) => error.start)).toEqual([second!.start, third!.start]);
   });
 
   it('keeps a target block that holds the closing tag of an unknown tag left open before it', () => {
-    const split = splitFixture('invalid/BrokenUnknownTags.ucf');
+    const split = splitFixture('invalid/BrokenUnknownTags.front');
     expect(split.targets.svelte?.content).toContain('</div>');
   });
 
   it('gives a doubled closing tag the generic advice, not the escape advice', () => {
-    const [error] = splitFixture('invalid/StrayClosingTag.ucf').errors;
+    const [error] = splitFixture('invalid/StrayClosingTag.front').errors;
     expect(error!.message).not.toContain('<\\/');
   });
 
   it("tells the author to write '<\\/react>' when a string closes the block", () => {
-    const [error] = splitFixture('invalid/ReactCloseInString.ucf').errors;
+    const [error] = splitFixture('invalid/ReactCloseInString.front').errors;
     expect(error!.message).toContain("'<\\/react>'");
   });
 
   it('points a missing target at the start of the file', () => {
-    const [error] = splitFixture('invalid/StylesOnly.ucf').errors;
+    const [error] = splitFixture('invalid/StylesOnly.front').errors;
     expect(error).toMatchObject({start: 0, end: 0});
   });
 });

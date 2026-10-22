@@ -28,8 +28,8 @@ const served = serveConsumerApp({
   serve: (port) => ['env', `PORT=${port}`, 'node', 'build'],
 });
 
-const cardAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true);
-const counterAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Counter.ucf'), true);
+const cardAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.front'), true);
+const counterAttribute = scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Counter.front'), true);
 
 async function clicksAndKeyStyles(page: Page): Promise<void> {
   await page.locator('button', {hasText: 'Go'}).click();

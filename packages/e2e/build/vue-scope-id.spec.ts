@@ -22,9 +22,9 @@ type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerat
 
 // Both copied apps see the shared components at this path from their root.
 const COMPONENTS = '../../components';
-const COUNTER = `${COMPONENTS}/Counter.ucf`;
-const COMPOSES = `${COMPONENTS}/vue/ComposesFile.ucf`;
-const {source} = readComponent('Counter.ucf');
+const COUNTER = `${COMPONENTS}/Counter.front`;
+const COMPOSES = `${COMPONENTS}/vue/ComposesFile.front`;
+const {source} = readComponent('Counter.front');
 const LIGHTNINGCSS: InlineConfig = {css: {transformer: 'lightningcss'}};
 
 let vueRoot: string;
@@ -56,10 +56,10 @@ function expected(production: boolean) {
   return {id, button: moduleClassName('button', id, 1)};
 }
 
-/** The `$style` class map core gives `ComposesFile.ucf`: `tag` and `chip` list the names they compose. */
+/** The `$style` class map core gives `ComposesFile.front`: `tag` and `chip` list the names they compose. */
 async function composedClasses(production: boolean): Promise<string[]> {
   const file = join(vueRoot, COMPOSES);
-  const split = splitBlocks(readComponent('vue/ComposesFile.ucf').source, file);
+  const split = splitBlocks(readComponent('vue/ComposesFile.front').source, file);
   const ctx = await createBuildContext(split, {root: vueRoot, compiler: loadVueCompiler(vueRoot), production});
   return Object.values(ctx.modules.$style!.classes);
 }
@@ -95,7 +95,7 @@ async function serveVue(server: ViteDevServer, component: string, index: number,
 const counterScopeId = (css: string) => /\.counter\[data-v-([0-9a-f]+)\]/.exec(css)?.[1];
 const classNamed = (css: string, local: string) => new RegExp(`\\.([\\w-]*${local}[\\w-]*)\\s*\\{`).exec(css)?.[1];
 
-describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
+describe('Counter.front as Vue (apps/vue) and as React (apps/demo)', () => {
   it('gets one data-v-* and one $style.button class name in a production build', async () => {
     const {id, button} = expected(true);
     const asVue = await buildCode(vueRoot);
@@ -118,9 +118,9 @@ describe('Counter.ucf as Vue (apps/vue) and as React (apps/demo)', () => {
     });
     const asReact = await withDevServer(demoRoot, {}, async (server) => {
       const code = await transform(server, `/@fs${join(demoRoot, COUNTER)}.react.tsx`);
-      const scoped = await transformImport(server, code, /[?&]ucf&type=style&index=0&lang\.css$/);
-      const moduleCss = await transformImport(server, code, /[?&]ucf&type=style&index=1&lang\.css$/);
-      const module = await transformImport(server, code, /[?&]ucf&type=style&index=1&module&lang\.js$/);
+      const scoped = await transformImport(server, code, /[?&]front&type=style&index=0&lang\.css$/);
+      const moduleCss = await transformImport(server, code, /[?&]front&type=style&index=1&lang\.css$/);
+      const module = await transformImport(server, code, /[?&]front&type=style&index=1&module&lang\.js$/);
       return {code, scoped, moduleCss, module};
     });
     expect(asVue.scopeId).toBe(`data-v-${id}`);
@@ -258,7 +258,7 @@ describe.each(USER_SETTINGS)('with %s in the user config', (_name, componentIdGe
     expect(alone.note).toBeDefined();
   });
 
-  it('keeps the .ucf scope id and class names', async () => {
+  it('keeps the .front scope id and class names', async () => {
     const {id, button} = expected(true);
     const {css} = await buildCode(vueRoot, {configFile: false, plugins: plugins(true), css: {modules}});
     expect(counterScopeId(css)).toBe(id);
@@ -301,7 +301,7 @@ it('leaves CSS modules off when the user turned them off', async () => {
   expect(classNamed(alone.css, 'off')).toBe('off');
 });
 
-describe('a .ucf module that composes from other files', () => {
+describe('a .front module that composes from other files', () => {
   it('gets the class names core gives it, as Vue and as React, in a production build', async () => {
     const classes = await composedClasses(true);
     for (const file of ['src/composes-vue.ts', 'src/composes-react.ts']) {
@@ -320,7 +320,7 @@ describe('a .ucf module that composes from other files', () => {
 });
 
 describe("css.transformer: 'lightningcss'", () => {
-  it('gives the .ucf module the class names core gives it, as Vue', async () => {
+  it('gives the .front module the class names core gives it, as Vue', async () => {
     const {css, code} = await buildCode(vueRoot, mergeConfig(entry('src/counter-vue.ts'), LIGHTNINGCSS));
     expect(classNamed(css, 'button')).toBe(expected(true).button);
     expect(code).toContain(`"${expected(true).button}"`);

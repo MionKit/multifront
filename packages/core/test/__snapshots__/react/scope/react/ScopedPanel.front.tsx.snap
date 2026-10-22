@@ -1,0 +1,13 @@
+import "<fixtures>/components/react/ScopedPanel.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import ScopedBadge from './ScopedBadge.front'
+
+  export default function ScopedPanel(__props) {
+    return (
+      <section data-v-9bc94d61="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("panel", __props.className)}>
+        <h2 data-v-9bc94d61="" className="title">Scoped panel</h2>
+        <ScopedBadge data-v-9bc94d61="" label="new" className="badge" />
+      </section>
+    )
+  }

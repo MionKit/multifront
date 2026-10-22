@@ -1,0 +1,10 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { CSSProperties, Ref } from 'react'
+
+  type Props = { className?: string; style?: CSSProperties; ref?: Ref<HTMLDivElement> }
+
+  // `props?.`, `props!.` and `(props as Props).` still read the props: the author handles all three.
+  export default function WrappedReads(props: Props) {
+    return <div {...__frontScopeAttrs(props)} className={props?.className} style={props!.style} ref={(props as Props).ref}>wrapped</div>
+  }

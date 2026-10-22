@@ -10,7 +10,7 @@ import type {Finding, VueCompiler} from '@multifront/core';
 import type * as LanguageTools from '@multifront/language-tools';
 import {normalizePath, parseAst} from 'vite';
 import type {Lang, LibraryTypesJob} from '../types.ts';
-import {rewriteScript, rewriteSpecifiers, ucfRenamer} from './specifiers.ts';
+import {rewriteScript, rewriteSpecifiers, frontRenamer} from './specifiers.ts';
 import {LibraryError, libraryError} from './errors.ts';
 import {clashMessage, fileKey, filesIn, shownFile} from './names.ts';
 import {shippedSource, svelteShipped} from './source.ts';
@@ -19,10 +19,10 @@ import {shippedSource, svelteShipped} from './source.ts';
 interface TypesTool {
   peer: string; // the package that runs the check
   bin: string; // its bin name
-  ucfExt: '.tsx' | '.vue' | '.svelte'; // what a `.ucf` file is staged as
-  specifierExt: '.js' | '.vue' | '.svelte'; // what a `.ucf` specifier becomes in the stage
+  frontExt: '.tsx' | '.vue' | '.svelte'; // what a `.front` file is staged as
+  specifierExt: '.js' | '.vue' | '.svelte'; // what a `.front` specifier becomes in the stage
   compilerOptions: Record<string, unknown>;
-  stageUcf(file: string, source: string, root: string, compiler: VueCompiler): Promise<string>;
+  stageFront(file: string, source: string, root: string, compiler: VueCompiler): Promise<string>;
   stageSvelte?(source: string, root: string): string; // a plain `.svelte` file, when the tool types them
 }
 
@@ -67,10 +67,10 @@ function reactTool(job: LibraryTypesJob): TypesTool {
   return {
     peer: 'typescript',
     bin: 'tsc',
-    ucfExt: '.tsx',
+    frontExt: '.tsx',
     specifierExt: '.js',
     compilerOptions: {jsx: 'react-jsx'},
-    async stageUcf(file, source, _root, compiler) {
+    async stageFront(file, source, _root, compiler) {
       languageTools ??= import(pathToFileURL(resolvePeer(job, '@multifront/language-tools')).href);
       const script = (await languageTools).getTypesScript(file, source, 'react', {compiler});
       if (!script) throw new Error(`buildLibrary: ${file} has no <react> block`);
@@ -82,19 +82,19 @@ function reactTool(job: LibraryTypesJob): TypesTool {
 const vueTool: TypesTool = {
   peer: 'vue-tsc',
   bin: 'vue-tsc',
-  ucfExt: '.vue',
+  frontExt: '.vue',
   specifierExt: '.vue',
   compilerOptions: {},
-  async stageUcf(file, source, root, compiler) {
+  async stageFront(file, source, root, compiler) {
     const split = splitBlocks(source, file);
     const {code} = buildTarget(split, await createBuildContext(split, {root, compiler, production: true}), 'vue');
-    if (!code.includes('.ucf')) return code;
+    if (!code.includes('.front')) return code;
     const text = new MagicString(code);
     const {descriptor} = compiler.parse(code, {filename: file});
     for (const script of [descriptor.script, descriptor.scriptSetup]) {
       if (!script) continue;
       const lang = langOf(`.${script.lang ?? 'js'}`) ?? 'js';
-      rewriteSpecifiers(text, script.content, script.loc.start.offset, lang, `${file}.${lang}`, ucfRenamer('.vue'));
+      rewriteSpecifiers(text, script.content, script.loc.start.offset, lang, `${file}.${lang}`, frontRenamer('.vue'));
     }
     return text.toString();
   },
@@ -104,16 +104,16 @@ function svelteTool(job: LibraryTypesJob): TypesTool {
   return {
     peer: 'typescript',
     bin: 'tsc',
-    ucfExt: '.svelte',
+    frontExt: '.svelte',
     specifierExt: '.svelte',
     compilerOptions: {},
     // The shipped text: its `.d.ts` types what consumers import.
-    async stageUcf(file, source, root) {
+    async stageFront(file, source, root) {
       return (await shippedSource(splitBlocks(source, file), root, job.src, 'svelte')).code;
     },
     // Unpreprocessed, as svelte-package types its sources: a script preprocessor would strip the types.
     stageSvelte(source, root) {
-      return source.includes('.ucf') ? svelteShipped(source, loadSvelteCompiler(root)) : source;
+      return source.includes('.front') ? svelteShipped(source, loadSvelteCompiler(root)) : source;
     },
   };
 }
@@ -121,7 +121,7 @@ function svelteTool(job: LibraryTypesJob): TypesTool {
 interface Staged {
   shown: Map<string, string>; // staged path → the source path errors show
   roots: string[]; // the staged JS build modules and `.d.ts` files of `src`
-  components: string[]; // the staged `.ucf` files
+  components: string[]; // the staged `.front` files
 }
 
 async function stageSources(job: LibraryTypesJob, tool: TypesTool, stage: string): Promise<Staged> {
@@ -130,20 +130,20 @@ async function stageSources(job: LibraryTypesJob, tool: TypesTool, stage: string
   const staged: Staged = {shown: new Map(), roots: [], components: []};
   for (const name of await filesIn(job.src)) {
     const file = `${job.src}/${name}`;
-    const isUcf = name.endsWith('.ucf');
-    if (isUcf && !modules.has(name)) continue;
-    const path = isUcf ? name.slice(0, -'.ucf'.length) + tool.ucfExt : name;
+    const isFront = name.endsWith('.front');
+    if (isFront && !modules.has(name)) continue;
+    const path = isFront ? name.slice(0, -'.front'.length) + tool.frontExt : name;
     const target = join(stage, path);
     await mkdir(dirname(target), {recursive: true});
     const lang = langOf(name);
-    if (isUcf) await writeFile(target, await tool.stageUcf(file, await readFile(file, 'utf8'), job.root, compiler));
+    if (isFront) await writeFile(target, await tool.stageFront(file, await readFile(file, 'utf8'), job.root, compiler));
     else if (tool.stageSvelte && name.endsWith('.svelte'))
       await writeFile(target, tool.stageSvelte(await readFile(file, 'utf8'), job.root));
     else if (lang) await writeFile(target, rewriteScript(await readFile(file, 'utf8'), lang, file, tool.specifierExt));
     else await copyFile(file, target);
     staged.shown.set(path, shownFile(job.root, file));
     if (modules.has(name) || DECLARATION.test(name)) staged.roots.push(path);
-    if (isUcf) staged.components.push(path);
+    if (isFront) staged.components.push(path);
   }
   return staged;
 }
@@ -180,7 +180,7 @@ function runTool(bin: string, stage: string, args: string[] = []): Promise<{code
 // `file(line,col): error TS2322: message`, file and position each optional.
 const TSC_LINE = /^(?:(.+?)(?:\((\d+),(\d+)\))?: )?(error|warning) (TS\d+): (.*)$/;
 
-/** Staged paths become source paths; a position in a generated `.ucf` script is not one in the `.ucf` file. */
+/** Staged paths become source paths; a position in a generated `.front` script is not one in the `.front` file. */
 function compileError(job: LibraryTypesJob, output: string, shown: Map<string, string>): LibraryError {
   const lines: string[] = [];
   const findings: Finding[] = [];
@@ -197,7 +197,7 @@ function compileError(job: LibraryTypesJob, output: string, shown: Map<string, s
     }
     const [, staged, row, column, severity, code, message] = match;
     const source = staged === undefined ? undefined : shown.get(normalizePath(staged));
-    const unplaced = source === undefined || row === undefined || source.endsWith('.ucf');
+    const unplaced = source === undefined || row === undefined || source.endsWith('.front');
     const position = unplaced ? undefined : {line: Number(row), column: Number(column)};
     lines.push(source === undefined ? line : `${source}${position ? `(${row},${column})` : ''}: ${severity} ${code}: ${message}`);
     const file = source && `${job.root}/${source}`;
@@ -241,7 +241,7 @@ async function withStage<Result>(job: LibraryTypesJob, run: (stage: string) => P
 }
 
 function declarationName(tool: TypesTool, path: string, isComponent: boolean): string {
-  return isComponent ? `${path.slice(0, -tool.ucfExt.length)}.d.ts` : path.replace(/\.([cm]?)[jt]sx?$/, '.d.$1ts');
+  return isComponent ? `${path.slice(0, -tool.frontExt.length)}.d.ts` : path.replace(/\.([cm]?)[jt]sx?$/, '.d.$1ts');
 }
 
 function clashError(job: LibraryTypesJob, one: {name: string; shown: string}, other: {name: string; shown: string}) {
@@ -312,12 +312,12 @@ async function finishVueTypes(outDir: string, components: Set<string>): Promise<
   }
 }
 
-/** Real `tsc` over `Card.tsx` files made from each `.ucf` file's React types script. */
+/** Real `tsc` over `Card.tsx` files made from each `.front` file's React types script. */
 export async function emitReactTypes(job: LibraryTypesJob): Promise<void> {
   await emitTypes(job, reactTool(job));
 }
 
-/** Real `vue-tsc` over `Card.vue` files made from each `.ucf` file's SFC code. */
+/** Real `vue-tsc` over `Card.vue` files made from each `.front` file's SFC code. */
 export async function emitVueTypes(job: LibraryTypesJob): Promise<void> {
   await finishVueTypes(job.outDir, new Set(await emitTypes(job, vueTool)));
 }

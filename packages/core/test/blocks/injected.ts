@@ -11,16 +11,16 @@ import type {
 } from 'oxc-parser';
 import {SCOPE_HELPER_ID} from '@multifront/core';
 
-// Style and class map ids both carry `?ucf&type=style&`.
+// Style and class map ids both carry `?front&type=style&`.
 export function isInjected(node: Node): node is ImportDeclaration {
-  return node.type === 'ImportDeclaration' && /[?]ucf&type=style&/.test(node.source.value);
+  return node.type === 'ImportDeclaration' && /[?]front&type=style&/.test(node.source.value);
 }
 
 export function isHelperImport(node: Node): node is ImportDeclaration {
   return node.type === 'ImportDeclaration' && node.source.value === SCOPE_HELPER_ID;
 }
 
-// `__ucfClass1` too: the build renames a helper the block already names.
+// `__frontClass1` too: the build renames a helper the block already names.
 export function isCallTo(node: Expression, name: string): boolean {
   return (
     node.type === 'CallExpression' && node.callee.type === 'Identifier' && new RegExp(`^${name}\\d*$`).test(node.callee.name)
@@ -30,7 +30,7 @@ export function isCallTo(node: Expression, name: string): boolean {
 type Edit = [start: number, end: number, replacement: string];
 
 const PROPS = /^__props\d*$/;
-export const MERGES = {className: '__ucfClass', style: '__ucfStyle', ref: '__ucfRef'};
+export const MERGES = {className: '__frontClass', style: '__frontStyle', ref: '__frontRef'};
 const REF = /^__ref\d*$/;
 
 // `{const <pattern> = <props>;` opening the body, as the build writes it for a destructured first parameter.
@@ -68,11 +68,11 @@ export function isAdded(item: JSXAttributeItem | undefined): boolean {
   );
 }
 
-// The added root props after the spread, and each `__ucfX(own, X.prop)` merge put back to `own`.
+// The added root props after the spread, and each `__frontX(own, X.prop)` merge put back to `own`.
 function rootPropEdits(node: JSXOpeningElement): Edit[] {
   const edits: Edit[] = [];
   const spread = node.attributes.findIndex(
-    (item) => item.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__ucfScopeAttrs')
+    (item) => item.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__frontScopeAttrs')
   );
   if (spread >= 0)
     for (const item of node.attributes.slice(spread + 1)) {
@@ -104,12 +104,13 @@ function forwardingEdits(program: Program, code: string): Edit[] {
   new Visitor({
     JSXOpeningElement: (node) => void edits.push(...rootPropEdits(node)),
     JSXSpreadAttribute: (node) => {
-      if (isCallTo(node.argument, '__ucfScopeAttrs')) edits.push([node.start - 1, node.end, '']);
+      if (isCallTo(node.argument, '__frontScopeAttrs')) edits.push([node.start - 1, node.end, '']);
     },
     ParenthesizedExpression: (node) => {
       if (node.expression.type !== 'SequenceExpression') return;
       const [warn, root] = node.expression.expressions;
-      if (warn && root && isCallTo(warn, '__ucfWarnFragment')) edits.push([node.start, root.start, ''], [root.end, node.end, '']);
+      if (warn && root && isCallTo(warn, '__frontWarnFragment'))
+        edits.push([node.start, root.start, ''], [root.end, node.end, '']);
     },
     FunctionDeclaration: params,
     FunctionExpression: params,

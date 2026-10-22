@@ -1,9 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs, __ucfSvelteClass, __ucfStyle} from "virtual:multifront/scope-attrs";
-    import SvelteElementRoot from '../roots/SvelteElementRoot.ucf'
-
-    let { tag = 'aside', ...__ucfRest }: { tag?: string } = $props()
-  </script>
-  <!-- The merged class and style go on as the child's props. -->
-  <SvelteElementRoot {...__ucfScopeAttrs(__ucfRest)} {tag} class={__ucfSvelteClass(`own`, __ucfRest.class)} style={__ucfStyle(`padding: 1px`, __ucfRest.style)} />

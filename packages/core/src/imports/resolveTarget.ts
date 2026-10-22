@@ -11,7 +11,7 @@ export const DEFAULT_IMPORTERS: Readonly<Record<string, Target>> = Object.freeze
   '.tsx': 'react',
 });
 
-// After `X.ucf`: the target module ids (spec 4.3) and the editor's virtual scripts (spec 5).
+// After `X.front`: the target module ids (spec 4.3) and the editor's virtual scripts (spec 5).
 const BLOCK_SUFFIXES: readonly (readonly [string, Target])[] = [
   ['.react.tsx', 'react'],
   ['.svelte.svelte', 'svelte'],
@@ -31,22 +31,22 @@ export function importPath(importerFile: string, fileName: string): string {
 }
 
 /** Shared by the build and the editor, so both name the two files the same way. */
-export function missingTargetBlockMessage(importerFile: string, ucfFile: string, target: Target): string {
-  return `${importPath(importerFile, ucfFile)} has no <${target}> block; ${basename(importerFile)} imports it as ${target}`;
+export function missingTargetBlockMessage(importerFile: string, frontFile: string, target: Target): string {
+  return `${importPath(importerFile, frontFile)} has no <${target}> block; ${basename(importerFile)} imports it as ${target}`;
 }
 
 function fail(code: TargetErrorCode, message: string): TargetChoice {
   return {error: {code, message}};
 }
 
-/** The importer a module id or virtual script name stands for, with the `.ucf` block it is (spec 4.1). */
+/** The importer a module id or virtual script name stands for, with the `.front` block it is (spec 4.1). */
 export function importerFromId(id: string): Importer {
   const queryStart = id.indexOf('?');
   const path = queryStart === -1 ? id : id.slice(0, queryStart);
-  // The Vue block keeps the real path (spec 4.3); our style and class map ids import no `.ucf` file.
-  if (path.endsWith('.ucf')) return {fileName: path, block: 'vue'};
+  // The Vue block keeps the real path (spec 4.3); our style and class map ids import no `.front` file.
+  if (path.endsWith('.front')) return {fileName: path, block: 'vue'};
   for (const [suffix, block] of BLOCK_SUFFIXES) {
-    if (path.endsWith(`.ucf${suffix}`)) return {fileName: path.slice(0, -suffix.length), block};
+    if (path.endsWith(`.front${suffix}`)) return {fileName: path.slice(0, -suffix.length), block};
   }
   return {fileName: path};
 }
@@ -63,7 +63,7 @@ function pickTarget(importer: Importer | undefined, attribute: string | undefine
   }
   if (!importer) {
     if (options.framework) return {target: options.framework, rule: 'default'};
-    return fail('no-target', 'no framework for this .ucf entry; set the framework option');
+    return fail('no-target', 'no framework for this .front entry; set the framework option');
   }
   const importers = {...DEFAULT_IMPORTERS, ...options.importers};
   const ext = extname(importer.fileName);
@@ -71,7 +71,7 @@ function pickTarget(importer: Importer | undefined, attribute: string | undefine
   if (options.framework) return {target: options.framework, rule: 'default'};
   return fail(
     'no-target',
-    `no framework for this .ucf import; add with {framework: 'react'} (or vue, svelte), ` +
+    `no framework for this .front import; add with {framework: 'react'} (or vue, svelte), ` +
       `import it from a ${orList(Object.keys(importers))} file, or set the framework option`
   );
 }

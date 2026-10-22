@@ -1,0 +1,11 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/SvelteElement.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/SvelteElement.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {tag = 'section', ...__frontRest}: {tag?: string} = $props()
+  </script>
+  <svelte:element data-v-4c317e2e="" {...__frontScopeAttrs(__frontRest, 'style')} this={tag} class={__frontSvelteClass(__frontStyle.box, __frontRest.class)}>
+    <svelte:element data-v-4c317e2e="" this={'h3'} class={__frontStyle.title}>Title</svelte:element>
+    <p data-v-4c317e2e="" class={__frontStyle.title}>Body</p>
+  </svelte:element>

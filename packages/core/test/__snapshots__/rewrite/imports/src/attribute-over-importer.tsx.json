@@ -1,11 +1,11 @@
 {
-  "code": "import SvelteCard from '../../../components/Card.ucf?framework=svelte';\n\nexport {SvelteCard};\n",
+  "code": "import SvelteCard from '../../../components/Card.front?framework=svelte';\n\nexport {SvelteCard};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 23,
-      "end": 53,
+      "end": 55,
       "framework": "svelte"
     }
   ],

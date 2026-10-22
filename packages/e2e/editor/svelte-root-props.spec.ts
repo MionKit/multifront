@@ -8,33 +8,33 @@ import {locate, open, startTsserver} from './lib/tsserver.ts';
 import type {Component, Tsserver} from './lib/tsserver.ts';
 
 const APP_DIR = join(FIXTURES_DIR, 'apps', 'root-props');
-const PARENT_FILE = join(APP_DIR, 'Parent.ucf');
+const PARENT_FILE = join(APP_DIR, 'Parent.front');
 const PARENT: Component = {filename: PARENT_FILE, source: readFileSync(PARENT_FILE, 'utf8')};
 // The `<svelte>` block's last import, then its markup to the block's end.
-const SVELTE_IMPORT = "    import Note from '../../components/Note.ucf'\n";
+const SVELTE_IMPORT = "    import Note from '../../components/Note.front'\n";
 const SVELTE_END = '  </section>\n</svelte>';
 
-// Each probe renders `Probe`, one fixture's default export, in Parent.ucf's `<svelte>` block, unsaved.
+// Each probe renders `Probe`, one fixture's default export, in Parent.front's `<svelte>` block, unsaved.
 // `errors`: the codes on its line.
 const PROBES: {fixture: string; markup: string; errors: number[]}[] = [
-  {fixture: 'library/src/Button.ucf', markup: `<Probe label="x" class={['a', {b: true}]} style="color: red" />`, errors: []},
-  {fixture: 'library/src/Button.ucf', markup: '<Probe label="x" style={1} />', errors: [2322]},
-  {fixture: 'components/Note.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'library/src/Button.front', markup: `<Probe label="x" class={['a', {b: true}]} style="color: red" />`, errors: []},
+  {fixture: 'library/src/Button.front', markup: '<Probe label="x" style={1} />', errors: [2322]},
+  {fixture: 'components/Note.front', markup: '<Probe class="a" style="color: red" />', errors: []},
   // Typed in a JSDoc comment, unannotated, a `$props()` line the build adds, a component root.
-  {fixture: 'components/svelte/root-props/JsDoc.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/Untyped.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/roots/NoPropsRoot.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/JsNoProps.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/JsNoProps.ucf', markup: '<Probe style={1} />', errors: [2322]},
-  {fixture: 'components/svelte/roots/OptionsRoot.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/MergesOnComponent.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/JsDoc.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/Untyped.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/roots/NoPropsRoot.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/JsNoProps.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/JsNoProps.front', markup: '<Probe style={1} />', errors: [2322]},
+  {fixture: 'components/svelte/roots/OptionsRoot.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/MergesOnComponent.front', markup: '<Probe class="a" style="color: red" />', errors: []},
   // The author's own types for what the author handles.
-  {fixture: 'components/svelte/root-props/ReadsClass.ucf', markup: '<Probe class="a" style="color: red" />', errors: []},
-  {fixture: 'components/svelte/root-props/ReadsClass.ucf', markup: `<Probe class={['a']} />`, errors: [2322]},
-  {fixture: 'components/svelte/root-props/DestructuresClass.ucf', markup: '<Probe style={1} />', errors: [2322]},
+  {fixture: 'components/svelte/root-props/ReadsClass.front', markup: '<Probe class="a" style="color: red" />', errors: []},
+  {fixture: 'components/svelte/root-props/ReadsClass.front', markup: `<Probe class={['a']} />`, errors: [2322]},
+  {fixture: 'components/svelte/root-props/DestructuresClass.front', markup: '<Probe style={1} />', errors: [2322]},
   // No forwarding: the props type is the author's alone.
-  {fixture: 'components/svelte/roots/MultiRoot.ucf', markup: '<Probe class="a" />', errors: [2353]},
-  {fixture: 'components/svelte/roots/LegacyRoot.ucf', markup: '<Probe class="a" />', errors: [2353]},
+  {fixture: 'components/svelte/roots/MultiRoot.front', markup: '<Probe class="a" />', errors: [2353]},
+  {fixture: 'components/svelte/roots/LegacyRoot.front', markup: '<Probe class="a" />', errors: [2353]},
 ];
 
 describe('the root props in the Svelte types, in tsserver with our plugin', () => {
@@ -49,7 +49,7 @@ describe('the root props in the Svelte types, in tsserver with our plugin', () =
     await server?.stop();
   });
 
-  it("Parent.ucf type checks: Button and Note take the parent's class and style in every block", async () => {
+  it("Parent.front type checks: Button and Note take the parent's class and style in every block", async () => {
     expect(await server.diagnostics(PARENT.filename)).toEqual([]);
   });
 

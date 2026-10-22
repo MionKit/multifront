@@ -46,16 +46,16 @@ export function rewriteSpecifiers(
   visit(program);
 }
 
-export function ucfRenamer(ext: string): (specifier: string) => string | undefined {
+export function frontRenamer(ext: string): (specifier: string) => string | undefined {
   return (specifier) =>
-    (specifier.startsWith('./') || specifier.startsWith('../')) && specifier.endsWith('.ucf')
-      ? specifier.slice(0, -'.ucf'.length) + ext
+    (specifier.startsWith('./') || specifier.startsWith('../')) && specifier.endsWith('.front')
+      ? specifier.slice(0, -'.front'.length) + ext
       : undefined;
 }
 
 export function rewriteScript(code: string, lang: Lang, filename: string, ext: string): string {
-  if (!code.includes('.ucf')) return code;
+  if (!code.includes('.front')) return code;
   const text = new MagicString(code);
-  rewriteSpecifiers(text, code, 0, lang, filename, ucfRenamer(ext));
+  rewriteSpecifiers(text, code, 0, lang, filename, frontRenamer(ext));
   return text.toString();
 }

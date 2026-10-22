@@ -1,0 +1,6 @@
+import "<fixtures>/components/Note.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass, __frontStyle} from "virtual:multifront/scope-attrs";
+
+  export default function Note(__props: { tone?: string }) {const { tone = 'calm' } = __props;
+    return <p data-v-7b76db08="" {...__frontScopeAttrs(__props)} ref={__props.ref} className={__frontClass(`note ${tone}`, __props.className)} style={__frontStyle({ margin: 2, padding: 1 }, __props.style)}>note</p>
+  }

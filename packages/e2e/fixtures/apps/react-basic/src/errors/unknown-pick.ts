@@ -1,3 +1,3 @@
-import AllBlocks from '../../../../components/react/AllBlocks.ucf?framework=angular';
+import AllBlocks from '../../../../components/react/AllBlocks.front?framework=angular';
 
 export default AllBlocks;

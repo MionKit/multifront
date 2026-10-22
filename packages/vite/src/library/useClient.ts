@@ -1,7 +1,7 @@
 import MagicString from 'magic-string';
 import {USE_CLIENT} from '@multifront/core';
 import type {Plugin, Rolldown} from 'vite';
-import type {UcfModuleMeta} from '../types.ts';
+import type {FrontModuleMeta} from '../types.ts';
 
 type Statement = ReturnType<Rolldown.PluginContext['parse']>['body'][number];
 
@@ -24,7 +24,7 @@ export function libraryUseClient(): Plugin {
       const {body} = this.parse(code);
       const existing = body.filter(isUseClient);
       const facade = chunk.facadeModuleId;
-      const meta = facade ? (this.getModuleInfo(facade)?.meta.multifront as UcfModuleMeta | undefined) : undefined;
+      const meta = facade ? (this.getModuleInfo(facade)?.meta.multifront as FrontModuleMeta | undefined) : undefined;
       if (existing.length === 0 && !meta?.useClient) return null;
       if (existing.length === 1 && body[0] === existing[0]) return null;
       const magic = new MagicString(code);

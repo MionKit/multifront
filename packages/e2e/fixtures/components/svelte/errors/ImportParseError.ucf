@@ -1,9 +1,0 @@
-<svelte lang="html">
-  <script lang="ts">
-  import Icon from '../../imports/Icon.ucf' with { framework: 'svelte' }
-
-  return 5
-  </script>
-
-  <Icon />
-</svelte>

@@ -74,21 +74,21 @@ export function parseJsonc(file: string, root: string): unknown {
   }
 }
 
-/** Spec 8.1 rules; `ignored` returns the config ignoring a file, `otherFiles` names what checks a non-`.ucf` file. */
-export function ucfFiles(paths: string[], ignored: (file: string) => string | undefined, otherFiles: string): string[] {
+/** Spec 8.1 rules; `ignored` returns the config ignoring a file, `otherFiles` names what checks a non-`.front` file. */
+export function frontFiles(paths: string[], ignored: (file: string) => string | undefined, otherFiles: string): string[] {
   const cwd = process.cwd();
   const shown = (path: string) => rootRelativePath(cwd, path) || '.';
   const files = new Set<string>();
   for (const path of paths.length > 0 ? paths : [cwd]) {
     if (!statSync(path).isDirectory()) {
-      if (!path.endsWith('.ucf')) throw new Error(`${shown(path)} is not a .ucf file; ${otherFiles}`);
+      if (!path.endsWith('.front')) throw new Error(`${shown(path)} is not a .front file; ${otherFiles}`);
       const config = ignored(path);
       if (config !== undefined) throw new Error(`${shown(path)} is ignored by ${config}`);
       files.add(path);
       continue;
     }
-    const found = filesUnder(path, '.ucf').filter((file) => ignored(file) === undefined);
-    if (found.length === 0) throw new Error(`${shown(path)} holds no .ucf file`);
+    const found = filesUnder(path, '.front').filter((file) => ignored(file) === undefined);
+    if (found.length === 0) throw new Error(`${shown(path)} holds no .front file`);
     for (const file of found) files.add(file);
   }
   return [...files].sort();

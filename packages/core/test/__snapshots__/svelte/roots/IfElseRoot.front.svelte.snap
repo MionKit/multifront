@@ -1,0 +1,14 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/roots/IfElseRoot.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let { branch /* the case */, ...__frontRest }: { branch: string } = $props()
+  </script>
+  {#if branch === 'a'}
+    {@const label = 'a'}
+    <div data-v-fb354265="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span data-v-fb354265="" class="inner">{label}</span></div>
+  {:else if branch === 'b'}
+    <p data-v-fb354265="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span data-v-fb354265="" class="inner">b</span></p>
+  {:else}
+    <section data-v-fb354265="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span data-v-fb354265="" class="inner">c</span></section>
+  {/if}

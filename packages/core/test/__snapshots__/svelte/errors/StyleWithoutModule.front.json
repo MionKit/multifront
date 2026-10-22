@@ -1,0 +1,32 @@
+[
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $style, but no <style module> exists; add one",
+    "filename": "svelte/errors/StyleWithoutModule.front",
+    "start": 64,
+    "end": 70,
+    "line": 3,
+    "column": 22
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $style, but no <style module> exists; add one",
+    "filename": "svelte/errors/StyleWithoutModule.front",
+    "start": 98,
+    "end": 104,
+    "line": 4,
+    "column": 22
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $style, but no <style module> exists; add one",
+    "filename": "svelte/errors/StyleWithoutModule.front",
+    "start": 188,
+    "end": 194,
+    "line": 7,
+    "column": 14
+  }
+]

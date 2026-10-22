@@ -1,0 +1,12 @@
+import "<fixtures>/components/Panel.front?front&type=style&index=0&lang.css";
+import "<fixtures>/components/Panel.front?front&type=style&index=1&lang.css";
+import "<fixtures>/components/Panel.front?front&type=style&index=2&lang.css";
+import $style from "<fixtures>/components/Panel.front?front&type=style&index=2&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import type { ReactNode } from 'react'
+  import PanelItem from './PanelItem.front'
+
+  export default function Panel(__props: { heading: string; children?: ReactNode }) {const { heading, children } = __props;
+    return <section data-v-930a2c46="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("panel", __props.className)}><h3 data-v-930a2c46="" className={`heading ${$style.title}`}>{heading}</h3><PanelItem data-v-930a2c46="" label="first item" />{children}</section>
+  }

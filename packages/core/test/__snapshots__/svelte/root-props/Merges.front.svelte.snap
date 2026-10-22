@@ -1,0 +1,20 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass, __frontStyle} from "virtual:multifront/scope-attrs";
+    // Named like the class merge: the build imports it under another name.
+    const __frontClass = 'own-merge'
+    const style = 'padding: 2px'
+    let { branch, tone = 'calm', ...__frontRest }: { branch: string; tone?: string } = $props()
+  </script>
+  {#if branch === 'text'}
+    <section {...__frontScopeAttrs(__frontRest)} class={__frontSvelteClass(`own text`, __frontRest.class)} style={__frontStyle(`padding: 4px;`, __frontRest.style)}>text</section>
+  {:else if branch === 'mixed'}
+    <p {...__frontScopeAttrs(__frontRest)} class={__frontSvelteClass(`own ${(tone) ?? ''}`, __frontRest.class)} style={__frontStyle(`margin: ${(tone === 'calm' ? 1 : 2) ?? ''}px`, __frontRest.style)}>mixed</p>
+  {:else if branch === 'expression'}
+    <div {...__frontScopeAttrs(__frontRest)} class={__frontSvelteClass(['own', tone], __frontRest.class)} style={__frontStyle(style, __frontRest.style)}>{__frontClass}</div>
+  {:else if branch === 'escaped'}
+    <!-- A backslash, backticks and `${` (an entity: `{` opens a tag) stay as written in the merged template. -->
+    <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`a\\b \`c\` \${d ${(tone) ?? ''}`, __frontRest.class)}>escaped</p>
+  {:else}
+    <span {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`own-${(tone) ?? ''}`, __frontRest.class)} style:color="blue">directive</span>
+  {/if}

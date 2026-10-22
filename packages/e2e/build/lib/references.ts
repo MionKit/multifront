@@ -59,15 +59,15 @@ interface Resolution {
   query: string; // the importer's
 }
 
-/** Runs first, so each `.ucf` specifier still holds what our rewrite put there. */
+/** Runs first, so each `.front` specifier still holds what our rewrite put there. */
 export function resolutionRecorder() {
   const calls: Resolution[] = [];
   const plugin: Plugin = {
-    name: 'ucf-resolution-recorder',
+    name: 'front-resolution-recorder',
     resolveId: {
       order: 'pre',
       handler(id, importer) {
-        if (!id.includes('.ucf') || !importer) return;
+        if (!id.includes('.front') || !importer) return;
         const [path, query = ''] = importer.split('?');
         calls.push({environment: this.environment.name, id, importer: path!, query});
       },
@@ -79,9 +79,9 @@ export function resolutionRecorder() {
 }
 
 /** Cut at `/components/`: dev URLs start with `/@fs`, SSR ones do not. */
-export function ucfPaths(code: string): string[] {
+export function frontPaths(code: string): string[] {
   return moduleReferences(code)
     .map(({specifier}) => specifier.split('?')[0]!)
-    .filter((path) => path.includes('.ucf'))
+    .filter((path) => path.includes('.front'))
     .map((path) => path.slice(path.indexOf('/components/')));
 }

@@ -8,7 +8,7 @@ import {SCOPE_HELPER_ID} from '../react/scopeHelper.ts';
 import {topLevelTags} from '../scan.ts';
 import {isNode, patternNames, walk} from '../svelte/ast.ts';
 import {ELEMENTS, forwardScope, typeRootProps} from '../svelte/forward.ts';
-import {libraryImports, shipUcfImports} from '../svelte/library.ts';
+import {libraryImports, shipFrontImports} from '../svelte/library.ts';
 import type {
   Block,
   BlockKind,
@@ -179,13 +179,13 @@ function lexicalUses<Module>(block: Block, spans: Span[], modules: Record<string
   return uses;
 }
 
-// `$style` → `__ucfStyle`, `$classes` → `__ucfClasses`: Svelte reserves `$` for stores.
+// `$style` → `__frontStyle`, `$classes` → `__frontClasses`: Svelte reserves `$` for stores.
 function localNames<Module>(uses: StyleUse<Module>[], used: Set<string>): Map<Module, string> {
   const locals = new Map<Module, string>();
   for (const {node, module} of uses) {
     if (locals.has(module)) continue;
     const bare = (node.name as string).slice(1);
-    const local = freshName(used, `__ucf${bare[0]!.toUpperCase()}${bare.slice(1)}`);
+    const local = freshName(used, `__front${bare[0]!.toUpperCase()}${bare.slice(1)}`);
     used.add(local);
     locals.set(module, local);
   }
@@ -228,7 +228,7 @@ function parseBlock(block: Block, ctx: BuildContext): AST.Root {
   }
 }
 
-// Over the whole .ucf source, so the map points straight into the .ucf file.
+// Over the whole .front source, so the map points straight into the .front file.
 function renameUses<Module>(
   split: SplitResult,
   block: Block,
@@ -282,7 +282,7 @@ function build(block: Block, ctx: BuildContext): VirtualFile {
   const lang = scriptLang(block) ?? (library && !root.instance ? 'ts' : 'js');
   const {helpers, lines} = forwardScope(text, root, block, ctx, used, mode, lang);
 
-  if (library) shipUcfImports(text, root, block.contentStart);
+  if (library) shipFrontImports(text, root, block.contentStart);
   // JSON quoting keeps any path a valid string.
   const imports = library
     ? libraryImports({...ctx, library}, locals, helpers)

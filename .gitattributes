@@ -1,5 +1,5 @@
-# The CRLF twin of Counter.ucf and its snapshot guard same-length blanking; git must never normalize them.
-packages/e2e/fixtures/components/vue/CounterCrlf.ucf -text
-packages/core/test/__snapshots__/react/scope/vue/CounterCrlf.ucf.tsx.snap -text
-# GitHub colors .ucf files with the Vue highlighter, each block by its lang.
-*.ucf linguist-language=Vue
+# The CRLF twin of Counter.front and its snapshot guard same-length blanking; git must never normalize them.
+packages/e2e/fixtures/components/vue/CounterCrlf.front -text
+packages/core/test/__snapshots__/react/scope/vue/CounterCrlf.front.tsx.snap -text
+# GitHub colors .front files with the Vue highlighter, each block by its lang.
+*.front linguist-language=Vue

@@ -1,7 +1,0 @@
-import "<fixtures>/components/ScopedModuleScss.ucf?ucf&type=style&index=0&lang.css";
-import $style from "<fixtures>/components/ScopedModuleScss.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  export default function Meter(__props: { value: number }) {const { value } = __props;
-    return <div data-v-978cb452="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass($style.meter, __props.className)}><span data-v-978cb452="" className={$style.bar}>{value}</span></div>
-  }

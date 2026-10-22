@@ -1,9 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-    let props = $props()
-const __ucfProps = $derived(props);
-  </script>
-  {#await props.value ?? 'shadow' then props}
-    <p {...__ucfScopeAttrs(__ucfProps, 'style')} class={__ucfSvelteClass(`shape`, __ucfProps.class)}><span class="inner">{props}</span></p>
-  {/await}

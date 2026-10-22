@@ -12,9 +12,9 @@ import {open, startTsserver} from './lib/tsserver.ts';
 import type {Component, Tsserver} from './lib/tsserver.ts';
 
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
-const ATTR_IN_BLOCK = readComponent('react/errors/AttrInBlock.ucf');
-const ATTR_NO_DEFAULT = readComponent('react/errors/AttrNoDefault.ucf');
-const SYNTAX_ERROR = readComponent('react/errors/SyntaxError.ucf');
+const ATTR_IN_BLOCK = readComponent('react/errors/AttrInBlock.front');
+const ATTR_NO_DEFAULT = readComponent('react/errors/AttrNoDefault.front');
+const SYNTAX_ERROR = readComponent('react/errors/SyntaxError.front');
 
 // 1-based, as tsserver's `start.line` is.
 function linesOf({filename, source}: Component, code: DiagnosticCode): number[] {
@@ -38,7 +38,7 @@ describe('react-syntax-error and framework-in-block, with tsserver and the langu
   });
 
   async function serverCodes(filename: string) {
-    const document = await server.openTextDocument(filename, 'ucf');
+    const document = await server.openTextDocument(filename, 'front');
     return (await multifrontDiagnostics(server, document)).map(({code}) => code);
   }
 
@@ -46,7 +46,7 @@ describe('react-syntax-error and framework-in-block, with tsserver and the langu
     expect([...TSSERVER_CODES].sort()).toEqual(['framework-in-block', 'react-syntax-error']);
   });
 
-  it('AttrInBlock.ucf: one framework-in-block per attribute, from tsserver alone', async () => {
+  it('AttrInBlock.front: one framework-in-block per attribute, from tsserver alone', async () => {
     const lines = linesOf(ATTR_IN_BLOCK, 'framework-in-block');
     expect(lines).toHaveLength(7);
     const fromTsserver = (await tsserver.diagnostics(ATTR_IN_BLOCK.filename))
@@ -56,7 +56,7 @@ describe('react-syntax-error and framework-in-block, with tsserver and the langu
     expect(await serverCodes(ATTR_IN_BLOCK.filename)).toEqual([]);
   });
 
-  it('AttrNoDefault.ucf: the server sends its other error, tsserver the framework-in-block', async () => {
+  it('AttrNoDefault.front: the server sends its other error, tsserver the framework-in-block', async () => {
     const fromTsserver = (await tsserver.diagnostics(ATTR_NO_DEFAULT.filename))
       .filter(({code}) => String(code) === 'framework-in-block')
       .map(({start}) => start.line);
@@ -64,7 +64,7 @@ describe('react-syntax-error and framework-in-block, with tsserver and the langu
     expect(await serverCodes(ATTR_NO_DEFAULT.filename)).toEqual(['react-no-default-export']);
   });
 
-  it('SyntaxError.ucf: the syntax error comes from tsserver alone, on its line', async () => {
+  it('SyntaxError.front: the syntax error comes from tsserver alone, on its line', async () => {
     const [line] = linesOf(SYNTAX_ERROR, 'react-syntax-error');
     const syntactic = await tsserver.request<{start: {line: number}}[]>('syntacticDiagnosticsSync', {
       file: SYNTAX_ERROR.filename,

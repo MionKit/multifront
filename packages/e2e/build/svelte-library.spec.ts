@@ -27,17 +27,17 @@ import type {BuiltLibrary} from './lib/library.ts';
 // Dependencies first: Card renders Icon, Panel renders Counter.
 const COMPONENTS = ['Button', 'Icon', 'Card', 'Counter', 'Panel', 'Tooltip', 'forms/Field'];
 const FILES = COMPONENTS.flatMap((name) => [`${name}.svelte`, `${name}.svelte.d.ts`, `${name}.css`])
-  .concat(['index.js', 'index.d.ts', 'utils/cx.js', 'utils/cx.js.map', 'utils/cx.d.ts', '_ucf/scopeAttrs.js'])
+  .concat(['index.js', 'index.d.ts', 'utils/cx.js', 'utils/cx.js.map', 'utils/cx.d.ts', '_front/scopeAttrs.js'])
   .concat(['styles.css', 'package.json', 'README.md', 'LICENSE'])
   .sort();
 const FIXTURE = JSON.parse(readFileSync(join(LIBRARY_DIR, 'package.json'), 'utf8')) as Record<string, unknown>;
-const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8');
 // Only in Card's `<svelte>` block.
-const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.ucf'\n";
+const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.front'\n";
 const SVELTE_PROPS = 'let { title, children }: { title: string; children?: Snippet } = $props()';
 const SVELTE_CHILDREN = '{@render children?.()}';
 const COUNT_JS =
-  "import Icon from './Icon.ucf';\n\nexport const count = $state({value: 0});\nexport const hasIcon = Icon !== undefined;\n";
+  "import Icon from './Icon.front';\n\nexport const count = $state({value: 0});\nexport const hasIcon = Icon !== undefined;\n";
 const require = createRequire(import.meta.url);
 const SHIMS = createRequire(require.resolve('@multifront/language-tools')).resolve('svelte2tsx/svelte-shims-v4.d.ts');
 
@@ -104,10 +104,10 @@ describe('buildLibrary(): the Svelte package', () => {
   it('writes the svelte-package layout: uncompiled components, their CSS and types, the index, the plain modules', () => {
     expect(svelte().packageName).toBe('@mf-fixture/ui-svelte');
     expect(svelte().files).toEqual(FILES);
-    expect(svelte().skipped).toEqual(['Badge.ucf', 'VueOnly.ucf']);
+    expect(svelte().skipped).toEqual(['Badge.front', 'VueOnly.front']);
   });
 
-  it('ships each component uncompiled, compiling with the real Svelte compiler, with no .ucf or virtual id left', () => {
+  it('ships each component uncompiled, compiling with the real Svelte compiler, with no .front or virtual id left', () => {
     for (const file of svelte().files.filter((name) => name.endsWith('.svelte'))) {
       const code = read(file);
       expect(code, file).toContain('</script>');
@@ -115,7 +115,7 @@ describe('buildLibrary(): the Svelte package', () => {
     }
     expect(read('Card.svelte')).toContain('{@render children?.()}');
     for (const file of svelte().files.filter((name) => /\.(svelte|js|d\.ts)$/.test(name))) {
-      expect(read(file), file).not.toMatch(/\.ucf|virtual:|\0|\?ucf/);
+      expect(read(file), file).not.toMatch(/\.front|virtual:|\0|\?front/);
     }
   });
 
@@ -127,7 +127,7 @@ describe('buildLibrary(): the Svelte package', () => {
       }
     }
     expect(specifiersIn('Panel.svelte')).toEqual(expect.arrayContaining(['./Counter.svelte', './Panel.css']));
-    expect(specifiersIn('forms/Field.svelte')).toContain('../_ucf/scopeAttrs.js');
+    expect(specifiersIn('forms/Field.svelte')).toContain('../_front/scopeAttrs.js');
     expect(specifiersIn('index.js')).toContain('./Card.svelte');
     expect(specifiersIn('index.d.ts')).toContain('./Card.svelte');
   });
@@ -135,8 +135,8 @@ describe('buildLibrary(): the Svelte package', () => {
   it("inlines Card's class map, with the class names of its CSS file", () => {
     const {instance} = parse(read('Card.svelte'), {modern: true});
     const declarations = instance!.content.body.flatMap((node) => (node.type === 'VariableDeclaration' ? node.declarations : []));
-    const style = declarations.find(({id}) => id.type === 'Identifier' && id.name === '__ucfStyle')?.init;
-    if (style?.type !== 'ObjectExpression') throw new Error('Card.svelte has no inlined __ucfStyle');
+    const style = declarations.find(({id}) => id.type === 'Identifier' && id.name === '__frontStyle')?.init;
+    if (style?.type !== 'ObjectExpression') throw new Error('Card.svelte has no inlined __frontStyle');
     const classes = style.properties.map((property) =>
       property.type === 'Property' && property.value.type === 'Literal' ? property.value.value : undefined
     );
@@ -144,8 +144,8 @@ describe('buildLibrary(): the Svelte package', () => {
     for (const name of classes) expect(read('Card.css')).toContain(`.${String(name)} {`);
   });
 
-  it('ships the CSS of the CSS step: the scope of Card.ucf, and styles.css dependencies first', () => {
-    const id = scopeId('src/Card.ucf', CARD, true);
+  it('ships the CSS of the CSS step: the scope of Card.front, and styles.css dependencies first', () => {
+    const id = scopeId('src/Card.front', CARD, true);
     expect(read('Card.css')).toContain(`[data-v-${id}]`);
     expect(read('Card.svelte')).toContain(`data-v-${id}=""`);
     expect(read('styles.css')).toBe(COMPONENTS.map((name) => read(`${name}.css`)).join(''));
@@ -200,7 +200,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
       'let { title, tone, children }: { title: string; tone?: Tone; children?: Snippet } = $props()'
     );
     const edits = [
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/Card.front', content: card},
       {file: 'src/types.ts', content: "export type Tone = 'info' | 'warn';\n"},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -218,13 +218,13 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
 
   it.each([
     ['count.svelte.ts', COUNT, 'export const count = $state({ value: 0 });\n'],
-    ['count.svelte.js', COUNT_JS, COUNT_JS.replace("'./Icon.ucf'", '"./Icon.svelte"')],
+    ['count.svelte.js', COUNT_JS, COUNT_JS.replace("'./Icon.front'", '"./Icon.svelte"')],
   ])('ships a plain .svelte file, preprocessed, and %s as source with types', async (module, content, shipped) => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [
       {file: 'src/Child.svelte', content: CHILD},
       {file: `src/${module}`, content},
-      {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+      {file: 'src/Card.front', content: cardUsing('Child', './Child.svelte')},
       {file: 'src/index.ts', content: `${index}export {default as Child} from './Child.svelte';\n`},
       // Reached by nothing: never shipped.
       {file: 'src/Unused.svelte', content: '<p>unused</p>\n'},
@@ -266,7 +266,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
         const card = readOutput(result, 'Card.svelte');
         expect(card).toContain('<script>');
         expect(card).not.toContain('lang="ts"');
-        expect(card).toContain('let { title, children, ...__ucfRest } = $props();');
+        expect(card).toContain('let { title, children, ...__frontRest } = $props();');
         expect(svelteSpecifiers('Card.svelte', card)).toEqual(expect.arrayContaining(['./Icon.svelte', './utils/cx.js']));
         expectCompiles('Card.svelte', card);
         expect(readOutput(result, 'Card.svelte.d.ts')).toMatch(/title: string/);
@@ -284,7 +284,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
       {file: 'src/Child.svelte', content: CHILD},
       {file: 'src/count.svelte.ts', content: COUNT},
       {file, content},
-      {file: 'src/Card.ucf', content: cardUsing('Child', './Child.svelte')},
+      {file: 'src/Card.front', content: cardUsing('Child', './Child.svelte')},
       {file: 'svelte.config.js', content: SVELTE_CONFIG},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -297,32 +297,32 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
 
   it('fails on a plain .svelte file written where a component ships', async () => {
     const edits = [
-      {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/Plain.front', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
       {file: 'src/Plain.svelte', content: '<p>plain</p>\n'},
-      {file: 'src/Card.ucf', content: cardUsing('Plain', './Plain.svelte')},
+      {file: 'src/Card.front', content: cardUsing('Plain', './Plain.svelte')},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false})).rejects.toThrow(
-        'buildLibrary: src/Plain.ucf and src/Plain.svelte would both be written as Plain.svelte'
+        'buildLibrary: src/Plain.front and src/Plain.svelte would both be written as Plain.svelte'
       );
     });
   });
 
   it('fails on a plain .svelte file whose name differs only by case from a component', async () => {
     const edits = [
-      {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
+      {file: 'src/Plain.front', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
       {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
-      {file: 'src/Card.ucf', content: cardUsing('PlainFile', './plain.svelte')},
+      {file: 'src/Card.front', content: cardUsing('PlainFile', './plain.svelte')},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], dts: false})).rejects.toThrow(
-        'buildLibrary: src/Plain.ucf and src/plain.svelte would be written as Plain.svelte and plain.svelte, ' +
+        'buildLibrary: src/Plain.front and src/plain.svelte would be written as Plain.svelte and plain.svelte, ' +
           'which macOS and Windows see as one file'
       );
     });
   });
 
-  // Icon.ucf and Icon.svelte.ts would both emit Icon.svelte.d.ts: one would be lost.
+  // Icon.front and Icon.svelte.ts would both emit Icon.svelte.d.ts: one would be lost.
   it('fails on a .svelte.ts module whose declaration is written where a component types ship', async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [
@@ -331,7 +331,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-        'buildLibrary: src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts'
+        'buildLibrary: src/Icon.front and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts'
       );
     });
   });
@@ -350,7 +350,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
         [
           {file: 'src/Plain.svelte', content: "<script>\n  import Lower from './plain.svelte'\n</script>\n\n<Lower />\n"},
           {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
-          {file: 'src/Card.ucf', content: cardUsing('Upper', './Plain.svelte')},
+          {file: 'src/Card.front', content: cardUsing('Upper', './Plain.svelte')},
         ],
         'src/Plain.svelte and src/plain.svelte would be written as Plain.svelte.js and plain.svelte.js',
       ],
@@ -384,17 +384,17 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     [
       'src/icon.svelte.ts',
       'export const iconState: {size: number} = $state({size: 16});\n',
-      `src/Icon.ucf and src/icon.svelte.ts would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
+      `src/Icon.front and src/icon.svelte.ts would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
     ],
     [
       'src/icon.svelte.js',
       'export const iconState = $state({size: 16});\n',
-      `src/Icon.ucf and src/icon.svelte.js would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
+      `src/Icon.front and src/icon.svelte.js would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ${caseOnly}`,
     ],
     [
       'src/Icon.svelte.js',
       'export const iconState = $state({size: 16});\n',
-      'src/Icon.ucf and src/Icon.svelte.js would both be written as Icon.svelte.d.ts',
+      'src/Icon.front and src/Icon.svelte.js would both be written as Icon.svelte.d.ts',
     ],
   ])('fails on %s, a runes module whose declaration is a component types in any case', async (file, content, message) => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
@@ -416,7 +416,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-        'buildLibrary: src/Icon.ucf and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts'
+        'buildLibrary: src/Icon.front and src/Icon.svelte.ts would both be written as Icon.svelte.d.ts'
       );
     });
   });
@@ -445,10 +445,10 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
 
   it('fails on a bare import a consumer cannot resolve, like an alias into src, in a <svelte> block', async () => {
     const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import { cx as join } from '~/utils/cx.js'\n`);
-    await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
+    await withEditedLibrary([{file: 'src/Card.front', content: card}], async (root) => {
       const vite = {logLevel: 'silent' as const, resolve: {alias: {'~': join(root, 'src')}}};
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte'], vite})).rejects.toThrow(
-        'buildLibrary: src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only'
+        'buildLibrary: src/Card.front imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only'
       );
     });
   });
@@ -456,7 +456,7 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
   it("points a nested plain module's import() of a component at its .svelte file", async () => {
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [
-      {file: 'src/utils/cards.ts', content: "export const loadCard = () => import('../Card.ucf');\n"},
+      {file: 'src/utils/cards.ts', content: "export const loadCard = () => import('../Card.front');\n"},
       {file: 'src/index.ts', content: `${index}export {loadCard} from './utils/cards.js';\n`},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -472,28 +472,28 @@ describe('buildLibrary(): Svelte types and plain Svelte files', () => {
   });
 
   it('fails on a file of src that would be written where the scope helper ships', async () => {
-    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_ucf/scopeAttrs.js'\n`);
+    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_front/scopeAttrs.js'\n`);
     const edits = [
       // A side effect, so the build keeps the module.
-      {file: 'src/_ucf/scopeAttrs.ts', content: "console.info('loaded');\n"},
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/_front/scopeAttrs.ts', content: "console.info('loaded');\n"},
+      {file: 'src/Card.front', content: card},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-        'buildLibrary: _ucf/scopeAttrs.js is the name of the shipped scope helper; rename that file in src'
+        'buildLibrary: _front/scopeAttrs.js is the name of the shipped scope helper; rename that file in src'
       );
     });
   });
 
   it('fails on a file of src whose name differs only by case from the scope helper', async () => {
-    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_ucf/scopeattrs.js'\n`);
+    const card = edited(CARD, SVELTE_IMPORTS, `${SVELTE_IMPORTS}  import './_front/scopeattrs.js'\n`);
     const edits = [
-      {file: 'src/_ucf/scopeattrs.ts', content: "console.info('loaded');\n"},
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/_front/scopeattrs.ts', content: "console.info('loaded');\n"},
+      {file: 'src/Card.front', content: card},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root, {frameworks: ['svelte']})).rejects.toThrow(
-        'buildLibrary: _ucf/scopeattrs.js, which macOS and Windows see as _ucf/scopeAttrs.js, ' +
+        'buildLibrary: _front/scopeattrs.js, which macOS and Windows see as _front/scopeAttrs.js, ' +
           'is the name of the shipped scope helper; rename that file in src'
       );
     });

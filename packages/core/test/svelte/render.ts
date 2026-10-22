@@ -75,13 +75,13 @@ async function serverModule(file: VirtualFile, ctx: BuildContext, name: string):
     if (ctx.styles.some((style) => style.id === id)) text.remove(node.start, node.end);
     else if (module) await point(`${name}.classes${module.index}.js`, `export default ${JSON.stringify(module.classes)};`);
     else if (id === SCOPE_HELPER_ID) await point(`${name}.scope.js`, scopeHelperCode(!ctx.production));
-    else if (id.endsWith('.ucf')) {
+    else if (id.endsWith('.front')) {
       const fixture = relative(componentPath(''), join(dirname(ctx.filename), id))
         .split(sep)
         .join('/');
       const child = await svelteBuild(fixture, ctx.production);
       if (!child.file) throw new DiagnosticsError(child.thrown);
-      const childName = `${name}.${basename(fixture, '.ucf')}`;
+      const childName = `${name}.${basename(fixture, '.front')}`;
       await serverModule(child.file, child.ctx, childName);
       text.overwrite(node.source.start, node.source.end, JSON.stringify(`./${childName}.js`));
     }

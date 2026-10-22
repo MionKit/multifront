@@ -31,8 +31,8 @@ const count = () => page.locator(`${COUNTER} button`).textContent();
 beforeAll(async () => {
   browser = await launchChromium();
   root = await copyApp('vue');
-  // The copy imports `../../../components/Counter.ucf` from `src/App.vue`.
-  counterFile = resolve(root, '..', '..', 'components', 'Counter.ucf');
+  // The copy imports `../../../components/Counter.front` from `src/App.vue`.
+  counterFile = resolve(root, '..', '..', 'components', 'Counter.front');
   counterUrl = `/@fs${counterFile}`;
   app = await startDev(root);
   page = await browser.newPage();
@@ -50,7 +50,7 @@ afterAll(async () => {
   if (root) await removeApp(root);
 });
 
-describe('HMR of a Vue .ucf component (apps/vue, Counter clicked to 3)', () => {
+describe('HMR of a Vue .front component (apps/vue, Counter clicked to 3)', () => {
   it('counts clicks from its start of 2', async () => {
     await expect.poll(count).toBe('2');
     await page.locator(`${COUNTER} button`).click();

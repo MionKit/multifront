@@ -1,17 +1,17 @@
 # Imports
 
-A `.ucf` file holds several frameworks, so each import of it picks one.
+A `.front` file holds several frameworks, so each import of it picks one.
 
 ## Imports Inside a Component
 
 An import in `<react>` always gets the React component, one in `<vue>` the Vue component, and one in `<svelte>` the Svelte component. So the imported file needs a block for that framework, and the import takes no `framework` attribute.
 
-`Profile.ucf`
+`Profile.front`
 
 ```vue
 <react lang="tsx">
-import Badge from '../Badge.ucf'
-import Card from '../Card.ucf'
+import Badge from '../Badge.front'
+import Card from '../Card.front'
 
 export default function Profile() {
   return <section><Card title="Ada" /><Badge label="Admin" /></section>
@@ -21,7 +21,7 @@ export default function Profile() {
 
 ## Picking the Framework
 
-Outside a `.ucf` file, the first rule that applies picks the framework of a `.ucf` import.
+Outside a `.front` file, the first rule that applies picks the framework of a `.front` import.
 
 | Rule | Picks |
 | --- | --- |
@@ -33,9 +33,9 @@ Outside a `.ucf` file, the first rule that applies picks the framework of a `.uc
 The attribute works on `import`, `export ... from` and `import()`:
 
 ```ts
-import Card from '../../../components/Card.ucf' with {framework: 'react'};
-export {default as VueCard} from '../../../components/Card.ucf' with {framework: 'vue'};
-export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
+import Card from '../../../components/Card.front' with {framework: 'react'};
+export {default as VueCard} from '../../../components/Card.front' with {framework: 'vue'};
+export const SvelteCard = await import('../../../components/Card.front', {with: {framework: 'svelte'}});
 ```
 
 > **Note:** An import that picks vue needs `@vitejs/plugin-vue` in your Vite plugins, and one that picks svelte needs `@sveltejs/vite-plugin-svelte`, or the build fails. In the editor, a svelte pick has its types when the project has `svelte` installed.
@@ -44,13 +44,13 @@ export const SvelteCard = await import('../../../components/Card.ucf', {with: {f
 
 ## Mixing Frameworks in One App
 
-A React app can also render a `.ucf` file as Vue or Svelte: add `vue()` or `svelte()` to its Vite plugins and pick that framework in the import.
+A React app can also render a `.front` file as Vue or Svelte: add `vue()` or `svelte()` to its Vite plugins and pick that framework in the import.
 
 `mountVue.ts`
 
 ```ts
 import {createApp} from 'vue';
-import Counter from '../../../components/Counter.ucf' with {framework: 'vue'};
+import Counter from '../../../components/Counter.front' with {framework: 'vue'};
 
 createApp(Counter).mount('#vue');
 ```

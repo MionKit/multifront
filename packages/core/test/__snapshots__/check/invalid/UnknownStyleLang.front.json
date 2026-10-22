@@ -1,0 +1,22 @@
+[
+  {
+    "code": "unknown-style-lang",
+    "severity": "error",
+    "message": "<style lang=\"foo\"> is not a known style language; use css, scss, sass, less, styl, stylus or postcss",
+    "filename": "invalid/UnknownStyleLang.front",
+    "start": 58,
+    "end": 76,
+    "line": 7,
+    "column": 0
+  },
+  {
+    "code": "unknown-style-lang",
+    "severity": "error",
+    "message": "<style lang> is not a known style language; use css, scss, sass, less, styl, stylus or postcss",
+    "filename": "invalid/UnknownStyleLang.front",
+    "start": 110,
+    "end": 122,
+    "line": 13,
+    "column": 0
+  }
+]

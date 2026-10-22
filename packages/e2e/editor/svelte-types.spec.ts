@@ -1,10 +1,10 @@
-// A `.ts` importer picking svelte gets `Card.ucf.svelte.ts`: svelte2tsx's script, a real Svelte `Component`.
+// A `.ts` importer picking svelte gets `Card.front.svelte.ts`: svelte2tsx's script, a real Svelte `Component`.
 // The bundled plugin's own checks are in bundle.spec.ts.
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
-import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript, resolveUcfImport} from '@multifront/language-tools';
+import {createFrontLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript, resolveFrontImport} from '@multifront/language-tools';
 import {createLanguage} from '@volar/language-core';
 import type {VirtualCode} from '@volar/language-core';
 import typescript from 'typescript';
@@ -16,9 +16,9 @@ import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserv
 
 const APP_DIR = join(FIXTURES_DIR, 'apps', 'svelte-vite');
 const MAIN = readComponent(join('..', 'apps', 'svelte-vite', 'src', 'main.ts'));
-const PANEL = readComponent('Panel.ucf');
-const PANEL_ITEM = readComponent('PanelItem.ucf');
-const NO_STYLE = readComponent('svelte/NoStyle.ucf');
+const PANEL = readComponent('Panel.front');
+const PANEL_ITEM = readComponent('PanelItem.front');
+const NO_STYLE = readComponent('svelte/NoStyle.front');
 const IMPORT_MOUNT = "import {mount} from 'svelte';";
 const SVELTE_PROPS = '{ heading: string; children?: Snippet }';
 const RENDER = '{@render children?.()}';
@@ -35,7 +35,7 @@ const REFERENCES = [
 const quickInfo = (server: Tsserver, {filename, source}: Component, needle: string, shift = 0) =>
   server.request<TsQuickInfo>('quickinfo', {file: filename, ...locate(source, needle, shift)});
 
-describe('tsserver with our plugin: a .ts file picking svelte gets Card.ucf.svelte.ts', () => {
+describe('tsserver with our plugin: a .ts file picking svelte gets Card.front.svelte.ts', () => {
   let server: Tsserver;
 
   beforeAll(async () => {
@@ -85,7 +85,7 @@ describe('tsserver with our plugin: a .ts file picking svelte gets Card.ucf.svel
     });
   });
 
-  it('definition on Panel lands in Panel.ucf', async () => {
+  it('definition on Panel lands in Panel.front', async () => {
     const definitions = await server.request<TsDefinitions>('definition', {
       file: MAIN.filename,
       ...locate(MAIN.source, 'mount(Panel', 'mount('.length),
@@ -93,7 +93,7 @@ describe('tsserver with our plugin: a .ts file picking svelte gets Card.ucf.svel
     expect(definitions.map(({file}) => file)).toEqual([PANEL.filename]);
   });
 
-  it("an import in Panel.ucf's <svelte> block gets PanelItem's Svelte type", async () => {
+  it("an import in Panel.front's <svelte> block gets PanelItem's Svelte type", async () => {
     const revert = await edit(server, PANEL, SVELTE_PROPS, SVELTE_PROPS.replace('string', 'typeof PanelItem'));
     try {
       await withUses("type Heading = ComponentProps<typeof Panel>['heading'];", async (edited) => {
@@ -105,7 +105,7 @@ describe('tsserver with our plugin: a .ts file picking svelte gets Card.ucf.svel
     }
   });
 
-  it("while Panel.ucf's markup has an unclosed brace, main.ts keeps Panel's types and the block maps nothing", async () => {
+  it("while Panel.front's markup has an unclosed brace, main.ts keeps Panel's types and the block maps nothing", async () => {
     const binding = 'let { heading';
     const before = await quickInfo(server, PANEL, binding, 'let { '.length);
     expect(before.displayString).toBe('let heading: string');
@@ -130,9 +130,9 @@ describe('getTypesScript for the svelte target', () => {
   it('renames $style in the block and declares the class map it reads', () => {
     const {code, ext} = panelScript()!;
     expect(ext).toBe('.ts');
-    expect(code).toContain('${__ucfStyle.title}');
+    expect(code).toContain('${__frontStyle.title}');
     expect(code).not.toContain('$style');
-    expect(code).toContain('declare const __ucfStyle: {readonly title: string};');
+    expect(code).toContain('declare const __frontStyle: {readonly title: string};');
   });
 
   it("references svelte2tsx's shims in the installed package and the project's svelte-html.d.ts", () => {
@@ -142,7 +142,7 @@ describe('getTypesScript for the svelte target', () => {
 
   it("references svelte2tsx's own element types where no svelte resolves, or from an untitled document", () => {
     const fallback = ['svelte-shims-v4.d.ts', 'svelte-jsx-v4.d.ts'].map((name) => join(INSTALLED_SHIMS, name));
-    for (const filename of [join(tmpdir(), 'Panel.ucf'), 'Untitled-1.ucf']) {
+    for (const filename of [join(tmpdir(), 'Panel.front'), 'Untitled-1.front']) {
       const {code} = getTypesScript(filename, PANEL.source, 'svelte', {svelteCompiler, compiler})!;
       expect([...code.matchAll(/^\/\/\/ <reference path="(.*)" \/>$/gm)].map(([, path]) => path)).toEqual(fallback);
     }
@@ -153,11 +153,11 @@ describe('getTypesScript for the svelte target', () => {
   });
 
   it('a script Svelte cannot parse still gets one, unrenamed; markup svelte2tsx cannot read gets none', () => {
-    const scriptError = readComponent('svelte/errors/ImportParseError.ucf');
+    const scriptError = readComponent('svelte/errors/ImportParseError.front');
     const types = getTypesScript(scriptError.filename, scriptError.source, 'svelte', {svelteCompiler})!;
     expect(types.code).toContain('export default ImportParseError__SvelteComponent_;');
-    expect(types.code).not.toContain('__ucfStyle');
-    const markupError = readComponent('svelte/errors/UnclosedBrace.ucf');
+    expect(types.code).not.toContain('__frontStyle');
+    const markupError = readComponent('svelte/errors/UnclosedBrace.front');
     expect(getTypesScript(markupError.filename, markupError.source, 'svelte', {svelteCompiler})).toBeUndefined();
   });
 
@@ -171,23 +171,23 @@ describe('getTypesScript for the svelte target', () => {
       typedJs: '<script>\n  /** @type {{ label?: string }} */\n  let {label} = $props()\n</script>\n{label}',
     };
     for (const [name, block] of Object.entries(blocks)) {
-      const filename = componentPath(`svelte/${name}.ucf`);
+      const filename = componentPath(`svelte/${name}.front`);
       const {code} = getTypesScript(filename, `<svelte lang="html">\n${block}\n</svelte>\n`, 'svelte', {svelteCompiler})!;
       expect(code.match(declarations), name).toHaveLength(1);
     }
   });
 
-  it("resolves the block's own import to PanelItem.ucf.svelte.ts", () => {
+  it("resolves the block's own import to PanelItem.front.svelte.ts", () => {
     const containingFile = `${PANEL.filename}.svelte.ts`;
     const sourceFile = typescript.createSourceFile(containingFile, panelScript()!.code, typescript.ScriptTarget.ESNext, true);
     const literal = sourceFile.statements
       .filter(typescript.isImportDeclaration)
       .map(({moduleSpecifier}) => moduleSpecifier)
-      .find((specifier) => typescript.isStringLiteral(specifier) && specifier.text === './PanelItem.ucf');
-    if (!literal || !typescript.isStringLiteral(literal)) throw new Error('no ./PanelItem.ucf import in the script');
+      .find((specifier) => typescript.isStringLiteral(specifier) && specifier.text === './PanelItem.front');
+    if (!literal || !typescript.isStringLiteral(literal)) throw new Error('no ./PanelItem.front import in the script');
     const compilerOptions = {module: typescript.ModuleKind.Preserve, moduleResolution: typescript.ModuleResolutionKind.Bundler};
     const options = {compilerOptions, host: typescript.sys, getSplit: () => undefined};
-    const {resolvedModule, target, error} = resolveUcfImport(typescript, literal, containingFile, options, sourceFile);
+    const {resolvedModule, target, error} = resolveFrontImport(typescript, literal, containingFile, options, sourceFile);
     expect({resolvedFileName: resolvedModule?.resolvedFileName, target, error}).toEqual({
       resolvedFileName: `${PANEL_ITEM.filename}.svelte.ts`,
       target: 'svelte',
@@ -196,7 +196,7 @@ describe('getTypesScript for the svelte target', () => {
   });
 
   it('is the svelte code tsserver serves: TypeScript for a lang="ts" block, JavaScript without', () => {
-    const language = createLanguage([createUcfLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
+    const language = createLanguage([createFrontLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
     const kind = EDITOR_BLOCK_KINDS.find(({tag}) => tag === 'svelte')!;
     for (const [{filename, source}, scriptKind] of [
       [PANEL, typescript.ScriptKind.TS],
@@ -215,9 +215,9 @@ describe('getTypesScript for the svelte target', () => {
   });
 });
 
-describe('createUcfLanguagePlugin for the svelte target', () => {
+describe('createFrontLanguagePlugin for the svelte target', () => {
   it('the language plugin keeps the last script that built, mapped nowhere, until its script is deleted', () => {
-    const language = createLanguage([createUcfLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
+    const language = createLanguage([createFrontLanguagePlugin({svelteCompiler, compiler})], new Map(), () => {});
     const svelteCode = (source: string) =>
       language.scripts.set(PANEL.filename, typescript.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('svelte');
     const text = ({snapshot}: VirtualCode) => snapshot.getText(0, snapshot.getLength());

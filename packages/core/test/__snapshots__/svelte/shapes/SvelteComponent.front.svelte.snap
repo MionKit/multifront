@@ -1,0 +1,12 @@
+
+  <script>
+import "<fixtures>/components/svelte/shapes/SvelteComponent.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/SvelteComponent.front?front&type=style&index=0&module&lang.js";
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+    export let Child
+;__frontWarnFragment($$props, "SvelteComponent", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
+  </script>
+  <div data-v-5ca23b6e="" class={__frontStyle.box}>
+    <svelte:component data-v-5ca23b6e="" this={Child} label="Dynamic" />
+    <svelte:component data-v-5ca23b6e="" this={Child}><i data-v-5ca23b6e="" class={__frontStyle.note}>Inside</i></svelte:component>
+  </div>

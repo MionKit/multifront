@@ -11,9 +11,9 @@ import {APP_CONFIG_LOADER, buildApp, hotUpdatesOf, withDevServer, withNodeEnv} f
 type BuildError = Rolldown.BundleError & Pick<Rolldown.RollupError, 'loc'>;
 
 // The shared components, seen from the copied app's root.
-const COUNTER_PATH = '../../components/Counter.ucf';
-const counter = readComponent('Counter.ucf').source;
-const templateError = readComponent('vue/TemplateError.ucf').source;
+const COUNTER_PATH = '../../components/Counter.front';
+const counter = readComponent('Counter.front').source;
+const templateError = readComponent('vue/TemplateError.front').source;
 
 let root: string;
 
@@ -21,7 +21,7 @@ beforeAll(async () => {
   root = await copyApp('vue');
   await writeFile(
     join(root, 'src', 'template-error.ts'),
-    "export {default} from '../../../components/vue/TemplateError.ucf' with {framework: 'vue'};\n"
+    "export {default} from '../../../components/vue/TemplateError.front' with {framework: 'vue'};\n"
   );
   return () => removeApp(root);
 });
@@ -55,31 +55,34 @@ describe('a production build of the vue app with build.sourcemap', () => {
 
   const trace = (generated: string | RegExp, shift = 0) => originalPositionFor(map, positionOf(chunk.code, generated, shift));
 
-  it('maps a template expression to its line and column in Counter.ucf', () => {
+  it('maps a template expression to its line and column in Counter.front', () => {
     // After the non-ASCII `title` on the same line: columns count UTF-16 code units.
     const expected = positionOf(counter, '{{ count }}', '{{ '.length);
-    expect(trace('toDisplayString(count.value)')).toMatchObject({source: expect.stringMatching(/\/Counter\.ucf$/), ...expected});
+    expect(trace('toDisplayString(count.value)')).toMatchObject({
+      source: expect.stringMatching(/\/Counter\.front$/),
+      ...expected,
+    });
   });
 
-  it('maps a <script setup> statement to its line and column in Counter.ucf', () => {
+  it('maps a <script setup> statement to its line and column in Counter.front', () => {
     const expected = positionOf(counter, 'const count = ref(');
     // compiler-sfc 3.5.27 and later mark the call pure.
     expect(trace(/const count = (?:\/\* @__PURE__ \*\/ )?ref\(__props\.start/)).toMatchObject({
-      source: expect.stringMatching(/\/Counter\.ucf$/),
+      source: expect.stringMatching(/\/Counter\.front$/),
       ...expected,
     });
   });
 
   // plugin-vue's sub-request maps start from the SFC code it parsed, where the other targets are blanked.
-  it('gives every source entry of Counter.ucf the text of the file', () => {
+  it('gives every source entry of Counter.front the text of the file', () => {
     const {sources, sourcesContent} = chunk.map!;
-    const texts = sources.flatMap((source, index) => (source.endsWith('/Counter.ucf') ? [sourcesContent?.[index]] : []));
+    const texts = sources.flatMap((source, index) => (source.endsWith('/Counter.front') ? [sourcesContent?.[index]] : []));
     expect(texts.length).toBeGreaterThan(0);
     for (const text of texts) expect(text).toBe(counter);
   });
 
-  it('maps nothing into the blanked parts of Counter.ucf', () => {
-    const {blocks} = splitBlocks(counter, 'Counter.ucf');
+  it('maps nothing into the blanked parts of Counter.front', () => {
+    const {blocks} = splitBlocks(counter, 'Counter.front');
     const kept = blocks.flatMap((block) => {
       if (block.type === 'vue') return [[block.contentStart, block.contentEnd]];
       return block.type === 'style' ? [[block.start, block.end]] : [];
@@ -90,7 +93,7 @@ describe('a production build of the vue app with build.sourcemap', () => {
     let mapped = 0;
     for (const line of decodedMappings(map)) {
       for (const [, sourceIndex, sourceLine, sourceColumn] of line) {
-        if (sourceIndex === undefined || !sources[sourceIndex]!.endsWith('/Counter.ucf')) continue;
+        if (sourceIndex === undefined || !sources[sourceIndex]!.endsWith('/Counter.front')) continue;
         mapped++;
         const offset = lineStarts[sourceLine!]! + sourceColumn!;
         if (!kept.some(([start, end]) => offset >= start! && offset < end!)) outside.push(`${sourceLine! + 1}:${sourceColumn}`);
@@ -122,18 +125,18 @@ function expectRuleMapped(css: string, source: string): void {
   const encoded = /sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([\w+/=]+)/.exec(css)![1]!;
   const raw = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as EncodedSourceMap;
   expect(originalPositionFor(new TraceMap(raw), positionOf(css, '.counter[data-v-'))).toMatchObject({
-    source: expect.stringMatching(/\/Counter\.ucf$/),
+    source: expect.stringMatching(/\/Counter\.front$/),
     ...positionOf(source, '.counter {'),
   });
   expect(raw.sourcesContent).toEqual([source]);
 }
 
 describe('a dev server with css.devSourcemap', () => {
-  it("maps the scoped style sub-module's rule to its line in Counter.ucf, with the file's text", async () => {
+  it("maps the scoped style sub-module's rule to its line in Counter.front, with the file's text", async () => {
     expectRuleMapped(await withOwnCopy((copy) => devStyleCss(copy)), counter);
   });
 
-  it('keeps the text of Counter.ucf after a <style> hot update', async () => {
+  it('keeps the text of Counter.front after a <style> hot update', async () => {
     const edit = (source: string) => source.replace('rgb(120, 40, 160)', 'rgb(10, 20, 30)');
     const css = await withOwnCopy((copy) => devStyleCss(copy, edit));
     expect(css).toContain('rgb(10, 20, 30)');
@@ -151,7 +154,7 @@ describe('a watch build with build.sourcemap', () => {
   // Same length: the SFC code stays the same, so plugin-vue keeps its compiled script and that script's map.
   const edited = counter.replace('className="label">Clicks', 'className="label">Clocks');
 
-  it('gives the rebuilt script the text of Counter.ucf after a <react>-only edit', async () => {
+  it('gives the rebuilt script the text of Counter.front after a <react>-only edit', async () => {
     expect(edited).not.toBe(counter);
     const texts = await withOwnCopy((copy) =>
       withNodeEnv('production', async () => {
@@ -170,7 +173,7 @@ describe('a watch build with build.sourcemap', () => {
               const [file] = (await readdir(assets)).filter((name) => name.endsWith('.js.map'));
               const map = JSON.parse(await readFile(join(assets, file!), 'utf8')) as EncodedSourceMap;
               builds.push(
-                map.sources.flatMap((source, index) => (source?.endsWith('/Counter.ucf') ? [map.sourcesContent?.[index]] : []))
+                map.sources.flatMap((source, index) => (source?.endsWith('/Counter.front') ? [map.sourcesContent?.[index]] : []))
               );
               if (builds.length === 1) await saveFile(join(copy, COUNTER_PATH), edited);
               else resolve();
@@ -190,7 +193,7 @@ describe('a watch build with build.sourcemap', () => {
 });
 
 describe('a template error', () => {
-  it('fails the build naming TemplateError.ucf at the line and column of the bad tag', async () => {
+  it('fails the build naming TemplateError.front at the line and column of the bad tag', async () => {
     const input = join(root, 'src', 'template-error.ts');
     const error = (await buildApp(root, {build: {rolldownOptions: {input}}}).then(
       () => undefined,
@@ -198,9 +201,9 @@ describe('a template error', () => {
     )) as BuildError | undefined;
     const {line, column} = positionOf(templateError, '<span>');
     // Vue counts columns from 1.
-    expect(error?.message).toMatch(new RegExp(`/vue/TemplateError\\.ucf:${line}:${column + 1}\\b`));
+    expect(error?.message).toMatch(new RegExp(`/vue/TemplateError\\.front:${line}:${column + 1}\\b`));
     expect(error?.errors?.[0]?.loc).toEqual({
-      file: join(root, '../../components/vue/TemplateError.ucf'),
+      file: join(root, '../../components/vue/TemplateError.front'),
       line,
       column: column + 1,
     });

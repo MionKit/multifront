@@ -23,9 +23,9 @@ import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserv
 
 type Completions = ts.server.protocol.CompletionInfo;
 
-const TYPE_ERROR = readComponent('editor/TypeError.ucf');
-const BUTTON = readComponent('Button.ucf');
-const CARD_SPECIFIER = '../../../components/Card.ucf';
+const TYPE_ERROR = readComponent('editor/TypeError.front');
+const BUTTON = readComponent('Button.front');
+const CARD_SPECIFIER = '../../../components/Card.front';
 const STYLE_ACCESS = 'className={$style.';
 // `$style`, and a named module; Button's <react> use comes after its <vue> and <svelte> ones.
 const MODULE_ACCESS = [
@@ -72,8 +72,8 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
     it("the warning hides none of TypeScript's own errors, and counts imports TypeScript cannot find", async () => {
       const lines = [
         `import {Nope} from '${CARD_SPECIFIER}' with {framework: 'react'};`,
-        "import GoneVue from './Gone.ucf' with {framework: 'vue'};",
-        "import GoneReact from './Gone.ucf' with {framework: 'react'};",
+        "import GoneVue from './Gone.front' with {framework: 'vue'};",
+        "import GoneReact from './Gone.front' with {framework: 'react'};",
       ];
       const last = MIXED.source.trimEnd().split('\n').at(-1)!;
       const edited = MIXED.source.replace(last, [last, ...lines].join('\n'));
@@ -95,21 +95,21 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
   it('a missing block beats the missing types: one missing-target-block naming both files', async () => {
     const lazy = readApp('src/lazy.ts');
     const specifier = `'${CARD_SPECIFIER}'`;
-    const revert = await edit(server, lazy, specifier, "'../../../components/imports/VueOnly.ucf'");
+    const revert = await edit(server, lazy, specifier, "'../../../components/imports/VueOnly.front'");
     try {
       const diagnostics = await server.diagnostics(lazy.filename);
       expect(diagnostics).toMatchObject([
         {code: 'missing-target-block', category: 'error', start: locate(lazy.source, specifier)},
       ]);
       expect(diagnostics[0]!.text).toBe(
-        '../../../components/imports/VueOnly.ucf has no <svelte> block; lazy.ts imports it as svelte'
+        '../../../components/imports/VueOnly.front has no <svelte> block; lazy.ts imports it as svelte'
       );
     } finally {
       await revert();
     }
   });
 
-  describe("inside Card.ucf's <react>, and Button.ucf's named module", () => {
+  describe("inside Card.front's <react>, and Button.front's named module", () => {
     it.each(MODULE_ACCESS)('completion after $access lists $key', async ({component, access, key}) => {
       const at = locate(component.source, access, access.length);
       const completions = await server.request<Completions>('completionInfo', {file: component.filename, ...at});
@@ -132,18 +132,18 @@ describe('the TypeScript plugin in tsserver, on the imports app', () => {
       ]);
     });
 
-    it('TypeError.ucf reports its type error at its .ucf line and column', async () => {
+    it('TypeError.front reports its type error at its .front line and column', async () => {
       const diagnostics = await server.diagnostics(TYPE_ERROR.filename);
       expect(diagnostics).toMatchObject([{code: 2322, category: 'error', start: locate(TYPE_ERROR.source, 'label:')}]);
     });
   });
 
-  describe('one program for .ucf and .tsx files', () => {
-    it('an unsaved prop rename in Card.ucf makes App.tsx report the old prop at once', async () => {
+  describe('one program for .front and .tsx files', () => {
+    it('an unsaved prop rename in Card.front makes App.tsx report the old prop at once', async () => {
       await expectCardPropError(server, CARD, REACT_SIGNATURE, 'Card({ heading }: { heading: string })');
     });
 
-    it('rename on the prop in Card.ucf also edits App.tsx', async () => {
+    it('rename on the prop in Card.front also edits App.tsx', async () => {
       const at = locate(CARD.source, REACT_SIGNATURE, 'Card({ title }: { '.length + 1);
       const body = await server.request<ts.server.protocol.RenameResponseBody>('rename', {file: CARD.filename, ...at});
       expect(body.info.canRename).toBe(true);
@@ -175,10 +175,10 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
       noEmit: true,
       plugins: [{name: PLUGIN, framework: 'svelte'}],
     };
-    await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({compilerOptions, include: ['*.ucf', '*.ts']}));
-    card = {filename: join(dir, 'Card.ucf'), source: CARD.source};
+    await writeFile(join(dir, 'tsconfig.json'), JSON.stringify({compilerOptions, include: ['*.front', '*.ts']}));
+    card = {filename: join(dir, 'Card.front'), source: CARD.source};
     await copyFile(CARD.filename, card.filename);
-    importer = {filename: join(dir, 'default.ts'), source: "import Card from './Card.ucf';\n\nexport {Card};\n"};
+    importer = {filename: join(dir, 'default.ts'), source: "import Card from './Card.front';\n\nexport {Card};\n"};
     await writeFile(importer.filename, importer.source);
     // Set as pnpm's bin shim does: the tsserver must not inherit it.
     const nodePath = process.env.NODE_PATH;
@@ -216,7 +216,7 @@ describe('the TypeScript plugin in a project outside the repo: no @vue/compiler-
   it("a bare import picked by the default framework is TypeScript's own cannot-find, the log says why", async () => {
     const diagnostics = await server.diagnostics(importer.filename);
     expect(diagnostics.map(({code, start}) => ({code, start}))).toEqual([
-      {code: 2307, start: locate(importer.source, "'./Card.ucf'")},
+      {code: 2307, start: locate(importer.source, "'./Card.front'")},
     ]);
     const log = await readFile(join(dir, 'tsserver.log'), 'utf8');
     expect(log).toContain('multifront: no Svelte compiler, svelte picks have no types (multifront: could not find svelte.');

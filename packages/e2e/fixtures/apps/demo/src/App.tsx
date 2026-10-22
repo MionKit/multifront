@@ -1,6 +1,6 @@
-import Card from '../../../components/Card.ucf';
-import Counter from '../../../components/Counter.ucf';
-import ScopedPanel from '../../../components/react/ScopedPanel.ucf';
+import Card from '../../../components/Card.front';
+import Counter from '../../../components/Counter.front';
+import ScopedPanel from '../../../components/react/ScopedPanel.front';
 import HelperCard from './card.ts';
 
 export default function App() {

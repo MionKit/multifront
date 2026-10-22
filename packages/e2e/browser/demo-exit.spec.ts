@@ -19,7 +19,7 @@ const BADGE_LABEL = '[data-demo="panel"] .badge-label';
 const CARD_TITLES = ['Bare import', 'From the .ts helper'];
 // Every styled demo component under `components/` -> how many targets the demo imports it as.
 // One copy per target: plugin-vue ships its own style modules (spec 4.3).
-const STYLED = {'Counter.ucf': 2, 'react/ScopedPanel.ucf': 1, 'Card.ucf': 1};
+const STYLED = {'Counter.front': 2, 'react/ScopedPanel.front': 1, 'Card.front': 1};
 const POLL = {timeout: 10_000};
 
 let browser: Browser | undefined;
@@ -33,7 +33,7 @@ let devStyles: Awaited<ReturnType<typeof renderedStyles>> | undefined;
 
 const component = (name: string) => resolve(root!, '..', '..', 'components', name);
 
-const edit = (from: string, to: string) => editFile(requests, component('Counter.ucf'), from, to);
+const edit = (from: string, to: string) => editFile(requests, component('Counter.front'), from, to);
 
 beforeAll(async () => {
   browser = await launchChromium();
@@ -71,7 +71,7 @@ describe('milestone 3 exit test (demo app)', () => {
   });
 
   it("ScopedPanel's scoped style reaches ScopedBadge's root span, and not its inner element", async () => {
-    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'), false);
+    const panel = scopeAttribute(root!, component('react/ScopedPanel.front'), false);
     expect(await page.locator(BADGE).getAttribute(panel)).toBe('');
     expect(await computed(page.locator(BADGE), 'color')).toBe('rgb(30, 120, 60)');
     expect(await page.locator(BADGE_LABEL).getAttribute(panel)).toBeNull();
@@ -97,14 +97,14 @@ describe('milestone 3 exit test (demo app)', () => {
     }
   });
 
-  it('a <style scoped> edit shows, keeps the count and requests no .ucf.react.tsx module', async () => {
+  it('a <style scoped> edit shows, keeps the count and requests no .front.react.tsx module', async () => {
     await edit('rgb(120, 40, 160)', 'rgb(10, 20, 30)');
     await expect.poll(() => computed(page.locator(`${COUNTER} .counter`), 'color'), POLL).toBe('rgb(10, 20, 30)');
     await requests.quiet(500);
 
     expect(await page.locator(`${COUNTER} button`).textContent()).toBe('3');
-    expect(requests.paths()).toContain(`/@fs${component('Counter.ucf')}?ucf&type=style&index=0&lang.css`);
-    expect(requests.paths().filter((path) => path.endsWith('.ucf.react.tsx'))).toEqual([]);
+    expect(requests.paths()).toContain(`/@fs${component('Counter.front')}?front&type=style&index=0&lang.css`);
+    expect(requests.paths().filter((path) => path.endsWith('.front.react.tsx'))).toEqual([]);
   });
 
   it('loaded the page once and logged no warning or error', () => {
@@ -117,7 +117,7 @@ describe('milestone 3 exit test (demo app)', () => {
     if (!isRunnableDevEnvironment(ssr)) throw new Error('the ssr environment has no module runner');
     const {render} = (await ssr.runner.import('/src/entry-server.tsx')) as {render: () => string};
     const html = render();
-    const panel = scopeAttribute(root!, component('react/ScopedPanel.ucf'), false);
+    const panel = scopeAttribute(root!, component('react/ScopedPanel.front'), false);
     const rendered = await browser!.newPage();
     try {
       await rendered.setContent(html);

@@ -1,0 +1,22 @@
+[
+  {
+    "code": "react-no-default-export",
+    "severity": "error",
+    "message": "<react> has no default export; add export default to the component",
+    "filename": "react/errors/AttrNoDefault.front",
+    "start": 0,
+    "end": 18,
+    "line": 1,
+    "column": 0
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrNoDefault.front",
+    "start": 66,
+    "end": 82,
+    "line": 2,
+    "column": 47
+  }
+]

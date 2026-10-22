@@ -1,0 +1,52 @@
+[
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
+    "filename": "svelte/errors/WrongModuleName.front",
+    "start": 52,
+    "end": 58,
+    "line": 3,
+    "column": 20
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $style, but no <style module> exists; add one",
+    "filename": "svelte/errors/WrongModuleName.front",
+    "start": 128,
+    "end": 134,
+    "line": 6,
+    "column": 14
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
+    "filename": "svelte/errors/WrongModuleName.front",
+    "start": 172,
+    "end": 178,
+    "line": 7,
+    "column": 14
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $theme, but no <style module=\"theme\"> or store named theme exists",
+    "filename": "svelte/errors/WrongModuleName.front",
+    "start": 227,
+    "end": 233,
+    "line": 8,
+    "column": 23
+  },
+  {
+    "code": "missing-style-module",
+    "severity": "error",
+    "message": "<svelte> uses $constructor, but no <style module=\"constructor\"> or store named constructor exists",
+    "filename": "svelte/errors/WrongModuleName.front",
+    "start": 256,
+    "end": 268,
+    "line": 9,
+    "column": 8
+  }
+]

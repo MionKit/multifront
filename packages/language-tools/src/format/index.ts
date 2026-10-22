@@ -6,19 +6,19 @@ import {blockScripts, createDiagnostic, findingOf, rootRelativePath, runCommand,
 import type {Block, CommandResult, CommandSpec, CommandValues, DiagnosticCode, Finding, SplitResult} from '@multifront/core';
 import type * as OxfmtModule from 'oxfmt';
 import {blockFile} from '../blocks/blockFile.ts';
-import {isIgnored, projectImport, resolveInProject, ucfFiles} from '../files.ts';
+import {isIgnored, projectImport, resolveInProject, frontFiles} from '../files.ts';
 import {lineStarts} from '../mappings.ts';
-import type {FormattedUcf, UcfFormatConfig} from '../types.ts';
+import type {FormattedFront, FrontFormatConfig} from '../types.ts';
 import {findFormatConfig, formatOptions} from './config.ts';
 
 export {findFormatConfig} from './config.ts';
 
 const MF_FMT: CommandSpec = {
   name: 'mf-fmt',
-  summary: ["Formats each block of .ucf files with oxfmt and the project's .oxfmtrc.json."],
-  paths: 'Paths are .ucf files or folders; none formats every .ucf file under the current folder.',
+  summary: ["Formats each block of .front files with oxfmt and the project's .oxfmtrc.json."],
+  paths: 'Paths are .front files or folders; none formats every .front file under the current folder.',
   options: {check: {type: 'boolean', description: 'write nothing; list the files that are not formatted'}},
-  example: 'mf-fmt --check src/Card.ucf',
+  example: 'mf-fmt --check src/Card.front',
 };
 
 type Oxfmt = Pick<typeof OxfmtModule, 'format'>;
@@ -90,7 +90,7 @@ const configRejection = (errors: OxfmtError[]) =>
   errors.find(({message, labels}) => labels.length === 0 && message.startsWith(CONFIG_ERROR));
 
 /** Text outside the blocks stays byte for byte; a config oxfmt rejects throws. */
-export async function formatUcf(fileName: string, source: string, config: UcfFormatConfig): Promise<FormattedUcf> {
+export async function formatFront(fileName: string, source: string, config: FrontFormatConfig): Promise<FormattedFront> {
   const split = splitBlocks(source, fileName);
   if (split.errors.length > 0) {
     return {text: source, findings: split.errors.map((error) => findingOf(error, split)), missingSvelte: false};
@@ -151,13 +151,13 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     const config = findFormatConfig(file, cwd);
     return isIgnored(config, file) ? shown(config.file!) : undefined;
   };
-  const files = ucfFiles(paths, ignoredBy, 'format it with oxfmt');
+  const files = frontFiles(paths, ignoredBy, 'format it with oxfmt');
   const findings: Finding[] = [];
   const writes: [string, string][] = [];
   let missingSvelte = false;
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
-    const formatted = await formatUcf(file, source, findFormatConfig(file, cwd));
+    const formatted = await formatFront(file, source, findFormatConfig(file, cwd));
     findings.push(...formatted.findings);
     missingSvelte ||= formatted.missingSvelte;
     if (formatted.findings.length > 0 || formatted.text === source) continue;

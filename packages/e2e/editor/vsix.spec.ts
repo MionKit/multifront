@@ -7,7 +7,7 @@ import {generateGrammar} from 'multifront-vscode/grammar';
 import type {GrammarFile} from 'multifront-vscode/grammar';
 import {afterEach, beforeAll, describe, expect, it} from 'vitest';
 import {componentPath} from '../fixtures/index.ts';
-import {tokenizeUcf} from './lib/tokenize.ts';
+import {tokenizeFront} from './lib/tokenize.ts';
 import {EXTENSION_DIR, LANGUAGE_CORE_TYPES, readZip, REPO_ROOT, tempRepo} from './lib/vsix.ts';
 
 const PACK = 'node_modules/multifront-typescript-plugin-pack';
@@ -64,7 +64,7 @@ function registryLanguages(): Record<string, string> {
   return languages;
 }
 
-describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
+describe('pnpm devx vsix packs the .front language and every grammar', () => {
   const {version} = readJson<{version: string}>(join(REPO_ROOT, 'version.json'));
   const manifest = readJson<Manifest>(join(EXTENSION_DIR, 'package.json'));
   const generated = generateGrammar();
@@ -82,7 +82,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     // Gitignored leftovers: an old .vsix must not pass as new, a removed grammar or file must not be packed.
     rmSync(vsixPath, {force: true});
     for (const dir of ['dist/syntaxes', PACK]) mkdirSync(join(EXTENSION_DIR, dir), {recursive: true});
-    writeFileSync(join(EXTENSION_DIR, 'dist', 'syntaxes', 'source.ucf.removed.tmLanguage.json'), '{}');
+    writeFileSync(join(EXTENSION_DIR, 'dist', 'syntaxes', 'source.front.removed.tmLanguage.json'), '{}');
     writeFileSync(join(EXTENSION_DIR, 'dist', 'removed.cjs'), '');
     writeFileSync(join(EXTENSION_DIR, PACK, 'removed.js'), '');
     output = succeed(devx(REPO_ROOT, 'vsix'), REPO_ROOT);
@@ -124,7 +124,7 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
 
   it('contributes every grammar of generateGrammar(), with embedded languages from the registry', () => {
     const expected: GrammarContribution[] = generated.map(({scopeName, path, injectTo}, index) => ({
-      ...(index === 0 && {language: 'ucf', embeddedLanguages: registryLanguages()}),
+      ...(index === 0 && {language: 'front', embeddedLanguages: registryLanguages()}),
       scopeName,
       path: `./dist/syntaxes/${path}`,
       ...(injectTo && {injectTo}),
@@ -133,23 +133,23 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
     expect(packedManifest.contributes.grammars).toEqual(expected);
     expect(packedManifest.contributes.languages).toEqual(manifest.contributes.languages);
     expect(packedManifest.contributes.languages).toHaveLength(1);
-    expect(packedManifest.contributes.languages[0]).toMatchObject({id: 'ucf', extensions: ['.ucf']});
+    expect(packedManifest.contributes.languages[0]).toMatchObject({id: 'front', extensions: ['.front']});
     expect(packedManifest.version).toBe(version);
     expect(packedJson(packedManifest.contributes.languages[0]!.configuration)).toHaveProperty('comments.blockComment');
   });
 
-  it('starts the server from the bundle on .ucf files, and has tsserver load the plugin pack for them', () => {
+  it('starts the server from the bundle on .front files, and has tsserver load the plugin pack for them', () => {
     const packedManifest = packedJson<Manifest>('package.json');
     expect(packedManifest.main).toBe('./dist/extension.cjs');
-    expect(packedManifest.activationEvents).toEqual(['onLanguage:ucf']);
-    // tsserver finds a plugin only as `<extension>/node_modules/<name>`; `languages` sends .ucf files to it.
+    expect(packedManifest.activationEvents).toEqual(['onLanguage:front']);
+    // tsserver finds a plugin only as `<extension>/node_modules/<name>`; `languages` sends .front files to it.
     expect(packedManifest.contributes.typescriptServerPlugins).toEqual([
-      {name: 'multifront-typescript-plugin-pack', enableForWorkspaceTypeScriptVersions: true, languages: ['ucf']},
+      {name: 'multifront-typescript-plugin-pack', enableForWorkspaceTypeScriptVersions: true, languages: ['front']},
     ]);
     expect(packed.get(zipPath(`${PACK}/index.js`))!.toString('utf8')).toContain("require('../../dist/typescript-plugin.cjs')");
   });
 
-  it('Card.ucf gets the same scopes from the packed grammar files as from generateGrammar()', async () => {
+  it('Card.front gets the same scopes from the packed grammar files as from generateGrammar()', async () => {
     // As VS Code loads them: root grammar first, injections by `injectTo`.
     const files: GrammarFile[] = packedJson<Manifest>('package.json').contributes.grammars.map(({scopeName, path, injectTo}) => ({
       scopeName,
@@ -157,9 +157,9 @@ describe('pnpm devx vsix packs the .ucf language and every grammar', () => {
       grammar: packedJson(path),
       ...(injectTo && {injectTo}),
     }));
-    expect(files[0]!.scopeName).toBe('source.ucf');
-    const card = componentPath('Card.ucf');
-    expect(await tokenizeUcf(card, files)).toEqual(await tokenizeUcf(card, generated));
+    expect(files[0]!.scopeName).toBe('source.front');
+    const card = componentPath('Card.front');
+    expect(await tokenizeFront(card, files)).toEqual(await tokenizeFront(card, generated));
   });
 });
 

@@ -49,9 +49,9 @@ function diagnosticsOnLine(uri, line) {
 }
 
 const activate = {
-  name: 'activate: showing Card.ucf activates the extension, which forks its bundled server over IPC',
+  name: 'activate: showing Card.front activates the extension, which forks its bundled server over IPC',
   async run() {
-    await show(paths().component('Card.ucf'));
+    await show(paths().component('Card.front'));
     const ext = extension();
     await until(() => ext.isActive, 'the extension to activate');
     await until(() => serverProcesses(ext.extensionPath).length === 1, 'one dist/server.cjs --node-ipc child of the extension host');
@@ -59,17 +59,17 @@ const activate = {
 };
 
 const panelHover = {
-  name: "3. hover on a property in Panel.ucf's <style> shows its CSS docs",
+  name: "3. hover on a property in Panel.front's <style> shows its CSS docs",
   async run() {
-    const panel = await show(paths().component('Panel.ucf'));
-    await hoverAt(panel, positionOf(panel, 'padding: $pad', 2), 'the padding area', 'a hover on padding in Panel.ucf');
+    const panel = await show(paths().component('Panel.front'));
+    await hoverAt(panel, positionOf(panel, 'padding: $pad', 2), 'the padding area', 'a hover on padding in Panel.front');
   },
 };
 
 const duplicateTarget = {
-  name: '4. invalid/DuplicateReact.ucf has duplicate-target from multifront',
+  name: '4. invalid/DuplicateReact.front has duplicate-target from multifront',
   async run() {
-    const duplicate = await show(paths().component('invalid/DuplicateReact.ucf'));
+    const duplicate = await show(paths().component('invalid/DuplicateReact.front'));
     await until(
       () => vscode.languages.getDiagnostics(duplicate.uri).some((diagnostic) => codeOf(diagnostic) === 'duplicate-target' && diagnostic.source === 'multifront'),
       'a multifront duplicate-target diagnostic'
@@ -82,7 +82,7 @@ function attributeCompletion(name, wanted) {
   return {
     name,
     async run() {
-      const counter = await show(paths().component('Counter.ucf'));
+      const counter = await show(paths().component('Counter.front'));
       const at = positionOf(counter, 'class="label"');
       await until(async () => {
         const list = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider', counter.uri, at);
@@ -95,15 +95,15 @@ function attributeCompletion(name, wanted) {
 const checks = [
   activate,
   {
-    name: '1. Card.ucf opens with language id ucf',
+    name: '1. Card.front opens with language id front',
     async run() {
-      assert.equal((await show(paths().component('Card.ucf'))).languageId, 'ucf');
+      assert.equal((await show(paths().component('Card.front'))).languageId, 'front');
     },
   },
   {
     name: '1. captureSyntaxTokens gives TSX, SCSS, Vue and Svelte scopes in their blocks',
     async run() {
-      const card = await show(paths().component('Card.ucf'));
+      const card = await show(paths().component('Card.front'));
       const tokens = await vscode.commands.executeCommand('_workbench.captureSyntaxTokens', card.uri);
       const react = token(tokens, 'export', 'meta.embedded.block.react');
       assert.ok(react.includes('keyword.control.export.tsx'), react.join(' '));
@@ -118,7 +118,7 @@ const checks = [
   {
     name: '2. completion after $style. in <react> lists card',
     async run() {
-      const card = await show(paths().component('Card.ucf'));
+      const card = await show(paths().component('Card.front'));
       const at = positionOf(card, '$style.card', '$style.'.length, blockRange(card, 'react').start);
       await until(async () => {
         const list = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider', card.uri, at);
@@ -129,7 +129,7 @@ const checks = [
   {
     name: '2. definition on $style.card in <react> lands on .card',
     async run() {
-      const card = await show(paths().component('Card.ucf'));
+      const card = await show(paths().component('Card.front'));
       const at = positionOf(card, '$style.card', '$style.c'.length, blockRange(card, 'react').start);
       const landed = await definitionAt(card, at, '$style.card');
       assert.equal(landed.fsPath, card.uri.fsPath);
@@ -137,36 +137,36 @@ const checks = [
     },
   },
   {
-    name: '2. hover on <Card in editor/Profile.ucf shows its props',
+    name: '2. hover on <Card in editor/Profile.front shows its props',
     async run() {
-      const profile = await show(paths().component('editor/Profile.ucf'));
-      await hoverAt(profile, positionOf(profile, '<Card', 1), 'title: string', 'a hover on <Card in Profile.ucf');
+      const profile = await show(paths().component('editor/Profile.front'));
+      await hoverAt(profile, positionOf(profile, '<Card', 1), 'title: string', 'a hover on <Card in Profile.front');
     },
   },
   panelHover,
   {
-    name: '4. editor/TypeError.ucf has its type error on its line',
+    name: '4. editor/TypeError.front has its type error on its line',
     async run() {
-      const typeError = await show(paths().component('editor/TypeError.ucf'));
+      const typeError = await show(paths().component('editor/TypeError.front'));
       const line = positionOf(typeError, 'label:').line;
       await until(() => diagnosticsOnLine(typeError.uri, line).some((diagnostic) => codeOf(diagnostic) === 2322), 'TS2322 on the label line');
     },
   },
   duplicateTarget,
-  attributeCompletion('4.12 completion before an attribute in Counter.ucf\'s <vue> template lists @click, from tsserver through the relay', '@click'),
+  attributeCompletion('4.12 completion before an attribute in Counter.front\'s <vue> template lists @click, from tsserver through the relay', '@click'),
   {
-    name: '5. hover on <Card in src/App.tsx shows the props from Card.ucf',
+    name: '5. hover on <Card in src/App.tsx shows the props from Card.front',
     async run() {
       const app = await show(paths().app);
       await hoverAt(app, positionOf(app, '<Card', 1), 'title: string', 'a hover on <Card in App.tsx');
     },
   },
   {
-    name: "5. definition on <Card in src/App.tsx lands inside Card.ucf's <react>",
+    name: "5. definition on <Card in src/App.tsx lands inside Card.front's <react>",
     async run() {
       const app = await show(paths().app);
       const landed = await definitionAt(app, positionOf(app, '<Card', 1), 'Card');
-      assert.equal(landed.fsPath, paths().component('Card.ucf'));
+      assert.equal(landed.fsPath, paths().component('Card.front'));
       const card = await vscode.workspace.openTextDocument(landed.fsPath);
       const offset = card.offsetAt(landed.start);
       const react = blockRange(card, 'react');
@@ -174,11 +174,11 @@ const checks = [
     },
   },
   {
-    name: '6. an unsaved prop rename in Card.ucf shows as an error in src/App.tsx before any save',
+    name: '6. an unsaved prop rename in Card.front shows as an error in src/App.tsx before any save',
     async run() {
       const app = await show(paths().app);
       const line = positionOf(app, '<Card').line;
-      const cardPath = paths().component('Card.ucf');
+      const cardPath = paths().component('Card.front');
       const onDisk = readFileSync(cardPath, 'utf8');
       const card = await show(cardPath);
       const edit = new vscode.WorkspaceEdit();
@@ -187,7 +187,7 @@ const checks = [
       assert.ok(await vscode.workspace.applyEdit(edit), 'the edit was refused');
       try {
         await until(() => diagnosticsOnLine(app.uri, line).some((diagnostic) => codeOf(diagnostic) === 2322), 'TS2322 on the <Card line of App.tsx');
-        assert.ok(card.isDirty, 'Card.ucf was saved');
+        assert.ok(card.isDirty, 'Card.front was saved');
         assert.equal(readFileSync(cardPath, 'utf8'), onDisk);
       } finally {
         await vscode.window.showTextDocument(card, {preview: false});
@@ -198,9 +198,9 @@ const checks = [
     },
   },
   {
-    name: '7.10 the extension is the default formatter of .ucf files, so format on save uses it',
+    name: '7.10 the extension is the default formatter of .front files, so format on save uses it',
     async run() {
-      const formatter = vscode.workspace.getConfiguration('editor', {languageId: 'ucf'}).get('defaultFormatter');
+      const formatter = vscode.workspace.getConfiguration('editor', {languageId: 'front'}).get('defaultFormatter');
       assert.equal(formatter, extension().id);
     },
   },
@@ -228,7 +228,7 @@ const withoutTypescript = [
   panelHover,
   duplicateTarget,
   // No tsserver: the relay still answers, so Vue's own attributes come.
-  attributeCompletion('4.12 completion before an attribute in Counter.ucf\'s <vue> template still lists v-if', 'v-if'),
+  attributeCompletion('4.12 completion before an attribute in Counter.front\'s <vue> template still lists v-if', 'v-if'),
 ];
 
 function start(selected) {

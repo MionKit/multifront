@@ -1,0 +1,7 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import ArrowExpression from './ArrowExpression.front'
+
+  export default function ComponentRoot(props: { branch?: string }) {
+    return <ArrowExpression {...__frontScopeAttrs(props)} className={props.className} style={props.style} ref={props.ref} branch={props.branch} />
+  }

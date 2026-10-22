@@ -2,13 +2,13 @@
 
 ## Goal
 
-Turn a `.ucf` file into blocks we can trust, and compile its `<style>` blocks the way plugin-vue does.
+Turn a `.front` file into blocks we can trust, and compile its `<style>` blocks the way plugin-vue does.
 
 When this milestone is done:
 
-- `splitBlocks()` in `@multifront/core` splits any `.ucf` file into root blocks with exact offsets, and reports every structural error with a line and a column.
+- `splitBlocks()` in `@multifront/core` splits any `.front` file into root blocks with exact offsets, and reports every structural error with a line and a column.
 - The `BlockKind` contract and its registry exist in core, shared kinds first. `<style>` is the first full kind: `check`, `build` and grammar data. The three target kinds have `check` and grammar data; their `build` is filled by milestones 3, 4 and 5.
-- `compileStyles()` compiles each `<style>` once with `compileStyleAsync`, with source maps back to the `.ucf` file and a class map for each CSS module.
+- `compileStyles()` compiles each `<style>` once with `compileStyleAsync`, with source maps back to the `.front` file and a class map for each CSS module.
 - `scopeId()` gives the same `data-v-*` id plugin-vue gives, in dev and in production.
 - `createBuildContext()` fills `ctx` (scope id, compiled CSS, `$style` class maps, style module ids) for the target kinds of later milestones.
 - The private `packages/e2e` package exists with its four area folders and the first shared fixtures, so every later milestone only adds to it.
@@ -35,7 +35,7 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/e2e/tsconfig.json` (check only, no `tsconfig.build.json`: the package is never built). It includes the four area folders, `fixtures/index.ts` and `*.config.ts`. Fixture apps are checked by their own builds, not by this config.
   - Add `'packages/e2e/vitest.config.ts'` to the root `vitest.config.ts` projects. No root `tsconfig.json` reference: `checkTree()` skips private packages.
   - Root devDependencies, exact-pinned to the same versions `@multifront/vite` carries: `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42. Also `sass` 1.104.0 (exact-pinned): Vite needs it to build the `<style scoped lang="scss">` block of `Reference.vue`. The e2e tests drive these tools for real.
-  - `packages/e2e/fixtures/index.ts`, the fixture helpers every e2e test uses. This step adds the one its test calls (the `.ucf` helpers come in 1.2 with their first fixtures and callers):
+  - `packages/e2e/fixtures/index.ts`, the fixture helpers every e2e test uses. This step adds the one its test calls (the `.front` helpers come in 1.2 with their first fixtures and callers):
 
     ```ts
     export function copyApp(name: string): Promise<string>;  // fresh copy of fixtures/apps/<name> under packages/e2e/.tmp/, returns its root
@@ -91,31 +91,31 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/core/src/blocks/index.ts`: the registry, `BLOCK_KINDS: readonly BlockKind[]` in the order `style, vue, react, svelte` (shared first, then `TARGETS` order), and `getBlockKind(tag: BlockTag): BlockKind`. One file per kind: `blocks/style.ts` (`role: 'shared'`), `blocks/vue.ts`, `blocks/react.ts`, `blocks/svelte.ts` (`role: 'target'`). In this step a kind has only `tag` and `role`.
   - `packages/core/src/split.ts`: `splitBlocks(source: string, filename: string): SplitResult`. A hand-written scanner. Root tags come from `BLOCK_KINDS`, so a new kind adds a root tag with no splitter change. It reads an opening tag and its attributes (double quotes, single quotes, unquoted, bare), then takes the content as raw text up to the first `</tag` followed by `>` or whitespace (browser `<script>` rules). Between blocks only whitespace and HTML comments (`<!-- … -->`) are allowed.
   - Exports from `packages/core/src/index.ts`: `splitBlocks`, `BLOCK_KINDS`, `getBlockKind`, and the types above, plus `BlockKind`, `Diagnostic` and `DiagnosticCode` (which they name).
-  - The `.ucf` fixture helpers, added to `packages/e2e/fixtures/index.ts` next to 1.1's `copyApp`:
+  - The `.front` fixture helpers, added to `packages/e2e/fixtures/index.ts` next to 1.1's `copyApp`:
 
     ```ts
     export const FIXTURES_DIR: string;                         // absolute path of packages/e2e/fixtures
-    export function componentPath(name: string): string;       // 'Card.ucf' or 'invalid/DuplicateReact.ucf' → absolute path
+    export function componentPath(name: string): string;       // 'Card.front' or 'invalid/DuplicateReact.front' → absolute path
     export function readComponent(name: string): {filename: string; source: string};
-    export function listComponents(folder?: string): string[]; // *.ucf names in components/ (or a subfolder), sorted, with the folder prefix
+    export function listComponents(folder?: string): string[]; // *.front names in components/ (or a subfolder), sorted, with the folder prefix
     ```
 
   - Valid component fixtures in `packages/e2e/fixtures/components/`:
 
     | Fixture | Blocks | Covers |
     | --- | --- | --- |
-    | `Card.ucf` | vue, react, svelte, `<style module lang="scss">` | the spec section 2 example, verbatim |
-    | `Badge.ucf` | react, `<style scoped>` | one target, plain scoped CSS |
-    | `Button.ucf` | vue, react, svelte, `<style scoped>`, `<style module='classes'>` | scoped plus a named module; single-quoted attribute |
-    | `Panel.ucf` | vue, react, `<style scoped lang = scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute, spaces around `=` |
-    | `Hello.ucf` | react only, no style | a file with no `<style>`; closing tag `</react >` |
-    | `TsxEdges.ucf` | react, `<style scoped lang="css">` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'`, a `'</reactive>'` string, an HTML comment holding `<style>` between blocks |
+    | `Card.front` | vue, react, svelte, `<style module lang="scss">` | the spec section 2 example, verbatim |
+    | `Badge.front` | react, `<style scoped>` | one target, plain scoped CSS |
+    | `Button.front` | vue, react, svelte, `<style scoped>`, `<style module='classes'>` | scoped plus a named module; single-quoted attribute |
+    | `Panel.front` | vue, react, `<style scoped lang = scss>` (nesting, a variable), `<style>` | scoped SCSS plus a global block; unquoted attribute, spaces around `=` |
+    | `Hello.front` | react only, no style | a file with no `<style>`; closing tag `</react >` |
+    | `TsxEdges.front` | react, `<style scoped lang="css">` | `<>` fragments, `<T,>(x: T) => x`, `a < b`, `a<b && c>d`, a `'<react>'` string, `// <style>` comment, the escaped `'<\/react>'`, a `'</reactive>'` string, an HTML comment holding `<style>` between blocks |
 
 - Deliverable: `splitBlocks()` returns the right blocks, attributes and offsets for every valid fixture.
 - Test: `packages/core/test/split.spec.ts` (package's own test). For every name from `listComponents()` (read through a relative path to `packages/e2e/fixtures/components/`, no package dependency, so no workspace cycle):
   - `errors` is empty, and `source.slice(contentStart, contentEnd) === content` for every block.
-  - The block table (`type`, `attrs`, `index`, offsets) matches a file snapshot, `test/__snapshots__/split/<Name>.ucf.json`.
-  - Every `<react>` block content parses with the real TypeScript parser (`ts.createSourceFile(…, ScriptKind.TSX)`) with zero syntax errors. This proves the splitter never cut a TSX block early, `TsxEdges.ucf` included.
+  - The block table (`type`, `attrs`, `index`, offsets) matches a file snapshot, `test/__snapshots__/split/<Name>.front.json`.
+  - Every `<react>` block content parses with the real TypeScript parser (`ts.createSourceFile(…, ScriptKind.TSX)`) with zero syntax errors. This proves the splitter never cut a TSX block early, `TsxEdges.front` included.
 - Status: done
 
 ### 1.3 Splitter errors with exact locations
@@ -134,7 +134,7 @@ None: this is the first milestone. It builds on what the repo already has:
       severity: 'error' | 'warning'; // every milestone 1 code is an error
       message: string;               // one line, names the tag: "<react> appears more than once; keep one"
       filename: string;
-      start: number;                 // offsets into the .ucf source
+      start: number;                 // offsets into the .front source
       end: number;
       line: number;                  // 1-based line of start
       column: number;                // 0-based column of start (the Rollup / Vite `loc` convention)
@@ -151,9 +151,9 @@ None: this is the first milestone. It builds on what the repo already has:
     | `missing-target` | `start = end = 0` | only when no target tag appears at all: an unclosed one already has its `unclosed-block` |
     | `text-outside-block` | the stray text run, up to the next root opening tag, trailing whitespace left out (an unclosed `<!--` starts one) | skips it |
 
-  - Invalid fixtures in `packages/e2e/fixtures/components/invalid/`: `UnknownRootTag.ucf` (`<angular>` and `<react_old>`), `UnclosedReact.ucf`, `DuplicateReact.ucf`, `StylesOnly.ucf`, `TextOutsideBlock.ucf`, `ReactCloseInString.ucf`, `BrokenOpeningTags.ucf` (`<style scoped/>`, a quote left open, a `<style` with no `>`), `BrokenUnknownTags.ucf` (an unknown tag left open before a `<react>` block holding its closing tag, one with a quote left open, a self-closing one), `StrayClosingTag.ucf` (a doubled `</react>`), and `UnclosedComment.ucf` (a `<!--` with no `-->`). `ReactCloseInString.ucf` has `'</react>'` inside a TSX string: the block closes there and the rest is reported as `text-outside-block`. That is the documented limitation of spec 10, and the message tells the author to write `'<\/react>'`.
+  - Invalid fixtures in `packages/e2e/fixtures/components/invalid/`: `UnknownRootTag.front` (`<angular>` and `<react_old>`), `UnclosedReact.front`, `DuplicateReact.front`, `StylesOnly.front`, `TextOutsideBlock.front`, `ReactCloseInString.front`, `BrokenOpeningTags.front` (`<style scoped/>`, a quote left open, a `<style` with no `>`), `BrokenUnknownTags.front` (an unknown tag left open before a `<react>` block holding its closing tag, one with a quote left open, a self-closing one), `StrayClosingTag.front` (a doubled `</react>`), and `UnclosedComment.front` (a `<!--` with no `-->`). `ReactCloseInString.front` has `'</react>'` inside a TSX string: the block closes there and the rest is reported as `text-outside-block`. That is the documented limitation of spec 10, and the message tells the author to write `'<\/react>'`.
 - Deliverable: every structural error of spec 3.2 comes back as a `Diagnostic` with exact offsets, line and column.
-- Test: `packages/core/test/split.spec.ts`, a table of `{fixture, code, line, column}` written by hand for each invalid fixture, plus a file snapshot of the full `errors` array per fixture (`test/__snapshots__/split/invalid/<Name>.ucf.errors.json`). Also checks the blocks the splitter still returns (for example `DuplicateReact.ucf` keeps its `<style>` block).
+- Test: `packages/core/test/split.spec.ts`, a table of `{fixture, code, line, column}` written by hand for each invalid fixture, plus a file snapshot of the full `errors` array per fixture (`test/__snapshots__/split/invalid/<Name>.front.errors.json`). Also checks the blocks the splitter still returns (for example `DuplicateReact.front` keeps its `<style>` block).
 - Status: done
 
 ### 1.4 Block checks: `check` per kind and `checkBlocks`
@@ -165,15 +165,15 @@ None: this is the first milestone. It builds on what the repo already has:
   - `blocks/style.ts`: `unknown-style-lang` when `lang` is not one of `css`, `scss`, `sass`, `less`, `styl`, `stylus`, `postcss`. `duplicate-style-module` when two `<style>` blocks inject the same name (`module` → `$style`, `module="classes"` → `classes`). Points at the second block's opening tag.
   - `checkBlocks(split: SplitResult): Diagnostic[]` in `packages/core/src/blocks/index.ts`, beside the registry, returns `split.errors` plus every block's `getBlockKind(block.type).check(block, split)`, sorted by `start`. This is the one function hosts call.
   - `oxc-parser` becomes an exact-pinned `dependency` of `@multifront/core` (newest version older than the 30 day release age, `0.149.0`; milestone 3 reuses it for the scope transform).
-  - Invalid fixtures: `invalid/ReactNoDefault.ucf` (named export only), `invalid/StyleInVue.ucf`, `invalid/StyleInSvelte.ucf`, `invalid/UnknownStyleLang.ucf` (`lang="foo"`, a bare `lang`), `invalid/DuplicateStyleModule.ucf` (bare `module` three ways: bare, `module=""`, `module="$style"`), `invalid/MixedErrors.ucf` (a block error before a splitter error, so `checkBlocks` must sort; a `export {X as "default"}`), `invalid/ReactSyntaxError.ucf` (a `<react>` block that does not parse and has no default export: no `react-no-default-export`), `invalid/ReactTypeOnlyDefault.ucf` (`export type { X as default }`) and `invalid/ReactTypeOnlyDefaultForms.ucf` (`export { type X as default }`, `export default interface`, a type alias and a type import exported as default): a type-only default export is no default export.
+  - Invalid fixtures: `invalid/ReactNoDefault.front` (named export only), `invalid/StyleInVue.front`, `invalid/StyleInSvelte.front`, `invalid/UnknownStyleLang.front` (`lang="foo"`, a bare `lang`), `invalid/DuplicateStyleModule.front` (bare `module` three ways: bare, `module=""`, `module="$style"`), `invalid/MixedErrors.front` (a block error before a splitter error, so `checkBlocks` must sort; a `export {X as "default"}`), `invalid/ReactSyntaxError.front` (a `<react>` block that does not parse and has no default export: no `react-no-default-export`), `invalid/ReactTypeOnlyDefault.front` (`export type { X as default }`) and `invalid/ReactTypeOnlyDefaultForms.front` (`export { type X as default }`, `export default interface`, a type alias and a type import exported as default): a type-only default export is no default export.
 - Deliverable: `checkBlocks()` reports every milestone 1 rule; valid fixtures report nothing.
-- Test: `packages/core/test/check.spec.ts`. Every valid fixture gives `[]`. Each new invalid fixture gives exactly its code at the hand-written line and column. `Card.ucf` with `export {Card as default}` instead of `export default function` stays valid (a fixture copy, `ReactDefaultSpecifier.ucf`, added to `components/`; its props interface is also named `Card`, so a name bound as a type and a value counts as a value).
+- Test: `packages/core/test/check.spec.ts`. Every valid fixture gives `[]`. Each new invalid fixture gives exactly its code at the hand-written line and column. `Card.front` with `export {Card as default}` instead of `export default function` stays valid (a fixture copy, `ReactDefaultSpecifier.front`, added to `components/`; its props interface is also named `Card`, so a name bound as a type and a value counts as a value).
 - Status: done
 
 ### 1.5 Splitter fuzz test (generated real files)
 
 - Build: `packages/core/test/split.fuzz.spec.ts`, built with the fuzzy-testing skill (its seeded runner and shrinker templates, no new library); runner, shrinker and rules live in that one file.
-  - Input maker: pick a real fixture from `packages/e2e/fixtures/components/` (seeded), then apply 1 to 4 seeded mutations from a fixed list: shuffle the root blocks; insert whitespace or an HTML comment between blocks; change the quoting and spacing of an opening tag's attributes; move a TSX line from `TsxEdges.ucf` into another fixture's `<react>` block (recombine); duplicate a target block; delete one closing tag; truncate the file at a random offset (at most once, applied to the final text); insert `'</react>'` into a `<react>` string. A model of the file (its gaps and blocks, each block intact or not) knows where every block lands.
+  - Input maker: pick a real fixture from `packages/e2e/fixtures/components/` (seeded), then apply 1 to 4 seeded mutations from a fixed list: shuffle the root blocks; insert whitespace or an HTML comment between blocks; change the quoting and spacing of an opening tag's attributes; move a TSX line from `TsxEdges.front` into another fixture's `<react>` block (recombine); duplicate a target block; delete one closing tag; truncate the file at a random offset (at most once, applied to the final text); insert `'</react>'` into a `<react>` string. A model of the file (its gaps and blocks, each block intact or not) knows where every block lands.
   - Rules, each proven by a negative control (a broken wrapper over the real `splitBlocks` output that the rule must catch), kept as permanent tests:
     1. `splitBlocks` and `checkBlocks` never throw.
     2. Every diagnostic has `0 <= start <= end <= source.length`, and its `line` / `column` are the real position of `start`.
@@ -201,13 +201,13 @@ None: this is the first milestone. It builds on what the repo already has:
 
   - Values: `style` → `source.css` / `css`, with `byLang` `scss` → `source.css.scss` / `scss`, `sass` → `source.sass` / `sass`, `less` → `source.css.less` / `less`, `styl` and `stylus` → `source.stylus` / `stylus`, `postcss` → `source.css.postcss` / `postcss`. `react` → `source.tsx` / `typescriptreact`. `vue` → `text.html.vue` / `vue` (the official Vue extension's name). `svelte` → `source.svelte` / `svelte`.
   - Root devDependency `shiki` 4.4.3, exact-pinned (it ships real TextMate grammars for every one of these languages).
-- Deliverable: the registry holds everything milestone 2 needs to generate the `.ucf` TextMate grammar.
-- Test: area **Editor**, `packages/e2e/editor/grammar-scopes.spec.ts`. Loads shiki's bundled grammars. Checks every `scopeName` in `BLOCK_KINDS` (and in each `byLang`) is the `scopeName` of a real grammar. Then, for every block of every valid fixture, tokenizes `block.content` with the grammar picked by its kind and `lang`, and checks it tokenizes with no fallback to plain text: no non-whitespace text sits at the root scope alone. A negative control (the `lang = scss` block of `Panel.ucf` through `source.css`) proves the plain-text check catches a wrong pick. A typo in a scope name fails it. `packages/core/test/blocks/index.spec.ts` also pins the whole grammar table: the `languageId`s and the langs no fixture uses.
+- Deliverable: the registry holds everything milestone 2 needs to generate the `.front` TextMate grammar.
+- Test: area **Editor**, `packages/e2e/editor/grammar-scopes.spec.ts`. Loads shiki's bundled grammars. Checks every `scopeName` in `BLOCK_KINDS` (and in each `byLang`) is the `scopeName` of a real grammar. Then, for every block of every valid fixture, tokenizes `block.content` with the grammar picked by its kind and `lang`, and checks it tokenizes with no fallback to plain text: no non-whitespace text sits at the root scope alone. A negative control (the `lang = scss` block of `Panel.front` through `source.css`) proves the plain-text check catches a wrong pick. A typo in a scope name fails it. `packages/core/test/blocks/index.spec.ts` also pins the whole grammar table: the `languageId`s and the langs no fixture uses.
 - Status: done
 
 ### 1.7 `scopeId` with the plugin-vue scheme
 
-- Build: `packages/core/src/scopeId.ts`: `scopeId(relativePath: string, source: string, production: boolean): string`. Returns the first 8 hex chars of `sha256(relativePath + (production ? source : ''))`, like plugin-vue's default `getHash`. `relativePath` is the file path relative to the Vite root, with `/` separators on every OS. For a `.ucf` file, `source` is the whole `.ucf` source. Exported from core.
+- Build: `packages/core/src/scopeId.ts`: `scopeId(relativePath: string, source: string, production: boolean): string`. Returns the first 8 hex chars of `sha256(relativePath + (production ? source : ''))`, like plugin-vue's default `getHash`. `relativePath` is the file path relative to the Vite root, with `/` separators on every OS. For a `.front` file, `source` is the whole `.front` source. Exported from core.
 - Deliverable: one scope id function, used later for every target.
 - Test: area **Build**, `packages/e2e/build/scope-id.spec.ts`, against the real plugin-vue with no `componentIdGenerator` set:
   - production: a real `vite.build()` of `fixtures/apps/vue-reference`; the `data-v-` value in the output equals `scopeId('src/Reference.vue', <file source>, true)`;
@@ -225,8 +225,8 @@ None: this is the first milestone. It builds on what the repo already has:
     ```ts
     export function compileStyles(blocks: Block[], options: {
       id: string;            // the scope id, without 'data-v-'
-      filename: string;      // absolute .ucf path
-      source: string;        // the whole .ucf source, for the input map
+      filename: string;      // absolute .front path
+      source: string;        // the whole .front source, for the input map
       compiler: VueCompiler;
       production: boolean;
     }): Promise<CompiledStyle[]>;
@@ -235,28 +235,28 @@ None: this is the first milestone. It builds on what the repo already has:
       index: number;                          // the block's index among the <style> blocks
       id: string;                             // module id, styleId(filename, index)
       code: string;                           // plain CSS
-      map: SourceMap | undefined;             // back to the .ucf file
+      map: SourceMap | undefined;             // back to the .front file
       scoped: boolean;
       module: string | undefined;             // injection name: '$style' or the module="name" value
       classes: Record<string, string> | undefined; // CSS module class map, local → generated
-      errors: Diagnostic[];                   // 'style-compile-error', positioned in the .ucf file
+      errors: Diagnostic[];                   // 'style-compile-error', positioned in the .front file
     }
     ```
 
     `CompiledStyle` lives in `types.ts` (`context.ts` shares it in 1.9).
-  - One `compileStyleAsync` call per block, with the same options plugin-vue passes (`filename`, `id: 'data-v-' + id`, `isProd: production`, `scoped`, `source`) plus `preprocessLang` from `lang` (none for `css` and `postcss`; `sass` also gets `preprocessOptions: {syntax: 'indented'}`, since compiler-sfc's `indentedSyntax` is ignored by sass's `compileString`), `modules` when the block has `module`, and `inMap` (`map` is deprecated): an input map from `compiler.MagicString` over the `.ucf` source, so the output map points into the `.ucf` file, not the block.
+  - One `compileStyleAsync` call per block, with the same options plugin-vue passes (`filename`, `id: 'data-v-' + id`, `isProd: production`, `scoped`, `source`) plus `preprocessLang` from `lang` (none for `css` and `postcss`; `sass` also gets `preprocessOptions: {syntax: 'indented'}`, since compiler-sfc's `indentedSyntax` is ignored by sass's `compileString`), `modules` when the block has `module`, and `inMap` (`map` is deprecated): an input map from `compiler.MagicString` over the `.front` source, so the output map points into the `.front` file, not the block.
   - A block with both `scoped` and `module` takes two calls, in plugin-vue + Vite's order: CSS modules first (no `scoped`, `composes … from` files inlined), then `scoped` alone over that output, with its map as `inMap`. One call scopes before CSS modules run, and `composes` then fails on the `[data-v-…]` selector.
-  - The output map keeps only segments whose source is the `.ucf` file. After a preprocessor, PostCSS keeps the segments it cannot follow through the input map (the closing `}` lines sass does not map) under a second source name, pointing at the preprocessor's output.
+  - The output map keeps only segments whose source is the `.front` file. After a preprocessor, PostCSS keeps the segments it cannot follow through the input map (the closing `}` lines sass does not map) under a second source name, pointing at the preprocessor's output.
   - Compile errors become `style-compile-error`, never a rejected promise: a sass error in the block at its span, a PostCSS syntax error at its offset when PostCSS read the raw block content, anything else at the opening tag (a sass error in an imported file, a preprocessor that is not installed). Message: `<style lang="scss"> does not compile: <reason>`, one line. A block with errors has `code: ''` and no `map` or `classes`.
   - CSS module class names are deterministic: `modulesOptions.generateScopedName` is `<local>_<scopeId>_<index>` (for example `card_1a2b3c4d_0`).
   - `SourceMap` type in `types.ts`: `{version: 3; file?: string; sourceRoot?: string; sources: string[]; sourcesContent?: (string | null)[]; names: string[]; mappings: string}`.
-  - Fixtures in `invalid/`: `ScssSyntaxError.ucf` (a missing `}` in a `module lang="scss"` block: `.tag-#{$size {`), `CssSyntaxError.ucf` (a `lang="postcss"` rule left open), `ScssPartialError.ucf` (the error sits in the imported `_broken-partial.scss`), `MissingPreprocessor.ucf` (`lang="less"`, and `less` is not installed). `TsxEdges.ucf`'s style becomes `<style scoped lang="css">`, so `lang="css"` is compiled too. Valid fixtures in `langs/`, for the langs no other fixture uses: `SassIndented.ucf` (`scoped lang="sass"`), `PostcssPlain.ucf` (`scoped lang="postcss"`).
-- Deliverable: every `<style>` block compiles once into CSS, a map into the `.ucf` file and, for modules, a class map.
+  - Fixtures in `invalid/`: `ScssSyntaxError.front` (a missing `}` in a `module lang="scss"` block: `.tag-#{$size {`), `CssSyntaxError.front` (a `lang="postcss"` rule left open), `ScssPartialError.front` (the error sits in the imported `_broken-partial.scss`), `MissingPreprocessor.front` (`lang="less"`, and `less` is not installed). `TsxEdges.front`'s style becomes `<style scoped lang="css">`, so `lang="css"` is compiled too. Valid fixtures in `langs/`, for the langs no other fixture uses: `SassIndented.front` (`scoped lang="sass"`), `PostcssPlain.front` (`scoped lang="postcss"`).
+- Deliverable: every `<style>` block compiles once into CSS, a map into the `.front` file and, for modules, a class map.
 - Test: `packages/core/test/styles.spec.ts`, with the real `@vue/compiler-sfc` and the real `sass`:
-  - a file snapshot of every style block of every valid fixture, `test/__snapshots__/styles/<Name>.ucf.<index>.css`, among them scoped (`Badge.ucf`), module (`Card.ucf`), named module (`Button.ucf`), scss (`Card.ucf`, `Panel.ucf`), global (`Panel.ucf`);
+  - a file snapshot of every style block of every valid fixture, `test/__snapshots__/styles/<Name>.front.<index>.css`, among them scoped (`Badge.front`), module (`Card.front`), named module (`Button.front`), scss (`Card.front`, `Panel.front`), global (`Panel.front`);
   - every key of a class map is a class selector in the block source, and every value is a class selector in the CSS;
-  - maps: for plain CSS blocks, every mapped segment (read with `@jridgewell/trace-mapping`) points at the same text in the `.ucf` file; for SCSS blocks, every segment lands inside the block's content range;
-  - each error fixture gives one `style-compile-error` at a hand-written `.ucf` line, column and range: the broken rule for `ScssSyntaxError.ucf` and `CssSyntaxError.ucf`, the opening tag for `ScssPartialError.ucf` and `MissingPreprocessor.ucf`.
+  - maps: for plain CSS blocks, every mapped segment (read with `@jridgewell/trace-mapping`) points at the same text in the `.front` file; for SCSS blocks, every segment lands inside the block's content range;
+  - each error fixture gives one `style-compile-error` at a hand-written `.front` line, column and range: the broken rule for `ScssSyntaxError.front` and `CssSyntaxError.front`, the opening tag for `ScssPartialError.front` and `MissingPreprocessor.front`.
   - `packages/vite/test/vueCompiler.spec.ts`: `compileStyles` takes the compiler `getVueCompiler()` returns.
   - the `langs/` fixtures compile with no error and give plugin-vue's CSS: the exit test runs over them too.
 - Status: done
@@ -279,7 +279,7 @@ None: this is the first milestone. It builds on what the repo already has:
     export interface VirtualFile {
       ext: '.tsx' | '.vue' | '.svelte' | '.css' | '.scss' | '.ts';
       code: string;
-      map: SourceMap | undefined; // back to the block in the .ucf file
+      map: SourceMap | undefined; // back to the block in the .front file
     }
     ```
 
@@ -290,7 +290,7 @@ None: this is the first milestone. It builds on what the repo already has:
     export interface BuildContextOptions { root: string; compiler: VueCompiler; production: boolean }
 
     export interface BuildContext {
-      filename: string;                     // absolute .ucf path
+      filename: string;                     // absolute .front path
       split: SplitResult;                   // every block; the vue build (M4) needs all of them
       relativePath: string;                 // from options.root, '/' separators: the scopeId input
       source: string;
@@ -319,15 +319,15 @@ None: this is the first milestone. It builds on what the repo already has:
   - `packages/core/src/ids.ts`, the style module ids of spec 4.3 (`styleId` is there since 1.8; this step adds `classMapId`):
 
     ```ts
-    export function styleId(filename: string, index: number): string;    // `${filename}?ucf&type=style&index=${index}&lang.css`
-    export function classMapId(filename: string, index: number): string; // `${filename}?ucf&type=style&index=${index}&module&lang.js`
+    export function styleId(filename: string, index: number): string;    // `${filename}?front&type=style&index=${index}&lang.css`
+    export function classMapId(filename: string, index: number): string; // `${filename}?front&type=style&index=${index}&module&lang.js`
     ```
 
     The CSS id never names a framework, so React and Svelte share it (the Vue target uses plugin-vue's own style modules, spec 4.3). The class map id is new: spec 3.3 says the class map is a virtual JS module but 4.3 gives it no id.
   - Exports from core: `createBuildContext`, `compileStyles`, `scopeId`, `checkBlocks`, `styleId`, `classMapId`, and the types `BlockKind`, `BlockGrammar`, `GrammarScope`, `VirtualFile`, `SourceMap`, `BuildContext`, `BuildContextOptions`, `CompiledStyle`, `StyleModule`, `VueCompiler`, `Diagnostic`, `DiagnosticCode`.
   - Update the `BlockKind` snippet in `docs/architecture.md` to this shape (`fillContext`, `index`, the core and language-tools halves).
 - Deliverable: one call gives every later target everything the shared styles provide.
-- Test: `packages/core/test/context.spec.ts`. For every valid fixture: `createBuildContext` with the real compiler; `ctx.scopeId` equals `scopeId()` of the same inputs; `ctx.styles[i].id === styleId(filename, i)`; `Card.ucf` has `ctx.modules.$style` with a `card` class; `Button.ucf` has `ctx.modules.classes` and no `$style`; `Hello.ucf` has no styles and `hasScoped === false`; the style kind's `build` returns the same CSS as `ctx.styles[i].code` with `ext: '.css'`. Also: `ctx.styles` equals a direct `compileStyles()` call, `production: false` reaches `scopeId()`, `invalid/ScssSyntaxError.ucf` keeps an empty `$style`, `invalid/DuplicateStyleModule.ucf` gives `$style` to its last block. `Card.ucf`'s `$style` id pins the `classMapId` shape. `ctx.relativePath` is `components/<Name>.ucf` with `/` on every OS: a new CI job, `windows` (`windows-latest`, LF checkout), runs `context.spec.ts`, so a Windows `\` path that is not joined with `/` fails it.
+- Test: `packages/core/test/context.spec.ts`. For every valid fixture: `createBuildContext` with the real compiler; `ctx.scopeId` equals `scopeId()` of the same inputs; `ctx.styles[i].id === styleId(filename, i)`; `Card.front` has `ctx.modules.$style` with a `card` class; `Button.front` has `ctx.modules.classes` and no `$style`; `Hello.front` has no styles and `hasScoped === false`; the style kind's `build` returns the same CSS as `ctx.styles[i].code` with `ext: '.css'`. Also: `ctx.styles` equals a direct `compileStyles()` call, `production: false` reaches `scopeId()`, `invalid/ScssSyntaxError.front` keeps an empty `$style`, `invalid/DuplicateStyleModule.front` gives `$style` to its last block. `Card.front`'s `$style` id pins the `classMapId` shape. `ctx.relativePath` is `components/<Name>.front` with `/` on every OS: a new CI job, `windows` (`windows-latest`, LF checkout), runs `context.spec.ts`, so a Windows `\` path that is not joined with `/` fails it.
 - Status: done
 
 ### 1.10 Style parity with plugin-vue (the exit test)
@@ -349,18 +349,18 @@ None: this is the first milestone. It builds on what the repo already has:
 | Empty `build` slots | `blocks/react.ts` (M3), `blocks/vue.ts` (M4), `blocks/svelte.ts` (M5). Once M5 lands, `build` may become required | M3, M4, M5 |
 | `BlockGrammar`, `GrammarScope` | `kind.grammar` with `scopeName`, `languageId`, `byLang` (1.6) | M2 (TextMate grammar and `embeddedLanguages` of `packages/vscode`) |
 | `VirtualFile`, `SourceMap` | types in 1.8 and 1.9, `packages/core/src/types.ts` | M2 (language-tools `types` / `editor` return `VirtualFile`), M3, M4, M5 |
-| `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.ucf` source | M3, M5 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.ucf` path and `.ucf` source, ignoring the SFC code plugin-vue passes) |
+| `scopeId(relativePath, source, production)` | `@multifront/core`; `relativePath` from the Vite root with `/`; `source` is the whole `.front` source | M3, M5 (stamping `data-v-*`), M4 (plugin-vue `features.componentIdGenerator` must call it with the `.front` path and `.front` source, ignoring the SFC code plugin-vue passes) |
 | `compileStyles(blocks, options): Promise<CompiledStyle[]>` | `@multifront/core`, 1.8 | through `createBuildContext` in M3, M5, M6; M2 may call it for `$style` class names |
 | `createBuildContext(split, {root, compiler, production}): Promise<BuildContext>` | `@multifront/core`, 1.9 (`ctx` with `filename`, `split`, `relativePath`, `source`, `production`, `compiler`, `scopeId`, `hasScoped`, `styles`, `modules` of `StyleModule`); types in `types.ts` | M3 (React build), M5 (Svelte build), M6 (CSS files) |
-| `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.ucf.react.tsx`), M3 (class map module), M5 |
+| `ctx.modules[name].classes` | local → generated class names per `$style` / named module | M2 (`$style` type in `Card.front.react.tsx`), M3 (class map module), M5 |
 | `styleId(filename, index)`, `classMapId(filename, index)` | `@multifront/core`, `src/ids.ts` | M3 (resolve and load the style and class map virtual modules), M5, M6 |
 | `VueCompiler` | `Pick<typeof import('@vue/compiler-sfc'), 'compileStyleAsync' \| 'parse' \| 'MagicString'>`, owned by core, re-exported by `@multifront/vite` | M3, M4 (pass `multifront().api.vueCompiler`) |
 | `oxc-parser` | exact-pinned dependency of `@multifront/core` (`0.149.0`) | M3 (scope transform) |
 | `packages/e2e` package | `@multifront/e2e`, private, vitest project `e2e`, folders `build/ browser/ editor/ consumer/ fixtures/` | M2 to M7 |
 | Fixture helpers | `packages/e2e/fixtures/index.ts`: `copyApp()` (1.1, temp copies in `packages/e2e/.tmp/`), `FIXTURES_DIR`, `componentPath()`, `readComponent()`, `listComponents()` (1.2), `hasClass(css, name)` (1.10, a class selector check shared with core's style tests) | M2 to M7 |
-| Valid components | `fixtures/components/`: `Card.ucf`, `Badge.ucf`, `Button.ucf`, `Panel.ucf`, `Hello.ucf`, `TsxEdges.ucf`, `ReactDefaultSpecifier.ucf` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (`<svelte>` blocks of Card, Button), M6 (library build input) |
-| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ReactTypeOnlyDefault`, `ReactTypeOnlyDefaultForms`, `ScssSyntaxError`, `CssSyntaxError`, `ScssPartialError` (with `_broken-partial.scss`), `MissingPreprocessor` (all `.ucf`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
-| Style lang components | `fixtures/components/langs/`: `SassIndented.ucf`, `PostcssPlain.ucf` (style langs the other fixtures do not use) | M2 (style grammars), M3, M5, M6 (CSS builds) |
+| Valid components | `fixtures/components/`: `Card.front`, `Badge.front`, `Button.front`, `Panel.front`, `Hello.front`, `TsxEdges.front`, `ReactDefaultSpecifier.front` | M2 (React virtual script, `$style` types), M3 (React builds), M4 (`<vue>` blocks of Card, Button, Panel), M5 (`<svelte>` blocks of Card, Button), M6 (library build input) |
+| Invalid components | `fixtures/components/invalid/`: `UnknownRootTag`, `UnclosedReact`, `DuplicateReact`, `StylesOnly`, `TextOutsideBlock`, `ReactCloseInString`, `BrokenOpeningTags`, `BrokenUnknownTags`, `StrayClosingTag`, `UnclosedComment`, `ReactNoDefault`, `StyleInVue`, `StyleInSvelte`, `UnknownStyleLang`, `DuplicateStyleModule`, `MixedErrors`, `ReactSyntaxError`, `ReactTypeOnlyDefault`, `ReactTypeOnlyDefaultForms`, `ScssSyntaxError`, `CssSyntaxError`, `ScssPartialError` (with `_broken-partial.scss`), `MissingPreprocessor` (all `.front`) | M2 (the server shows the same diagnostics at the same places), M3 (build errors) |
+| Style lang components | `fixtures/components/langs/`: `SassIndented.front`, `PostcssPlain.front` (style langs the other fixtures do not use) | M2 (style grammars), M3, M5, M6 (CSS builds) |
 | App fixture | `fixtures/apps/vue-reference/` (plain Vue, plugin-vue only) | M4 (reference for the Vue target), browser parity tests |
 | Fuzz knobs | env vars `MULTIFRONT_FUZZ_SEED`, `MULTIFRONT_FUZZ_RUNS` in `scripts/lib/env.mjs` | M3 (scope transform fuzz), M7 (position map fuzz) |
 | Root devDependencies | `@vitejs/plugin-vue` 6.0.8, `vue` 3.5.42, `sass` 1.104.0, `shiki` 4.4.3, `@jridgewell/trace-mapping` 0.3.31 (exact pins) | M2 to M7 |
@@ -371,7 +371,7 @@ None: this is the first milestone. It builds on what the repo already has:
 `packages/e2e/build/style-parity.spec.ts` (area **Build**), over every name in `listComponents()` and `listComponents('langs')`:
 
 1. `splitBlocks` and `checkBlocks` report nothing.
-2. `createBuildContext(split, {root, compiler: require('vue/compiler-sfc'), production: true})`, where `root` is a fresh `copyApp('vue-reference')` and the fixture is copied to `src/<Name>.ucf` in it (a `langs/` fixture too, without its folder).
+2. `createBuildContext(split, {root, compiler: require('vue/compiler-sfc'), production: true})`, where `root` is a fresh `copyApp('vue-reference')` and the fixture is copied to `src/<Name>.front` in it (a `langs/` fixture too, without its folder).
 3. Into the same copy, write `src/<Name>.vue`: `<template><div /></template>` plus the fixture's non-module `<style>` blocks, copied verbatim (`source.slice(block.start, block.end)`). Write `src/<Name>.ours.css`: our compiled CSS of the same blocks, from each style kind `build()`, joined with `''` as Vite joins the CSS modules of a chunk (`chunkCSS + styles.get(id)`).
 4. Two real `vite.build()` runs of that copy (`cssMinify: false`, `write: false`):
    - one whose entry imports only `<Name>.vue` and uses it (`console.log(Component)`), with plugin-vue's `features.componentIdGenerator` returning `ctx.scopeId`. Vite drops a scoped block's CSS when the bundle does not keep its component's default export (plugin-vue tags it `meta.vite.cssScopeTo`), and app builds drop entry exports;
@@ -383,7 +383,7 @@ None: this is the first milestone. It builds on what the repo already has:
 ## Risks and open questions
 
 1. **CSS module class names differ between targets.** Ours are `<local>_<scopeId>_<index>`. For the Vue target, plugin-vue sends module blocks to Vite's CSS modules, which name classes its own way. Rendering is the same, names are not. Milestone 4 can decide whether to set Vite's `css.modules.generateScopedName` to match.
-2. **SCSS through two preprocessors.** plugin-vue lets Vite's CSS step run `sass` first; we run it through `compileStyleAsync`'s `preprocessLang`. Output can differ, and Vite's `css.preprocessorOptions` (`additionalData`, load paths) do not reach ours. The exit test shows any difference: it finds none on `Panel.ucf`'s scoped SCSS. Fallback if a later fixture differs: serve `lang.scss` ids and scope after Vite's preprocessing, which changes spec 4.3.
+2. **SCSS through two preprocessors.** plugin-vue lets Vite's CSS step run `sass` first; we run it through `compileStyleAsync`'s `preprocessLang`. Output can differ, and Vite's `css.preprocessorOptions` (`additionalData`, load paths) do not reach ours. The exit test shows any difference: it finds none on `Panel.front`'s scoped SCSS. Fallback if a later fixture differs: serve `lang.scss` ids and scope after Vite's preprocessing, which changes spec 4.3.
 3. **`</react>` inside a TSX string** closes the block (spec 10, documented). The error message gives the fix (`'<\/react>'`).
 4. **`style-inside-target` uses our scanner**, not Vue's or Svelte's parser. Exotic templates might fool it. Known misses, all in Svelte: a `<style` inside a `{…}` text expression is reported; a `<style>` inside a `{#…}` logic block is reported (Svelte leaves it in the markup); an omitted end tag (`<ul><li>a<li>b</ul>`) leaves the depth off by one, so a later top-level `<style>` is missed. If they matter, the check can use `compiler.parse` instead, once `check` gets the compiler, or carry HTML's table of omitted end tags.
 5. **Test tools at the root.** AGENTS.md keeps devDependencies at the root, so plugin-vue, vue, sass and shiki go there even though only e2e and core tests use them. If the reviewer prefers, a private package could carry its own; the rule does not say.
@@ -393,7 +393,7 @@ None: this is the first milestone. It builds on what the repo already has:
 
 ## Out of scope
 
-- Any Vite plugin hook: resolving `.ucf` imports, serving style and class map modules, `resolveTarget()`, the attribute rewrite (milestone 3).
+- Any Vite plugin hook: resolving `.front` imports, serving style and class map modules, `resolveTarget()`, the attribute rewrite (milestone 3).
 - `build` for `react`, `vue` and `svelte` (milestones 3, 4, 5).
 - `types` and `editor` halves, `packages/language-tools`, `packages/vscode` (milestone 2 and later).
 - HMR, SSR and the browser area (milestone 3 onward).
@@ -408,10 +408,10 @@ Run from the repo root after `pnpm install`. Each check is marked with what the 
 2. `pnpm devx test packages/e2e` runs the `e2e` project: `build/` and `editor/` tests, each with real Vite or real shiki. Expect every file listed with a test count, none skipped. **Done:** 5 files, 102 tests, all pass.
 3. `pnpm devx test packages/e2e/build/style-parity.spec.ts`: the exit test. Expect 27 passed (7 fixtures and 2 `langs/` fixtures, x 3). **Done.**
 4. Split a fixture:
-   `node --input-type=module -e "import {readFileSync} from 'node:fs'; import {splitBlocks} from './packages/core/src/index.ts'; const f = 'packages/e2e/fixtures/components/Card.ucf'; for (const b of splitBlocks(readFileSync(f, 'utf8'), f).blocks) console.log(b.type, JSON.stringify(b.attrs), b.start, b.end)"`
+   `node --input-type=module -e "import {readFileSync} from 'node:fs'; import {splitBlocks} from './packages/core/src/index.ts'; const f = 'packages/e2e/fixtures/components/Card.front'; for (const b of splitBlocks(readFileSync(f, 'utf8'), f).blocks) console.log(b.type, JSON.stringify(b.attrs), b.start, b.end)"`
    Expect `vue {} 0 170`, `react {} 172 318`, `svelte {} 320 469`, `style {"module":true,"lang":"scss"} 471 531`. **Done.**
-5. Errors in source order with line and column: the same command with `checkBlocks(splitBlocks(...))` on `invalid/MixedErrors.ucf`, printing `line:column code`. Expect `1:0 unknown-style-lang` then `13:0 duplicate-target`, each message naming its tag. **Done.**
-6. Build context for `Card.ucf` with `createBuildContext(split, {root: process.cwd(), compiler: createRequire(import.meta.url)('vue/compiler-sfc'), production: true})`. Expect an 8 hex char `scopeId`, `modules.$style.classes` = `{card: 'card_<scopeId>_0'}`, `styles[0].code` = `.card_<scopeId>_0 {\n  padding: 1rem;\n}` and `styles[0].map.sources` = the absolute `.ucf` path. **Done:** `224ba4d3`.
+5. Errors in source order with line and column: the same command with `checkBlocks(splitBlocks(...))` on `invalid/MixedErrors.front`, printing `line:column code`. Expect `1:0 unknown-style-lang` then `13:0 duplicate-target`, each message naming its tag. **Done.**
+6. Build context for `Card.front` with `createBuildContext(split, {root: process.cwd(), compiler: createRequire(import.meta.url)('vue/compiler-sfc'), production: true})`. Expect an 8 hex char `scopeId`, `modules.$style.classes` = `{card: 'card_<scopeId>_0'}`, `styles[0].code` = `.card_<scopeId>_0 {\n  padding: 1rem;\n}` and `styles[0].map.sources` = the absolute `.front` path. **Done:** `224ba4d3`.
 7. `pnpm devx test packages/e2e/build/scope-id.spec.ts`: `scopeId()` against plugin-vue in a real build and a real dev server. Expect 3 passed. **Done.**
 8. `MULTIFRONT_FUZZ_SEED=7 MULTIFRONT_FUZZ_RUNS=2000 pnpm devx test packages/core/test/split.fuzz.spec.ts` replays another seed. Expect 18 passed; `pnpm devx env` lists both knobs. **Done** (also seeds 99, 123456 and 4000000000 at 5000 runs).
 9. Seams (QA tests): `pnpm devx test packages/e2e/build/build-context.spec.ts`. Expect every fixture, valid and invalid, through split, `checkBlocks` and `createBuildContext` inside a real Vite build with the compiler `multifront()` borrowed. Each `langs/` fixture's CSS equal to plugin-vue's is in the exit test (check 3). **Done:** passes.

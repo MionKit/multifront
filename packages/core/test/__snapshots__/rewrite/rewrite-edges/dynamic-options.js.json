@@ -1,86 +1,86 @@
 {
-  "code": "export const kept = await import('../../components/Card.ucf?framework=react', {with: {type: 'x'}});\nexport const options = await import('../../components/Card.ucf?framework=vue', {note: 'kept'});\nexport const after = await import('../../components/Card.ucf?framework=svelte', {note: 'kept'});\nexport const trailing = await import('../../components/Card.ucf?framework=svelte');\nexport const multiline = await import(\n  '../../components/Card.ucf?framework=react');\nexport const template = await import(`../../components/Card.ucf?framework=react`);\nexport const quoted = await import('../../components/Card.ucf?framework=vue');\nexport const noFramework = await import('../../components/Card.ucf', {with: {type: 'x'}});\nexport const noOptions = await import('../../components/Card.ucf');\nexport const notUcf = await import('./target.js', {with: {framework: 'react'}});\n// oxlint-disable-next-line no-dupe-keys\nexport const repeated = await import('../../components/Card.ucf?framework=vue', {with: {type: 'x'}});\nexport const quote = await import('../../components/Card.ucf?framework=it%27s');\nexport const loneSurrogate = await import('../../components/Card.ucf?framework=%EF%BF%BD');\n",
+  "code": "export const kept = await import('../../components/Card.front?framework=react', {with: {type: 'x'}});\nexport const options = await import('../../components/Card.front?framework=vue', {note: 'kept'});\nexport const after = await import('../../components/Card.front?framework=svelte', {note: 'kept'});\nexport const trailing = await import('../../components/Card.front?framework=svelte');\nexport const multiline = await import(\n  '../../components/Card.front?framework=react');\nexport const template = await import(`../../components/Card.front?framework=react`);\nexport const quoted = await import('../../components/Card.front?framework=vue');\nexport const noFramework = await import('../../components/Card.front', {with: {type: 'x'}});\nexport const noOptions = await import('../../components/Card.front');\nexport const notFront = await import('./target.js', {with: {framework: 'react'}});\n// oxlint-disable-next-line no-dupe-keys\nexport const repeated = await import('../../components/Card.front?framework=vue', {with: {type: 'x'}});\nexport const quote = await import('../../components/Card.front?framework=it%27s');\nexport const loneSurrogate = await import('../../components/Card.front?framework=%EF%BF%BD');\n",
   "imports": [
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
+      "specifier": "../../components/Card.front",
       "start": 33,
-      "end": 60,
+      "end": 62,
       "framework": "react"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 140,
-      "end": 167,
+      "specifier": "../../components/Card.front",
+      "start": 142,
+      "end": 171,
       "framework": "vue"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 246,
-      "end": 273,
+      "specifier": "../../components/Card.front",
+      "start": 250,
+      "end": 279,
       "framework": "svelte"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 358,
-      "end": 385,
+      "specifier": "../../components/Card.front",
+      "start": 364,
+      "end": 393,
       "framework": "svelte"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 462,
-      "end": 489,
+      "specifier": "../../components/Card.front",
+      "start": 470,
+      "end": 499,
       "framework": "react"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 590,
-      "end": 617,
+      "specifier": "../../components/Card.front",
+      "start": 600,
+      "end": 629,
       "framework": "react"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 685,
-      "end": 712,
+      "specifier": "../../components/Card.front",
+      "start": 697,
+      "end": 726,
       "framework": "vue"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 787,
-      "end": 814
+      "specifier": "../../components/Card.front",
+      "start": 801,
+      "end": 830
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 876,
-      "end": 903
+      "specifier": "../../components/Card.front",
+      "start": 892,
+      "end": 921
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 1065,
-      "end": 1092,
+      "specifier": "../../components/Card.front",
+      "start": 1085,
+      "end": 1114,
       "framework": "vue"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 1188,
-      "end": 1215,
+      "specifier": "../../components/Card.front",
+      "start": 1210,
+      "end": 1239,
       "framework": "it's"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 1289,
-      "end": 1316,
+      "specifier": "../../components/Card.front",
+      "start": 1313,
+      "end": 1342,
       "framework": "\ud800"
     }
   ],

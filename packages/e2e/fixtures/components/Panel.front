@@ -1,0 +1,66 @@
+<vue lang="vue">
+  <script setup lang="ts">
+  import PanelItem from './PanelItem.front'
+
+  defineProps<{ heading: string }>()
+  </script>
+  <template>
+    <section class="panel"><h3 :class="['heading', $style.title]">{{ heading }}</h3><PanelItem label="first item" /><slot /></section>
+  </template>
+</vue>
+
+<style scoped lang = scss>
+$pad: 1rem;
+
+.panel {
+  padding: $pad;
+
+  .heading {
+    margin: 0 0 $pad * 0.5;
+  }
+}
+
+// PanelItem's root, reached through scope forwarding in every framework.
+.item {
+  padding-left: $pad * 0.5;
+  border-left: 2px solid rgb(40, 90, 160);
+}
+</style>
+
+<style>
+:root {
+  --panel-border: #ccc;
+}
+</style>
+
+<style module lang="scss">
+$accent: rgb(40, 90, 160);
+
+.title {
+  color: $accent;
+}
+</style>
+
+<svelte lang="html">
+  <script lang="ts">
+  import type { Snippet } from 'svelte'
+  import PanelItem from './PanelItem.front'
+
+  let { heading, children }: { heading: string; children?: Snippet } = $props()
+  </script>
+
+  <section class="panel" data-marker="panel-svelte-marker">
+    <h3 class="heading {$style.title}">{heading}</h3>
+    <PanelItem label="first item" />
+    {@render children?.()}
+  </section>
+</svelte>
+
+<react lang="tsx">
+  import type { ReactNode } from 'react'
+  import PanelItem from './PanelItem.front'
+
+  export default function Panel({ heading, children }: { heading: string; children?: ReactNode }) {
+    return <section className="panel"><h3 className={`heading ${$style.title}`}>{heading}</h3><PanelItem label="first item" />{children}</section>
+  }
+</react>

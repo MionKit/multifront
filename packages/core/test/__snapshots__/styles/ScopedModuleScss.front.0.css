@@ -1,0 +1,12 @@
+.base_da09c129_0[data-v-da09c129] {
+  padding: 0.25rem;
+}
+.meter_da09c129_0[data-v-da09c129] {
+  padding: 0.5rem;
+}
+.meter_da09c129_0 .bar_da09c129_0[data-v-da09c129] {
+  margin: 1rem;
+}
+.meter_da09c129_0[data-v-da09c129]:hover {
+  color: teal;
+}

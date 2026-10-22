@@ -3,7 +3,7 @@ import type {Block, BlockTag, SplitResult} from '@multifront/core';
 import {generateGrammar} from 'multifront-vscode/grammar';
 import {describe, expect, it} from 'vitest';
 import {componentPath, listComponents, readComponent} from '../fixtures/index.ts';
-import {hasScope, tokenizeUcf} from './lib/tokenize.ts';
+import {hasScope, tokenizeFront} from './lib/tokenize.ts';
 import type {ScopedToken} from './lib/tokenize.ts';
 
 const grammars = generateGrammar();
@@ -14,7 +14,7 @@ type Tokenized = Pick<SplitResult, 'source' | 'blocks'> & {tokens: ScopedToken[]
 
 async function tokenize(name: string): Promise<Tokenized> {
   const {filename, source} = readComponent(name);
-  return {source, blocks: splitBlocks(source, filename).blocks, tokens: await tokenizeUcf(componentPath(name), grammars)};
+  return {source, blocks: splitBlocks(source, filename).blocks, tokens: await tokenizeFront(componentPath(name), grammars)};
 }
 
 function tokenAt({tokens}: Tokenized, offset: number): ScopedToken {
@@ -70,10 +70,10 @@ function leaks({source, blocks, tokens}: Tokenized): string[] {
   return found;
 }
 
-describe('the .ucf grammar generated from the block registry, in the real vscode-textmate', () => {
+describe('the .front grammar generated from the block registry, in the real vscode-textmate', () => {
   it('serves every grammar under its own scope and never includes an upstream one', () => {
-    expect(grammars[0]!.scopeName).toBe('source.ucf');
-    expect(grammars.filter(({scopeName}) => !scopeName.startsWith('source.ucf'))).toEqual([]);
+    expect(grammars[0]!.scopeName).toBe('source.front');
+    expect(grammars.filter(({scopeName}) => !scopeName.startsWith('source.front'))).toEqual([]);
     // The test registry also holds shiki's text.html.vue and source.svelte, so a missed rename would still highlight.
     expect(JSON.stringify(grammars)).not.toMatch(/"include":"(text\.html\.vue|source\.svelte|vue\.)/);
   });
@@ -82,8 +82,8 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
     ...listComponents(),
     ...listComponents('langs'),
     ...listComponents('editor'),
-    'invalid/BrokenOpeningTags.ucf', // `<style scoped/>` opens nothing
-    'invalid/UnknownRootTag.ucf', // `<react_old>` is not `<react>`
+    'invalid/BrokenOpeningTags.front', // `<style scoped/>` opens nothing
+    'invalid/UnknownRootTag.front', // `<react_old>` is not `<react>`
   ])('%s: each block scope covers exactly the content splitBlocks reads, and no injection escapes', async (name) => {
     const file = await tokenize(name);
     expect(file.blocks.length).toBeGreaterThan(0);
@@ -91,10 +91,10 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
     expect(leaks(file)).toEqual([]);
   });
 
-  it('Card.ucf: every block gets its own language scopes', async () => {
-    const card = await tokenize('Card.ucf');
+  it('Card.front: every block gets its own language scopes', async () => {
+    const card = await tokenize('Card.front');
     expect(tokenIn(card, 'react', 'export').scopes).toContain('keyword.control.export.tsx');
-    // The vue.directives and vue.interpolations injections, served under source.ucf.vue.
+    // The vue.directives and vue.interpolations injections, served under source.front.vue.
     expect(tokenIn(card, 'vue', ':class').scopes).toContain('punctuation.attribute-shorthand.bind.html.vue');
     expect(tokenIn(card, 'vue', ':class', 1).scopes).toContain('entity.other.attribute-name.html.vue');
     expect(tokenIn(card, 'vue', '{{').scopes).toContain('punctuation.definition.interpolation.begin.html.vue');
@@ -102,16 +102,16 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
     expect(tokenIn(card, 'svelte', '{title}', 1).scopes).toContain('meta.embedded.expression.svelte');
     // Svelte embeds its <script> through its own injections, lifted to the root grammar.
     expect(tokenIn(card, 'svelte', 'let').scopes).toContain('source.ts');
-    expect(tokenAt(card, card.source.indexOf('<react lang="tsx">') + 1).scopes).toContain('entity.name.tag.ucf');
+    expect(tokenAt(card, card.source.indexOf('<react lang="tsx">') + 1).scopes).toContain('entity.name.tag.front');
   });
 
-  it('Panel.ucf: the <style lang = scss> block uses the SCSS grammar', async () => {
-    const panel = await tokenize('Panel.ucf');
+  it('Panel.front: the <style lang = scss> block uses the SCSS grammar', async () => {
+    const panel = await tokenize('Panel.front');
     expect(tokenIn(panel, 'style', '$pad').scopes).toContain('variable.scss');
   });
 
-  it('editor/GrammarEdges.ucf: injections that name the Vue root, and Svelte rules reached through #scope', async () => {
-    const edges = await tokenize('editor/GrammarEdges.ucf');
+  it('editor/GrammarEdges.front: injections that name the Vue root, and Svelte rules reached through #scope', async () => {
+    const edges = await tokenize('editor/GrammarEdges.front');
     // vue.sfc.script.leading-operator-fix: its selector names text.html.vue.
     expect(tokenIn(edges, 'vue', '< limit').scopes).toContain('keyword.operator.relational.js');
     // Svelte's <template> injection includes its own #scope.
@@ -121,8 +121,8 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
     expect(tokenIn(edges, 'style', '$gap').scopes).toContain('variable.scss');
   });
 
-  it('TsxEdges.ucf: <>, <T,> and a < b end the <react> scope exactly at </react>', async () => {
-    const edges = await tokenize('TsxEdges.ucf');
+  it('TsxEdges.front: <>, <T,> and a < b end the <react> scope exactly at </react>', async () => {
+    const edges = await tokenize('TsxEdges.front');
     const react = edges.blocks.find(({type}) => type === 'react')!;
     expect(tokenAt(edges, react.contentEnd).scopes.filter((scope) => scope.startsWith('meta.embedded'))).toEqual([]);
     const lastBrace = edges.source.lastIndexOf('}', react.contentEnd);
@@ -130,8 +130,8 @@ describe('the .ucf grammar generated from the block registry, in the real vscode
   });
 
   // The documented limit: inside a string the TSX grammar never sees `</react>`, the splitter does.
-  it('invalid/ReactCloseInString.ucf: the react scope runs past the closing tag the splitter takes', async () => {
-    const file = await tokenize('invalid/ReactCloseInString.ucf');
+  it('invalid/ReactCloseInString.front: the react scope runs past the closing tag the splitter takes', async () => {
+    const file = await tokenize('invalid/ReactCloseInString.front');
     const react = file.blocks.find(({type}) => type === 'react')!;
     expect(hasScope(tokenAt(file, react.contentEnd), 'meta.embedded.block.react')).toBe(true);
     expect(mismatches(file)).not.toEqual([]);

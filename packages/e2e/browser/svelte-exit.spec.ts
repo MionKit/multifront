@@ -1,4 +1,4 @@
-// Milestone 5 exit test: Panel.ucf as Vue, React and Svelte in one real Vite app, in Chromium.
+// Milestone 5 exit test: Panel.front as Vue, React and Svelte in one real Vite app, in Chromium.
 import {join, resolve} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -66,8 +66,8 @@ describe.each([
     await app?.close();
   });
 
-  it('1. renders Panel.ucf as Vue, React and Svelte side by side, with the same data-v-* value', async () => {
-    const panel = scopeAttribute(ROOT, componentPath('Panel.ucf'), production);
+  it('1. renders Panel.front as Vue, React and Svelte side by side, with the same data-v-* value', async () => {
+    const panel = scopeAttribute(ROOT, componentPath('Panel.front'), production);
     for (const framework of FRAMEWORKS) {
       const heading = await page!.locator(`#${framework} .panel .heading`).textContent();
       expect({framework, heading}).toEqual({framework, heading: `${framework[0]!.toUpperCase()}${framework.slice(1)} panel`});
@@ -94,9 +94,9 @@ describe.each([
     }
   });
 
-  it("3. Panel.ucf's scoped rule reaches PanelItem's root as Vue, React and Svelte, with equal computed styles", async () => {
-    const panel = scopeAttribute(ROOT, componentPath('Panel.ucf'), production);
-    const item = scopeAttribute(ROOT, componentPath('PanelItem.ucf'), production);
+  it("3. Panel.front's scoped rule reaches PanelItem's root as Vue, React and Svelte, with equal computed styles", async () => {
+    const panel = scopeAttribute(ROOT, componentPath('Panel.front'), production);
+    const item = scopeAttribute(ROOT, componentPath('PanelItem.front'), production);
     for (const framework of FRAMEWORKS) {
       const root = page!.locator(`#${framework} .panel .item`);
       expect({framework, scopes: await scopesOf(page!, `#${framework} .panel .item`)}).toEqual({
@@ -118,7 +118,7 @@ describe.each([
 describe('milestone 5 exit test, all-targets HMR', () => {
   it('2. a <svelte> edit hot-updates without a reload while the React counter keeps its state', async () => {
     const root = await copyApp('all-targets');
-    const panelFile = resolve(root, '..', '..', 'components', 'Panel.ucf');
+    const panelFile = resolve(root, '..', '..', 'components', 'Panel.front');
     let app: Awaited<ReturnType<typeof startDev>> | undefined;
     const page = await browser!.newPage();
     try {

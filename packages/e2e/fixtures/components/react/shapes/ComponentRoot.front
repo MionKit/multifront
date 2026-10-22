@@ -1,0 +1,7 @@
+<react lang="tsx">
+  import ArrowExpression from './ArrowExpression.front'
+
+  export default function ComponentRoot(props: { branch?: string }) {
+    return <ArrowExpression branch={props.branch} />
+  }
+</react>

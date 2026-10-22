@@ -1,8 +1,0 @@
-import "<fixtures>/components/Button.ucf?ucf&type=style&index=0&lang.css";
-import "<fixtures>/components/Button.ucf?ucf&type=style&index=1&lang.css";
-import classes from "<fixtures>/components/Button.ucf?ucf&type=style&index=1&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  export default function Button(__props: { label: string }) {const { label } = __props;
-    return <button data-v-00f5199b="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass(`button ${classes.primary}`, __props.className)}>{label}</button>
-  }

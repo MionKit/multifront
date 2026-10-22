@@ -26,7 +26,7 @@ interface Input {
   script: Script;
 }
 
-// `.ucf` importers are left out: block imports never go through the rewrite (an attribute there is framework-in-block).
+// `.front` importers are left out: block imports never go through the rewrite (an attribute there is framework-in-block).
 const INPUTS: Input[] = [
   ...filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte)$/).map((file) => `imports/${file}`),
   ...filesOf('rewrite-edges', /\.m?js$/)
@@ -50,11 +50,11 @@ function keyName(key: ImportAttribute['key'] | ObjectExpression['properties'][nu
 }
 
 // Accepts a query too, unlike the rewrite, so it finds the rewritten specifiers.
-function ucfSpecifier(node: Expression | null): string | undefined {
+function frontSpecifier(node: Expression | null): string | undefined {
   let value: string | undefined;
   if (node?.type === 'Literal' && typeof node.value === 'string') value = node.value;
   else if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) value = node.quasis[0]!.value.cooked ?? undefined;
-  return value?.split('?')[0]!.endsWith('.ucf') ? value : undefined;
+  return value?.split('?')[0]!.endsWith('.front') ? value : undefined;
 }
 
 interface Found {
@@ -62,13 +62,13 @@ interface Found {
   keys: string[] | null; // its attribute keys; null for options the code does not spell out
 }
 
-/** Every `.ucf` import, in source order, read straight from the AST. */
-function ucfImports(code: string, lang: Script['lang']): Found[] {
+/** Every `.front` import, in source order, read straight from the AST. */
+function frontImports(code: string, lang: Script['lang']): Found[] {
   const {program, errors} = parseSync(`file.${lang}`, code, {lang, sourceType: 'module'});
   expect(errors).toEqual([]);
   const found: Found[] = [];
   const fromStatic = (node: {source: Expression | null; attributes: ImportAttribute[]}) => {
-    const specifier = ucfSpecifier(node.source);
+    const specifier = frontSpecifier(node.source);
     if (specifier) found.push({specifier, keys: node.attributes.map((attribute) => keyName(attribute.key)!)});
   };
   const optionKeys = (options: Expression | null): string[] | null => {
@@ -84,7 +84,7 @@ function ucfImports(code: string, lang: Script['lang']): Found[] {
     ExportNamedDeclaration: fromStatic,
     ExportAllDeclaration: fromStatic,
     ImportExpression: (node) => {
-      const specifier = ucfSpecifier(node.source);
+      const specifier = frontSpecifier(node.source);
       if (specifier) found.push({specifier, keys: optionKeys(node.options)});
     },
   }).visit(program);
@@ -111,8 +111,8 @@ describe('rewriteImportAttributes over the importer fixtures', () => {
     });
 
     it('moves exactly the framework attribute into the specifier', () => {
-      const before = ucfImports(input.script.code, lang);
-      const after = ucfImports(result.code, lang);
+      const before = frontImports(input.script.code, lang);
+      const after = frontImports(result.code, lang);
       expect(before.map(({specifier}) => specifier)).toEqual(result.imports.map(({specifier}) => specifier));
       expect(after).toHaveLength(before.length);
       result.imports.forEach((entry, index) => {
@@ -172,20 +172,21 @@ describe('rewriteImportAttributes, hand-written cases', () => {
         severity: 'error',
         message: "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)",
         line: 2,
-        column: 73,
+        column: 75,
       },
     ]);
   });
 
   it('rewrite-edges/not-literal-options.js: options it cannot read are errors', () => {
     const result = rewrite(input('rewrite-edges/not-literal-options.js'));
-    const message = 'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
+    const message =
+      'import() options of a .front import must be an object literal, so multifront can read its framework attribute';
     expect(result.errors.map(({code, line, column, message: text}) => ({code, line, column, text}))).toEqual(
       [
-        [4, 70],
-        [5, 77],
-        [6, 71],
-        [7, 73],
+        [4, 72],
+        [5, 79],
+        [6, 73],
+        [7, 75],
       ].map(([line, column]) => ({code: 'framework-attribute-not-literal', line, column, text: message}))
     );
     expect(result.imports.map(({framework}) => framework)).toEqual([undefined, undefined, undefined, undefined]);
@@ -196,7 +197,7 @@ describe('rewriteImportAttributes, hand-written cases', () => {
     expect(rewriteImportAttributes(source, SYNTAX_ERROR)).toEqual({code: source, map: null, imports: [], errors: []});
   });
 
-  it('no-default/strings-and-comments.ts: .ucf in strings and comments is left alone', () => {
+  it('no-default/strings-and-comments.ts: .front in strings and comments is left alone', () => {
     const {script} = input('imports/no-default/strings-and-comments.ts');
     expect(rewrite(input('imports/no-default/strings-and-comments.ts'))).toEqual({
       code: script.code,

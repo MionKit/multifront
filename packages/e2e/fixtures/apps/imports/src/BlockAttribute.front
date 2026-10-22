@@ -1,0 +1,8 @@
+<react lang="tsx">
+  import Badge from '../../../components/Badge.front' with { framework: 'vue' }
+  import Card from '../../../components/Card.front' with { framework: 'react' }
+
+  export default function BlockAttribute() {
+    return <><Card title="Hello" /><Badge label="New" /></>
+  }
+</react>

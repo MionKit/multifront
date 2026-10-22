@@ -11,7 +11,7 @@ const ROOT = join(FIXTURES_DIR, 'apps', 'scan-deps');
 const REACT_DEPENDENCY = 'react-dom/client';
 const VUE_DEPENDENCY = '@jridgewell/trace-mapping';
 
-// [entry, the rule that picks the framework, the dependency only that block of `Mount.ucf` imports, the other one].
+// [entry, the rule that picks the framework, the dependency only that block of `Mount.front` imports, the other one].
 const ENTRIES: [string, string, string, string][] = [
   ['bare.tsx', 'importer', REACT_DEPENDENCY, VUE_DEPENDENCY],
   ['attribute.ts', 'attribute', REACT_DEPENDENCY, VUE_DEPENDENCY],

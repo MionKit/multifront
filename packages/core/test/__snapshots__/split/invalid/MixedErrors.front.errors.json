@@ -1,0 +1,12 @@
+[
+  {
+    "code": "duplicate-target",
+    "severity": "error",
+    "message": "<react> appears more than once; keep one",
+    "filename": "invalid/MixedErrors.front",
+    "start": 166,
+    "end": 184,
+    "line": 13,
+    "column": 0
+  }
+]

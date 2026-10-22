@@ -1,0 +1,5 @@
+<svelte lang="html">
+  {#await import('../../imports/Icon.front', { with: { framework: 'svelte' } }) then { default: Icon }}
+    <Icon />
+  {/await}
+</svelte>

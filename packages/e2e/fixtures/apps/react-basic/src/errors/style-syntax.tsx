@@ -1,3 +1,3 @@
-import CssSyntaxError from '../../../../components/invalid/CssSyntaxError.ucf';
+import CssSyntaxError from '../../../../components/invalid/CssSyntaxError.front';
 
 export default CssSyntaxError;

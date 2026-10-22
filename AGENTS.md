@@ -44,7 +44,7 @@
 
 **Test the real thing, end to end.** No unit tests of internals, no mocks, no stubs, no fake data.
 
-- Every test feeds real files (real `.ucf` components, real apps) through real tools, checks the real output.
+- Every test feeds real files (real `.front` components, real apps) through real tools, checks the real output.
 - Real tools = Vite, the framework plugins, TypeScript, the language server, a browser.
 - Two tools meet (our plugin + plugin-vue, a parser + a compiler) → the test runs both for real.
 - Smallest allowed test: a real fixture file, through a public function or command, real output checked.

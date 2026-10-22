@@ -1,0 +1,3 @@
+<react lang="tsx">
+  export { default } from '../../Card.front'
+</react>

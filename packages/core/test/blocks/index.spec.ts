@@ -69,35 +69,35 @@ describe('block kinds', () => {
 
 describe('buildTarget', () => {
   it('builds the react row as react.build does', async () => {
-    const {split, ctx} = await load('react/AllBlocks.ucf');
+    const {split, ctx} = await load('react/AllBlocks.front');
     expect(buildTarget(split, ctx, 'react')).toEqual(getBlockKind('react').build(split.targets.react!, ctx));
   });
 
   it("throws the react row's check errors at their place", async () => {
-    const {split} = await load('react/errors/NoDefault.ucf');
+    const {split} = await load('react/errors/NoDefault.front');
     const [expected] = checkBlocks(split);
-    expect(await buildErrors('react/errors/NoDefault.ucf', 'react')).toEqual([
+    expect(await buildErrors('react/errors/NoDefault.front', 'react')).toEqual([
       {code: 'react-no-default-export', line: expected!.line, column: expected!.column},
     ]);
   });
 
   it('throws missing-target-block for a file without the block', async () => {
-    expect(await buildErrors('imports/VueOnly.ucf', 'react')).toEqual([{code: 'missing-target-block', line: 1, column: 0}]);
+    expect(await buildErrors('imports/VueOnly.front', 'react')).toEqual([{code: 'missing-target-block', line: 1, column: 0}]);
   });
 
   it('builds the svelte row as a .svelte file', async () => {
-    const {split, ctx} = await load('react/AllBlocks.ucf');
+    const {split, ctx} = await load('react/AllBlocks.front');
     const file = buildTarget(split, ctx, 'svelte');
     expect(file.ext).toBe('.svelte');
     expect(file).toEqual(getBlockKind('svelte').build(split.targets.svelte!, ctx));
   });
 
-  it('builds the vue row as the same-length SFC code, mapped to the .ucf file', async () => {
-    const {split, ctx} = await load('Counter.ucf');
+  it('builds the vue row as the same-length SFC code, mapped to the .front file', async () => {
+    const {split, ctx} = await load('Counter.front');
     expect(buildTarget(split, ctx, 'vue')).toEqual({ext: '.vue', ...vueSfcCode(split.source, split.blocks, split.filename)});
   });
 
   it('throws vue-empty-block for a <vue> block with no <template> or <script>', async () => {
-    expect(await buildErrors('vue/Empty.ucf', 'vue')).toEqual([{code: 'vue-empty-block', line: 1, column: 0}]);
+    expect(await buildErrors('vue/Empty.front', 'vue')).toEqual([{code: 'vue-empty-block', line: 1, column: 0}]);
   });
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Greeting from './Greeting.ucf'
+import Greeting from './Greeting.front'
 </script>
 
 <template>

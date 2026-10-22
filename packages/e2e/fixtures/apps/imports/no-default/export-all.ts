@@ -1,1 +1,1 @@
-export * from '../../../components/Card.ucf' with {framework: 'react'};
+export * from '../../../components/Card.front' with {framework: 'react'};

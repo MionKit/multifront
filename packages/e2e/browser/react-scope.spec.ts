@@ -7,15 +7,15 @@ import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-scope');
-const STAMPED = componentPath('react/scope/Stamped.ucf');
-const PARENT = join(ROOT, 'Parent.ucf');
-const MULTI_RETURN = componentPath('react/shapes/MultiReturn.ucf');
-const SCOPED_PANEL = componentPath('react/ScopedPanel.ucf');
+const STAMPED = componentPath('react/scope/Stamped.front');
+const PARENT = join(ROOT, 'Parent.front');
+const MULTI_RETURN = componentPath('react/shapes/MultiReturn.front');
+const SCOPED_PANEL = componentPath('react/ScopedPanel.front');
 
-// The scoped `.shape` rule of Parent.ucf, which reaches a child root only through forwarding.
+// The scoped `.shape` rule of Parent.front, which reaches a child root only through forwarding.
 const PARENT_COLOR = 'rgb(200, 40, 80)';
 
-// `data-case`s of Parent.ucf whose child root is a JSX element.
+// `data-case`s of Parent.front whose child root is a JSX element.
 const FORWARDED = [
   'MultiReturn:early',
   'MultiReturn:last',
@@ -41,13 +41,13 @@ const FORWARDED = [
   'DestructuredDefaults:given',
   'ForwardRefDestructured:only',
 ];
-// Destructuring defaults and rest props, as DestructuredDefaults.ucf renders them.
+// Destructuring defaults and rest props, as DestructuredDefaults.front renders them.
 const DEFAULTS_TEXT: [string, string][] = [
   ['DestructuredDefaults:defaults', 'default label / defaults / no note'],
   ['DestructuredDefaults:given', 'given label / given / rest note'],
 ];
 
-// ScopedPanel.ucf's scoped rules: `.badge` reaches ScopedBadge's root, `.badge-label` must not reach its inner element.
+// ScopedPanel.front's scoped rules: `.badge` reaches ScopedBadge's root, `.badge-label` must not reach its inner element.
 const BADGE_COLOR = 'rgb(30, 120, 60)';
 // Fragment and non-JSX roots: no element of theirs gets it.
 const NOT_FORWARDED = [
@@ -59,10 +59,10 @@ const NOT_FORWARDED = [
   'NullRoot:children',
 ];
 
-// Hand-counted from Stamped.ucf: every host element it renders, fragments rendering none.
+// Hand-counted from Stamped.front: every host element it renders, fragments rendering none.
 const ELEMENT_COUNT = 19;
 
-// Selector → the scoped rule's property and value in Stamped.ucf.
+// Selector → the scoped rule's property and value in Stamped.front.
 const SCOPED_RULES: [string, string, string][] = [
   ['.box', 'color', 'rgb(10, 20, 30)'],
   ['.dot', 'fill', 'rgb(40, 50, 60)'],

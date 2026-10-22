@@ -12,8 +12,8 @@ import {offsetAt, open, startTsserver, tsLocation} from '../lib/tsserver.ts';
 import type {TsLocation, Tsserver} from '../lib/tsserver.ts';
 
 const APP_DIR = join(FIXTURES_DIR, 'apps', 'svelte-markup');
-const TOOLBAR = readComponent(join('..', 'apps', 'svelte-markup', 'Toolbar.ucf'));
-const ICON = readComponent(join('..', 'apps', 'svelte-markup', 'Icon.ucf'));
+const TOOLBAR = readComponent(join('..', 'apps', 'svelte-markup', 'Toolbar.front'));
+const ICON = readComponent(join('..', 'apps', 'svelte-markup', 'Icon.front'));
 const ANCHOR = '    <Icon name="search" />\n';
 // Icon's own two, and the `class` and `style` its single root element takes (spec 3.5.1).
 const PROPS = ['name', 'class', 'size', 'style'];
@@ -87,7 +87,7 @@ const completedIn = (typed: string, after?: string, base?: string) =>
   withTyped(typed, async ({at}) => entryNames(await completionInfo(at)), after, base);
 
 describe('tsserver with our plugin: props in a component start tag', () => {
-  it('Toolbar.ucf as written has no diagnostic', async () => {
+  it('Toolbar.front as written has no diagnostic', async () => {
     expect(await tsserver.diagnostics(TOOLBAR.filename)).toEqual([]);
   });
 

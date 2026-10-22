@@ -1,18 +1,18 @@
 {
-  "code": "import Card from '../../components/Card.ucf?framework=react' /* e */;\nimport Other from '../../components/Card.ucf?framework=vue';\n\nexport {Card, Other};\n",
+  "code": "import Card from '../../components/Card.front?framework=react' /* e */;\nimport Other from '../../components/Card.front?framework=vue';\n\nexport {Card, Other};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
+      "specifier": "../../components/Card.front",
       "start": 17,
-      "end": 44,
+      "end": 46,
       "framework": "react"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 136,
-      "end": 163,
+      "specifier": "../../components/Card.front",
+      "start": 138,
+      "end": 167,
       "framework": "vue"
     }
   ],

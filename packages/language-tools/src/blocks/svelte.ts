@@ -26,7 +26,7 @@ let installedTypesRoot: string | undefined;
 // A Svelte installed later needs a restart, as its compiler does.
 const svelteHtmlByFolder = new Map<string, string | undefined>();
 
-// As svelte2tsx's `get_global_types`: the Svelte the `.ucf` file imports; every Svelte 5 ships svelte-html.d.ts.
+// As svelte2tsx's `get_global_types`: the Svelte the `.front` file imports; every Svelte 5 ships svelte-html.d.ts.
 function projectSvelteHtml(fileName: string): string | undefined {
   const folder = dirname(fileName);
   if (svelteHtmlByFolder.has(folder)) return svelteHtmlByFolder.get(folder);
@@ -45,7 +45,7 @@ function projectSvelteHtml(fileName: string): string | undefined {
 
 type SvelteTypes = Pick<EditorFile, 'code' | 'mappings'> & Pick<ReturnType<typeof svelteEditorSource>, 'lang'>;
 
-// A renamed use ends the gap between two mapped runs: its local in the renamed code, its `$name` in the `.ucf` file.
+// A renamed use ends the gap between two mapped runs: its local in the renamed code, its `$name` in the `.front` file.
 function renamedUses(mappings: CodeMapping[], source: string, renamed: string, locals: Set<string>): CodeMapping[] {
   const uses: CodeMapping[] = [];
   for (const [index, before] of mappings.entries()) {
@@ -57,7 +57,7 @@ function renamedUses(mappings: CodeMapping[], source: string, renamed: string, l
       /[\w$]+$/.exec(renamed.slice(before.generatedOffsets[0]! + before.lengths[0]!, after.generatedOffsets[0])) ?? [];
     if (!local || !locals.has(local)) continue;
     const gap = source.slice(sourceEnd, after.sourceOffsets[0]);
-    // An object shorthand's `$name` stays as its key (`{$style: __ucfStyle}`), mapped 1:1: the value takes it over.
+    // An object shorthand's `$name` stays as its key (`{$style: __frontStyle}`), mapped 1:1: the value takes it over.
     const [name] = /\$[\w$]+$/.exec(gap || source.slice(before.sourceOffsets[0], sourceEnd)) ?? [];
     if (!name) continue;
     if (!gap) before.lengths[0]! -= name.length;
@@ -117,7 +117,7 @@ function withComponentProps(code: string, lang: SvelteTypes['lang']): string {
     : `${code}\n/** @typedef {Record<string, any>} $$ComponentProps */\n`;
 }
 
-// svelte2tsx's script, then `declare const __ucfStyle: {readonly card: string};` per class map the block uses.
+// svelte2tsx's script, then `declare const __frontStyle: {readonly card: string};` per class map the block uses.
 export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | undefined {
   const compiler = ctx.svelteCompiler;
   if (!compiler) return undefined;
@@ -143,7 +143,7 @@ export function svelteTypes(block: Block, ctx: EditorContext): SvelteTypes | und
     ctx.svelteTypesRoot ?? (installedTypesRoot ??= dirname(createRequire(import.meta.url).resolve('svelte2tsx/package.json')));
   const references = [join(root, SHIMS), projectSvelteHtml(ctx.split.filename) ?? join(root, SVELTE_JSX)];
   const prefix = references.map((path) => `/// <reference path="${path.replaceAll('\\', '/')}" />\n`).join('');
-  // svelte2tsx reads the renamed block: its map ends there, the rename's goes on into the `.ucf` file.
+  // svelte2tsx reads the renamed block: its map ends there, the rename's goes on into the `.front` file.
   const outer = sourceMapMappings(script.map, svelte, script.code, SVELTE_FEATURES).map((mapping) => ({
     ...mapping,
     generatedOffsets: [prefix.length + mapping.generatedOffsets[0]!],

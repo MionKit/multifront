@@ -46,8 +46,8 @@ async function openApp(name: string) {
       page,
       logs,
       root,
-      panelFile: join(components, 'Panel.ucf'),
-      noStyleFile: join(components, 'svelte', 'NoStyle.ucf'),
+      panelFile: join(components, 'Panel.front'),
+      noStyleFile: join(components, 'svelte', 'NoStyle.front'),
       messages: collectConsole(page),
       requests: trackRequests(page),
       payloads: trackHmrPayloads(page),
@@ -57,7 +57,7 @@ async function openApp(name: string) {
     page.on('load', () => void opened.loads++);
     await page.goto(app.url);
     await page.locator(SVELTE_PANEL).waitFor();
-    await page.evaluate(() => void ((globalThis as {ucfMarker?: string}).ucfMarker = 'kept'));
+    await page.evaluate(() => void ((globalThis as {frontMarker?: string}).frontMarker = 'kept'));
     return opened;
   } catch (err) {
     await close();
@@ -70,11 +70,11 @@ async function edit(opened: Opened, from: string, to: string, file = opened.pane
   await editFile(opened.requests, file, from, to);
 }
 
-const marker = ({page}: Opened) => page.evaluate(() => (globalThis as {ucfMarker?: string}).ucfMarker);
+const marker = ({page}: Opened) => page.evaluate(() => (globalThis as {frontMarker?: string}).frontMarker);
 const svelteHeading = ({page}: Opened) => page.locator(`${SVELTE_PANEL} .heading`).textContent();
 const sveltePadding = ({page}: Opened) => computed(page.locator(SVELTE_PANEL), 'padding-top');
 const svelteModule = ({panelFile}: Opened) => `${panelFile}.svelte.svelte`;
-const styleModule = ({panelFile}: Opened, index: number) => `/@fs${panelFile}?ucf&type=style&index=${index}&lang.css`;
+const styleModule = ({panelFile}: Opened, index: number) => `/@fs${panelFile}?front&type=style&index=${index}&lang.css`;
 
 async function expectNoError(opened: Opened) {
   expect(opened.payloads.errors()).toEqual([]);
@@ -155,7 +155,7 @@ describe('Svelte HMR beside Vue and React in apps/all-targets', () => {
     await opened?.close();
   });
 
-  it('renders Panel.ucf as Vue, React and Svelte, and counts React clicks from 2', async () => {
+  it('renders Panel.front as Vue, React and Svelte, and counts React clicks from 2', async () => {
     expect(await opened.page.locator('#vue .heading').textContent()).toBe('Vue panel');
     expect(await opened.page.locator('#react .heading').textContent()).toBe('React panel');
     expect(await svelteHeading(opened)).toBe('Svelte panel');
@@ -190,7 +190,7 @@ describe('Svelte HMR beside Vue and React in apps/all-targets', () => {
     await scopedStyleEdit(opened);
 
     // Ours for React and Svelte, plugin-vue's sub-module for the Vue panel.
-    const ours = `/@fs${opened.panelFile}?ucf&type=style&index=0&`;
+    const ours = `/@fs${opened.panelFile}?front&type=style&index=0&`;
     const vues = `/@fs${opened.panelFile}?vue&type=style&index=0&`;
     for (const paths of [opened.requests.paths(), opened.payloads.updatedPaths()]) {
       expect(paths).toContain(styleModule(opened, 0));

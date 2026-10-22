@@ -1,10 +1,10 @@
-// The real `mf-lint` on copies of `lint-format/`: each block through the real oxlint, findings at their `.ucf` text.
+// The real `mf-lint` on copies of `lint-format/`: each block through the real oxlint, findings at their `.front` text.
 import {mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {findingOf, splitBlocks} from '@multifront/core';
 import type {Finding, Target} from '@multifront/core';
-import {lintUcf} from '@multifront/language-tools';
+import {lintFront} from '@multifront/language-tools';
 import {describe, expect, it, onTestFinished} from 'vitest';
 import {FIXTURES_DIR, copyAppOutside, readComponent} from '../../fixtures/index.ts';
 import {runMfLint} from '../lib/commands.ts';
@@ -13,9 +13,9 @@ import {LINT_FORMAT, OXLINT_DIR, copyInto, read} from '../lib/format.ts';
 import {assertNotInstalled, editFile, line, withCopy} from '../lib/tsc.ts';
 import {offsetAt, tsLocation} from '../lib/tsserver.ts';
 
-const LINT = 'Lint.ucf';
-const CLEAN = 'Clean.ucf';
-const BROKEN = 'Broken.ucf';
+const LINT = 'Lint.front';
+const CLEAN = 'Clean.front';
+const BROKEN = 'Broken.front';
 const UNUSED = "Variable 'unused' is declared but never used. Unused variables should start with a '_'.";
 const DEBUGGER = '`debugger` statement is not allowed';
 const LINT_SOURCE = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), LINT);
@@ -25,8 +25,8 @@ const BAD_CONFIG = (config: string) =>
 
 const HELP = `Usage: mf-lint [options] [paths...]
 
-Lints each block of .ucf files with oxlint and the project's .oxlintrc.json.
-Paths are .ucf files or folders; none lints every .ucf file under the current folder.
+Lints each block of .front files with oxlint and the project's .oxlintrc.json.
+Paths are .front files or folders; none lints every .front file under the current folder.
 
 Options:
   --deny-warnings     exit 1 on warnings too
@@ -34,7 +34,7 @@ Options:
   -h, --help          show this help
 
 Example:
-  mf-lint src/Card.ucf --format json
+  mf-lint src/Card.front --format json
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
@@ -60,7 +60,7 @@ function lintFinding(
   return {file, ...at, code, severity, message, block: tag, framework: tag};
 }
 
-/** What the fixture config reports on `Lint.ucf`: oxlint runs no `no-unused-vars` in `.vue` or `.svelte` files. */
+/** What the fixture config reports on `Lint.front`: oxlint runs no `no-unused-vars` in `.vue` or `.svelte` files. */
 function lintFindings(file = LINT): Finding[] {
   return [
     lintFinding(file, 'vue', 'debugger;', 'eslint(no-debugger)', 'error', DEBUGGER),
@@ -104,7 +104,7 @@ describe('mf-lint on the fixture', () => {
     });
   });
 
-  it('finds nothing in Clean.ucf', async () => {
+  it('finds nothing in Clean.front', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       expect(await runMfLint(root, [CLEAN])).toEqual(CLEAN_RUN);
     });
@@ -114,16 +114,16 @@ describe('mf-lint on the fixture', () => {
     await withCopy(LINT_FORMAT, async (root) => {
       copyInto(root, LINT, ['[slug]', 'bare']);
       editFile(root, CLEAN, 'className={$style.card}', 'className={classes.wide}');
-      editFile(root, 'bare/Lint.ucf', '<style module="classes">', '<style>');
+      editFile(root, 'bare/Lint.front', '<style module="classes">', '<style>');
       const run = await runMfLint(root, ['--format', 'json']);
       const undefinedClasses = (file: string) =>
         lintFinding(file, 'react', 'classes', 'eslint(no-undef)', 'error', "'classes' is not defined.", read(root, file));
       expect(report(run.stdout).findings).toEqual([
         undefinedClasses(CLEAN),
         ...lintFindings(),
-        ...lintFindings('[slug]/Lint.ucf'),
-        ...lintFindings('bare/Lint.ucf'),
-        undefinedClasses('bare/Lint.ucf'),
+        ...lintFindings('[slug]/Lint.front'),
+        ...lintFindings('bare/Lint.front'),
+        undefinedClasses('bare/Lint.front'),
       ]);
     });
   });
@@ -142,10 +142,10 @@ describe('mf-lint on the fixture', () => {
   });
 });
 
-describe('lintUcf', () => {
-  it("gives oxlint's diagnostics with their url and help, in .ucf offsets, for a file named relative to the root", async () => {
+describe('lintFront', () => {
+  it("gives oxlint's diagnostics with their url and help, in .front offsets, for a file named relative to the root", async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      const diagnostics = (await lintUcf([splitBlocks(LINT_SOURCE, LINT)], root)).sort((one, other) => one.start - other.start);
+      const diagnostics = (await lintFront([splitBlocks(LINT_SOURCE, LINT)], root)).sort((one, other) => one.start - other.start);
       const shown = diagnostics.map(({file, start, end, block, code, severity}) => [
         file,
         LINT_SOURCE.slice(start, end),
@@ -173,14 +173,14 @@ describe('mf-lint on one file or one folder', () => {
       copyInto(root, LINT, ['nested', '.hidden', 'old']);
       const nested = await runMfLint(root, ['nested', '--format', 'json']);
       expect(report(nested.stdout)).toEqual({
-        findings: lintFindings('nested/Lint.ucf'),
+        findings: lintFindings('nested/Lint.front'),
         errorCount: 2,
         warningCount: 2,
         files: 1,
       });
       const all = report((await runMfLint(root, ['--format', 'json'])).stdout);
       expect(all.files).toBe(3);
-      expect(all.findings).toEqual([...lintFindings(), ...lintFindings('nested/Lint.ucf')]);
+      expect(all.findings).toEqual([...lintFindings(), ...lintFindings('nested/Lint.front')]);
       expect(report((await runMfLint(root, [LINT, LINT, '--format', 'json'])).stdout)).toMatchObject({
         files: 1,
         findings: lintFindings(),
@@ -195,7 +195,7 @@ describe('mf-lint on one file or one folder', () => {
       writeFileSync(join(root, 'other', '.oxlintrc.jsonc'), '{\n  "rules": {"no-debugger": "off"}, // like nested/\n}\n');
       const {findings} = report((await runMfLint(root, ['--format', 'json'])).stdout);
       const unusedIn = (file: string) => lintFindings(file).find(({code}) => code === 'eslint(no-unused-vars)')!;
-      expect(findings).toEqual([...lintFindings(), unusedIn('nested/Lint.ucf'), unusedIn('other/Lint.ucf')]);
+      expect(findings).toEqual([...lintFindings(), unusedIn('nested/Lint.front'), unusedIn('other/Lint.front')]);
     });
   });
 
@@ -230,15 +230,15 @@ describe('mf-lint exit codes', () => {
 
   it("reports the splitter's errors", async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      const {source} = readComponent('invalid/DuplicateReact.ucf');
-      const file = join(root, 'DuplicateReact.ucf');
+      const {source} = readComponent('invalid/DuplicateReact.front');
+      const file = join(root, 'DuplicateReact.front');
       writeFileSync(file, source);
       const split = splitBlocks(source, file);
       expect(split.errors.map(({code}) => code)).toEqual(['duplicate-target', 'duplicate-target']);
-      const run = await runMfLint(root, ['DuplicateReact.ucf', '--format', 'json']);
+      const run = await runMfLint(root, ['DuplicateReact.front', '--format', 'json']);
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       expect(report(run.stdout).findings).toEqual(
-        split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.ucf'}))
+        split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.front'}))
       );
     });
   });
@@ -267,18 +267,18 @@ describe('mf-lint exit codes', () => {
 });
 
 describe('mf-lint that cannot run', () => {
-  it('names an unknown option, a file that is not .ucf, a missing path, a folder with nothing to lint and an ignored file', async () => {
+  it('names an unknown option, a file that is not .front, a missing path, a folder with nothing to lint and an ignored file', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       copyInto(root, LINT, ['old']);
       mkdirSync(join(root, 'empty'));
       expect(await runMfLint(root, ['--nope'])).toEqual(
         fails("unknown option '--nope'; use --deny-warnings, --format or --help")
       );
-      expect(await runMfLint(root, ['react.ts'])).toEqual(fails('react.ts is not a .ucf file; lint it with oxlint'));
-      expect(await runMfLint(root, ['nope.ucf'])).toEqual(fails('nope.ucf does not exist'));
-      expect(await runMfLint(root, ['empty'])).toEqual(fails('empty holds no .ucf file'));
-      expect(await runMfLint(root, ['old'])).toEqual(fails('old holds no .ucf file'));
-      expect(await runMfLint(root, ['old/Lint.ucf'])).toEqual(fails('old/Lint.ucf is ignored by .oxlintrc.json'));
+      expect(await runMfLint(root, ['react.ts'])).toEqual(fails('react.ts is not a .front file; lint it with oxlint'));
+      expect(await runMfLint(root, ['nope.front'])).toEqual(fails('nope.front does not exist'));
+      expect(await runMfLint(root, ['empty'])).toEqual(fails('empty holds no .front file'));
+      expect(await runMfLint(root, ['old'])).toEqual(fails('old holds no .front file'));
+      expect(await runMfLint(root, ['old/Lint.front'])).toEqual(fails('old/Lint.front is ignored by .oxlintrc.json'));
     });
   });
 
@@ -299,7 +299,7 @@ describe('mf-lint that cannot run', () => {
     await withCopy(LINT_FORMAT, async (root) => {
       copyInto(root, LINT, ['old']);
       writeFileSync(join(root, '.oxlintrc.json'), '{"ignorePatterns": "old/**"}\n');
-      expect(await runMfLint(root, ['old/Lint.ucf'])).toEqual(
+      expect(await runMfLint(root, ['old/Lint.front'])).toEqual(
         fails(
           'oxlint: Failed to parse oxlint configuration file. invalid config file .oxlintrc.json: ' +
             'Failed to parse config with error Error("invalid type: string \\"old/**\\", expected a sequence", line: 0, column: 0)'

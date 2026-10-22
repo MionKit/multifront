@@ -18,7 +18,7 @@ import type * as ts from 'typescript';
 /** Editor half of a core `BlockKind`; `blocks/` holds one per core kind, same tags, same order. */
 export interface EditorBlockKind {
   tag: BlockTag;
-  types?(block: Block, ctx: EditorContext): EditorFile | undefined; // what an importer sees: Card.ucf.<target><ext>
+  types?(block: Block, ctx: EditorContext): EditorFile | undefined; // what an importer sees: Card.front.<target><ext>
   editor?(block: Block, ctx: EditorContext): EditorCode[]; // embedded codes for the language services
   serviceScript?(code: VirtualCode): TargetScript | undefined; // inside the code editor() made
 }
@@ -26,7 +26,7 @@ export interface EditorBlockKind {
 /** A file the row turns into a code, or a Volar code it builds itself (`<vue>`: a `VueVirtualCode`). */
 export type EditorCode = EditorFile | VirtualCode;
 
-/** What tsserver serves as `Card.ucf.<target>.ts`, beside the `.ucf` file's own script. */
+/** What tsserver serves as `Card.front.<target>.ts`, beside the `.front` file's own script. */
 export type TargetScript = Pick<TypeScriptServiceScript, 'code' | 'scriptKind'>;
 
 /** A v3 source map has no exact spans and no per-span feature flags, so editor files carry Volar mappings. */
@@ -44,8 +44,8 @@ export interface EditorOptions {
 }
 
 export interface EmitSvelteTypesOptions extends Pick<EditorOptions, 'ts' | 'svelteTypesRoot'> {
-  root: string; // every `.ucf` file under it with a `<svelte>` block gets a declaration
-  outDir?: string; // default `<root>/.ucf/svelte`; `ts` defaults to the project's own, resolved from `root`
+  root: string; // every `.front` file under it with a `<svelte>` block gets a declaration
+  outDir?: string; // default `<root>/.front/svelte`; `ts` defaults to the project's own, resolved from `root`
 }
 
 /** What a host bundling the language server sets. */
@@ -53,15 +53,15 @@ export interface ServerOptions extends Pick<EditorOptions, 'svelteTypesRoot'> {
   onTypeScript?(ts: TypeScript): void; // called with the tsdk's TypeScript once it is loaded
 }
 
-/** One per `.ucf` file; shared rows fill it before the target rows read it. */
+/** One per `.front` file; shared rows fill it before the target rows read it. */
 export interface EditorContext extends EditorOptions {
   split: SplitResult;
   modules: Record<string, EditorStyleModule>; // '$style' or the module name
   previous?: VirtualCode; // the file's root code before this edit, in the language plugin only
 }
 
-/** Root code of a `.ucf` file; keeps its split so services never split the file again. */
-export interface UcfVirtualCode extends VirtualCode {
+/** Root code of a `.front` file; keeps its split so services never split the file again. */
+export interface FrontVirtualCode extends VirtualCode {
   split: SplitResult;
 }
 
@@ -72,26 +72,26 @@ export interface EditorStyleModule extends Pick<StyleModule, 'name' | 'index'> {
 /** One key the build's CSS module exports: a class, `@keyframes`, `@value` or `:export` name. */
 export interface StyleClass {
   name: string;
-  offset?: number; // offset of the name in the .ucf file (`card` in `.card`), when written there
+  offset?: number; // offset of the name in the .front file (`card` in `.card`), when written there
 }
 
 /** The `typescript` module a host hands us; CommonJS typings of it carry no `default`. */
 export type TypeScript = Omit<typeof ts, 'default'>;
 
-/** `resolveUcfImport` input, from the tsserver plugin or a `tsc` host. */
-export interface UcfImportOptions extends ResolveTargetOptions {
+/** `resolveFrontImport` input, from the tsserver plugin or a `tsc` host. */
+export interface FrontImportOptions extends ResolveTargetOptions {
   compilerOptions: ts.CompilerOptions;
   host: ts.ModuleResolutionHost;
   getSplit(fileName: string): SplitResult | undefined; // the open buffer, if any; else `host` reads the file
 }
 
 /** Plus the error the plugin reports at the import. */
-export interface UcfResolution extends ts.ResolvedModuleWithFailedLookupLocations {
+export interface FrontResolution extends ts.ResolvedModuleWithFailedLookupLocations {
   target?: Target; // undefined when `resolveTarget` gave an error
   error?: Pick<Diagnostic, 'code' | 'message'> & Partial<Pick<Diagnostic, 'start' | 'end'>>; // no span: the specifier
 }
 
-/** One tsconfig's program in `mf-tsc`, with every `.ucf` file's target scripts in it. */
+/** One tsconfig's program in `mf-tsc`, with every `.front` file's target scripts in it. */
 export interface Checked {
   program: ts.Program;
   getSplit(fileName: string): SplitResult | undefined;
@@ -101,7 +101,7 @@ export interface Checked {
 
 /** One file's problems, already in the file the user wrote. */
 export interface CheckedFile {
-  diagnostics: {diagnostic: ts.Diagnostic; target?: Target}[]; // `target`: the `.ucf` script that reported it
+  diagnostics: {diagnostic: ts.Diagnostic; target?: Target}[]; // `target`: the `.front` script that reported it
   errors: {error: Diagnostic; target: 'svelte'}[]; // ours: `<svelte>` markup Svelte cannot parse
 }
 
@@ -156,27 +156,27 @@ export interface EditorConfigFile {
   sections: {glob: string; properties: Record<string, string>}[];
 }
 
-/** One `.ucf` file's oxfmt config, as the oxfmt CLI reads it; `formatUcf` resolves it per block file. */
-export interface UcfFormatConfig {
+/** One `.front` file's oxfmt config, as the oxfmt CLI reads it; `formatFront` resolves it per block file. */
+export interface FrontFormatConfig {
   root: string; // oxfmt loads from here (the cwd, or the server's workspace folder)
   file?: string; // the `.oxfmtrc.json` / `.oxfmtrc.jsonc`; undefined: oxfmt's defaults
   options: FormatOptions; // its options, without `overrides`, `ignorePatterns` and `$schema`
   overrides: FormatOverride[];
-  ignorePatterns: string[]; // against the `.ucf` path, relative to the config's folder
+  ignorePatterns: string[]; // against the `.front` path, relative to the config's folder
   editorconfig?: EditorConfigFile; // the nearest at or above `root`, as the oxfmt CLI reads one
 }
 
 /** `text` is the source as is whenever there are findings. */
-export interface FormattedUcf {
+export interface FormattedFront {
   text: string;
   findings: Finding[];
   missingSvelte: boolean; // a `<svelte>` block the config formats stayed as written: oxfmt cannot load `svelte/compiler`
 }
 
-/** One oxlint diagnostic of a `.ucf` file, its span in that file. */
-export interface UcfLintDiagnostic {
+/** One oxlint diagnostic of a `.front` file, its span in that file. */
+export interface FrontLintDiagnostic {
   file: string; // the split's filename
-  start: number; // UTF-16 offsets into the .ucf source
+  start: number; // UTF-16 offsets into the .front source
   end: number;
   block: Target;
   code: string; // oxlint's (`eslint(no-debugger)`), or `lint-parse-error` for a block oxlint cannot parse

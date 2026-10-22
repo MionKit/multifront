@@ -9,27 +9,27 @@ import {scopeAttribute} from './lib/scope.ts';
 import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'all-targets');
-const ROOTS_PARENT = join(ROOT, 'Roots.ucf');
+const ROOTS_PARENT = join(ROOT, 'Roots.front');
 const POLL = {timeout: 10_000};
 
 // PanelItem's root in each framework's Panel.
 const ITEMS = ['#vue .item', '#react .item', '#svelte .item'];
-// Panel.ucf's scoped `.item` rule: padding-left is `$pad * 0.5`.
+// Panel.front's scoped `.item` rule: padding-left is `$pad * 0.5`.
 const PANEL_RULE: [string, string][] = [
   ['padding-left', '8px'],
   ['border-left-width', '2px'],
   ['border-left-style', 'solid'],
   ['border-left-color', 'rgb(40, 90, 160)'],
 ];
-// PanelItem.ucf's own scoped `.item` rule.
+// PanelItem.front's own scoped `.item` rule.
 const ITEM_RULE: [string, string][] = [
   ['color', 'rgb(60, 60, 60)'],
   ['margin-top', '0px'],
 ];
 
-// Roots.ucf's scoped `.shape` rule, which reaches a child root only through forwarding.
+// Roots.front's scoped `.shape` rule, which reaches a child root only through forwarding.
 const PARENT_COLOR = 'rgb(200, 40, 80)';
-// `[case, the root's inner text]`, in the order Roots.ucf renders them.
+// `[case, the root's inner text]`, in the order Roots.front renders them.
 const FORWARDED: [string, string][] = [
   ['IfElseRoot:a', 'a'],
   ['IfElseRoot:b', 'b'],
@@ -105,8 +105,8 @@ describe.each([
   });
 
   it("puts Panel's scope on PanelItem's root in Vue, React and Svelte, with the same computed style", async () => {
-    const panel = scopeAttribute(ROOT, componentPath('Panel.ucf'), production);
-    const item = scopeAttribute(ROOT, componentPath('PanelItem.ucf'), production);
+    const panel = scopeAttribute(ROOT, componentPath('Panel.front'), production);
+    const item = scopeAttribute(ROOT, componentPath('PanelItem.front'), production);
     await withPage(app!.url, async (page, messages) => {
       for (const selector of ITEMS) await page.locator(selector).waitFor();
       for (const selector of ITEMS) {

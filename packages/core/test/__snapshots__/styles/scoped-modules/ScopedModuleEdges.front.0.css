@@ -1,0 +1,18 @@
+
+.wrap_47ceb4a5_0 .theme-dark[data-v-47ceb4a5] {
+  color: white;
+}
+.wrap_47ceb4a5_0[data-v-47ceb4a5] .inner_47ceb4a5_0 {
+  margin: 0;
+}
+.fade_47ceb4a5_0[data-v-47ceb4a5] {
+  animation: fill_47ceb4a5_0-47ceb4a5 1s;
+}
+@keyframes fill_47ceb4a5_0-47ceb4a5 {
+from {
+    opacity: 0;
+}
+to {
+    opacity: 1;
+}
+}

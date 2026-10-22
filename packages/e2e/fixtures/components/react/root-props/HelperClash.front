@@ -1,0 +1,9 @@
+<react lang="tsx">
+  // The block's own names: the build imports its helpers under other ones.
+  const __frontScopeAttrs = 'author'
+  const __frontClass = (name: string) => `${name}-${__frontScopeAttrs}`
+
+  export default function HelperClash(props: { tone?: string }) {
+    return <div className={__frontClass('clash')}>{props.tone}</div>
+  }
+</react>

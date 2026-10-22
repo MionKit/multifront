@@ -90,8 +90,8 @@ function svelteScripts(compiler: SvelteCompiler, code: string): RawScript[] | un
   });
 }
 
-// `X.ucf.svelte.svelte` is a target module, not an importer: `load` checks its block.
-const IMPORTER = /(?:\.vue|(?<!\.ucf\.svelte)\.svelte)$/;
+// `X.front.svelte.svelte` is a target module, not an importer: `load` checks its block.
+const IMPORTER = /(?:\.vue|(?<!\.front\.svelte)\.svelte)$/;
 
 interface Compilers {
   vue: () => VueCompiler | undefined;
@@ -106,7 +106,7 @@ export function importersPlugin(options: MultifrontOptions, compilers: Compilers
     transform: {
       // Before plugin-svelte's preprocess, whose map would name the file relatively too.
       order: 'pre',
-      filter: {id: IMPORTER, code: /\.ucf/},
+      filter: {id: IMPORTER, code: /\.front/},
       handler(code, id) {
         let scripts: RawScript[] | undefined;
         if (id.endsWith('.svelte')) scripts = svelteScripts(compilers.svelte(), code);
@@ -114,7 +114,7 @@ export function importersPlugin(options: MultifrontOptions, compilers: Compilers
           const compiler = compilers.vue();
           scripts = compiler && vueScripts(compiler, code, id);
         }
-        // A `.ucf` import in Svelte markup is left to the post rewrite.
+        // A `.front` import in Svelte markup is left to the post rewrite.
         const error = scripts && scriptsError(scripts, id, options);
         if (error) failAtImport(this, code, id, error);
       },
@@ -122,13 +122,13 @@ export function importersPlugin(options: MultifrontOptions, compilers: Compilers
   };
 }
 
-/** Spec 4.4: moves `with { framework }` into the `.ucf` specifier before Vite's import analysis or Rolldown read it. */
+/** Spec 4.4: moves `with { framework }` into the `.front` specifier before Vite's import analysis or Rolldown read it. */
 export function attributesPlugin(options: MultifrontOptions): Plugin {
   return {
     name: 'multifront:attributes',
     enforce: 'post',
     transform: {
-      filter: {id: JS_LIKE, code: /\.ucf/},
+      filter: {id: JS_LIKE, code: /\.front/},
       handler(code, id) {
         const result = rewriteImportAttributes(code, id);
         const error = importError(result, importerFromId(id), options);

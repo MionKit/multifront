@@ -1,0 +1,6 @@
+<script>
+import "<fixtures>/components/svelte/shapes/AttributeGt.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/AttributeGt.front?front&type=style&index=0&module&lang.js";
+</script>
+  <p data-v-8758a98a="" class={__frontStyle.text} title="a > b" data-arrow='>'>Arrow</p>
+  <div data-v-8758a98a="" class={__frontStyle.text} data-html="<div>"><span data-v-8758a98a="" class={__frontStyle.text} title=">">Inner</span></div>

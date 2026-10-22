@@ -1,0 +1,8 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import * as React from 'react'
+
+  // No parameter: the build adds two, as React checks a forwardRef render function takes zero or two.
+  export default React.memo(React.forwardRef<HTMLDivElement>((__props, __ref) => (
+    <div {...__frontScopeAttrs(__props)} style={__props.style} className={__frontClass("shape", __props.className)}><span className="inner">memo forwardRef</span></div>
+  )))

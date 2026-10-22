@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import OnlyReactExport from './OnlyReactExport.ucf'
+import OnlyReactExport from './OnlyReactExport.front'
 </script>
 
 <template>

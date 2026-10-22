@@ -1,0 +1,12 @@
+[
+  {
+    "code": "text-outside-block",
+    "severity": "error",
+    "message": "Text outside a block; move it into a block or an HTML comment",
+    "filename": "invalid/TextOutsideBlock.front",
+    "start": 181,
+    "end": 216,
+    "line": 13,
+    "column": 2
+  }
+]

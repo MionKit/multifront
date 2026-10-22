@@ -1,0 +1,17 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/IfBlock.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/IfBlock.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {count = 2, ...__frontRest}: {count?: number} = $props()
+  </script>
+  <div data-v-e748029e="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.box, __frontRest.class)}>
+    {#if count > 5}
+      <p data-v-e748029e="" class={__frontStyle.big}>Big</p>
+    {:else if count > 1}
+      <p data-v-e748029e="" class={__frontStyle.mid}>Mid <b data-v-e748029e="" class={__frontStyle.mid}>nested</b></p>
+    {:else}
+      <p data-v-e748029e="" class={__frontStyle.small}>Small</p>
+    {/if}
+    {#if count}<span data-v-e748029e="" class={__frontStyle.small}>{count}</span>{/if}
+  </div>

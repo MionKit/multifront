@@ -1,12 +1,12 @@
 # Component Files
 
-A `.ucf` file holds one component, written once per framework, plus the styles they share.
+A `.front` file holds one component, written once per framework, plus the styles they share.
 
 ## Blocks
 
 Each block holds what you would write in that framework's own file. Write only the frameworks you need: one block is enough. Each framework block names its language in `lang`, and `<react>` comes last.
 
-`Card.ucf`
+`Card.front`
 
 ```vue
 <vue lang="vue">
@@ -43,13 +43,13 @@ export default function Card({ title }: { title: string }) {
 | `<svelte>` | The inside of a `.svelte` file, no `<style>` |
 | `<style>` | CSS for every block. `scoped`, `module` and `lang` work as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style) |
 
-> **Tip:** `lang` and the order are for tools that do not know `.ucf` files, such as GitHub: read as a Vue file, each block gets its own colors. Vue's highlighter colors everything after `<react lang="tsx">` as TSX, so `<react>` goes last. [Colors Outside VS Code](05-editor-setup.md#colors-outside-vs-code) sets it up.
+> **Tip:** `lang` and the order are for tools that do not know `.front` files, such as GitHub: read as a Vue file, each block gets its own colors. Vue's highlighter colors everything after `<react lang="tsx">` as TSX, so `<react>` goes last. [Colors Outside VS Code](05-editor-setup.md#colors-outside-vs-code) sets it up.
 
 ## Class, Style and Ref on Components
 
 Every `<react>` component passes the `className`, `style` and `ref` its parent gives on to its root element, and every `<svelte>` component the `class` and `style`: the same root a parent's [scoped style](03-styles.md#styling-a-child-component) reaches. The editor and a [library's](06-building-a-library.md) `.d.ts` files type them, `ref` for the root's tag. A Vue component does the same on its own.
 
-`Button.ucf`
+`Button.front`
 
 ```vue
 <react lang="tsx">
@@ -66,7 +66,7 @@ export default function Button({ label, onClick }: { label: string; onClick?: Mo
 
 ```tsx
 import {useRef} from 'react';
-import Button from '../../../library/src/Button.ucf';
+import Button from '../../../library/src/Button.front';
 
 export default function App() {
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -98,7 +98,7 @@ The editor marks each broken rule as an error. [Errors](07-errors.md) says how t
 - `<vue>` holds a `<template>` or a `<script>`, as a `.vue` file does.
 - `<react>` exports the component as default.
 - `<react>` code parses as TSX, `<svelte>` code as Svelte.
-- `.ucf` imports in `<react>`, `<vue>` and `<svelte>` carry no `framework` attribute: they get that block's framework.
+- `.front` imports in `<react>`, `<vue>` and `<svelte>` carry no `framework` attribute: they get that block's framework.
 - In `<svelte>`, `$style` needs a `<style module>`, and `$name` a `<style module="name">` unless the block declares a store `name`.
 - `<style>` sits at the top level, never inside `<vue>` or `<svelte>`.
 - `lang` is `css`, `scss`, `sass`, `less`, `styl`, `stylus` or `postcss`.

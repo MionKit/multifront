@@ -1,5 +1,5 @@
 // Volar's tsserver plugin serves one script per file (the main target's); every other target with a `serviceScript`
-// becomes a program file of its own, `Card.ucf.<target>.ts`, and requests in its block are routed to it.
+// becomes a program file of its own, `Card.front.<target>.ts`, and requests in its block are routed to it.
 import {isTarget} from '@multifront/core';
 import type {Target} from '@multifront/core';
 import {
@@ -18,14 +18,14 @@ import {transformDocumentSpan} from '@volar/typescript/lib/node/transform.js';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type * as ts from 'typescript';
 import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
-import type {EditorBlockKind, TargetScript, TypeScript, UcfVirtualCode} from './types.ts';
+import type {EditorBlockKind, TargetScript, TypeScript, FrontVirtualCode} from './types.ts';
 
 type ServedKind = EditorBlockKind & {tag: Target; serviceScript: NonNullable<EditorBlockKind['serviceScript']>};
 
 const SERVED_KINDS = EDITOR_BLOCK_KINDS.filter((kind): kind is ServedKind => !!kind.serviceScript && isTarget(kind.tag));
-const TARGET_SCRIPT_NAME = /^(.*\.ucf)\.(\w+)\.ts$/;
+const TARGET_SCRIPT_NAME = /^(.*\.front)\.(\w+)\.ts$/;
 
-// Their locations in a target script name a file no editor can open: they are moved into the `.ucf` file.
+// Their locations in a target script name a file no editor can open: they are moved into the `.front` file.
 const NAVIGATION_FILTERS = {
   getDefinitionAtPosition: isDefinitionEnabled,
   getDefinitionAndBoundSpan: isDefinitionEnabled,
@@ -58,44 +58,44 @@ const BY_POSITION = [
 ] as const satisfies (keyof ts.LanguageService)[];
 const DIAGNOSTICS = ['getSyntacticDiagnostics', 'getSemanticDiagnostics', 'getSuggestionDiagnostics'] as const;
 
-/** A target whose script tsserver serves as `Card.ucf.<target>.ts`; its picks resolve there, from any importer. */
+/** A target whose script tsserver serves as `Card.front.<target>.ts`; its picks resolve there, from any importer. */
 export function isServedTarget(target: Target): boolean {
   return SERVED_KINDS.some(({tag}) => tag === target);
 }
 
-/** `Card.ucf.vue.ts`: the tsserver file of a target served beside the `.ucf` file's own script. */
+/** `Card.front.vue.ts`: the tsserver file of a target served beside the `.front` file's own script. */
 export function targetScriptName(fileName: string, target: Target): string {
   return `${fileName}.${target}.ts`;
 }
 
-function parseTargetScriptName(fileName: string): {ucf: string; kind: ServedKind} | undefined {
-  const [, ucf, tag] = TARGET_SCRIPT_NAME.exec(fileName) ?? [];
+function parseTargetScriptName(fileName: string): {front: string; kind: ServedKind} | undefined {
+  const [, front, tag] = TARGET_SCRIPT_NAME.exec(fileName) ?? [];
   const kind = SERVED_KINDS.find((served) => served.tag === tag);
-  return ucf && kind ? {ucf, kind} : undefined;
+  return front && kind ? {front, kind} : undefined;
 }
 
-function targetScript(main: Language<string>, ucf: string, kind: ServedKind): TargetScript | undefined {
-  const code = main.scripts.get(ucf)?.generated?.root.embeddedCodes?.find(({id}) => id === kind.tag);
+function targetScript(main: Language<string>, front: string, kind: ServedKind): TargetScript | undefined {
+  const code = main.scripts.get(front)?.generated?.root.embeddedCodes?.find(({id}) => id === kind.tag);
   return code && kind.serviceScript(code);
 }
 
-const ucfOf = (fileName: string): string | undefined => parseTargetScriptName(fileName)?.ucf;
+const frontOf = (fileName: string): string | undefined => parseTargetScriptName(fileName)?.front;
 
 type Served = ReturnType<typeof createProxyLanguageService> & {kind: ServedKind; language?: Language<string>};
 
-// `X.ucf` is only a source here; `X.ucf.vue.ts` is a code mapped into it, so Volar's proxy sends `X.ucf` requests there.
+// `X.front` is only a source here; `X.front.vue.ts` is a code mapped into it, so Volar's proxy sends `X.front` requests there.
 function createTargetLanguage(main: Language<string>, kind: ServedKind, caseSensitive: boolean): Language<string> {
-  const languageId = `ucf-${kind.tag}`;
+  const languageId = `front-${kind.tag}`;
   const scriptKinds = new WeakMap<VirtualCode, ts.ScriptKind>();
   const plugin: LanguagePlugin<string> = {
-    getLanguageId: (id) => (id.endsWith('.ucf') ? 'ucf' : parseTargetScriptName(id)?.kind === kind ? languageId : undefined),
-    isAssociatedFileOnly: (_id, id) => id === 'ucf',
+    getLanguageId: (id) => (id.endsWith('.front') ? 'front' : parseTargetScriptName(id)?.kind === kind ? languageId : undefined),
+    isAssociatedFileOnly: (_id, id) => id === 'front',
     createVirtualCode(id, scriptLanguageId, snapshot, ctx) {
       const parsed = scriptLanguageId === languageId ? parseTargetScriptName(id) : undefined;
-      const script = parsed && targetScript(main, parsed.ucf, kind);
-      if (!parsed || !script || !ctx.getAssociatedScript(parsed.ucf)) return undefined;
+      const script = parsed && targetScript(main, parsed.front, kind);
+      if (!parsed || !script || !ctx.getAssociatedScript(parsed.front)) return undefined;
       const {mappings, linkedCodeMappings} = script.code;
-      const associatedScriptMappings = new Map([[parsed.ucf, mappings]]);
+      const associatedScriptMappings = new Map([[parsed.front, mappings]]);
       // Linked codes take a template use to its `<script setup>` binding.
       const code: VirtualCode = {
         id: 'main',
@@ -121,8 +121,8 @@ function createTargetLanguage(main: Language<string>, kind: ServedKind, caseSens
   const language = createLanguage([plugin], new FileMap(caseSensitive), (id) => {
     const parsed = parseTargetScriptName(id);
     const snapshot = parsed
-      ? targetScript(main, parsed.ucf, kind)?.code.snapshot
-      : id.endsWith('.ucf')
+      ? targetScript(main, parsed.front, kind)?.code.snapshot
+      : id.endsWith('.front')
         ? main.scripts.get(id)?.snapshot
         : undefined;
     if (snapshot) language.scripts.set(id, snapshot);
@@ -137,13 +137,13 @@ export function programTargetScripts(ts: TypeScript, main: Language<string>) {
     SERVED_KINDS.map((kind) => [kind.tag, createTargetLanguage(main, kind, ts.sys.useCaseSensitiveFileNames)])
   );
   return {
-    namesOf: (ucf: string): string[] =>
-      SERVED_KINDS.filter((kind) => targetScript(main, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag)),
+    namesOf: (front: string): string[] =>
+      SERVED_KINDS.filter((kind) => targetScript(main, front, kind)).map(({tag}) => targetScriptName(front, tag)),
     scriptOf(fileName: string): TargetScript | undefined {
       const parsed = parseTargetScriptName(fileName);
-      return parsed && targetScript(main, parsed.ucf, parsed.kind);
+      return parsed && targetScript(main, parsed.front, parsed.kind);
     },
-    ucfOf,
+    frontOf,
     languageOf: (target: Target): Language<string> | undefined => languages.get(target),
   };
 }
@@ -157,7 +157,7 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
 
   const scriptOf = (fileName: string): TargetScript | undefined => {
     const parsed = parseTargetScriptName(fileName);
-    return parsed && main && targetScript(main, parsed.ucf, parsed.kind);
+    return parsed && main && targetScript(main, parsed.front, parsed.kind);
   };
   // tsserver keeps every program file's parse on its ScriptInfo: the file needs one, though it is on no disk.
   const attachScriptInfo = (fileName: string, scriptKind: ts.ScriptKind): void => {
@@ -184,13 +184,13 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
   // Script names the project itself does not list, read from the last program.
   const addedScriptNames = (names: readonly string[]): string[] => {
     if (!main) return [];
-    // An imported `.ucf` file is no root: the last program brings it, and the next one its target scripts.
+    // An imported `.front` file is no root: the last program brings it, and the next one its target scripts.
     const imported = project.getFileNames(true, true);
-    // A target script brings its `.ucf` file too: in the program, an edit of it marks this project dirty.
-    const reached = [...new Set(imported.flatMap((name) => ucfOf(name) ?? []))].filter((ucf) => !names.includes(ucf));
-    const ucfs = new Set([...names, ...imported, ...reached].filter((name) => name.endsWith('.ucf')));
-    const targets = [...ucfs].flatMap((ucf) =>
-      SERVED_KINDS.filter((kind) => targetScript(main!, ucf, kind)).map(({tag}) => targetScriptName(ucf, tag))
+    // A target script brings its `.front` file too: in the program, an edit of it marks this project dirty.
+    const reached = [...new Set(imported.flatMap((name) => frontOf(name) ?? []))].filter((front) => !names.includes(front));
+    const fronts = new Set([...names, ...imported, ...reached].filter((name) => name.endsWith('.front')));
+    const targets = [...fronts].flatMap((front) =>
+      SERVED_KINDS.filter((kind) => targetScript(main!, front, kind)).map(({tag}) => targetScriptName(front, tag))
     );
     return [...reached, ...targets];
   };
@@ -204,12 +204,12 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
     attachScriptInfo(fileName, script.scriptKind);
     return script.code.snapshot;
   };
-  // The script changes exactly when its `.ucf` file does.
-  host.getScriptVersion = (fileName) => getScriptVersion(parseTargetScriptName(fileName)?.ucf ?? fileName);
+  // The script changes exactly when its `.front` file does.
+  host.getScriptVersion = (fileName) => getScriptVersion(parseTargetScriptName(fileName)?.front ?? fileName);
   if (getScriptKind) host.getScriptKind = (fileName) => scriptOf(fileName)?.scriptKind ?? getScriptKind(fileName);
   if (fileExists) host.fileExists = (fileName) => (parseTargetScriptName(fileName) ? !!scriptOf(fileName) : fileExists(fileName));
 
-  // Only a script the program holds: a `.ucf` file first seen through an import gets its own on the next sync.
+  // Only a script the program holds: a `.front` file first seen through an import gets its own on the next sync.
   const servedIn = (fileName: string): Served[] => {
     const program = base.getProgram();
     return served.filter(({kind, language}) => {
@@ -218,61 +218,61 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
     });
   };
   const servedAt = (fileName: string, position: number): Served | undefined => {
-    const split = (main?.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+    const split = (main?.scripts.get(fileName)?.generated?.root as FrontVirtualCode | undefined)?.split;
     return servedIn(fileName).find(({kind}) => {
       const block = split?.targets[kind.tag];
       return block && position >= block.contentStart && position <= block.contentEnd;
     });
   };
 
-  // Volar's main proxy leaves a `.ts` importer's locations in a target script; a `.ucf` request's are unmapped ones.
-  // `fallback`: an unmapped span becomes the `.ucf` file itself, as Volar does for a `.vue` file.
-  const intoUcfSpan = <Span extends ts.DocumentSpan>(span: Span, method: Navigation, fallback: boolean): Span | undefined => {
+  // Volar's main proxy leaves a `.ts` importer's locations in a target script; a `.front` request's are unmapped ones.
+  // `fallback`: an unmapped span becomes the `.front` file itself, as Volar does for a `.vue` file.
+  const intoFrontSpan = <Span extends ts.DocumentSpan>(span: Span, method: Navigation, fallback: boolean): Span | undefined => {
     const parsed = parseTargetScriptName(span.fileName);
     if (!parsed) return span;
     const language = served.find(({kind}) => kind === parsed.kind)?.language;
     const anyMatch = method !== 'findRenameLocations';
     const mapped = language && transformDocumentSpan(language, span, anyMatch, NAVIGATION_FILTERS[method]);
-    if (mapped && !ucfOf(mapped.fileName)) return mapped;
-    return fallback ? {...span, fileName: parsed.ucf, textSpan: {start: 0, length: 0}, contextSpan: undefined} : undefined;
+    if (mapped && !frontOf(mapped.fileName)) return mapped;
+    return fallback ? {...span, fileName: parsed.front, textSpan: {start: 0, length: 0}, contextSpan: undefined} : undefined;
   };
   // An unmapped definition in the requested file's own script is generated code, dropped.
   // svelte2tsx declares its component as a value and a type: both fall back to the same start of the file.
-  const spansIntoUcf = <Span extends ts.DocumentSpan>(spans: readonly Span[], method: Navigation, from: string): Span[] => {
+  const spansIntoFront = <Span extends ts.DocumentSpan>(spans: readonly Span[], method: Navigation, from: string): Span[] => {
     const mapped = spans.flatMap(
-      (span) => intoUcfSpan(span, method, DEFINITIONS.includes(method) && ucfOf(span.fileName) !== from) ?? []
+      (span) => intoFrontSpan(span, method, DEFINITIONS.includes(method) && frontOf(span.fileName) !== from) ?? []
     );
     const keyOf = ({fileName, textSpan}: Span) => `${fileName}:${textSpan.start}:${textSpan.length}`;
     return mapped.filter((span, index) => mapped.findIndex((other) => keyOf(other) === keyOf(span)) === index);
   };
-  const intoUcf = (result: unknown, method: Navigation, from: string): unknown => {
+  const intoFront = (result: unknown, method: Navigation, from: string): unknown => {
     if (!result) return result;
-    // Only a `.ucf` request searches a target script; Volar mapped the spans and kept the group's name.
+    // Only a `.front` request searches a target script; Volar mapped the spans and kept the group's name.
     if (method === 'getDocumentHighlights') {
       return (result as ts.DocumentHighlights[]).map((group) => ({
         ...group,
-        fileName: ucfOf(group.fileName) ?? group.fileName,
+        fileName: frontOf(group.fileName) ?? group.fileName,
         highlightSpans: group.highlightSpans.map((span) => ({
           ...span,
-          fileName: span.fileName && (ucfOf(span.fileName) ?? span.fileName),
+          fileName: span.fileName && (frontOf(span.fileName) ?? span.fileName),
         })),
       }));
     }
     if (method === 'getDefinitionAndBoundSpan') {
       const info = result as ts.DefinitionInfoAndBoundSpan;
-      return {...info, definitions: info.definitions && spansIntoUcf(info.definitions, method, from)};
+      return {...info, definitions: info.definitions && spansIntoFront(info.definitions, method, from)};
     }
     if (method === 'findReferences') {
       return (result as ts.ReferencedSymbol[]).map(({definition, references}) => ({
-        definition: intoUcfSpan(definition, method, true)!,
-        references: spansIntoUcf(references, method, from),
+        definition: intoFrontSpan(definition, method, true)!,
+        references: spansIntoFront(references, method, from),
       }));
     }
-    return spansIntoUcf(result as ts.DocumentSpan[], method, from);
+    return spansIntoFront(result as ts.DocumentSpan[], method, from);
   };
 
   return {
-    // A file a program reached first (`.ucf`, target script) is a root of the next, built only once the project is dirty.
+    // A file a program reached first (`.front`, target script) is a root of the next, built only once the project is dirty.
     afterUpdate(): void {
       const inProgram = new Set(project.getFileNames(true, true));
       const stale = addedScriptNames(getScriptFileNames()).some((name) => !inProgram.has(ts.server.toNormalizedPath(name)));
@@ -289,24 +289,24 @@ export function serveTargetScripts(ts: TypeScript, info: ts.server.PluginCreateI
       const routed: Partial<ts.LanguageService> = {};
       for (const method of BY_POSITION) {
         routed[method] = ((fileName: string, position: number, ...rest: unknown[]) => {
-          const target = fileName.endsWith('.ucf') ? servedAt(fileName, position) : undefined;
+          const target = fileName.endsWith('.front') ? servedAt(fileName, position) : undefined;
           // TypeScript searches only the files the client listed: the target script must be one of them.
           if (target && method === 'getDocumentHighlights') {
             const filesToSearch = rest[0] as string[];
             rest[0] = [
               ...filesToSearch,
-              ...filesToSearch.filter((name) => name.endsWith('.ucf')).map((ucf) => targetScriptName(ucf, target.kind.tag)),
+              ...filesToSearch.filter((name) => name.endsWith('.front')).map((front) => targetScriptName(front, target.kind.tag)),
             ];
           }
           const service = target?.proxy ?? languageService;
           const result = (service[method] as (...args: unknown[]) => unknown)(fileName, position, ...rest);
-          return (NAVIGATION as readonly string[]).includes(method) ? intoUcf(result, method as Navigation, fileName) : result;
+          return (NAVIGATION as readonly string[]).includes(method) ? intoFront(result, method as Navigation, fileName) : result;
         }) as never;
       }
       for (const method of DIAGNOSTICS) {
         routed[method] = ((fileName: string) => {
           const own = languageService[method](fileName);
-          if (!fileName.endsWith('.ucf')) return own;
+          if (!fileName.endsWith('.front')) return own;
           return [...own, ...servedIn(fileName).flatMap(({proxy}) => proxy[method](fileName))];
         }) as never;
       }

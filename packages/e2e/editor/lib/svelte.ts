@@ -40,9 +40,9 @@ export async function runSvelteCheck(app: string): Promise<{exitCode: number | n
 }
 
 /** Resolves to the log line of the Svelte emit the save triggers. */
-export async function saveUcf(server: LanguageServer, fileName: string): Promise<string> {
+export async function saveFront(server: LanguageServer, fileName: string): Promise<string> {
   const before = server.log.length;
-  const document = await server.openTextDocument(fileName, 'ucf');
+  const document = await server.openTextDocument(fileName, 'front');
   await server.connection.sendNotification('textDocument/didSave', {textDocument: {uri: document.uri}});
   const deadline = Date.now() + 30_000;
   for (;;) {

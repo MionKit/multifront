@@ -7,7 +7,7 @@ import type {Plugin, ResolvedConfig, Rolldown} from 'vite';
 import {composeCssModules} from './cssModules.ts';
 import {VUE_INCLUDE} from './ids.ts';
 import {sameBlock} from './hmr.ts';
-import type {UcfCache, VuePluginApi} from './types.ts';
+import type {FrontCache, VuePluginApi} from './types.ts';
 import {vuePluginApi, wrappedCompilers} from './vueCompiler.ts';
 
 type ComponentIdGenerator = NonNullable<Options['features']>['componentIdGenerator'];
@@ -17,7 +17,7 @@ type SfcMap = ReturnType<FullCompiler['compileScript']>['map'];
 type SourceBehind = (file: string, code: string) => string | undefined;
 
 // plugin-vue's transform tests only the path, so its hook filter must drop our style and class map ids.
-const UCF_SUB_REQUEST = /\.ucf\?(?:.*&)?ucf\b/;
+const FRONT_SUB_REQUEST = /\.front\?(?:.*&)?front\b/;
 
 export const VUE_PLUGIN_MISSING = 'the vue framework needs @vitejs/plugin-vue in your Vite plugins';
 
@@ -34,7 +34,7 @@ export function handedToVue(file: string, source: string, sfc: string): void {
 // The sub-requests of one file arrive together on a cold cache: they share one warm-up.
 const warmingUp = new Map<string, Promise<unknown>>();
 
-/** Before plugin-vue loads a `.ucf?vue&…` sub-request: on a cache miss it would parse the raw file from disk. */
+/** Before plugin-vue loads a `.front?vue&…` sub-request: on a cache miss it would parse the raw file from disk. */
 export async function warmUpVue(context: Rolldown.PluginContext, file: string, source: string): Promise<void> {
   if (handedVersions.get(file)?.source === source) return;
   let pending = warmingUp.get(file);
@@ -54,7 +54,7 @@ function addPattern(api: VuePluginApi, key: 'include' | 'exclude', pattern: RegE
 
 function componentIdGenerator(user: ComponentIdGenerator, root: string, scopeIdOf: (file: string) => string): IdFunction {
   return (path, source, production, getHash) => {
-    // The id hashes the raw `.ucf` source, never the SFC code plugin-vue passes.
+    // The id hashes the raw `.front` source, never the SFC code plugin-vue passes.
     if (VUE_INCLUDE.test(path)) return scopeIdOf(normalizePath(resolve(root, path)));
     if (typeof user === 'function') return user(path, source, production, getHash);
     if (user === 'filepath') return getHash(path);
@@ -68,7 +68,7 @@ export function composeVuePlugin(config: ResolvedConfig, scopeIdOf: (file: strin
   const api = vuePluginApi(config.plugins);
   if (!api) return;
   addPattern(api, 'include', VUE_INCLUDE);
-  addPattern(api, 'exclude', UCF_SUB_REQUEST);
+  addPattern(api, 'exclude', FRONT_SUB_REQUEST);
   const features = api.options.features;
   const generator = componentIdGenerator(features?.componentIdGenerator, config.root, scopeIdOf);
   api.options = {...api.options, features: {...features, componentIdGenerator: generator}};
@@ -90,7 +90,7 @@ function withSource(map: SfcMap, file: string | undefined, code: string, sourceB
   });
 }
 
-/** After plugin-vue's `buildStart`: its sub-request maps hold the blanked SFC code; devtools need the `.ucf`. */
+/** After plugin-vue's `buildStart`: its sub-request maps hold the blanked SFC code; devtools need the `.front`. */
 export function wrapVueCompiler(plugins: readonly Plugin[], sourceBehind: SourceBehind): void {
   const api = vuePluginApi(plugins);
   const compiler = api?.options.compiler;
@@ -175,7 +175,7 @@ function hotChange(compiler: VueCompiler, options: VueOptions, file: string, bef
 }
 
 /** Its own plugin: Vite calls `handleHotUpdate` only on plugins without `hotUpdate`, with a context of its own. */
-export function vueHmrPlugin(cache: UcfCache, vueOf: () => {compiler: VueCompiler; options: VueOptions} | undefined): Plugin {
+export function vueHmrPlugin(cache: FrontCache, vueOf: () => {compiler: VueCompiler; options: VueOptions} | undefined): Plugin {
   const rerenderOnly = new Set<string>();
   return {
     name: 'multifront:vue-hmr',
@@ -185,11 +185,11 @@ export function vueHmrPlugin(cache: UcfCache, vueOf: () => {compiler: VueCompile
       const vue = vueOf();
       if (!vue || !VUE_INCLUDE.test(file)) return undefined;
       // plugin-vue finds its style modules by a URL ours match too; our post `hotUpdate` hands ours on.
-      const modules = ctx.modules.filter((mod) => !UCF_SUB_REQUEST.test(mod.id ?? ''));
+      const modules = ctx.modules.filter((mod) => !FRONT_SUB_REQUEST.test(mod.id ?? ''));
       const before = handedVersions.get(file)?.sfc;
       // Never handed: plugin-vue holds no descriptor of the file and skips it.
       if (before === undefined) return modules;
-      const version = cache.updateUcf(file, await ctx.read());
+      const version = cache.updateFront(file, await ctx.read());
       const sfc = vueSfcCode(version.source, version.split.blocks, file).code;
       version.sfc = sfc;
       // plugin-vue's hook and every later `handleHotUpdate` run next on this same context.

@@ -7,8 +7,8 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    // Its `.ucf` files sit beside the app, under `components/`; an app with them in `src` uses `./src` here.
-    "rootDirs": ["../..", "../../.ucf/svelte"]
+    // Its `.front` files sit beside the app, under `components/`; an app with them in `src` uses `./src` here.
+    "rootDirs": ["../..", "../../.front/svelte"]
   },
   "include": ["src"]
 }

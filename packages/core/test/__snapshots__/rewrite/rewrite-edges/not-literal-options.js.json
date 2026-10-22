@@ -1,71 +1,71 @@
 {
-  "code": "const options = {with: {framework: 'react'}};\nconst attributes = {framework: 'vue'};\nconst key = 'framework';\nexport const fromVariable = await import('../../components/Card.ucf', options);\nexport const withVariable = await import('../../components/Card.ucf', {with: attributes});\nexport const spread = await import('../../components/Card.ucf', {with: {...attributes}});\nexport const computed = await import('../../components/Card.ucf', {with: {[key]: 'svelte'}});\n",
+  "code": "const options = {with: {framework: 'react'}};\nconst attributes = {framework: 'vue'};\nconst key = 'framework';\nexport const fromVariable = await import('../../components/Card.front', options);\nexport const withVariable = await import('../../components/Card.front', {with: attributes});\nexport const spread = await import('../../components/Card.front', {with: {...attributes}});\nexport const computed = await import('../../components/Card.front', {with: {[key]: 'svelte'}});\n",
   "imports": [
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
+      "specifier": "../../components/Card.front",
       "start": 151,
-      "end": 178
+      "end": 180
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 231,
-      "end": 258
+      "specifier": "../../components/Card.front",
+      "start": 233,
+      "end": 262
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 316,
-      "end": 343
+      "specifier": "../../components/Card.front",
+      "start": 320,
+      "end": 349
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
-      "start": 408,
-      "end": 435
+      "specifier": "../../components/Card.front",
+      "start": 414,
+      "end": 443
     }
   ],
   "errors": [
     {
       "code": "framework-attribute-not-literal",
       "severity": "error",
-      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "message": "import() options of a .front import must be an object literal, so multifront can read its framework attribute",
       "filename": "rewrite-edges/not-literal-options.js",
-      "start": 180,
-      "end": 187,
+      "start": 182,
+      "end": 189,
       "line": 4,
-      "column": 70
+      "column": 72
     },
     {
       "code": "framework-attribute-not-literal",
       "severity": "error",
-      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "message": "import() options of a .front import must be an object literal, so multifront can read its framework attribute",
       "filename": "rewrite-edges/not-literal-options.js",
-      "start": 267,
-      "end": 277,
+      "start": 271,
+      "end": 281,
       "line": 5,
-      "column": 77
+      "column": 79
     },
     {
       "code": "framework-attribute-not-literal",
       "severity": "error",
-      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "message": "import() options of a .front import must be an object literal, so multifront can read its framework attribute",
       "filename": "rewrite-edges/not-literal-options.js",
-      "start": 352,
-      "end": 367,
+      "start": 358,
+      "end": 373,
       "line": 6,
-      "column": 71
+      "column": 73
     },
     {
       "code": "framework-attribute-not-literal",
       "severity": "error",
-      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "message": "import() options of a .front import must be an object literal, so multifront can read its framework attribute",
       "filename": "rewrite-edges/not-literal-options.js",
-      "start": 444,
-      "end": 461,
+      "start": 452,
+      "end": 469,
       "line": 7,
-      "column": 73
+      "column": 75
     }
   ]
 }

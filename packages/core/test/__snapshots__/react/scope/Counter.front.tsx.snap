@@ -1,0 +1,16 @@
+import "<fixtures>/components/Counter.front?front&type=style&index=0&lang.css";
+import "<fixtures>/components/Counter.front?front&type=style&index=1&lang.css";
+import $style from "<fixtures>/components/Counter.front?front&type=style&index=1&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { useState } from 'react'
+
+  export default function Counter(__props: {start?: number}) {const {start = 0} = __props;
+    const [count, setCount] = useState(start)
+    return (
+      <div data-v-e95eacfc="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("counter", __props.className)}>
+        <span data-v-e95eacfc="" className="label">Clicks</span>
+        <button data-v-e95eacfc="" className={$style.button} title="Zähler 𝄞" onClick={() => setCount(count + 1)}>{count}</button>
+      </div>
+    )
+  }

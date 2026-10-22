@@ -311,7 +311,7 @@ export async function expectStyledCard(page: Page): Promise<void> {
   expect(await computed(card, 'padding')).toBe('16px');
   expect(await computed(card, 'color')).toBe('rgb(30, 60, 90)');
   expect(await computed(card.locator('h2'), 'color')).toBe('rgb(150, 40, 60)');
-  expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.ucf'), true))).toBe('');
+  expect(await card.getAttribute(scopeAttribute(LIBRARY_DIR, join(LIBRARY_DIR, 'src', 'Card.front'), true))).toBe('');
 }
 
 // Styles every framework's package gives its elements; no Button color: the React page sets it.

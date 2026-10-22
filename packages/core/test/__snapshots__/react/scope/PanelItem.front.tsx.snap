@@ -1,0 +1,6 @@
+import "<fixtures>/components/PanelItem.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function PanelItem(__props: { label: string }) {const { label } = __props;
+    return <p data-v-198bd7c6="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("item", __props.className)} data-marker="panel-item-react-marker">{label}</p>
+  }

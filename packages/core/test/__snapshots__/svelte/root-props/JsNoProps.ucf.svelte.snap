@@ -1,9 +1,0 @@
-
-  <svelte:options runes />
-  <script>
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-    let count = $state(1)
-let {...__ucfRest} = $props();
-  </script>
-  <!-- A JS script with no `$props()`: a library build types the line it adds in JSDoc. -->
-  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(`own`, __ucfRest.class)}>{count}</p>

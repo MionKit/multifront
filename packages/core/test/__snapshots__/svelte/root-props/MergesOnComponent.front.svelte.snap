@@ -1,0 +1,9 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass, __frontStyle} from "virtual:multifront/scope-attrs";
+    import SvelteElementRoot from '../roots/SvelteElementRoot.front'
+
+    let { tag = 'aside', ...__frontRest }: { tag?: string } = $props()
+  </script>
+  <!-- The merged class and style go on as the child's props. -->
+  <SvelteElementRoot {...__frontScopeAttrs(__frontRest)} {tag} class={__frontSvelteClass(`own`, __frontRest.class)} style={__frontStyle(`padding: 1px`, __frontRest.style)} />

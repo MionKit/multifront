@@ -8,5 +8,5 @@ indent_size = 2
 insert_final_newline = true
 max_line_length = 130
 
-[packages/e2e/fixtures/components/vue/CounterCrlf.ucf]
+[packages/e2e/fixtures/components/vue/CounterCrlf.front]
 end_of_line = crlf

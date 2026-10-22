@@ -44,7 +44,7 @@ function rootOnlyText(content: string, scopeName: string): string[] {
 // Vue grammar's scope for a target block's content, keyed by its `lang`.
 const VUE_GRAMMAR_SCOPES: Record<string, string> = {tsx: 'source.tsx', vue: 'text.html.vue', html: 'text.html.derivative'};
 
-// GitHub and Shiki color a `.ucf` file with Vue's grammar.
+// GitHub and Shiki color a `.front` file with Vue's grammar.
 function asVue(name: string): {block: Block | undefined; text: string; scopes: string[]}[] {
   const {filename, source} = readComponent(name);
   const {blocks} = splitBlocks(source, filename);
@@ -89,14 +89,14 @@ describe('grammar data of the block kinds, against the real shiki grammars', () 
   });
 
   // Proves the root-only check can fail: the CSS grammar cannot read SCSS.
-  it('catches a wrong pick: the SCSS block of Panel.ucf through source.css leaves plain text', () => {
-    const scss = blocksOf('Panel.ucf').find((block) => block.attrs.lang === 'scss')!;
+  it('catches a wrong pick: the SCSS block of Panel.front through source.css leaves plain text', () => {
+    const scss = blocksOf('Panel.front').find((block) => block.attrs.lang === 'scss')!;
     expect(pickGrammar(scss).scopeName).toBe('source.css.scss');
     expect(rootOnlyText(scss.content, 'source.css')).not.toEqual([]);
   });
 });
 
-describe('a .ucf file read as Vue by the real Vue grammar, as GitHub and Shiki read it', () => {
+describe('a .front file read as Vue by the real Vue grammar, as GitHub and Shiki read it', () => {
   it('names a Vue grammar scope for the lang of every target kind', () => {
     for (const kind of BLOCK_KINDS.filter(({role}) => role === 'target')) expect(VUE_GRAMMAR_SCOPES).toHaveProperty(kind.lang!);
   });
@@ -112,21 +112,21 @@ describe('a .ucf file read as Vue by the real Vue grammar, as GitHub and Shiki r
     expect(leaked.map(({text}) => text).join('')).toBe(types.has('react') ? '</react>' : '');
   });
 
-  it('Card.ucf: all four blocks, nested Vue code in <vue>', () => {
-    const tokens = asVue('Card.ucf');
+  it('Card.front: all four blocks, nested Vue code in <vue>', () => {
+    const tokens = asVue('Card.front');
     expect(new Set(tokens.flatMap(({block}) => block?.type ?? []))).toEqual(new Set(['vue', 'svelte', 'style', 'react']));
     expect(tokens.find(({text}) => text === 'defineProps')?.scopes).toContain('source.ts');
   });
 
-  it('invalid/BlockLang.ucf: a <vue> with no lang stays plain text', () => {
-    const vue = asVue('invalid/BlockLang.ucf').filter(({block}) => block?.type === 'vue');
+  it('invalid/BlockLang.front: a <vue> with no lang stays plain text', () => {
+    const vue = asVue('invalid/BlockLang.front').filter(({block}) => block?.type === 'vue');
     expect(vue.length).toBeGreaterThan(0);
     expect(vue.filter(({scopes}) => scopes.length > 1 && scopes[0] !== 'text')).toEqual([]);
   });
 
   // Why react-not-last exists.
-  it('invalid/ReactNotLast.ucf: the <style> after <react lang="tsx"> is colored as TSX', () => {
-    const style = asVue('invalid/ReactNotLast.ucf').filter(({block}) => block?.type === 'style');
+  it('invalid/ReactNotLast.front: the <style> after <react lang="tsx"> is colored as TSX', () => {
+    const style = asVue('invalid/ReactNotLast.front').filter(({block}) => block?.type === 'style');
     expect(style.length).toBeGreaterThan(0);
     expect(style.every(({scopes}) => scopes.includes('source.tsx') && !scopes.includes('source.css'))).toBe(true);
   });

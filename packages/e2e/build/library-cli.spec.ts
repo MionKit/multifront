@@ -14,7 +14,7 @@ const UNKNOWN_ANGULAR = "mf-build: buildLibrary: unknown framework 'angular'; us
 const OPTIONS = '--root, --framework, --out-dir, --no-dts, --format or --help';
 const HELP = `Usage: mf-build [options]
 
-Builds the .ucf components of a library into one package per framework.
+Builds the .front components of a library into one package per framework.
 Reads multifront.config.ts (or .js, .mjs) in the root; options win over it.
 
 Options:
@@ -32,10 +32,10 @@ Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage,
 `;
 
 const read = (file: string) => readFileSync(join(LIBRARY_DIR, file), 'utf8');
-const CARD = read('src/Card.ucf');
+const CARD = read('src/Card.front');
 const CX = read('src/utils/cx.ts');
 const INDEX = read('src/index.ts');
-const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.ucf'\n";
+const SVELTE_IMPORTS = "  import type { Snippet } from 'svelte'\n  import Icon from './Icon.front'\n";
 
 function filesUnder(dir: string): number {
   return readdirSync(dir, {recursive: true, withFileTypes: true}).filter((entry) => entry.isFile()).length;
@@ -63,7 +63,7 @@ describe('mf-build on a clean library', () => {
       const count = (target: string) => filesUnder(join(dist, target));
       expect(run.stdout).toBe(
         `mf-build: built 3 packages in dist: vue ${count('vue')} files, react ${count('react')} files ` +
-          `(skipped VueOnly.ucf), svelte ${count('svelte')} files (skipped Badge.ucf, VueOnly.ucf)\n`
+          `(skipped VueOnly.front), svelte ${count('svelte')} files (skipped Badge.front, VueOnly.front)\n`
       );
     } finally {
       await removeLibrary(root);
@@ -88,14 +88,14 @@ describe('mf-build on a clean library', () => {
             name: '@mf-fixture/ui-react',
             outDir: 'dist/react',
             files: count('react'),
-            skipped: ['VueOnly.ucf'],
+            skipped: ['VueOnly.front'],
           },
           {
             framework: 'svelte',
             name: '@mf-fixture/ui-svelte',
             outDir: 'dist/svelte',
             files: count('svelte'),
-            skipped: ['Badge.ucf', 'VueOnly.ucf'],
+            skipped: ['Badge.front', 'VueOnly.front'],
           },
         ],
       });
@@ -162,14 +162,14 @@ describe('mf-build on errors in the library files', () => {
     {file: 'src/index.ts', content: `${INDEX}export {card} from './card.js';\n`},
   ];
   const clashMessage =
-    'src/Card.ucf and src/card.ts would be written as Card.js and card.js, which macOS and Windows see as one file';
+    'src/Card.front and src/card.ts would be written as Card.js and card.js, which macOS and Windows see as one file';
 
   it('prints a case-only clash and exits 1', async () => {
     await withEditedLibrary(clash, async (root) => {
       const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts']);
       expect(run.stderr).toBe('');
       expect(run.code).toBe(1);
-      expect(run.stdout).toBe(`src/Card.ucf: error name-clash (vue): ${clashMessage}\nmf-build: 1 error in the vue build\n`);
+      expect(run.stdout).toBe(`src/Card.front: error name-clash (vue): ${clashMessage}\nmf-build: 1 error in the vue build\n`);
       expect(existsSync(join(root, 'dist', 'vue', 'package.json'))).toBe(false);
     });
   });
@@ -179,15 +179,15 @@ describe('mf-build on errors in the library files', () => {
       const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts', '--format', 'json']);
       expect(run.stderr).toBe('');
       expect(run.code).toBe(1);
-      const finding = {file: 'src/Card.ucf', code: 'name-clash', severity: 'error', message: clashMessage, framework: 'vue'};
+      const finding = {file: 'src/Card.front', code: 'name-clash', severity: 'error', message: clashMessage, framework: 'vue'};
       expect(report(run.stdout)).toEqual({findings: [finding], errorCount: 1, warningCount: 0, packages: []});
     });
   });
 
-  it('prints every error of a .ucf file at its position in that file', async () => {
-    const twice = readComponent('invalid/DuplicateReact.ucf');
-    await withEditedLibrary([{file: 'src/Twice.ucf', content: twice.source}], async (root) => {
-      const diagnostics = checkBlocks(splitBlocks(twice.source, join(root, 'src', 'Twice.ucf')));
+  it('prints every error of a .front file at its position in that file', async () => {
+    const twice = readComponent('invalid/DuplicateReact.front');
+    await withEditedLibrary([{file: 'src/Twice.front', content: twice.source}], async (root) => {
+      const diagnostics = checkBlocks(splitBlocks(twice.source, join(root, 'src', 'Twice.front')));
       expect(diagnostics.map(({code}) => code)).toEqual(['duplicate-target', 'duplicate-target']);
       const json = await runMfBuild(root, ['--framework', 'react', '--no-dts', '--format', 'json']);
       expect(json.stderr).toBe('');
@@ -199,7 +199,7 @@ describe('mf-build on errors in the library files', () => {
       );
       for (const {file, line, column, end, block, framework, code, message} of findings) {
         expect({file, block, framework, code, message}).toEqual({
-          file: 'src/Twice.ucf',
+          file: 'src/Twice.front',
           block: 'react',
           framework: 'react',
           code: 'duplicate-target',
@@ -214,15 +214,15 @@ describe('mf-build on errors in the library files', () => {
       expect(run.code).toBe(1);
       expect(run.stdout).toBe(
         findings
-          .map(({line, column, message}) => `src/Twice.ucf:${line}:${column}: error duplicate-target (react): ${message}\n`)
+          .map(({line, column, message}) => `src/Twice.front:${line}:${column}: error duplicate-target (react): ${message}\n`)
           .join('') + 'mf-build: 2 errors in the react build\n'
       );
     });
   });
 
   const cxLines = CX.split('\n').length;
-  const cxAttribute = "import Card from '../Card.ucf' with {framework: 'vue'};\nexport const card = Card;\n";
-  const templateError = readComponent('vue/TemplateError.ucf').source;
+  const cxAttribute = "import Card from '../Card.front' with {framework: 'vue'};\nexport const card = Card;\n";
+  const templateError = readComponent('vue/TemplateError.front').source;
   const typeErrorCard = edited(CARD, '    return (\n', "    const count: number = 'x'\n    return (\n");
   const aliasConfig = `import {fileURLToPath} from 'node:url';
 import {defineLibrary} from '@multifront/vite';
@@ -230,7 +230,7 @@ import {defineLibrary} from '@multifront/vite';
 export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new URL('./src', import.meta.url))}}}});
 `;
   const usesVueOnly =
-    '<react lang="tsx">\n  import VueOnly from \'./VueOnly.ucf\'\n\n  export default function UsesVueOnly() {\n    return <VueOnly />\n  }\n</react>\n';
+    '<react lang="tsx">\n  import VueOnly from \'./VueOnly.front\'\n\n  export default function UsesVueOnly() {\n    return <VueOnly />\n  }\n</react>\n';
   const cases: {name: string; edits: {file: string; content: string}[]; args: string[]; findings: Finding[]}[] = [
     {
       name: 'an import that is not a peer',
@@ -253,7 +253,7 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       edits: [
         {file: 'shared/tokens.ts', content: "export const accent = 'rgb(1, 2, 3)';\n"},
         {
-          file: 'src/Card.ucf',
+          file: 'src/Card.front',
           content: CARD.replace('<react lang="tsx">\n', '<react lang="tsx">\n  import \'../shared/tokens.js\'\n'),
         },
       ],
@@ -280,22 +280,22 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
           file: 'src/utils/cx.css',
           code: 'css-outside-style',
           severity: 'error',
-          message: 'src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only',
+          message: 'src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .front <style> blocks only',
           framework: 'react',
         },
       ],
     },
     {
       name: 'a component named like styles.css',
-      edits: [{file: 'src/Styles.ucf', content: read('src/Icon.ucf')}],
+      edits: [{file: 'src/Styles.front', content: read('src/Icon.front')}],
       args: ['--framework', 'vue', '--no-dts'],
       findings: [
         {
-          file: 'src/Styles.ucf',
+          file: 'src/Styles.front',
           code: 'name-clash',
           severity: 'error',
           message:
-            'src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, the name of the combined CSS file',
+            'src/Styles.front would be written as Styles.css, which macOS and Windows see as styles.css, the name of the combined CSS file',
           framework: 'vue',
         },
       ],
@@ -303,10 +303,10 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
     {
       name: 'a plain Svelte file named like a component',
       edits: [
-        {file: 'src/Plain.ucf', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
+        {file: 'src/Plain.front', content: '<svelte lang="html">\n  <p>component</p>\n</svelte>\n'},
         {file: 'src/plain.svelte', content: '<p>plain</p>\n'},
         {
-          file: 'src/Card.ucf',
+          file: 'src/Card.front',
           content: edited(
             cardImporting("import PlainFile from './plain.svelte'"),
             '{@render children?.()}',
@@ -317,11 +317,11 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       args: ['--framework', 'svelte', '--no-dts'],
       findings: [
         {
-          file: 'src/Plain.ucf',
+          file: 'src/Plain.front',
           code: 'name-clash',
           severity: 'error',
           message:
-            'src/Plain.ucf and src/plain.svelte would be written as Plain.svelte and plain.svelte, which macOS and Windows see as one file',
+            'src/Plain.front and src/plain.svelte would be written as Plain.svelte and plain.svelte, which macOS and Windows see as one file',
           framework: 'svelte',
         },
       ],
@@ -329,17 +329,17 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
     {
       name: 'a file named like the scope helper',
       edits: [
-        {file: 'src/_ucf/scopeattrs.ts', content: "console.info('loaded');\n"},
-        {file: 'src/Card.ucf', content: cardImporting("import './_ucf/scopeattrs.js'")},
+        {file: 'src/_front/scopeattrs.ts', content: "console.info('loaded');\n"},
+        {file: 'src/Card.front', content: cardImporting("import './_front/scopeattrs.js'")},
       ],
       args: ['--framework', 'svelte', '--no-dts'],
       findings: [
         {
-          file: 'src/_ucf/scopeattrs.ts',
+          file: 'src/_front/scopeattrs.ts',
           code: 'name-clash',
           severity: 'error',
           message:
-            '_ucf/scopeattrs.js, which macOS and Windows see as _ucf/scopeAttrs.js, is the name of the shipped scope helper; ' +
+            '_front/scopeattrs.js, which macOS and Windows see as _front/scopeAttrs.js, is the name of the shipped scope helper; ' +
             'rename that file in src',
           framework: 'svelte',
         },
@@ -354,11 +354,11 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       args: ['--framework', 'svelte'],
       findings: [
         {
-          file: 'src/Icon.ucf',
+          file: 'src/Icon.front',
           code: 'name-clash',
           severity: 'error',
           message:
-            'src/Icon.ucf and src/icon.svelte.ts would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ' +
+            'src/Icon.front and src/icon.svelte.ts would be written as Icon.svelte.d.ts and icon.svelte.d.ts, ' +
             'which macOS and Windows see as one file',
           framework: 'svelte',
         },
@@ -368,30 +368,30 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       name: 'a bare import a shipped Svelte file keeps',
       edits: [
         {file: 'multifront.config.ts', content: aliasConfig},
-        {file: 'src/Card.ucf', content: cardImporting("import { cx as join } from '~/utils/cx.js'")},
+        {file: 'src/Card.front', content: cardImporting("import { cx as join } from '~/utils/cx.js'")},
       ],
       args: ['--framework', 'svelte', '--no-dts'],
       findings: [
         {
-          file: 'src/Card.ucf',
+          file: 'src/Card.front',
           code: 'svelte-import',
           severity: 'error',
           message:
-            'src/Card.ucf imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only',
+            'src/Card.front imports "~/utils/cx.js" in its <svelte> block: a shipped svelte file can import relative files and peers only',
           framework: 'svelte',
         },
       ],
     },
     {
-      name: 'a .ucf import with no block for the framework',
-      edits: [{file: 'src/UsesVueOnly.ucf', content: usesVueOnly}],
+      name: 'a .front import with no block for the framework',
+      edits: [{file: 'src/UsesVueOnly.front', content: usesVueOnly}],
       args: ['--framework', 'react', '--no-dts'],
       findings: [
         {
-          file: 'src/UsesVueOnly.ucf',
+          file: 'src/UsesVueOnly.front',
           code: 'missing-target-block',
           severity: 'error',
-          message: './VueOnly.ucf has no <react> block; UsesVueOnly.ucf imports it as react',
+          message: './VueOnly.front has no <react> block; UsesVueOnly.front imports it as react',
           block: 'react',
           framework: 'react',
         },
@@ -405,21 +405,21 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
         {
           file: 'src/utils/cx.ts',
           line: cxLines,
-          column: positionOf(cxAttribute, "'../Card.ucf'").column,
+          column: positionOf(cxAttribute, "'../Card.front'").column,
           code: 'target-not-enabled',
           severity: 'error',
-          message: '../Card.ucf: framework "vue" is not enabled; use react, or add vue to the frameworks option',
+          message: '../Card.front: framework "vue" is not enabled; use react, or add vue to the frameworks option',
           framework: 'react',
         },
       ],
     },
     {
-      name: "a Vue compiler error, at Vue's position in the .ucf file",
-      edits: [{file: 'src/TemplateError.ucf', content: templateError}],
+      name: "a Vue compiler error, at Vue's position in the .front file",
+      edits: [{file: 'src/TemplateError.front', content: templateError}],
       args: ['--framework', 'vue', '--no-dts'],
       findings: [
         {
-          file: 'src/TemplateError.ucf',
+          file: 'src/TemplateError.front',
           ...positionOf(templateError, '<span>'),
           code: 'vite:vue',
           severity: 'error',
@@ -433,17 +433,20 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
       name: "a Vue <script> error, whose position is the script's own, with no position",
       edits: [
         {
-          file: 'src/Card.ucf',
-          content: CARD.replace("  import Icon from './Icon.ucf'\n", "  import Icon from './Icon.ucf' with {framework: kind}\n"),
+          file: 'src/Card.front',
+          content: CARD.replace(
+            "  import Icon from './Icon.front'\n",
+            "  import Icon from './Icon.front' with {framework: kind}\n"
+          ),
         },
       ],
       args: ['--framework', 'vue', '--no-dts'],
       findings: [
         {
-          file: 'src/Card.ucf',
+          file: 'src/Card.front',
           code: 'vite:vue',
           severity: 'error',
-          message: '[vue/compiler-sfc] Only string literals are allowed as module attribute values. (2:49)',
+          message: '[vue/compiler-sfc] Only string literals are allowed as module attribute values. (2:51)',
           block: 'vue',
           framework: 'vue',
         },
@@ -465,13 +468,13 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
     {
       name: 'type errors, positioned in a plain file only',
       edits: [
-        {file: 'src/Card.ucf', content: typeErrorCard},
+        {file: 'src/Card.front', content: typeErrorCard},
         {file: 'src/utils/cx.ts', content: `${CX}export const broken: number = 'x';\n`},
       ],
       args: ['--framework', 'react'],
       findings: [
         {
-          file: 'src/Card.ucf',
+          file: 'src/Card.front',
           code: 'TS2322',
           severity: 'error',
           message: "Type 'string' is not assignable to type 'number'.",
@@ -491,15 +494,15 @@ export default defineLibrary({vite: {resolve: {alias: {'~': fileURLToPath(new UR
   ];
 
   it("keeps Vite's own error logs on stderr", async () => {
-    const icon = read('src/Icon.ucf').replace('<style scoped>\n', "<style scoped>\n@import './missing.css';\n");
-    await withEditedLibrary([{file: 'src/Icon.ucf', content: icon}], async (root) => {
+    const icon = read('src/Icon.front').replace('<style scoped>\n', "<style scoped>\n@import './missing.css';\n");
+    await withEditedLibrary([{file: 'src/Icon.front', content: icon}], async (root) => {
       const run = await runMfBuild(root, ['--framework', 'vue', '--no-dts', '--format', 'json']);
       expect(run.code).toBe(1);
       expect(run.stderr).toContain('Unable to resolve `@import "./missing.css"`');
       expect(run.stderr).not.toContain('Build failed');
       expect(report(run.stdout).findings).toEqual([
         {
-          file: 'src/Icon.ucf',
+          file: 'src/Icon.front',
           code: 'vite:css',
           severity: 'error',
           // postcss's own text: Windows names the absolute path it tried, Linux the one written.

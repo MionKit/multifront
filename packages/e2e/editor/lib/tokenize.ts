@@ -1,4 +1,4 @@
-// Tokenizes a .ucf file the way VS Code does: the real vscode-textmate on the real oniguruma WASM.
+// Tokenizes a .front file the way VS Code does: the real vscode-textmate on the real oniguruma WASM.
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import type {GrammarFile} from 'multifront-vscode/grammar';
@@ -45,7 +45,7 @@ export function hasScope(token: ScopedToken, scope: string): boolean {
 }
 
 /** `grammars[0]` is the root; the others load when it includes or injects them. */
-export async function tokenizeUcf(path: string, grammars: GrammarFile[]): Promise<ScopedToken[]> {
+export async function tokenizeFront(path: string, grammars: GrammarFile[]): Promise<ScopedToken[]> {
   const [lib, builtin] = await Promise.all([loadOnigLib(), loadBuiltins()]);
   // Ours go through JSON text, as VS Code reads them from the extension's files.
   const ours = new Map(

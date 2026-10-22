@@ -14,7 +14,7 @@ const SHARED_OPTIONS: Record<string, CommandOption> = {
 };
 const EXIT_CODES = 'Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).';
 
-/** A `.ucf` diagnostic with 1-based positions and the block it falls in. */
+/** A `.front` diagnostic with 1-based positions and the block it falls in. */
 export function findingOf(diagnostic: Diagnostic, split: Pick<SplitResult, 'source' | 'blocks'>): Finding {
   const {filename, line, column, start, end, code, severity, message} = diagnostic;
   const last = locate(split.source, end);

@@ -39,7 +39,7 @@ Ask: **how is a _valid_ input described?** The answer picks the approach. Propos
 - A schema / type the program reads at runtime → **DERIVE** inputs from it: zod-fast-check, or small hand-written maker.
 - Only a written-down TS type → reflect it, or hand-write a small maker (`fc.Arbitrary<T>` / typia).
 - Raw text / bytes → **MUTATE** real samples, splice junk into known-good inputs
-  (e.g. `.ucf` files built from real block snippets).
+  (e.g. `.front` files built from real block snippets).
 - A SEQUENCE of operations (code with memory) → random LIST of actions + a small model of the state.
 - Two coupled things that EVOLVE via edits → random list of EDIT events + a small model (build it).
 

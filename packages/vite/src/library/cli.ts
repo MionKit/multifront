@@ -13,7 +13,7 @@ const CONFIG_FILES = ['multifront.config.ts', 'multifront.config.js', 'multifron
 const MF_BUILD: CommandSpec = {
   name: 'mf-build',
   summary: [
-    'Builds the .ucf components of a library into one package per framework.',
+    'Builds the .front components of a library into one package per framework.',
     'Reads multifront.config.ts (or .js, .mjs) in the root; options win over it.',
   ],
   options: {

@@ -1,1 +1,1 @@
-export {default as ReactCard} from '../../../components/Card.ucf' with {framework: 'react'};
+export {default as ReactCard} from '../../../components/Card.front' with {framework: 'react'};

@@ -15,7 +15,7 @@ import {readZip, vsixUnderTest} from '../lib/vsix.ts';
 
 const SUITE = join(import.meta.dirname, 'vsix.cjs');
 const {checks} = createRequire(import.meta.url)(SUITE) as {checks: Check[]};
-const GREETING = 'Greeting.ucf';
+const GREETING = 'Greeting.front';
 // Marketplace minimum.
 const ICON_SIZE = 128;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -67,7 +67,7 @@ const server = () => join(extension, 'dist', 'server.cjs');
 
 describe('the server from the unzipped .vsix, with no repo node_modules beside it', () => {
   const {state, mfFmt, format} = formatting(LINT_FORMAT, {server});
-  const clean = () => ({filename: join(state.root, 'Clean.ucf'), source: read(state.root, 'Clean.ucf')});
+  const clean = () => ({filename: join(state.root, 'Clean.front'), source: read(state.root, 'Clean.front')});
 
   it('finds none of its dependencies outside the .vsix', () => {
     for (const name of ['@volar/language-server', '@multifront/language-tools', 'svelte2tsx'])
@@ -79,13 +79,13 @@ describe('the server from the unzipped .vsix, with no repo node_modules beside i
     expect(labels(await complete('<svelte lang="html">\n', '<input bi|'))).toContain('bind:value');
   });
 
-  it("gives Lint.ucf's oxlint diagnostics as the real mf-lint reports them", async () => {
-    const findings = await mfLintFindings(state.root, 'Lint.ucf');
+  it("gives Lint.front's oxlint diagnostics as the real mf-lint reports them", async () => {
+    const findings = await mfLintFindings(state.root, 'Lint.front');
     expect(findings).toHaveLength(4);
-    expect(lintPoints(await lintDiagnostics(state.server, join(state.root, 'Lint.ucf')))).toEqual(findings.map(asLintPoint));
+    expect(lintPoints(await lintDiagnostics(state.server, join(state.root, 'Lint.front')))).toEqual(findings.map(asLintPoint));
   });
 
-  it('formats Messy.ucf as the real mf-fmt writes it', async () => {
+  it('formats Messy.front as the real mf-fmt writes it', async () => {
     const {text} = await format(ORIGINAL);
     expect(text).not.toBe(ORIGINAL);
     expect(text).toBe(await mfFmt(ORIGINAL));
@@ -95,7 +95,7 @@ describe('the server from the unzipped .vsix, with no repo node_modules beside i
 describe(`the server from the unzipped .vsix formats ${LINT_FORMAT_SVELTE}/ with the project oxfmt`, () => {
   const {mfFmt, format} = formatting(LINT_FORMAT_SVELTE, {server});
 
-  it('Format Document on Messy.ucf gives what the real mf-fmt writes, <svelte> included', async () => {
+  it('Format Document on Messy.front gives what the real mf-fmt writes, <svelte> included', async () => {
     const {text} = await format(ORIGINAL);
     expect(text).not.toBe(ORIGINAL);
     expect(text).toBe(await mfFmt(ORIGINAL));

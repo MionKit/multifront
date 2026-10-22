@@ -13,13 +13,13 @@ import {copyApp, removeApp} from '../fixtures/index.ts';
 import {diagnosticsOf, edit, PLUGIN} from './lib/cases.ts';
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import type {LanguageServer} from './lib/lsp.ts';
-import {runSvelteCheck, saveUcf, SVELTE_PLUGIN, SVELTE_SERVER} from './lib/svelte.ts';
+import {runSvelteCheck, saveFront, SVELTE_PLUGIN, SVELTE_SERVER} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
 const require = createRequire(import.meta.url);
 const APP = 'svelte-vite';
-const OUT = join('.ucf', 'svelte');
+const OUT = join('.front', 'svelte');
 
 // `copyApp()` puts the app in `<copy>/apps/<name>`, beside `<copy>/components`.
 const copyOf = (app: string): string => resolve(app, '..', '..');
@@ -28,15 +28,15 @@ const read = (filename: string): Component => ({filename, source: readFileSync(f
 
 function filesUnder(dir: string): string[] {
   return readdirSync(dir, {recursive: true, encoding: 'utf8'})
-    .filter((name) => name.endsWith('.ucf.d.ts'))
+    .filter((name) => name.endsWith('.front.d.ts'))
     .sort();
 }
 
-/** `components/<path>.ucf.d.ts` for every copied `.ucf` file whose `<svelte>` block tsserver serves a script for. */
+/** `components/<path>.front.d.ts` for every copied `.front` file whose `<svelte>` block tsserver serves a script for. */
 function expectedDeclarations(copy: string): string[] {
   const svelteCompiler = loadSvelteCompiler(copy);
   return readdirSync(join(copy, 'components'), {recursive: true, encoding: 'utf8'})
-    .filter((name) => name.endsWith('.ucf'))
+    .filter((name) => name.endsWith('.front'))
     .filter((name) => {
       const filename = join(copy, 'components', name);
       return !!getTypesScript(filename, readFileSync(filename, 'utf8'), 'svelte', {svelteCompiler});
@@ -62,47 +62,47 @@ describe('emitSvelteTypes writes a declaration per <svelte> block', () => {
 
   const declaration = (name: string) => readFileSync(join(copy, OUT, 'components', `${name}.d.ts`), 'utf8');
 
-  it('one .ucf/svelte/components/<path>.ucf.d.ts per copied .ucf file with a <svelte> script, none for the others', () => {
+  it('one .front/svelte/components/<path>.front.d.ts per copied .front file with a <svelte> script, none for the others', () => {
     const expected = expectedDeclarations(copy);
     expect(expected.length).toBeGreaterThan(10);
     // Markup Svelte cannot parse gives no script, as in tsserver.
-    expect(expected).not.toContain(join('components', 'svelte', 'errors', 'UnclosedBrace.ucf.d.ts'));
+    expect(expected).not.toContain(join('components', 'svelte', 'errors', 'UnclosedBrace.front.d.ts'));
     expect(written.map((file) => relative(join(copy, OUT), file))).toEqual(expected);
     expect(filesUnder(join(copy, OUT))).toEqual(expected);
   });
 
-  it("Panel.ucf.d.ts default-exports a Svelte Component with Panel's props", () => {
-    const text = declaration('Panel.ucf');
+  it("Panel.front.d.ts default-exports a Svelte Component with Panel's props", () => {
+    const text = declaration('Panel.front');
     expect(text).toMatch(/import\("svelte"\)\.Component<\$\$ComponentProps/);
     expect(text).toMatch(/heading: string;/);
     expect(text).toMatch(/export default /);
   });
 
   it("a JavaScript block's declaration has its props typed", () => {
-    expect(declaration('svelte/shapes/Slots.ucf')).toMatch(/depth\?: number \| undefined;/);
+    expect(declaration('svelte/shapes/Slots.front')).toMatch(/depth\?: number \| undefined;/);
   });
 
   it('a block whose markup does not parse keeps its last declaration', () => {
-    const panel = join(copy, 'components', 'Panel.ucf');
-    const before = declaration('Panel.ucf');
+    const panel = join(copy, 'components', 'Panel.front');
+    const before = declaration('Panel.front');
     const source = readFileSync(panel, 'utf8');
     writeFileSync(panel, source.replace('</svelte>', '{</svelte>'));
     try {
       const again = emitSvelteTypes({root: copy});
-      expect(again.map((file) => relative(join(copy, OUT), file))).not.toContain(join('components', 'Panel.ucf.d.ts'));
-      expect(declaration('Panel.ucf')).toBe(before);
+      expect(again.map((file) => relative(join(copy, OUT), file))).not.toContain(join('components', 'Panel.front.d.ts'));
+      expect(declaration('Panel.front')).toBe(before);
     } finally {
       writeFileSync(panel, source);
     }
   });
 
   it('removing the <svelte> block deletes the declaration on the next run', () => {
-    const card = join(copy, 'components', 'Card.ucf');
+    const card = join(copy, 'components', 'Card.front');
     const source = readFileSync(card, 'utf8');
     const {start, end} = splitBlocks(source, card).targets.svelte!;
     writeFileSync(card, source.slice(0, start) + source.slice(end));
     emitSvelteTypes({root: copy});
-    expect(filesUnder(join(copy, OUT))).not.toContain(join('components', 'Card.ucf.d.ts'));
+    expect(filesUnder(join(copy, OUT))).not.toContain(join('components', 'Card.front.d.ts'));
     expect(filesUnder(join(copy, OUT))).toEqual(expectedDeclarations(copy));
   });
 });
@@ -122,28 +122,28 @@ describe('emitSvelteTypes edge cases', () => {
 
   it('a relative root and outDir are read from the current folder and the root', () => {
     const written = emitSvelteTypes({root: relative(process.cwd(), copy), outDir: 'out'});
-    expect(written).toContain(join(copy, 'out', 'components', 'Panel.ucf.d.ts'));
+    expect(written).toContain(join(copy, 'out', 'components', 'Panel.front.d.ts'));
     expect(filesUnder(join(copy, 'out'))).toEqual(expectedDeclarations(copy));
   });
 
   it("outDir as the root: declarations beside the sources, node_modules' own left alone", () => {
-    const shipped = join(copy, 'node_modules', 'lib', 'Shipped.ucf.d.ts');
+    const shipped = join(copy, 'node_modules', 'lib', 'Shipped.front.d.ts');
     mkdirSync(dirname(shipped), {recursive: true});
     writeFileSync(shipped, 'export {};\n');
     emitSvelteTypes({root: copy, outDir: copy});
-    expect(existsSync(join(copy, 'components', 'Panel.ucf.d.ts'))).toBe(true);
+    expect(existsSync(join(copy, 'components', 'Panel.front.d.ts'))).toBe(true);
     expect(existsSync(shipped)).toBe(true);
   });
 
   it('a block importing ./Plain.svelte, beside a Plain folder, still gets its declaration', () => {
-    const uses = join(copy, 'components', 'UsesPlain.ucf');
+    const uses = join(copy, 'components', 'UsesPlain.front');
     mkdirSync(join(copy, 'components', 'Plain'), {recursive: true});
     writeFileSync(
       uses,
       '<svelte lang="html">\n  <script lang="ts">\n    import Plain from \'./Plain.svelte\'\n  </script>\n  <Plain />\n</svelte>\n'
     );
     const written = emitSvelteTypes({root: copy});
-    expect(written).toContain(join(copy, OUT, 'components', 'UsesPlain.ucf.d.ts'));
+    expect(written).toContain(join(copy, OUT, 'components', 'UsesPlain.front.d.ts'));
   });
 
   it('a project with no typescript: the error says so', () => {
@@ -166,7 +166,7 @@ describe('emitSvelteTypes edge cases', () => {
   });
 });
 
-describe('our language server writes them when a .ucf file is saved', () => {
+describe('our language server writes them when a .front file is saved', () => {
   let app: string;
   let copy: string;
   let server: LanguageServer;
@@ -183,8 +183,8 @@ describe('our language server writes them when a .ucf file is saved', () => {
   });
 
   it('saving two files at once runs one emit', async () => {
-    const files = ['Panel.ucf', 'Counter.ucf'].map((name) => join(copy, 'components', name));
-    const documents = await Promise.all(files.map((file) => server.openTextDocument(file, 'ucf')));
+    const files = ['Panel.front', 'Counter.front'].map((name) => join(copy, 'components', name));
+    const documents = await Promise.all(files.map((file) => server.openTextDocument(file, 'front')));
     for (const {uri} of documents) await server.connection.sendNotification('textDocument/didSave', {textDocument: {uri}});
     const deadline = Date.now() + 30_000;
     while (!server.log.some(({message}) => message.includes('Svelte declarations')) && Date.now() < deadline) await pause(50);
@@ -196,13 +196,13 @@ describe('our language server writes them when a .ucf file is saved', () => {
   });
 
   it('saving a file whose <svelte> block is gone deletes its declaration', async () => {
-    const card = join(copy, 'components', 'Card.ucf');
-    expect(filesUnder(join(copy, OUT))).toContain(join('components', 'Card.ucf.d.ts'));
+    const card = join(copy, 'components', 'Card.front');
+    expect(filesUnder(join(copy, OUT))).toContain(join('components', 'Card.front.d.ts'));
     const source = readFileSync(card, 'utf8');
     const {start, end} = splitBlocks(source, card).targets.svelte!;
     writeFileSync(card, source.slice(0, start) + source.slice(end));
-    expect(await saveUcf(server, card)).toMatch(/^multifront: wrote /);
-    expect(filesUnder(join(copy, OUT))).not.toContain(join('components', 'Card.ucf.d.ts'));
+    expect(await saveFront(server, card)).toMatch(/^multifront: wrote /);
+    expect(filesUnder(join(copy, OUT))).not.toContain(join('components', 'Card.front.d.ts'));
     expect(filesUnder(join(copy, OUT))).toEqual(expectedDeclarations(copy));
   });
 });
@@ -231,33 +231,33 @@ describe('where and when our language server writes them', () => {
   it('in a multi-root workspace, under the deepest folder holding the file', async () => {
     const components = join(copy, 'components');
     const server = await start([copy, components]);
-    const message = await saveUcf(server, join(components, 'Panel.ucf'));
+    const message = await saveFront(server, join(components, 'Panel.front'));
     expect(message).toMatch(/^multifront: wrote \d+ Svelte declarations to /);
     expect(message.endsWith(` to ${join(components, OUT)}`)).toBe(true);
-    expect(filesUnder(join(components, OUT))).toContain('Panel.ucf.d.ts');
+    expect(filesUnder(join(components, OUT))).toContain('Panel.front.d.ts');
     expect(existsSync(join(copy, OUT))).toBe(false);
-    rmSync(join(components, '.ucf'), {recursive: true, force: true});
+    rmSync(join(components, '.front'), {recursive: true, force: true});
   });
 
   it('not without a tsdk', async () => {
     const server = await start(copy, false);
-    const {uri} = await server.openTextDocument(join(copy, 'components', 'Panel.ucf'), 'ucf');
+    const {uri} = await server.openTextDocument(join(copy, 'components', 'Panel.front'), 'front');
     await server.connection.sendNotification('textDocument/didSave', {textDocument: {uri}});
     await pause(1000);
     expect(server.log.filter(({message}) => message.includes('Svelte declarations'))).toEqual([]);
-    expect(existsSync(join(copy, '.ucf'))).toBe(false);
+    expect(existsSync(join(copy, '.front'))).toBe(false);
   });
 
   it('a project with no Svelte: a warning, and the server keeps serving', async () => {
     const root = mkdtempSync(join(tmpdir(), 'multifront-no-svelte-'));
     try {
-      const counter = join(root, 'Counter.ucf');
-      writeFileSync(counter, readFileSync(join(copy, 'components', 'Counter.ucf'), 'utf8'));
+      const counter = join(root, 'Counter.front');
+      writeFileSync(counter, readFileSync(join(copy, 'components', 'Counter.front'), 'utf8'));
       const server = await start(root);
       const warning = `multifront: no Svelte declarations for ${root} (multifront: could not find svelte. Install svelte in your project.)`;
-      expect(await saveUcf(server, counter)).toBe(warning);
+      expect(await saveFront(server, counter)).toBe(warning);
       expect(server.log.find(({message}) => message === warning)?.type).toBe(2);
-      expect(await saveUcf(server, counter)).toBe(warning);
+      expect(await saveFront(server, counter)).toBe(warning);
     } finally {
       rmSync(root, {recursive: true, force: true});
     }
@@ -285,9 +285,9 @@ describe('svelte-language-server reads the declarations our server writes on sav
     if (app) await removeApp(app);
   });
 
-  it('before any emit: TS2307 at each .ucf import of App.svelte, and nothing else', async () => {
+  it('before any emit: TS2307 at each .front import of App.svelte, and nothing else', async () => {
     const document = await svelteServer.openTextDocument(appSvelte.filename, 'svelte');
-    const specifiers = [...appSvelte.source.matchAll(/'[^']*\.ucf'/g)].map(({index}) => document.positionAt(index));
+    const specifiers = [...appSvelte.source.matchAll(/'[^']*\.front'/g)].map(({index}) => document.positionAt(index));
     expect(specifiers).toHaveLength(4);
     const diagnostics = await diagnosticsOf(svelteServer, document);
     expect(diagnostics.map(({code, range}) => ({code, start: range.start}))).toEqual(
@@ -296,7 +296,7 @@ describe('svelte-language-server reads the declarations our server writes on sav
   });
 
   it('after a save in our server: no error, Panel is a Component, and a wrong prop is one error at it', async () => {
-    const message = await saveUcf(ours, join(copy, 'components', 'Panel.ucf'));
+    const message = await saveFront(ours, join(copy, 'components', 'Panel.front'));
     const expected = expectedDeclarations(copy);
     expect(message).toBe(`multifront: wrote ${expected.length} Svelte declarations to ${join(copy, OUT)}`);
     expect(filesUnder(join(copy, OUT))).toEqual(expected);
@@ -330,12 +330,12 @@ describe('svelte-check on the app', () => {
     if (app) await removeApp(app);
   });
 
-  it('fails before the emit: TS2307 on the .ucf imports only', async () => {
+  it('fails before the emit: TS2307 on the .front imports only', async () => {
     const {exitCode, problems} = await runSvelteCheck(app);
     expect(exitCode).toBe(1);
     expect(problems.length).toBeGreaterThan(0);
     for (const problem of problems) {
-      expect(problem).toMatchObject({type: 'ERROR', code: 2307, message: expect.stringMatching(/\.ucf'/)});
+      expect(problem).toMatchObject({type: 'ERROR', code: 2307, message: expect.stringMatching(/\.front'/)});
     }
   });
 
@@ -377,7 +377,7 @@ describe.each([
     // `rootDirs` also finds these: our plugin's pick must win over them.
     emitSvelteTypes({root: copyOf(app)});
     mountAll = read(join(app, 'src', 'mountAll.ts'));
-    panel = read(join(copyOf(app), 'components', 'Panel.ucf'));
+    panel = read(join(copyOf(app), 'components', 'Panel.front'));
     appSvelte = read(join(app, 'src', 'App.svelte'));
     server = startTsserver({cwd: app, plugins, probeLocations: [E2E_DIR]});
     await open(server, [mountAll, panel]);
@@ -422,7 +422,7 @@ describe.each([
     }
   });
 
-  it('definition on App lands in App.svelte, on Panel in Panel.ucf', async () => {
+  it('definition on App lands in App.svelte, on Panel in Panel.front', async () => {
     const definitions = (needle: string) =>
       server.request<TsDefinitions>('definition', {file: mountAll.filename, ...locate(mountAll.source, needle, 'mount('.length)});
     // svelte2tsx declares the component as a value and a type: two spots, both in App.svelte.

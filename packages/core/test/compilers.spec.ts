@@ -22,7 +22,7 @@ describe('loadVueCompiler', () => {
   });
 
   it('gives a sync compileStyle that preprocesses scss as the build does', () => {
-    const {filename, source} = readComponent('Card.ucf');
+    const {filename, source} = readComponent('Card.front');
     const [block] = splitBlocks(source, filename).styles;
     const compiler = loadVueCompiler(REPO_ROOT);
     const result = compiler.compileStyle({filename, id: '', source: block!.content, ...stylePreprocessOptions(block!)});

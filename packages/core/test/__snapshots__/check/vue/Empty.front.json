@@ -1,0 +1,12 @@
+[
+  {
+    "code": "vue-empty-block",
+    "severity": "error",
+    "message": "<vue> has no <template> or <script>; add one",
+    "filename": "vue/Empty.front",
+    "start": 0,
+    "end": 16,
+    "line": 1,
+    "column": 0
+  }
+]

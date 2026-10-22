@@ -1,0 +1,16 @@
+
+  'use client';
+import "<fixtures>/components/react/UseClient.front?front&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/react/UseClient.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { useState } from 'react';
+
+  export default function UseClient(__props) {
+    const [count, setCount] = useState(0);
+    return (
+      <button {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass($style.button, __props.className)} onClick={() => setCount(count + 1)}>
+        Clicked {count}
+      </button>
+    );
+  }

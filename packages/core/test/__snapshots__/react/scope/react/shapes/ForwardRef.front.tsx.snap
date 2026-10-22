@@ -1,0 +1,7 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { forwardRef } from 'react'
+
+  export default forwardRef<HTMLDivElement, { branch?: string }>(function ForwardRef(props, ref) {
+    return <div {...__frontScopeAttrs(props)} style={props.style} ref={ref} className={__frontClass("shape", props.className)}><span className="inner">forwardRef {props.branch}</span></div>
+  })

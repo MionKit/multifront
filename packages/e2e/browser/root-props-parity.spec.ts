@@ -1,4 +1,4 @@
-// Spec 3.6, root props: a Svelte parent styles a `.ucf` child with `class` and `style` as React and Vue parents do.
+// Spec 3.6, root props: a Svelte parent styles a `.front` child with `class` and `style` as React and Vue parents do.
 import {join} from 'node:path';
 import type {Browser, Locator, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';

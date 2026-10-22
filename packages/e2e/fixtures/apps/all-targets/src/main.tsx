@@ -1,13 +1,13 @@
 import {createRoot} from 'react-dom/client';
 import {mount} from 'svelte';
 import {createApp} from 'vue';
-import Counter from '../../../components/Counter.ucf' with {framework: 'react'};
-import ReactPanel from '../../../components/Panel.ucf' with {framework: 'react'};
-import SveltePanel from '../../../components/Panel.ucf' with {framework: 'svelte'};
-import VuePanel from '../../../components/Panel.ucf' with {framework: 'vue'};
+import Counter from '../../../components/Counter.front' with {framework: 'react'};
+import ReactPanel from '../../../components/Panel.front' with {framework: 'react'};
+import SveltePanel from '../../../components/Panel.front' with {framework: 'svelte'};
+import VuePanel from '../../../components/Panel.front' with {framework: 'vue'};
 // No <vue> block: a Svelte edit must never build the Vue target.
-import NoStyle from '../../../components/svelte/NoStyle.ucf' with {framework: 'svelte'};
-import Roots from '../Roots.ucf' with {framework: 'svelte'};
+import NoStyle from '../../../components/svelte/NoStyle.front' with {framework: 'svelte'};
+import Roots from '../Roots.front' with {framework: 'svelte'};
 import Plain from './Plain.svelte';
 
 // The root shapes page warns on purpose: kept off the page the HMR tests read the console of.

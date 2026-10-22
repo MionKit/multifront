@@ -29,7 +29,7 @@ describe('vite build of the vue app', () => {
   it.each([
     ['before', () => ({})],
     ['after', () => inline([multifront(), vue()])],
-  ])('plugin-vue listed %s multifront(): the .ucf files compile as Vue', async (_order, config) => {
+  ])('plugin-vue listed %s multifront(): the .front files compile as Vue', async (_order, config) => {
     const {code, css} = await buildCode(root, config());
     expect(code).toContain('__name: "Counter"');
     expect(code).toContain('_ctx.$style.button');
@@ -48,8 +48,8 @@ describe('vite build of the vue app', () => {
   });
 
   it("keeps the user's own plugin-vue exclude", async () => {
-    const config = inline([vue({exclude: [/VBind\.ucf$/]}), multifront()], ['index.html']);
-    await expect(buildApp(root, config)).rejects.toThrow(/VBind\.ucf/);
+    const config = inline([vue({exclude: [/VBind\.front$/]}), multifront()], ['index.html']);
+    await expect(buildApp(root, config)).rejects.toThrow(/VBind\.front/);
   });
 
   it('keeps plugin-vue off our style ids when one file is imported as vue and as react', async () => {
@@ -61,13 +61,13 @@ describe('vite build of the vue app', () => {
   it('fails a vue pick without plugin-vue, naming the import and its importer', async () => {
     const importer = join(root, 'src', 'bothTargets.ts');
     await expect(buildApp(root, inline([multifront()], ['src/bothTargets.ts']))).rejects.toThrow(
-      `../../../components/Counter.ucf (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
+      `../../../components/Counter.front (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 });
 
-// M6's Vue package builds this way: `.ucf` files as entries, no importer.
-describe('a .ucf entry in a library build with framework: vue', () => {
+// M6's Vue package builds this way: `.front` files as entries, no importer.
+describe('a .front entry in a library build with framework: vue', () => {
   // Library build: an app build drops the entry's exports, and the component with them.
   const libraryBuild = (entry: string) =>
     buildCode(root, {
@@ -77,7 +77,7 @@ describe('a .ucf entry in a library build with framework: vue', () => {
     });
 
   it('compiles the <vue> block with plugin-vue: our scope id and $style names, no <react> text', async () => {
-    const counter = component('Counter.ucf');
+    const counter = component('Counter.front');
     const {code, css} = await libraryBuild(counter);
     const scope = scopeAttribute(root, counter, true);
     expect(code).toMatch(/__name: "Counter"/);
@@ -89,13 +89,13 @@ describe('a .ucf entry in a library build with framework: vue', () => {
   });
 
   it('names the file alone when the entry has no <vue> block', async () => {
-    const input = component('imports/ReactOnly.ucf');
+    const input = component('imports/ReactOnly.front');
     const err = await rejection<Error>(libraryBuild(input));
     expect(err.message).toContain(`${input} has no <vue> block (missing-target-block)`);
   });
 });
 
-it('still compiles the .ucf file as Vue after a dev server restart with the same plugins', async () => {
+it('still compiles the .front file as Vue after a dev server restart with the same plugins', async () => {
   const errors: string[] = [];
   const logger = createLogger('silent');
   logger.error = (message) => void errors.push(message);
@@ -109,7 +109,7 @@ it('still compiles the .ucf file as Vue after a dev server restart with the same
   });
   try {
     await server.restart();
-    const counter = component('Counter.ucf');
+    const counter = component('Counter.front');
     const result = await server.environments.client.transformRequest(`/@fs${counter}`);
     expect(errors).toEqual([]);
     expect(result?.code).toMatch(/__name: ["']Counter["']/);

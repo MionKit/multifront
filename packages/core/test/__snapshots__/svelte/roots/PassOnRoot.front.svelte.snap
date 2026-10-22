@@ -1,0 +1,9 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+    import SvelteElementRoot from './SvelteElementRoot.front'
+
+    let { label = 'component', ...__frontRest }: { label?: string } = $props()
+  </script>
+  <!-- The child's root gets this file's scope and its parent's. -->
+  <SvelteElementRoot {...__frontScopeAttrs(__frontRest, 'class', 'style')} tag="article" {label} />

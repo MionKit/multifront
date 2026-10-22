@@ -1,0 +1,73 @@
+<vue lang="vue">
+  <script setup lang="ts">
+  import Icon from './Icon.front'
+  import { cx } from './utils/cx.js'
+
+  defineProps<{ title: string }>()
+  </script>
+
+  <template>
+    <article :class="cx($style.card, 'card')">
+      <h2 :class="$style.title"><Icon /> {{ title }}</h2>
+      <slot />
+    </article>
+  </template>
+</vue>
+
+<svelte lang="html">
+  <script lang="ts">
+  import type { Snippet } from 'svelte'
+  import Icon from './Icon.front'
+  import { cx } from './utils/cx.js'
+
+  let { title, children }: { title: string; children?: Snippet } = $props()
+  </script>
+
+  <article class={cx($style.card, 'card')}>
+    <h2 class={$style.title}><Icon /> {title}</h2>
+    {@render children?.()}
+  </article>
+</svelte>
+
+<style module>
+.card {
+  --card-padding: 16px;
+  --card-color: rgb(30, 60, 90);
+  padding: var(--card-padding);
+  color: var(--card-color);
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.title {
+  padding: 0 0 8px;
+  color: rgb(150, 40, 60);
+  border-radius: 2px;
+  font-size: 20px;
+}
+</style>
+
+<style scoped lang="scss">
+.card {
+  border: 1px solid rgb(200, 200, 210);
+
+  &:hover {
+    border-color: rgb(30, 60, 90);
+  }
+}
+</style>
+
+<react lang="tsx">
+  import type { ReactNode } from 'react'
+  import Icon from './Icon.front'
+  import { cx } from './utils/cx.js'
+
+  export default function Card({ title, children }: { title: string; children?: ReactNode }) {
+    return (
+      <article className={cx($style.card, 'card')}>
+        <h2 className={$style.title}><Icon /> {title}</h2>
+        {children}
+      </article>
+    )
+  }
+</react>

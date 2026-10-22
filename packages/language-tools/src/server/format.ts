@@ -1,9 +1,9 @@
-/** Format Document on a `.ucf` file: what `mf-fmt` writes, from the buffer (spec 6.1). */
+/** Format Document on a `.front` file: what `mf-fmt` writes, from the buffer (spec 6.1). */
 import {dirname} from 'node:path';
 import type {LanguageServer, LanguageServicePlugin, TextEdit} from '@volar/language-server';
 import {URI} from 'vscode-uri';
 import {isIgnored, workspaceRoot} from '../files.ts';
-import {findFormatConfig, formatUcf, MISSING_SVELTE} from '../format/index.ts';
+import {findFormatConfig, formatFront, MISSING_SVELTE} from '../format/index.ts';
 
 /** Every embedded code has formatting off, so no other service formats a block. */
 export function formatService(server: LanguageServer): LanguageServicePlugin {
@@ -30,7 +30,7 @@ export function formatService(server: LanguageServer): LanguageServicePlugin {
             // mf-fmt refuses a named ignored file.
             if (isIgnored(config, file)) return undefined;
             // The client's tab size and spaces are ignored: the project's configs decide, as in mf-fmt.
-            formatted = await formatUcf(file, text, config);
+            formatted = await formatFront(file, text, config);
           } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
             if (failures.get(root) !== reason) console.warn(`multifront: no formatting in ${root} (${reason})`);

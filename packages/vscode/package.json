@@ -2,7 +2,7 @@
   "name": "multifront-vscode",
   "displayName": "multifront",
   "version": "0.0.0",
-  "description": "VS Code extension for multifront component files: the .ucf grammar, the language server and the TypeScript plugin.",
+  "description": "VS Code extension for multifront component files: the .front grammar, the language server and the TypeScript plugin.",
   "private": true,
   "publisher": "mionkit",
   "type": "module",
@@ -34,25 +34,25 @@
     "README.md",
     "LICENSE"
   ],
-  "activationEvents": ["onLanguage:ucf"],
+  "activationEvents": ["onLanguage:front"],
   "contributes": {
     "languages": [
       {
-        "id": "ucf",
-        "aliases": ["UCF", "ucf"],
-        "extensions": [".ucf"],
+        "id": "front",
+        "aliases": ["Multifront", "front"],
+        "extensions": [".front"],
         "configuration": "./language-configuration.json",
         "icon": {
-          "light": "./icons/ucf.svg",
-          "dark": "./icons/ucf.svg"
+          "light": "./icons/front.svg",
+          "dark": "./icons/front.svg"
         }
       }
     ],
     "grammars": [
       {
-        "language": "ucf",
-        "scopeName": "source.ucf",
-        "path": "./dist/syntaxes/source.ucf.tmLanguage.json",
+        "language": "front",
+        "scopeName": "source.front",
+        "path": "./dist/syntaxes/source.front.tmLanguage.json",
         "embeddedLanguages": {
           "meta.embedded.block.style": "css",
           "meta.embedded.block.style.scss": "scss",
@@ -66,36 +66,36 @@
         }
       },
       {
-        "scopeName": "source.ucf.vue",
-        "path": "./dist/syntaxes/source.ucf.vue.tmLanguage.json"
+        "scopeName": "source.front.vue",
+        "path": "./dist/syntaxes/source.front.vue.tmLanguage.json"
       },
       {
-        "scopeName": "source.ucf.vue.vue.directives",
-        "path": "./dist/syntaxes/source.ucf.vue.vue.directives.tmLanguage.json",
-        "injectTo": ["source.ucf"]
+        "scopeName": "source.front.vue.vue.directives",
+        "path": "./dist/syntaxes/source.front.vue.vue.directives.tmLanguage.json",
+        "injectTo": ["source.front"]
       },
       {
-        "scopeName": "source.ucf.vue.vue.interpolations",
-        "path": "./dist/syntaxes/source.ucf.vue.vue.interpolations.tmLanguage.json",
-        "injectTo": ["source.ucf"]
+        "scopeName": "source.front.vue.vue.interpolations",
+        "path": "./dist/syntaxes/source.front.vue.vue.interpolations.tmLanguage.json",
+        "injectTo": ["source.front"]
       },
       {
-        "scopeName": "source.ucf.vue.vue.sfc.script.leading-operator-fix",
-        "path": "./dist/syntaxes/source.ucf.vue.vue.sfc.script.leading-operator-fix.tmLanguage.json",
-        "injectTo": ["source.ucf"]
+        "scopeName": "source.front.vue.vue.sfc.script.leading-operator-fix",
+        "path": "./dist/syntaxes/source.front.vue.vue.sfc.script.leading-operator-fix.tmLanguage.json",
+        "injectTo": ["source.front"]
       },
       {
-        "scopeName": "source.ucf.vue.vue.sfc.style.variable.injection",
-        "path": "./dist/syntaxes/source.ucf.vue.vue.sfc.style.variable.injection.tmLanguage.json",
-        "injectTo": ["source.ucf"]
+        "scopeName": "source.front.vue.vue.sfc.style.variable.injection",
+        "path": "./dist/syntaxes/source.front.vue.vue.sfc.style.variable.injection.tmLanguage.json",
+        "injectTo": ["source.front"]
       },
       {
-        "scopeName": "source.ucf.svelte",
-        "path": "./dist/syntaxes/source.ucf.svelte.tmLanguage.json"
+        "scopeName": "source.front.svelte",
+        "path": "./dist/syntaxes/source.front.svelte.tmLanguage.json"
       }
     ],
     "configurationDefaults": {
-      "[ucf]": {
+      "[front]": {
         "editor.defaultFormatter": "mionkit.multifront-vscode"
       }
     },
@@ -103,7 +103,7 @@
       {
         "name": "multifront-typescript-plugin-pack",
         "enableForWorkspaceTypeScriptVersions": true,
-        "languages": ["ucf"]
+        "languages": ["front"]
       }
     ]
   },

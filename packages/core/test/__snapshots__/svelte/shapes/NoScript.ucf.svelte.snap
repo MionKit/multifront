@@ -1,5 +1,0 @@
-<script>
-import "<fixtures>/components/svelte/shapes/NoScript.ucf?ucf&type=style&index=0&lang.css";
-import __ucfStyle from "<fixtures>/components/svelte/shapes/NoScript.ucf?ucf&type=style&index=0&module&lang.js";
-</script>
-  <div data-v-16dc1e77="" class={__ucfStyle.box}><p data-v-16dc1e77="" class={__ucfStyle.text}>No script</p></div>

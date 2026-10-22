@@ -9,7 +9,7 @@ import {
   loadSvelteCompiler,
   loadVueCompiler,
   scopeHelperCode,
-  shipUcfImports,
+  shipFrontImports,
 } from '@multifront/core';
 import type {SplitResult, SvelteCompiler, Target, VirtualFile} from '@multifront/core';
 import type {Preprocessor, PreprocessorGroup} from 'svelte/compiler';
@@ -30,7 +30,7 @@ interface LibrarySourceJob
     Pick<LibraryTypesJob, 'target' | 'root' | 'src'>,
     Required<Pick<LibraryTarget, 'sourceExt'>>,
     Pick<LibraryPackageJob, 'peers'> {
-  components: LibraryComponent[]; // the `.ucf` files with that block
+  components: LibraryComponent[]; // the `.front` files with that block
 }
 
 /** A component as its package ships it: the target's own source, importing real files beside it. */
@@ -41,7 +41,7 @@ export async function shippedSource(split: SplitResult, root: string, src: strin
 
 // Compiled components, plain Svelte files, their sub-modules and the virtual helpers: none of it ships.
 function compiledOnly(moduleIds: string[]): boolean {
-  return moduleIds.every((id) => id.startsWith('\0') || fileOf(id).endsWith('.ucf') || PLAIN_SVELTE.test(fileOf(id)));
+  return moduleIds.every((id) => id.startsWith('\0') || fileOf(id).endsWith('.front') || PLAIN_SVELTE.test(fileOf(id)));
 }
 
 // A shipped file's runtime specifiers that are not relative: the Vite build resolved them, a consumer will not.
@@ -66,12 +66,12 @@ function bareImports(code: string, file: string, svelte: boolean, compiler: Svel
   return found;
 }
 
-/** A plain `.svelte` file's code with its `.ucf` imports pointed at the shipped `.svelte` files. */
+/** A plain `.svelte` file's code with its `.front` imports pointed at the shipped `.svelte` files. */
 export function svelteShipped(code: string, compiler: SvelteCompiler): string {
   // Svelte parses every `<style>` as CSS: an unpreprocessed SCSS body would throw, so the parse sees it blanked.
   const blanked = code.replace(STYLE_BODY, (_, open: string, body: string) => open + body.replace(/[^\n]/g, ' '));
   const text = new MagicString(code);
-  shipUcfImports(text, compiler.parse(blanked, {modern: true}), 0);
+  shipFrontImports(text, compiler.parse(blanked, {modern: true}), 0);
   return text.toString();
 }
 

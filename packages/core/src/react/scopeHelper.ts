@@ -3,19 +3,19 @@
 export const SCOPE_HELPER_ID = 'virtual:multifront/scope-attrs';
 
 /** Where a Svelte library package ships that module, from its root. */
-export const LIBRARY_SCOPE_HELPER = '_ucf/scopeAttrs.js';
+export const LIBRARY_SCOPE_HELPER = '_front/scopeAttrs.js';
 
-export const SCOPE_ATTRS = '__ucfScopeAttrs';
+export const SCOPE_ATTRS = '__frontScopeAttrs';
 
-export const WARN_FRAGMENT = '__ucfWarnFragment';
+export const WARN_FRAGMENT = '__frontWarnFragment';
 
-export const MERGE_CLASS = '__ucfClass';
+export const MERGE_CLASS = '__frontClass';
 
-export const MERGE_STYLE = '__ucfStyle';
+export const MERGE_STYLE = '__frontStyle';
 
-export const MERGE_SVELTE_CLASS = '__ucfSvelteClass';
+export const MERGE_SVELTE_CLASS = '__frontSvelteClass';
 
-export const MERGE_REF = '__ucfRef';
+export const MERGE_REF = '__frontRef';
 
 // `keys`: root props a Svelte root lacks, passed on only when given: beside a spread, `class={undefined}` renders `class=""`.
 const SCOPE_ATTRS_CODE = `export function ${SCOPE_ATTRS}(props, ...keys) {

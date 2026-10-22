@@ -22,46 +22,46 @@ import {MERGES, isAdded, isCallTo, isHelperImport, withoutInjected} from '../blo
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
 // The order the build's helper import names them in.
-const HELPERS = ['__ucfScopeAttrs', '__ucfWarnFragment', '__ucfClass', '__ucfStyle', '__ucfRef'];
+const HELPERS = ['__frontScopeAttrs', '__frontWarnFragment', '__frontClass', '__frontStyle', '__frontRef'];
 type RootProp = keyof typeof MERGES;
 
 // `unstamped`: the names of React's Fragment elements in source order, hand-read from the fixture.
 const SCOPED: {fixture: string; unstamped?: string[]}[] = [
-  {fixture: 'Badge.ucf'},
-  {fixture: 'Button.ucf'},
-  {fixture: 'ComposesScoped.ucf'},
-  {fixture: 'Counter.ucf'},
-  {fixture: 'Note.ucf'},
-  {fixture: 'Panel.ucf'},
-  {fixture: 'PanelItem.ucf'},
-  {fixture: 'ScopedModuleScss.ucf'},
-  {fixture: 'TsxEdges.ucf'},
-  {fixture: 'invalid/CssSyntaxError.ucf'},
-  {fixture: 'langs/PostcssPlain.ucf'},
-  {fixture: 'langs/SassIndented.ucf'},
-  {fixture: 'langs/StylusPlain.ucf'},
-  {fixture: 'react/ScopedPanel.ucf'},
-  {fixture: 'react/forwarding/ClassRoot.ucf'},
-  {fixture: 'react/fuzz-found/ConstFragment.ucf', unstamped: ['Fragment']},
+  {fixture: 'Badge.front'},
+  {fixture: 'Button.front'},
+  {fixture: 'ComposesScoped.front'},
+  {fixture: 'Counter.front'},
+  {fixture: 'Note.front'},
+  {fixture: 'Panel.front'},
+  {fixture: 'PanelItem.front'},
+  {fixture: 'ScopedModuleScss.front'},
+  {fixture: 'TsxEdges.front'},
+  {fixture: 'invalid/CssSyntaxError.front'},
+  {fixture: 'langs/PostcssPlain.front'},
+  {fixture: 'langs/SassIndented.front'},
+  {fixture: 'langs/StylusPlain.front'},
+  {fixture: 'react/ScopedPanel.front'},
+  {fixture: 'react/forwarding/ClassRoot.front'},
+  {fixture: 'react/fuzz-found/ConstFragment.front', unstamped: ['Fragment']},
   // The const, parameter and arrow parameter that shadow `Fragment` and `React` get stamped.
-  {fixture: 'react/scope/FragmentImports.ucf', unstamped: ['R.Fragment', 'Quoted', 'Fragment', 'React.Fragment']},
-  {fixture: 'react/scope/Namespaced.ucf'},
-  {fixture: 'react/scope/Stamped.ucf', unstamped: ['Fragment', 'Fragment', 'Frag', 'React.Fragment']},
-  {fixture: 'react/shapes/MultiReturn.ucf'},
-  {fixture: 'scoped-modules/ScopedModuleEdges.ucf'},
-  {fixture: 'vue/CounterCrlf.ucf'},
+  {fixture: 'react/scope/FragmentImports.front', unstamped: ['R.Fragment', 'Quoted', 'Fragment', 'React.Fragment']},
+  {fixture: 'react/scope/Namespaced.front'},
+  {fixture: 'react/scope/Stamped.front', unstamped: ['Fragment', 'Fragment', 'Frag', 'React.Fragment']},
+  {fixture: 'react/shapes/MultiReturn.front'},
+  {fixture: 'scoped-modules/ScopedModuleEdges.front'},
+  {fixture: 'vue/CounterCrlf.front'},
 ];
 const CASES = [
   ...SCOPED.map((row) => ({...row, scoped: true})),
-  {fixture: 'react/AllBlocks.ucf', scoped: false},
-  {fixture: 'react/ScopedBadge.ucf', scoped: false},
+  {fixture: 'react/AllBlocks.front', scoped: false},
+  {fixture: 'react/ScopedBadge.front', scoped: false},
 ];
 
 it('runs every fixture with a <react> block, a scoped style and no error', () => {
   const found = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((path) => path.split(sep).join('/'))
     .filter((name) => {
-      if (!name.endsWith('.ucf')) return false;
+      if (!name.endsWith('.front')) return false;
       const {filename, source} = readComponent(name);
       const split = splitBlocks(source, filename);
       return split.targets.react && split.styles.some(({attrs}) => attrs.scoped) && checkBlocks(split).length === 0;
@@ -86,7 +86,7 @@ function parse(code: string) {
 }
 
 function isForward(item: JSXAttributeItem | undefined): boolean {
-  return item?.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__ucfScopeAttrs');
+  return item?.type === 'JSXSpreadAttribute' && isCallTo(item.argument, '__frontScopeAttrs');
 }
 
 function lineColumn(text: string, offset: number): {line: number; column: number} {
@@ -197,57 +197,57 @@ const SHAPES: {
   typed?: string;
 }[] = [
   {
-    fixture: 'react/forwarding/ArrayPattern.ucf',
+    fixture: 'react/forwarding/ArrayPattern.front',
     roots: ['div'],
     props: '__props',
     signature: 'function ArrayPattern(__props /* ] */ ?: [string?]) {const [ first ] = __props;',
   },
-  {fixture: 'react/forwarding/ClassRoot.ucf', roots: []},
-  {fixture: 'react/forwarding/Cyclic.ucf', roots: []},
-  {fixture: 'react/forwarding/DefaultReadsBody.ucf', roots: []},
+  {fixture: 'react/forwarding/ClassRoot.front', roots: []},
+  {fixture: 'react/forwarding/Cyclic.front', roots: []},
+  {fixture: 'react/forwarding/DefaultReadsBody.front', roots: []},
   {
-    fixture: 'react/forwarding/DestructuredFragment.ucf',
+    fixture: 'react/forwarding/DestructuredFragment.front',
     roots: [],
     fragments: 1,
     props: '__props',
     signature: 'function DestructuredFragment(__props: { branch?: string }) {const { branch } = __props;',
   },
   {
-    fixture: 'react/forwarding/DirectiveBody.ucf',
+    fixture: 'react/forwarding/DirectiveBody.front',
     roots: ['div'],
     props: '__props',
     signature: "(__props: { branch?: string }) {\n    'use no memo'\n    const { branch } = __props;return",
   },
-  {fixture: 'react/forwarding/ExportAsDefault.ucf', roots: ['div']},
-  {fixture: 'react/forwarding/LaterParamReads.ucf', roots: []},
-  {fixture: 'react/forwarding/LetExport.ucf', roots: []},
-  {fixture: 'react/forwarding/NestedConst.ucf', roots: []},
-  {fixture: 'react/forwarding/OnlyThis.ucf', roots: []},
+  {fixture: 'react/forwarding/ExportAsDefault.front', roots: ['div']},
+  {fixture: 'react/forwarding/LaterParamReads.front', roots: []},
+  {fixture: 'react/forwarding/LetExport.front', roots: []},
+  {fixture: 'react/forwarding/NestedConst.front', roots: []},
+  {fixture: 'react/forwarding/OnlyThis.front', roots: []},
   {
-    fixture: 'react/forwarding/PropsClash.ucf',
+    fixture: 'react/forwarding/PropsClash.front',
     roots: ['div'],
     props: '__props2',
     signature: 'function PropsClash(__props2: { branch?: string }) {const { branch } = __props2;',
   },
-  {fixture: 'react/forwarding/RedeclaredPattern.ucf', roots: []},
+  {fixture: 'react/forwarding/RedeclaredPattern.front', roots: []},
   {
-    fixture: 'react/forwarding/RefClash.ucf',
+    fixture: 'react/forwarding/RefClash.front',
     roots: ['div'],
     props: '__props1',
     signature: '<HTMLDivElement>((__props1, __ref1) =>',
   },
   {
-    fixture: 'react/forwarding/RenamedKey.ucf',
+    fixture: 'react/forwarding/RenamedKey.front',
     roots: ['div'],
     props: '__props',
     signature: 'function RenamedKey(__props: Props) {const { className: extra, onChange } = __props;',
   },
-  {fixture: 'react/forwarding/RestParams.ucf', roots: []},
-  {fixture: 'react/forwarding/ShadowedProps.ucf', roots: []},
-  {fixture: 'react/forwarding/ThisParam.ucf', roots: ['div']},
-  {fixture: 'react/forwarding/WrappedExport.ucf', roots: ['div']},
+  {fixture: 'react/forwarding/RestParams.front', roots: []},
+  {fixture: 'react/forwarding/ShadowedProps.front', roots: []},
+  {fixture: 'react/forwarding/ThisParam.front', roots: ['div']},
+  {fixture: 'react/forwarding/WrappedExport.front', roots: ['div']},
   {
-    fixture: 'react/root-props/BodyDestructure.ucf',
+    fixture: 'react/root-props/BodyDestructure.front',
     roots: ['div', 'p'],
     rootProps: [
       {tag: 'div', className: 'none', style: 'none', ref: 'none'},
@@ -255,25 +255,25 @@ const SHAPES: {
     ],
   },
   {
-    fixture: 'react/root-props/ComputedKeys.ucf',
+    fixture: 'react/root-props/ComputedKeys.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/Destructures.ucf',
+    fixture: 'react/root-props/Destructures.front',
     roots: ['span'],
     props: '__props',
     signature: 'function Destructures(__props: Props) {const { label, className, style: own = {} } = __props;',
     rootProps: [{tag: 'span', className: 'author', style: 'author', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/HelperClash.ucf',
+    fixture: 'react/root-props/HelperClash.front',
     roots: ['div'],
-    signature: 'import {__ucfScopeAttrs as __ucfScopeAttrs1, __ucfClass as __ucfClass1} from',
+    signature: 'import {__frontScopeAttrs as __frontScopeAttrs1, __frontClass as __frontClass1} from',
     rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/LeftAlone.ucf',
+    fixture: 'react/root-props/LeftAlone.front',
     roots: ['div', 'p', 'section'],
     rootProps: [
       {tag: 'div', className: 'merged', style: 'added', ref: 'added'},
@@ -282,25 +282,25 @@ const SHAPES: {
     ],
   },
   {
-    fixture: 'react/root-props/MemoTyped.ucf',
+    fixture: 'react/root-props/MemoTyped.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
     typed: 'memo<{ branch?: string } & X>(function MemoTyped(props)',
   },
   {
-    fixture: 'react/root-props/NestedProps.ucf',
+    fixture: 'react/root-props/NestedProps.front',
     roots: ['ul'],
     rootProps: [{tag: 'ul', className: 'merged', style: 'added', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/OtherSpread.ucf',
+    fixture: 'react/root-props/OtherSpread.front',
     roots: ['div'],
     props: '__props',
     signature: 'function OtherSpread(__props) {',
     rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/Own.ucf',
+    fixture: 'react/root-props/Own.front',
     roots: ['section', 'p'],
     rootProps: [
       {tag: 'section', className: 'merged', style: 'merged', ref: 'merged'},
@@ -308,17 +308,17 @@ const SHAPES: {
     ],
   },
   {
-    fixture: 'react/root-props/ReadsProps.ucf',
+    fixture: 'react/root-props/ReadsProps.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/SpreadsProps.ucf',
+    fixture: 'react/root-props/SpreadsProps.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'author', style: 'none', ref: 'none'}],
   },
   {
-    fixture: 'react/root-props/StringClass.ucf',
+    fixture: 'react/root-props/StringClass.front',
     roots: ['div', 'p', 'span'],
     rootProps: [
       {tag: 'div', className: 'merged', style: 'added', ref: 'added'},
@@ -327,82 +327,82 @@ const SHAPES: {
     ],
   },
   {
-    fixture: 'react/root-props/UnionProps.ucf',
+    fixture: 'react/root-props/UnionProps.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'merged', style: 'added', ref: 'added'}],
     typed: "function UnionProps(props: ({ kind: 'a' } | { kind: 'b'; note: string }) & X)",
   },
   {
-    fixture: 'react/root-props/Valueless.ucf',
+    fixture: 'react/root-props/Valueless.front',
     roots: ['div'],
     props: '__props',
     signature: 'function Valueless(__props) {',
     rootProps: [{tag: 'div', className: 'author', style: 'added', ref: 'added'}],
   },
   {
-    fixture: 'react/root-props/WrappedReads.ucf',
+    fixture: 'react/root-props/WrappedReads.front',
     roots: ['div'],
     rootProps: [{tag: 'div', className: 'author', style: 'author', ref: 'author'}],
   },
-  {fixture: 'react/shapes/AndRoot.ucf', roots: ['p', 'section', 'div']},
-  {fixture: 'react/shapes/ArrowExpression.ucf', roots: ['div']},
-  {fixture: 'react/shapes/ComponentRoot.ucf', roots: ['ArrowExpression']},
-  {fixture: 'react/shapes/ConstRoot.ucf', roots: ['article']},
+  {fixture: 'react/shapes/AndRoot.front', roots: ['p', 'section', 'div']},
+  {fixture: 'react/shapes/ArrowExpression.front', roots: ['div']},
+  {fixture: 'react/shapes/ComponentRoot.front', roots: ['ArrowExpression']},
+  {fixture: 'react/shapes/ConstRoot.front', roots: ['article']},
   {
-    fixture: 'react/shapes/Destructured.ucf',
+    fixture: 'react/shapes/Destructured.front',
     roots: ['div'],
     props: '__props',
     signature: 'function Destructured(__props: Props) {const { branch } = __props;',
   },
   {
-    fixture: 'react/shapes/DestructuredArrow.ucf',
+    fixture: 'react/shapes/DestructuredArrow.front',
     roots: ['p'],
     props: '__props',
     signature: 'export default (__props: { branch?: string }) => {const { branch } = __props; return (',
   },
   {
-    fixture: 'react/shapes/DestructuredDefaults.ucf',
+    fixture: 'react/shapes/DestructuredDefaults.front',
     roots: ['section'],
     props: '__props',
     signature:
       "function DestructuredDefaults(__props: Props = {}) {const {\n    /* shown without a label */\n    label = 'default label',\n    branch,\n    ...rest\n  } = __props;",
     typed: '}: Props & X = {}) {',
   },
-  {fixture: 'react/shapes/ExportIdentifier.ucf', roots: ['div']},
+  {fixture: 'react/shapes/ExportIdentifier.front', roots: ['div']},
   {
-    fixture: 'react/shapes/ForwardRef.ucf',
+    fixture: 'react/shapes/ForwardRef.front',
     roots: ['div'],
     typed: 'forwardRef<HTMLDivElement, { branch?: string } & X>(function ForwardRef(props, ref)',
   },
   {
-    fixture: 'react/shapes/ForwardRefDestructured.ucf',
+    fixture: 'react/shapes/ForwardRefDestructured.front',
     roots: ['div'],
     props: '__props',
     signature: '>((__props, ref) => {const { branch } = __props; return (',
     typed: 'forwardRef<HTMLDivElement, { branch?: string } & X>(({ branch }, ref)',
   },
-  {fixture: 'react/shapes/FragmentRoot.ucf', roots: [], fragments: 2},
-  {fixture: 'react/shapes/Memo.ucf', roots: ['div'], typed: 'memo(function Memo(props: { branch?: string } & X)'},
+  {fixture: 'react/shapes/FragmentRoot.front', roots: [], fragments: 2},
+  {fixture: 'react/shapes/Memo.front', roots: ['div'], typed: 'memo(function Memo(props: { branch?: string } & X)'},
   {
-    fixture: 'react/shapes/MemoForwardRef.ucf',
+    fixture: 'react/shapes/MemoForwardRef.front',
     roots: ['div'],
     props: '__props',
     signature: '<HTMLDivElement>((__props, __ref) =>',
     typed: 'React.forwardRef<HTMLDivElement, X>((__props: X) =>',
   },
-  {fixture: 'react/shapes/MultiReturn.ucf', roots: ['section', 'div']},
-  {fixture: 'react/shapes/NestedTernary.ucf', roots: ['div', 'p', 'section']},
+  {fixture: 'react/shapes/MultiReturn.front', roots: ['section', 'div']},
+  {fixture: 'react/shapes/NestedTernary.front', roots: ['div', 'p', 'section']},
   {
-    fixture: 'react/shapes/NoParams.ucf',
+    fixture: 'react/shapes/NoParams.front',
     roots: ['div'],
     props: '__props',
     signature: 'function NoParams /* () */ (__props) {',
     typed: 'function NoParams /* () */ (__props: X) {',
   },
-  {fixture: 'react/shapes/NullRoot.ucf', roots: []},
-  {fixture: 'react/shapes/Ternary.ucf', roots: ['div', 'p']},
+  {fixture: 'react/shapes/NullRoot.front', roots: []},
+  {fixture: 'react/shapes/Ternary.front', roots: ['div', 'p']},
   // `content` warns at each return naming it; `mixed`, a ternary, never warns.
-  {fixture: 'react/fuzz-found/ConstFragment.ucf', roots: ['div'], fragments: 2},
+  {fixture: 'react/fuzz-found/ConstFragment.front', roots: ['div'], fragments: 2},
 ];
 
 it('has a row for every forwarding/, root-props/, shapes/ and fuzz-found/ fixture', () => {
@@ -420,10 +420,10 @@ const loadHelper = (code: string) => import(`data:text/javascript,${encodeURICom
 it('serves the fragment warning in the dev helper only, and the other helpers in both', async () => {
   const dev = await loadHelper(scopeHelperCode(true));
   const production = await loadHelper(scopeHelperCode(false));
-  const shared = ['__ucfClass', '__ucfRef', '__ucfScopeAttrs', '__ucfStyle', '__ucfSvelteClass'];
-  expect(Object.keys(dev).sort()).toEqual([...shared, '__ucfWarnFragment']);
+  const shared = ['__frontClass', '__frontRef', '__frontScopeAttrs', '__frontStyle', '__frontSvelteClass'];
+  expect(Object.keys(dev).sort()).toEqual([...shared, '__frontWarnFragment']);
   expect(Object.keys(production).sort()).toEqual(shared);
-  expect(production.__ucfScopeAttrs({'data-v-12345678': '', className: 'card', 'data-test': 'x'})).toEqual({
+  expect(production.__frontScopeAttrs({'data-v-12345678': '', className: 'card', 'data-test': 'x'})).toEqual({
     'data-v-12345678': '',
   });
 });
@@ -496,7 +496,7 @@ describe.each(SHAPES)(
     it('forwards the first parameter on every JSX element root, and nowhere else', () => {
       for (const build of builds) {
         expect(forwarded(build)).toEqual(roots);
-        const spreads = calls(build.program, '__ucfScopeAttrs');
+        const spreads = calls(build.program, '__frontScopeAttrs');
         expect(spreads.map((call) => argumentText(build.code, call))).toEqual(roots.map(() => [props]));
         // Production adds nothing for a fragment root, whose warning is dev only.
         if (signature && (build === dev || roots.length > 0)) expect(build.code).toContain(signature);
@@ -505,9 +505,9 @@ describe.each(SHAPES)(
     });
 
     it('warns on each fragment root in dev only, naming the component by its file', () => {
-      const warnings = calls(dev.program, '__ucfWarnFragment').map((call) => argumentText(dev.code, call));
-      expect(warnings).toEqual(Array.from({length: fragments}, () => [props, JSON.stringify(basename(fixture, '.ucf'))]));
-      expect(production.code).not.toContain('__ucfWarnFragment');
+      const warnings = calls(dev.program, '__frontWarnFragment').map((call) => argumentText(dev.code, call));
+      expect(warnings).toEqual(Array.from({length: fragments}, () => [props, JSON.stringify(basename(fixture, '.front'))]));
+      expect(production.code).not.toContain('__frontWarnFragment');
     });
 
     it('moves a destructured first parameter into the body, its first and last character mapped back to where they were written', () => {
@@ -528,10 +528,10 @@ describe.each(SHAPES)(
     it('imports exactly the helpers it calls, in a fixed order', () => {
       for (const build of builds)
         expect(helperImport(build)).toEqual(HELPERS.filter((name) => calls(build.program, name).length > 0));
-      const forwarding = helperImport(dev).filter((name) => name === '__ucfScopeAttrs' || name === '__ucfWarnFragment');
+      const forwarding = helperImport(dev).filter((name) => name === '__frontScopeAttrs' || name === '__frontWarnFragment');
       expect(forwarding).toEqual([
-        ...(roots.length > 0 ? ['__ucfScopeAttrs'] : []),
-        ...(fragments > 0 ? ['__ucfWarnFragment'] : []),
+        ...(roots.length > 0 ? ['__frontScopeAttrs'] : []),
+        ...(fragments > 0 ? ['__frontWarnFragment'] : []),
       ]);
     });
 

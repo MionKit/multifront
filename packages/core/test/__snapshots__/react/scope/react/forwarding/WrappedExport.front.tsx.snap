@@ -1,0 +1,11 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { memo } from 'react'
+
+  function Inner(props: { branch?: string }) {
+    return <div {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">wrapped {props.branch}</span></div>
+  }
+
+  const Wrapped = memo(Inner)!
+
+  export default ((Wrapped satisfies object) as typeof Wrapped)

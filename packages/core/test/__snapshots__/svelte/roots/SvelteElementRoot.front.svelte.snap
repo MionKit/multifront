@@ -1,0 +1,6 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let { tag = 'div', label = 'element', ...__frontRest }: { tag?: string; label?: string } = $props()
+  </script>
+  <svelte:element {...__frontScopeAttrs(__frontRest, 'style')} this={tag} class={__frontSvelteClass(`shape`, __frontRest.class)} title={"a & b"}><span class="inner">{label}</span></svelte:element>

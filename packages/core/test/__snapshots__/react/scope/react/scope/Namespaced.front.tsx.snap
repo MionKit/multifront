@@ -1,0 +1,12 @@
+import "<fixtures>/components/react/scope/Namespaced.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  // Build only: React's JSX transform rejects namespace tags, so no app renders this file.
+  export default function Namespaced(__props) {
+    return (
+      <svg data-v-d4364180="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("icon", __props.className)}>
+        <svg:x data-v-d4364180="" className="named" />
+        <svg:x data-v-d4364180=""></svg:x>
+      </svg>
+    )
+  }

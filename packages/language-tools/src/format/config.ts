@@ -4,7 +4,7 @@ import {dirname} from 'node:path';
 import {rootRelativePath} from '@multifront/core';
 import {minimatch} from 'minimatch';
 import {nearestFile, parseJsonc} from '../files.ts';
-import type {EditorConfigFile, FormatOptions, FormatOverride, UcfFormatConfig} from '../types.ts';
+import type {EditorConfigFile, FormatOptions, FormatOverride, FrontFormatConfig} from '../types.ts';
 
 const CONFIG_NAMES = ['.oxfmtrc.json', '.oxfmtrc.jsonc'];
 
@@ -43,7 +43,7 @@ function isOverride(value: unknown): value is FormatOverride {
 }
 
 /** The config the oxfmt CLI would use for `fileName` run from `root`: the nearest `.oxfmtrc.json`, nothing inherited. */
-export function findFormatConfig(fileName: string, root: string): UcfFormatConfig {
+export function findFormatConfig(fileName: string, root: string): FrontFormatConfig {
   const file = nearestFile(dirname(fileName), CONFIG_NAMES);
   const raw = file ? parseJsonc(file, root) : {};
   const fail = (why: string) => new Error(`${rootRelativePath(root, file!)}: ${why}`);
@@ -92,7 +92,7 @@ const choice = (value: string | undefined, values: Record<string, unknown>) =>
   value !== undefined && Object.hasOwn(values, value) ? values[value] : undefined;
 
 /** `own`: the `.oxfmtrc.json` options alone; `options`: with the `.editorconfig` filling the fields still unset. */
-export function formatOptions(config: UcfFormatConfig, blockPath: string): {own: FormatOptions; options: FormatOptions} {
+export function formatOptions(config: FrontFormatConfig, blockPath: string): {own: FormatOptions; options: FormatOptions} {
   const own: FormatOptions = {...config.options};
   const relative = config.file ? rootRelativePath(dirname(config.file), blockPath) : blockPath;
   const any = (patterns: string[] = []) => patterns.some((pattern) => matches(relative, overrideGlob(pattern)));

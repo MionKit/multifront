@@ -8,7 +8,7 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, readComponent, removeApp} from '../fixtures/index.ts';
 import {buildApp, rejection} from './lib/build.ts';
 
-const FIXTURE = 'invalid/VueOnlyStyle.ucf';
+const FIXTURE = 'invalid/VueOnlyStyle.front';
 
 let root: string;
 

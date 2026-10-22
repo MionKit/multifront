@@ -17,12 +17,12 @@ import {
   scopeId,
 } from '@multifront/core';
 import type {Target, VueCompiler} from '@multifront/core';
-import {createUcfCache} from './cache.ts';
-import {ucfHotUpdate} from './hmr.ts';
+import {createFrontCache} from './cache.ts';
+import {frontHotUpdate} from './hmr.ts';
 import {JS_LIKE, TARGET_SUFFIX, VUE_INCLUDE, splitId, virtualTarget} from './ids.ts';
 import {attributesPlugin, importersPlugin} from './attributes.ts';
 import {describeDiagnostic, findingError, importErrorMessage, importFinding, rollupError} from './diagnostics.ts';
-import type {MultifrontOptions, UcfEntry, UcfModuleMeta} from './types.ts';
+import type {MultifrontOptions, FrontEntry, FrontModuleMeta} from './types.ts';
 import {getVueCompiler, hasVuePlugin, vuePluginApi} from './vueCompiler.ts';
 import {SVELTE_PLUGIN_MISSING, composeSveltePlugin, hasSveltePlugin, svelteCompiledPlugin} from './svelteTarget.ts';
 import {
@@ -35,16 +35,16 @@ import {
   wrapVueCompiler,
 } from './vueTarget.ts';
 
-const REACT_ID = /\.ucf\.react\.tsx$/;
+const REACT_ID = /\.front\.react\.tsx$/;
 // Vue target's scan id: `.ts` makes it scannable; `importerFromId` maps its imports to the `<vue>` block.
 const VUE_SCAN_SUFFIX = '.vue.ts';
-const VUE_SCAN_ID = /\.ucf\.vue\.ts$/;
+const VUE_SCAN_ID = /\.front\.vue\.ts$/;
 // Scan id of an HTML file's inline `<script>`.
 const SCAN_SCRIPT = /\.html\?id=\d+$/;
 // Unescaped, as the helper id holds no regex metacharacter.
 const SCOPE_HELPER = new RegExp(`^\\0?${SCOPE_HELPER_ID}$`);
 
-function built(context: Rolldown.PluginContext, {split, ctx}: UcfEntry, target: Target) {
+function built(context: Rolldown.PluginContext, {split, ctx}: FrontEntry, target: Target) {
   try {
     const {code, map} = buildTarget(split, ctx, target);
     return {code, map};
@@ -74,9 +74,10 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       return vueCompiler;
     },
   };
-  const cache = createUcfCache(() => ({root: config!.root, compiler: api.vueCompiler, production: config!.isProduction}));
+  const cache = createFrontCache(() => ({root: config!.root, compiler: api.vueCompiler, production: config!.isProduction}));
   // Equals `ctx.scopeId`, computed synchronously for plugin-vue.
-  const ucfScopeId = (file: string) => scopeId(rootRelativePath(config!.root, file), cache.sourceOf(file), config!.isProduction);
+  const frontScopeId = (file: string) =>
+    scopeId(rootRelativePath(config!.root, file), cache.sourceOf(file), config!.isProduction);
 
   // Vite's scanner reads every module from disk unless a plugin loads it: these run before its own (spike 3, check 2).
   const scanPlugin: Rolldown.Plugin = {
@@ -87,15 +88,15 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         if (VUE_SCAN_ID.test(id)) {
           const file = id.slice(0, -VUE_SCAN_SUFFIX.length);
           // Not `api.vueCompiler`: the scan may run before plugin-vue lends its compiler to the build.
-          return vueScanScript(await cache.splitUcf(file), getVueCompiler(config!.plugins, config!.root));
+          return vueScanScript(await cache.splitFront(file), getVueCompiler(config!.plugins, config!.root));
         }
-        const split = await cache.splitUcf(id.slice(0, -TARGET_SUFFIX.react.length));
+        const split = await cache.splitFront(id.slice(0, -TARGET_SUFFIX.react.length));
         return {code: split.targets.react?.content ?? '', moduleType: 'tsx'};
       },
     },
     // Rolldown passes `resolveId` no import attributes: the scan must read `?framework=` from the specifier.
     transform: {
-      filter: {id: [JS_LIKE, SCAN_SCRIPT], code: /\.ucf/},
+      filter: {id: [JS_LIKE, SCAN_SCRIPT], code: /\.front/},
       handler(code, id, {moduleType}) {
         // A script the scan cut out of `C.vue` or `index.html` names its language only in its module type.
         const lang = `${id.includes('?') ? '&' : '?'}lang.${moduleType}`;
@@ -113,7 +114,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
     config: () => ({optimizeDeps: {rolldownOptions: {plugins: [scanPlugin]}}}),
     configResolved(resolved) {
       config = resolved;
-      composeVuePlugin(resolved, ucfScopeId);
+      composeVuePlugin(resolved, frontScopeId);
       composeSveltePlugin(resolved);
     },
     buildStart: {
@@ -126,20 +127,20 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       vueCompiler = undefined;
     },
     // After plugin-vue's `handleHotUpdate`, which hands on only its own modules of a file also imported as another target.
-    hotUpdate: {order: 'post', handler: ucfHotUpdate(cache, () => hasVuePlugin(config!.plugins))},
+    hotUpdate: {order: 'post', handler: frontHotUpdate(cache, () => hasVuePlugin(config!.plugins))},
     resolveId: {
-      filter: {id: [/\.ucf/, SCOPE_HELPER]},
+      filter: {id: [/\.front/, SCOPE_HELPER]},
       async handler(id, importer, resolveOptions) {
         if (id === SCOPE_HELPER_ID) return `\0${SCOPE_HELPER_ID}`;
         const {path, query} = splitId(id);
         const own = virtualTarget(path);
         if (own) {
-          // A dev URL (`/src/Card.ucf.react.tsx`) or an id seen again.
+          // A dev URL (`/src/Card.front.react.tsx`) or an id seen again.
           const resolved = await this.resolve(own.file, importer, {skipSelf: true});
           return resolved && !resolved.external ? resolved.id + TARGET_SUFFIX[own.target] : null;
         }
         // Our style and class map ids, `?raw` and the like: Vite resolves the path and keeps the query.
-        if (!path.endsWith('.ucf') || [...query.keys()].some((key) => key !== 'framework')) return undefined;
+        if (!path.endsWith('.front') || [...query.keys()].some((key) => key !== 'framework')) return undefined;
         // Vite's dependency scanner sets it; the public type leaves it out.
         const {scan} = resolveOptions as {scan?: boolean};
         const resolved = await this.resolve(path, importer, {...resolveOptions, skipSelf: true});
@@ -160,7 +161,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
           this.error(findingError(message, importFinding(from, choice.error.code, `${path}: ${choice.error.message}`)));
         }
         const {target} = choice;
-        if (!(await cache.splitUcf(file)).targets[target]) {
+        if (!(await cache.splitFront(file)).targets[target]) {
           if (scan) return {id: file, external: true};
           const message = from ? missingTargetBlockMessage(from.fileName, file, target) : `${file} has no <${target}> block`;
           const error = {code: 'missing-target-block', message} as const;
@@ -175,7 +176,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       },
     },
     load: {
-      filter: {id: [/\.ucf/, SCOPE_HELPER]},
+      filter: {id: [/\.front/, SCOPE_HELPER]},
       async handler(id) {
         // Dev exports the fragment warning too, as `react.build` calls it only in dev.
         if (id === `\0${SCOPE_HELPER_ID}`) return scopeHelperCode(!config!.isProduction);
@@ -183,19 +184,19 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
         const file = virtualTarget(path)?.file ?? path;
         // We read the file ourselves, so Vite's `server.fs.allow` check would never run; Vite skips it in SSR too.
         const browser = config!.command === 'serve' && this.environment.config.consumer === 'client';
-        if (browser && file.endsWith('.ucf') && !isFileLoadingAllowed(config!, file)) {
+        if (browser && file.endsWith('.front') && !isFileLoadingAllowed(config!, file)) {
           // Vite's transform middleware answers this code with the 403 page it gives the file itself.
           throw Object.assign(new Error(`Denied ID ${file}`), {code: 'ERR_DENIED_ID', id: file});
         }
         if (query.has('vue')) {
           // A fresh process or a restart: plugin-vue's cache may lack this content.
-          if (path.endsWith('.ucf')) await warmUpVue(this, path, (await cache.splitUcf(path)).source);
+          if (path.endsWith('.front')) await warmUpVue(this, path, (await cache.splitFront(path)).source);
           return undefined;
         }
-        if (query.has('ucf')) {
+        if (query.has('front')) {
           if (query.get('type') !== 'style') return undefined;
           const index = Number(query.get('index'));
-          const {split, ctx} = await cache.loadUcf(path);
+          const {split, ctx} = await cache.loadFront(path);
           const style = ctx.styles[index];
           const block = split.styles[index];
           if (!style || !block) return undefined;
@@ -205,17 +206,17 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
           return {code: style.code, map: style.map};
         }
         const own =
-          virtualTarget(path) ?? (path.endsWith('.ucf') && query.size === 0 ? {target: 'vue' as const, file: path} : undefined);
+          virtualTarget(path) ?? (path.endsWith('.front') && query.size === 0 ? {target: 'vue' as const, file: path} : undefined);
         if (!own) return undefined;
         // Vite watches no file behind an id a plugin loads; the react and svelte ids name none (spec 4.3).
         this.addWatchFile(own.file);
         // The raw source: our transform turns it into SFC code.
-        if (own.target === 'vue') return (await cache.splitUcf(own.file)).source;
-        const entry = await cache.loadUcf(own.file);
+        if (own.target === 'vue') return (await cache.splitFront(own.file)).source;
+        const entry = await cache.loadFront(own.file);
         const result = built(this, entry, own.target);
         // Only a library build reads it: the dev server skips the parse.
         if (own.target !== 'react' || config!.command !== 'build') return result;
-        const meta: UcfModuleMeta = {useClient: needsUseClient(entry.split.targets.react!.content, own.file)};
+        const meta: FrontModuleMeta = {useClient: needsUseClient(entry.split.targets.react!.content, own.file)};
         return {...result, meta: {multifront: meta}};
       },
     },
@@ -223,7 +224,7 @@ export function multifront(options: MultifrontOptions = {}): Plugin[] {
       filter: {id: VUE_INCLUDE},
       async handler(code, id) {
         if (!hasVuePlugin(config!.plugins)) this.error(`${id}: ${VUE_PLUGIN_MISSING}`);
-        const version = cache.updateUcf(id, code);
+        const version = cache.updateFront(id, code);
         const sfc = built(this, await cache.contextOf(version), 'vue');
         version.sfc = sfc.code;
         handedToVue(id, version.source, sfc.code);

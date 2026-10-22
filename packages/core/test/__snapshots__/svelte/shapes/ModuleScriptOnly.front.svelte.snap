@@ -1,0 +1,8 @@
+
+  <script module lang="ts">
+import "<fixtures>/components/svelte/shapes/ModuleScriptOnly.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/ModuleScriptOnly.front?front&type=style&index=0&module&lang.js";
+    export const greeting: string = 'Hi'
+    const moduleClass: string = __frontStyle.text
+  </script>
+  <p data-v-7786bd17="" class={moduleClass}><b data-v-7786bd17="" class={__frontStyle.text}>{greeting}</b></p>

@@ -96,7 +96,7 @@ function branchRoots(nodes: SvelteNode[], found: Roots, bound = new Set<string>(
   }
 }
 
-/** Props name to spread; with no rest or props object, adds a `__ucfRest` rest or a `$props()` line typed `type`. */
+/** Props name to spread; with no rest or props object, adds a `__frontRest` rest or a `$props()` line typed `type`. */
 function propsName(
   text: MagicString,
   declaration: SveltePropsDeclaration | undefined,
@@ -111,7 +111,7 @@ function propsName(
   const properties = id?.type === 'ObjectPattern' ? id.properties : [];
   const rest = properties.find((property) => property.type === 'RestElement');
   if (rest?.argument.type === 'Identifier') return rest.argument.name;
-  const name = freshName(used, '__ucfRest');
+  const name = freshName(used, '__frontRest');
   used.add(name);
   if (id?.type !== 'ObjectPattern') {
     // Destructured: svelte2tsx types `let rest = $props()` with a props type it never declares.
@@ -218,7 +218,7 @@ export function forwardScope(
     let props = propsName(text, declaration, block, used, lines, type, lang);
     if (found.elements.some(({bound}) => bound.has(props))) {
       // `{:then props}` around a root hides the props; a `$derived` alias reads them without Svelte's warning.
-      const alias = freshName(used, '__ucfProps');
+      const alias = freshName(used, '__frontProps');
       used.add(alias);
       lines.push(`const ${alias} = $derived(${props});`);
       props = alias;
@@ -238,7 +238,7 @@ export function forwardScope(
     return {helpers, lines};
   }
   if (ctx.production) return {helpers, lines};
-  const name = JSON.stringify(basename(ctx.filename, '.ucf'));
+  const name = JSON.stringify(basename(ctx.filename, '.front'));
   const problem: Problem =
     mode === 'legacy' ? LEGACY : found.each ? ['renders an {#each} block as its root'] : ['renders more than one root'];
   const args = problem.map((part) => JSON.stringify(part)).join(', ');

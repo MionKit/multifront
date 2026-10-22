@@ -1,4 +1,4 @@
-// The scope transform fuzz generator: real `.ucf` files recombined from the react shapes/ and scope/ fixtures.
+// The scope transform fuzz generator: real `.front` files recombined from the react shapes/ and scope/ fixtures.
 import {writeFileSync} from 'node:fs';
 import {join, relative} from 'node:path';
 import {Visitor, parseSync, visitorKeys} from 'oxc-parser';
@@ -116,10 +116,10 @@ interface Model {
 
 // React's Fragment as the header names it: `<>`, `Fragment`, `Frag` (alias) and `React.Fragment`.
 export const FRAGMENT_TAGS = ['', 'Fragment', 'Frag', 'React.Fragment'];
-const STAMPED = 'react/scope/Stamped.ucf';
-const NAMESPACED = 'react/scope/Namespaced.ucf';
-const UNICODE = 'react/Unicode.ucf';
-const ARROW_EXPRESSION = 'react/shapes/ArrowExpression.ucf';
+const STAMPED = 'react/scope/Stamped.front';
+const NAMESPACED = 'react/scope/Namespaced.front';
+const UNICODE = 'react/Unicode.front';
+const ARROW_EXPRESSION = 'react/shapes/ArrowExpression.front';
 const SOURCES = [...listComponents('react/shapes'), STAMPED, NAMESPACED];
 // Each fuzz directory sits right under this one, so the import of ArrowExpression is the same from all of them.
 export const FUZZ_DIR = join(TMP_DIR, 'fuzz');
@@ -291,7 +291,7 @@ new Visitor({
   },
 }).visit(unicode.program);
 
-// The scoped style of Stamped.ucf: its classes are the ones the donors carry.
+// The scoped style of Stamped.front: its classes are the ones the donors carry.
 const STYLE = (() => {
   const {filename, source} = readComponent(STAMPED);
   const style = splitBlocks(source, filename).styles[0]!;
@@ -677,7 +677,7 @@ export function caseAt(seed: number, runIndex: number): ScopeCase {
 }
 
 export function writeCase(dir: string, fuzzCase: ScopeCase): string {
-  const filename = join(dir, `${fuzzCase.name}.ucf`);
+  const filename = join(dir, `${fuzzCase.name}.front`);
   writeFileSync(filename, fuzzCase.source);
   return filename;
 }

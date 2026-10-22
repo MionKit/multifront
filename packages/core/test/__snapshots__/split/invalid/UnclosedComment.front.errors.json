@@ -1,0 +1,12 @@
+[
+  {
+    "code": "text-outside-block",
+    "severity": "error",
+    "message": "HTML comment is never closed; add -->",
+    "filename": "invalid/UnclosedComment.front",
+    "start": 188,
+    "end": 215,
+    "line": 13,
+    "column": 0
+  }
+]

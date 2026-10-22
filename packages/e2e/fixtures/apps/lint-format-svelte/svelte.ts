@@ -1,3 +1,3 @@
-import Messy from "./Messy.ucf" with { framework: "svelte" };
+import Messy from "./Messy.front" with { framework: "svelte" };
 
 export default Messy;

@@ -135,8 +135,8 @@ export const CLIENT_OPTIONS = {tabSize: 2, insertSpaces: true};
 export type Document = Awaited<ReturnType<LanguageServer['openTextDocument']>>;
 
 /** `text`, if given, replaces the buffer as a real edit. */
-export async function openUcf(server: LanguageServer, file: string, text?: string): Promise<Document> {
-  const document = await server.openTextDocument(file, 'ucf');
+export async function openFront(server: LanguageServer, file: string, text?: string): Promise<Document> {
+  const document = await server.openTextDocument(file, 'front');
   if (text === undefined) return document;
   const whole = {start: {line: 0, character: 0}, end: document.positionAt(document.getText().length)};
   return server.updateTextDocument(document.uri, [{range: whole, newText: text}]);
@@ -144,7 +144,7 @@ export async function openUcf(server: LanguageServer, file: string, text?: strin
 
 /** Format Document on `file`, its buffer first set to `text`. */
 export async function formatDocument(server: LanguageServer, file: string, text?: string): Promise<FormattedDocument> {
-  const document = await openUcf(server, file, text);
+  const document = await openFront(server, file, text);
   const edits = (await server.sendDocumentFormattingRequest(document.uri, CLIENT_OPTIONS)) ?? [];
   const spans = edits.map(({range, newText}) => ({
     start: document.offsetAt(range.start),

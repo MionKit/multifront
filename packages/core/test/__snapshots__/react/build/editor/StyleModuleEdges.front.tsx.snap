@@ -1,0 +1,16 @@
+import "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=0&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=1&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=2&lang.css";
+import "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=3&lang.css";
+import $style from "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=0&module&lang.js";
+import theme from "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=1&module&lang.js";
+import rows from "<fixtures>/components/editor/StyleModuleEdges.front?front&type=style&index=2&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function StyleModuleEdges(__props: { label: string }) {const { label } = __props;
+    return (
+      <section {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass(`${$style.card} ${$style.card__body} ${$style['card-title']}`, __props.className)}>
+        <p className={`${theme['fade-in']} ${$style.wide}`}>{label}</p>
+      </section>
+    )
+  }

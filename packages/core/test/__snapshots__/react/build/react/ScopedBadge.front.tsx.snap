@@ -1,0 +1,8 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  type Props = { label: string; className?: string }
+
+  // No style of its own: a parent's scoped style reaches its root through forwarding only.
+  export default function ScopedBadge(__props: Props) {const {label, className = ''} = __props;
+    return <span {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={className}><em className="badge-label">{label}</em></span>
+  }

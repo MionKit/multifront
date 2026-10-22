@@ -1,0 +1,12 @@
+[
+  {
+    "code": "style-inside-target",
+    "severity": "error",
+    "message": "<style> cannot sit inside the <svelte> block; move it to the root of the file",
+    "filename": "invalid/StyleInSvelte.front",
+    "start": 510,
+    "end": 517,
+    "line": 18,
+    "column": 2
+  }
+]

@@ -1,11 +1,11 @@
 {
-  "code": "export * from '../../../components/Card.ucf?framework=react';\n",
+  "code": "export * from '../../../components/Card.front?framework=react';\n",
   "imports": [
     {
       "kind": "reexport",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 14,
-      "end": 44,
+      "end": 46,
       "framework": "react"
     }
   ],

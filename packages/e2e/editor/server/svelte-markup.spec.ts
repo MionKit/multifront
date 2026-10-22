@@ -12,7 +12,7 @@ import {locate, open, startTsserver} from '../lib/tsserver.ts';
 import type {Tsserver} from '../lib/tsserver.ts';
 
 const APP_DIR = join(FIXTURES_DIR, 'apps', 'svelte-markup');
-const TOOLBAR = readComponent(join('..', 'apps', 'svelte-markup', 'Toolbar.ucf'));
+const TOOLBAR = readComponent(join('..', 'apps', 'svelte-markup', 'Toolbar.front'));
 const META = ['svelte:window', 'svelte:document', 'svelte:body', 'svelte:head', 'svelte:options'];
 
 let server: LanguageServer;
@@ -84,7 +84,7 @@ describe('the language server: attributes and directives', () => {
 });
 
 describe('the language server: {#…}, {@…} and {:…} blocks', () => {
-  // VS Code auto-closes `{` in .ucf files: typing `{#` there holds `{#}`.
+  // VS Code auto-closes `{` in .front files: typing `{#` there holds `{#}`.
   it.each(['{#|', '{#|}'])('%s lists if, each, await, key and snippet; each one parses', async (typed) => {
     const completed = await complete('<h2>{title}</h2>\n', `    ${typed}\n`);
     expect(labels(completed)).toEqual(['if', 'each', 'await', 'key', 'snippet']);

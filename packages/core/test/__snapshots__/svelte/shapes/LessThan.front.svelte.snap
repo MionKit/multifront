@@ -1,0 +1,10 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/LessThan.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/LessThan.front?front&type=style&index=0&module&lang.js";
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+    let {a = 1, b = 2, ...__frontRest}: {a?: number; b?: number} = $props()
+;(() => __frontWarnFragment(__frontRest, "LessThan", "renders more than one root"))();
+  </script>
+  <p data-v-c20628ff="" class={__frontStyle.text} title={a < b ? 'less' : 'more'}>{a < b} {a<b}</p>
+  <div data-v-c20628ff="" class={__frontStyle.text}>{a <b}<span data-v-c20628ff="" class={__frontStyle.text}>After</span></div>

@@ -8,7 +8,7 @@ import type * as ts from 'typescript';
 import {create as createCssService} from 'volar-service-css';
 import {URI} from 'vscode-uri';
 import {workspaceRoot} from './files.ts';
-import {createUcfLanguagePlugin} from './languagePlugin.ts';
+import {createFrontLanguagePlugin} from './languagePlugin.ts';
 import {multifrontService} from './multifrontService.ts';
 import {formatService} from './server/format.ts';
 import {lintService} from './server/lint.ts';
@@ -34,7 +34,7 @@ function fileName(uri: URI): string {
 function byUri(plugin: LanguagePlugin<string>): LanguagePlugin<URI> {
   return {
     getLanguageId: (uri) => plugin.getLanguageId(fileName(uri)),
-    // The .ucf plugin reads no associated script.
+    // The .front plugin reads no associated script.
     createVirtualCode: (uri, languageId, snapshot) =>
       plugin.createVirtualCode?.(fileName(uri), languageId, snapshot, {getAssociatedScript: () => undefined}),
     updateVirtualCode: (uri, code, snapshot) =>
@@ -90,7 +90,7 @@ const EMIT_DELAY = 100;
 function emitOnSave(server: LanguageServer, ts: TypeScript, svelteTypesRoot: string | undefined): void {
   const {connection} = server;
   const emit = (root: string): void => {
-    const outDir = join(root, '.ucf', 'svelte');
+    const outDir = join(root, '.front', 'svelte');
     try {
       const written = emitSvelteTypes({root, outDir, ts, svelteTypesRoot});
       connection.console.info(`multifront: wrote ${written.length} Svelte declarations to ${outDir}`);
@@ -102,12 +102,12 @@ function emitOnSave(server: LanguageServer, ts: TypeScript, svelteTypesRoot: str
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
   server.documents.onDidSave(({document}) => {
     const uri = URI.parse(document.uri);
-    if (uri.scheme !== 'file' || !uri.fsPath.endsWith('.ucf')) return;
+    if (uri.scheme !== 'file' || !uri.fsPath.endsWith('.front')) return;
     const fileName = uri.fsPath;
     const root = workspaceRoot(fileName, server.workspaceFolders.all);
     if (!root) return;
     // A declaration with no block left is deleted by the emit.
-    const declared = existsSync(join(root, '.ucf', 'svelte', `${relative(root, fileName)}.d.ts`));
+    const declared = existsSync(join(root, '.front', 'svelte', `${relative(root, fileName)}.d.ts`));
     if (!declared && !splitBlocks(document.getText(), fileName).targets.svelte) return;
     clearTimeout(pending.get(root));
     pending.set(
@@ -120,7 +120,7 @@ function emitOnSave(server: LanguageServer, ts: TypeScript, svelteTypesRoot: str
   });
 }
 
-/** No TypeScript service: in hybrid mode tsserver, with our TS plugin, serves every TS feature, `.ucf` too. */
+/** No TypeScript service: in hybrid mode tsserver, with our TS plugin, serves every TS feature, `.front` too. */
 export function startServer(options: ServerOptions = {}): void {
   const connection = createConnection();
   const server = createServer(connection);
@@ -132,7 +132,7 @@ export function startServer(options: ServerOptions = {}): void {
       emitOnSave(server, ts, options.svelteTypesRoot);
     }
     // No Vue compiler: it only types `$style` in the React code, which no service here reads.
-    const plugin = byUri(createUcfLanguagePlugin({ts}));
+    const plugin = byUri(createFrontLanguagePlugin({ts}));
     const services = [
       formatService(server),
       createCssService(),

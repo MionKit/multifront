@@ -39,11 +39,11 @@
 <div class="canvas">
   <div class="eyebrow">multifront · editor and types</div>
   <h1>The same blocks, seen by the editor</h1>
-  <p class="sub">Inside a <code>.ucf</code> file each block gets its own colours and its own language service. Outside it, an importer gets the types of the framework it picked, with the same rules the build uses.</p>
+  <p class="sub">Inside a <code>.front</code> file each block gets its own colours and its own language service. Outside it, an importer gets the types of the framework it picked, with the same rules the build uses.</p>
 
   <div class="cols">
     <div class="side">
-      <h2>Editing <code>Card.ucf</code></h2>
+      <h2>Editing <code>Card.front</code></h2>
       <div class="s">Hybrid mode: VS Code's tsserver + our plugin for TypeScript, our language server for the rest</div>
 
       <div class="layer">
@@ -65,18 +65,18 @@
           <div class="ln k-svelte"><span class="b">&lt;svelte&gt;</span><span class="ar">→</span><span class="v">ts code + html</span><span class="ar">→</span><span class="t">svelte2tsx: TS in tsserver</span></div>
         </div>
       </div>
-      <p class="legend" style="margin-top:14px">One TypeScript program: unsaved edits reach importers at once, rename and references cross <code>.ucf</code> and <code>.ts</code>. Every embedded code maps back to its block.</p>
+      <p class="legend" style="margin-top:14px">One TypeScript program: unsaved edits reach importers at once, rename and references cross <code>.front</code> and <code>.ts</code>. Every embedded code maps back to its block.</p>
     </div>
 
     <div class="side">
-      <h2>Importing <code>Card.ucf</code></h2>
+      <h2>Importing <code>Card.front</code></h2>
       <div class="s">The same TypeScript plugin, in the same tsserver</div>
 
       <div class="layer">
         <div class="lh"><b>importers</b></div>
         <div class="imp">
-          <div class="impr"><span class="file k-react" style="color:var(--react-hi)">App.tsx</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.ucf'</code></span></div>
-          <div class="impr"><span class="file" style="color:var(--vue-hi)">Page.vue</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.ucf'</code></span></div>
+          <div class="impr"><span class="file k-react" style="color:var(--react-hi)">App.tsx</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.front'</code></span></div>
+          <div class="impr"><span class="file" style="color:var(--vue-hi)">Page.vue</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>import Card from './Card.front'</code></span></div>
           <div class="impr"><span class="file" style="color:var(--svelte-hi)">Docs.ts</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><span class="legend"><code>… with { framework: 'svelte' }</code></span></div>
         </div>
       </div>
@@ -85,21 +85,21 @@
 
       <div class="lh" style="display:flex;gap:10px;font:600 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:10px"><b style="color:#cbd5e1">types</b> · one virtual script per target</div>
       <div class="out">
-        <div class="o k-react"><div class="f">Card.ucf.react.tsx</div><div class="x">React component props</div></div>
-        <div class="o k-vue"><div class="f">Card.ucf.vue.ts</div><div class="x">Vue DefineComponent</div></div>
-        <div class="o k-svelte"><div class="f">Card.ucf.svelte.ts</div><div class="x">Svelte Component</div></div>
+        <div class="o k-react"><div class="f">Card.front.react.tsx</div><div class="x">React component props</div></div>
+        <div class="o k-vue"><div class="f">Card.front.vue.ts</div><div class="x">Vue DefineComponent</div></div>
+        <div class="o k-svelte"><div class="f">Card.front.svelte.ts</div><div class="x">Svelte Component</div></div>
       </div>
 
       <div class="layer">
         <div class="lh"><b>svelte's own tools</b> · no tsserver plugin, so a declaration file</div>
-        <div class="impr"><span class="file" style="color:var(--svelte-hi)">Page.svelte</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><div class="o k-svelte"><div class="f">.ucf/svelte/Card.ucf.d.ts</div><div class="x">emitted from Card.ucf.svelte.ts, written on save</div></div></div>
+        <div class="impr"><span class="file" style="color:var(--svelte-hi)">Page.svelte</span><span class="ar" style="text-align:center;color:#4b5f78">→</span><div class="o k-svelte"><div class="f">.front/svelte/Card.front.d.ts</div><div class="x">emitted from Card.front.svelte.ts, written on save</div></div></div>
       </div>
     </div>
   </div>
 
   <div class="cli">
     <div class="cl"><div class="n">mf-tsc</div><div class="d">The same <code>types</code> files on the command line, checked for every target, so a block that breaks one framework fails CI.</div></div>
-    <div class="cl"><div class="n">mf-lint</div><div class="d">oxlint on each block's own text, with errors mapped back to <code>Card.ucf</code>.</div></div>
+    <div class="cl"><div class="n">mf-lint</div><div class="d">oxlint on each block's own text, with errors mapped back to <code>Card.front</code>.</div></div>
     <div class="cl"><div class="n">mf-fmt</div><div class="d">oxfmt's <code>format()</code> on each block, then the file is put back together.</div></div>
   </div>
 </div>

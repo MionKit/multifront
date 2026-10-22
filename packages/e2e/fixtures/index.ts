@@ -152,7 +152,7 @@ export function filesOf(app: string, pattern: RegExp): string[] {
     .sort();
 }
 
-/** `'Card.ucf'` or `'invalid/DuplicateReact.ucf'` → its absolute path. */
+/** `'Card.front'` or `'invalid/DuplicateReact.front'` → its absolute path. */
 export function componentPath(name: string): string {
   return join(FIXTURES_DIR, 'components', name);
 }
@@ -166,7 +166,7 @@ export function readComponent(name: string): {filename: string; source: string} 
 export function listComponents(folder?: string): string[] {
   const prefix = folder ? `${folder}/` : '';
   return readdirSync(componentPath(prefix), {withFileTypes: true})
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ucf'))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.front'))
     .map((entry) => prefix + entry.name)
     .sort();
 }

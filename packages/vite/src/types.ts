@@ -1,36 +1,36 @@
 import type {Api, Options} from '@vitejs/plugin-vue';
 import type {BuildContext, ResolveTargetOptions, SplitResult, Target} from '@multifront/core';
 import type {InlineConfig, PluginOption} from 'vite';
-import type {createUcfCache} from './cache.ts';
+import type {createFrontCache} from './cache.ts';
 
 /** `frameworks` (default all), `framework` (the default of spec 4.2) and `importers` (extension → framework). */
 export type MultifrontOptions = ResolveTargetOptions;
 
-/** One `.ucf` file, split and with its shared kinds run. */
-export interface UcfEntry {
+/** One `.front` file, split and with its shared kinds run. */
+export interface FrontEntry {
   split: SplitResult;
   ctx: BuildContext;
 }
 
 /** `entry` is set once something compiled the split. */
-export interface UcfSnapshot {
+export interface FrontSnapshot {
   split: SplitResult;
-  entry?: Promise<UcfEntry>;
+  entry?: Promise<FrontEntry>;
 }
 
 /** One content of a file; `previous` is the one it replaced. */
-export interface UcfVersion extends UcfSnapshot {
+export interface FrontVersion extends FrontSnapshot {
   source: string;
   sfc?: string; // the SFC code our transform made from `source`
-  previous?: UcfSnapshot;
+  previous?: FrontSnapshot;
 }
 
 /** Our part of a module's meta, under `multifront`. */
-export interface UcfModuleMeta {
+export interface FrontModuleMeta {
   useClient: boolean; // the React target: its block needs `"use client"`
 }
 
-export type UcfCache = ReturnType<typeof createUcfCache>;
+export type FrontCache = ReturnType<typeof createFrontCache>;
 
 /** `compiler` stays null until plugin-vue's `buildStart`. */
 export type VuePluginApi = Pick<Api, 'include' | 'exclude'> & {
@@ -63,7 +63,7 @@ export interface LibraryTarget {
 export interface LibraryTypesJob extends Pick<LibraryResult, 'target' | 'outDir'> {
   root: string; // library folder
   src: string;
-  modules: string[]; // the .ucf files and plain modules the JS build wrote: 'Card.ucf', 'utils/cx.ts'
+  modules: string[]; // the .front files and plain modules the JS build wrote: 'Card.front', 'utils/cx.ts'
 }
 
 /** What `writePackageJson()` gets; posix paths, output names without their extension. */
@@ -77,7 +77,7 @@ export interface LibraryPackageJob extends Pick<LibraryResult, 'outDir' | 'packa
   conditions: string[];
 }
 
-/** A `.ucf` file of the library, split once. */
+/** A `.front` file of the library, split once. */
 export interface LibraryComponent {
   relative: string; // from src, posix
   split: SplitResult;

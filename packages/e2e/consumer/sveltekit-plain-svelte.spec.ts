@@ -14,7 +14,7 @@ export function double(): number {
   return count.value * 2;
 }
 `;
-// A component importing a plain file: the .ucf -> .svelte direction.
+// A component importing a plain file: the .front -> .svelte direction.
 const SHELL = `<svelte lang="html">
   <script lang="ts">
   import Child from './Child.svelte'
@@ -23,8 +23,8 @@ const SHELL = `<svelte lang="html">
   <section class="shell"><Child label="shell" /></section>
 </svelte>
 `;
-const INDEX = `export {default as Card} from './Card.ucf';
-export {default as Shell} from './Shell.ucf';
+const INDEX = `export {default as Card} from './Card.front';
+export {default as Shell} from './Shell.front';
 export {default as Child} from './Child.svelte';
 export {count, double} from './count.svelte.js';
 `;
@@ -63,7 +63,7 @@ async function plainLibraryTarballs() {
     const edits = {
       'src/Child.svelte': CHILD,
       'src/count.svelte.ts': DOUBLE,
-      'src/Shell.ucf': SHELL,
+      'src/Shell.front': SHELL,
       'src/index.ts': INDEX,
       'svelte.config.js': SVELTE_CONFIG,
     };
@@ -136,7 +136,7 @@ describe('plain Svelte files of a library, packed, in a fresh SvelteKit app', ()
     expect(served().build).toContain('Using @sveltejs/adapter-node');
   });
 
-  it('server renders both Child buttons, from the page and from Shell.ucf', async () => {
+  it('server renders both Child buttons, from the page and from Shell.front', async () => {
     const html = await (await fetch(served().url)).text();
     expect(html).toMatch(/<button class="child svelte-[a-z0-9]+">.*? page: 0<\/button>/);
     expect(html).toMatch(

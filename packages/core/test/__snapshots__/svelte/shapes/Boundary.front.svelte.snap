@@ -1,0 +1,13 @@
+<script>
+import "<fixtures>/components/svelte/shapes/Boundary.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/Boundary.front?front&type=style&index=0&module&lang.js";
+</script>
+  <svelte:boundary>
+    <p data-v-d07583cb="" class={__frontStyle.text}>Inside the boundary</p>
+    {#snippet failed(error, reset)}
+      <div data-v-d07583cb="" class={__frontStyle.error}>
+        <p data-v-d07583cb="" class={__frontStyle.text}>{String(error)}</p>
+        <button data-v-d07583cb="" class={__frontStyle.text} onclick={reset}>Retry</button>
+      </div>
+    {/snippet}
+  </svelte:boundary>

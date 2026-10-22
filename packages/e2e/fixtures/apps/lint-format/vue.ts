@@ -1,3 +1,3 @@
-import Messy from './Messy.ucf' with { framework: 'vue' }
+import Messy from './Messy.front' with { framework: 'vue' }
 
 export default Messy

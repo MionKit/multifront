@@ -5,12 +5,12 @@ import {inBlock, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {TsDefinitions, TsDiagnostic, Tsserver} from './lib/tsserver.ts';
 
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
-const CARD = readComponent('Card.ucf');
-const PROFILE = readComponent('editor/Profile.ucf');
-const IMPORT_ERRORS = readComponent('editor/ImportErrors.ucf');
-const VUE_ONLY = readComponent('imports/VueOnly.ucf');
+const CARD = readComponent('Card.front');
+const PROFILE = readComponent('editor/Profile.front');
+const IMPORT_ERRORS = readComponent('editor/ImportErrors.front');
+const VUE_ONLY = readComponent('imports/VueOnly.front');
 
-describe('.ucf imports through tsserver with our plugin', () => {
+describe('.front imports through tsserver with our plugin', () => {
   let server: Tsserver;
 
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe('.ucf imports through tsserver with our plugin', () => {
     await server?.stop();
   });
 
-  it('Profile.ucf: hover on <Card shows its props', async () => {
+  it('Profile.front: hover on <Card shows its props', async () => {
     const info = await server.request<ts.server.protocol.QuickInfoResponseBody>('quickinfo', {
       file: PROFILE.filename,
       ...locate(PROFILE.source, '<Card', 1),
@@ -30,22 +30,22 @@ describe('.ucf imports through tsserver with our plugin', () => {
     expect(info.displayString.replace(/\s+/g, ' ')).toContain('{ title: string; }');
   });
 
-  it("Profile.ucf: definition on Card lands in Card.ucf's <react> block", async () => {
+  it("Profile.front: definition on Card lands in Card.front's <react> block", async () => {
     const at = locate(PROFILE.source, '<Card', 1);
     const definitions = await server.request<TsDefinitions>('definition', {file: PROFILE.filename, ...at});
     expect(definitions).toHaveLength(1);
     expect(inBlock(CARD, 'react', definitions[0]!)).toBe(true);
   });
 
-  it('Profile.ucf: both imports resolve, no diagnostics', async () => {
+  it('Profile.front: both imports resolve, no diagnostics', async () => {
     expect(await server.diagnostics(PROFILE.filename)).toEqual([]);
   });
 
-  it('a .ucf file without a <react> block is no TSX to tsserver: no diagnostics', async () => {
+  it('a .front file without a <react> block is no TSX to tsserver: no diagnostics', async () => {
     expect(await server.diagnostics(VUE_ONLY.filename)).toEqual([]);
   });
 
-  describe('ImportErrors.ucf', () => {
+  describe('ImportErrors.front', () => {
     let diagnostics: TsDiagnostic[];
     const onLine = (needle: string) => diagnostics.filter(({start}) => start.line === locate(IMPORT_ERRORS.source, needle).line);
 
@@ -57,34 +57,34 @@ describe('.ucf imports through tsserver with our plugin', () => {
       expect(onLine('<Card />').map(({code}) => code)).toEqual([2741]);
     });
 
-    it.each(["import VueOnly from '../imports/VueOnly.ucf'", "export { default as Again } from '../imports/VueOnly.ucf'"])(
+    it.each(["import VueOnly from '../imports/VueOnly.front'", "export { default as Again } from '../imports/VueOnly.front'"])(
       '%s: missing-target-block names both files, and is the only error',
       (needle) => {
         const [error, ...rest] = onLine(needle);
         expect(rest).toEqual([]);
         expect(error).toMatchObject({code: 'missing-target-block', source: 'multifront', category: 'error'});
-        expect(error!.text).toBe('../imports/VueOnly.ucf has no <react> block; ImportErrors.ucf imports it as react');
+        expect(error!.text).toBe('../imports/VueOnly.front has no <react> block; ImportErrors.front imports it as react');
       }
     );
 
     it.each([
-      "import Badge from '../Badge.ucf' with { framework: 'vue' }",
-      "import('../Badge.ucf', { with: { framework: 'vue' } })",
+      "import Badge from '../Badge.front' with { framework: 'vue' }",
+      "import('../Badge.front', { with: { framework: 'vue' } })",
     ])('%s: framework-in-block at the specifier, and the only error', (needle) => {
       const [error, ...rest] = onLine(needle);
       expect(rest).toEqual([]);
       expect(error).toMatchObject({code: 'framework-in-block', source: 'multifront', category: 'error'});
-      expect(error!.start).toEqual(locate(IMPORT_ERRORS.source, needle, needle.indexOf("'../Badge.ucf'")));
+      expect(error!.start).toEqual(locate(IMPORT_ERRORS.source, needle, needle.indexOf("'../Badge.front'")));
     });
 
     it('the framework-in-block import stays unresolved: Badge has no definition', async () => {
       const at = locate(IMPORT_ERRORS.source, '<Badge', 1);
       const definitions = await server.request<TsDefinitions>('definition', {file: IMPORT_ERRORS.filename, ...at});
-      expect(definitions.map(({file}) => file)).not.toContain(componentPath('Badge.ucf'));
+      expect(definitions.map(({file}) => file)).not.toContain(componentPath('Badge.front'));
     });
 
-    it("a .ucf file that does not exist keeps TypeScript's own error", () => {
-      expect(onLine("import Gone from '../Gone.ucf'").map(({code}) => code)).toEqual([2307]);
+    it("a .front file that does not exist keeps TypeScript's own error", () => {
+      expect(onLine("import Gone from '../Gone.front'").map(({code}) => code)).toEqual([2307]);
     });
   });
 
@@ -95,7 +95,7 @@ describe('.ucf imports through tsserver with our plugin', () => {
       changedFiles: [{fileName: VUE_ONLY.filename, textChanges: [{start: end, end, newText}]}],
     });
     const diagnostics = await server.diagnostics(IMPORT_ERRORS.filename);
-    const line = locate(IMPORT_ERRORS.source, "import VueOnly from '../imports/VueOnly.ucf'").line;
+    const line = locate(IMPORT_ERRORS.source, "import VueOnly from '../imports/VueOnly.front'").line;
     expect(diagnostics.filter(({start}) => start.line === line)).toEqual([]);
   });
 });

@@ -6,7 +6,7 @@ import {describe, expect, it} from 'vitest';
 import {FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
 const compiler = loadVueCompiler(FIXTURES_DIR);
-const NAMES = [...listComponents(), 'editor/StyleModuleEdges.ucf'];
+const NAMES = [...listComponents(), 'editor/StyleModuleEdges.front'];
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
 // Module name → its keys, from each `declare const <module>: {...}` line.
@@ -61,14 +61,14 @@ describe('getTypesScript types $style with the class names the build finds', () 
     });
   });
 
-  it('lands $style.card on the card of .card in Card.ucf', () => {
-    const {filename, source} = readComponent('Card.ucf');
+  it('lands $style.card on the card of .card in Card.front', () => {
+    const {filename, source} = readComponent('Card.front');
     const script = getTypesScript(filename, source, 'react', {compiler})!;
     expect(classKeys(script).map(({sourceOffsets}) => sourceOffsets[0])).toEqual([source.indexOf('.card {') + 1]);
   });
 
-  it('finds every module key StyleModuleEdges.ucf has, and jumps to where each name is written', () => {
-    const {filename, source} = readComponent('editor/StyleModuleEdges.ucf');
+  it('finds every module key StyleModuleEdges.front has, and jumps to where each name is written', () => {
+    const {filename, source} = readComponent('editor/StyleModuleEdges.front');
     const script = getTypesScript(filename, source, 'react', {compiler})!;
     expect(script.code).not.toContain('my-theme');
     const at = (text: string, skip = 0) => source.indexOf(text) + skip;
@@ -101,13 +101,13 @@ describe('getTypesScript types $style with the class names the build finds', () 
   });
 
   it('types a module the editor cannot read loosely', () => {
-    const {filename, source} = readComponent('editor/LessModule.ucf');
+    const {filename, source} = readComponent('editor/LessModule.front');
     expect(getTypesScript(filename, source, 'react', {compiler})!.code).toContain(
       'declare const $style: {readonly [name: string]: string};'
     );
   });
 
-  it.each(['Card.ucf', 'Button.ucf'])('matches the %s.react.tsx snapshot', async (name) => {
+  it.each(['Card.front', 'Button.front'])('matches the %s.react.tsx snapshot', async (name) => {
     const {filename, source} = readComponent(name);
     await expect(getTypesScript(filename, source, 'react', {compiler})!.code).toMatchFileSnapshot(
       `__snapshots__/${name}.react.tsx`
@@ -115,18 +115,18 @@ describe('getTypesScript types $style with the class names the build finds', () 
   });
 
   it('reads a plain CSS module without a compiler, and types an unreadable one loosely', () => {
-    const button = readComponent('Button.ucf');
+    const button = readComponent('Button.front');
     expect(declaredModules(getTypesScript(button.filename, button.source, 'react')!)).toEqual({classes: ['primary']});
-    const card = readComponent('Card.ucf');
+    const card = readComponent('Card.front');
     expect(getTypesScript(card.filename, card.source, 'react')!.code).toContain(
       'declare const $style: {readonly [name: string]: string};'
     );
   });
 
   it('has no script for a target without a block, or for svelte without its compiler', () => {
-    const card = readComponent('Card.ucf');
+    const card = readComponent('Card.front');
     expect(getTypesScript(card.filename, card.source, 'svelte', {compiler})).toBeUndefined();
-    const stylesOnly = readComponent('invalid/StylesOnly.ucf');
+    const stylesOnly = readComponent('invalid/StylesOnly.front');
     expect(getTypesScript(stylesOnly.filename, stylesOnly.source, 'react', {compiler})).toBeUndefined();
   });
 });

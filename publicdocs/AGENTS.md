@@ -2,10 +2,10 @@
 
 Rules for writing `publicdocs/`, the docs for people who **use** multifront.
 
-- Readers: library authors who write `.ucf` components, and the apps that use those libraries.
+- Readers: library authors who write `.front` components, and the apps that use those libraries.
 - Plain Markdown + images, read on GitHub. No website.
 - Reader wants a job done: write a component, style it, import it, build the library. Not how it works inside.
-- multifront = compilers + plugins → most pages: a config snippet, a `.ucf` snippet, what comes out.
+- multifront = compilers + plugins → most pages: a config snippet, a `.front` snippet, what comes out.
 
 ## Layout
 
@@ -23,10 +23,10 @@ publicdocs/
 
 | Page | Covers |
 | --- | --- |
-| Getting Started | install, the Vite config, a first `.ucf` file rendered in an app |
-| Component Files | the `.ucf` format: blocks, what goes in each, the rules and their errors |
+| Getting Started | install, the Vite config, a first `.front` file rendered in an app |
+| Component Files | the `.front` format: blocks, what goes in each, the rules and their errors |
 | Styles | scoped CSS, CSS modules and `$style`, preprocessors, global styles |
-| Imports | importing a `.ucf` file, how the framework is picked, mixing frameworks |
+| Imports | importing a `.front` file, how the framework is picked, mixing frameworks |
 | Editor Setup | the VS Code extension, the TypeScript plugin, the command line checks |
 | Building a Library | the library build, what gets published, using it from each framework |
 | Errors | every error code: what it means and how to fix it |
@@ -36,7 +36,7 @@ publicdocs/
 - **Only what has shipped**: on `main`, with a test. No "coming soon", plans, status lines or milestone names.
 - **How to use it, not how it works.** No splitter, block kinds, virtual modules, build context or other internals.
 - Internal name only where the user sees it: an error message, a file name in the dev tools, an option.
-- **Document the contract**: what a `.ucf` file compiles to, which framework an import gets, what an error means.
+- **Document the contract**: what a `.front` file compiles to, which framework an import gets, what an error means.
 - **Vue is the reference.** Same as Vue (scoped styles, CSS modules, `$style`) → one sentence + link Vue's docs.
 - Never explain again what Vue's docs explain.
 
@@ -73,10 +73,10 @@ One or two sentences.    <- what it does and when you use it. No lead-in sentenc
 ### Examples
 
 - **Real code only.** Copied from a file the tests run: a fixture in `packages/e2e/fixtures/` or a tested app.
-- Copy the lines that matter. Name the file above the block when the reader needs it (`Card.ucf`, `vite.config.ts`).
+- Copy the lines that matter. Name the file above the block when the reader needs it (`Card.front`, `vite.config.ts`).
 - 5 to 15 lines. No setup the reader does not need, no second feature.
 - Comments: one-liners on the line they explain.
-- Fence languages: `vue` for `.ucf` files (GitHub colors each block by its `lang`), `ts`, `tsx`, `svelte`, `css`,
+- Fence languages: `vue` for `.front` files (GitHub colors each block by its `lang`), `ts`, `tsx`, `svelte`, `css`,
   `scss`, `bash`, `json`.
 
 ## Cards
@@ -87,7 +87,7 @@ One or two sentences.    <- what it does and when you use it. No lead-in sentenc
 - **One idea per card**: a title, a short subtitle, the picture.
 - Text the reader acts on (a command, an option) goes in the page, not only in the card.
 - Alt text says what the card shows:
-  `![One Card.ucf file compiles to a Vue, a React and a Svelte component](assets/one-file-three-frameworks.png)`
+  `![One Card.front file compiles to a Vue, a React and a Svelte component](assets/one-file-three-frameworks.png)`
 - Card files: [public-docs-cards.md](../.agents/docs/public-docs-cards.md). Read before writing or rendering a card.
 
 ## Checks before the PR

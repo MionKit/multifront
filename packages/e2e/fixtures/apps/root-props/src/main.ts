@@ -2,9 +2,9 @@ import {createElement} from 'react';
 import {createRoot} from 'react-dom/client';
 import {mount} from 'svelte';
 import {createApp} from 'vue';
-import ReactParent from '../Parent.ucf' with {framework: 'react'};
-import SvelteParent from '../Parent.ucf' with {framework: 'svelte'};
-import VueParent from '../Parent.ucf' with {framework: 'vue'};
+import ReactParent from '../Parent.front' with {framework: 'react'};
+import SvelteParent from '../Parent.front' with {framework: 'svelte'};
+import VueParent from '../Parent.front' with {framework: 'vue'};
 
 // One parent per framework, each passing the same class and style to the same children.
 createApp(VueParent).mount('#vue');

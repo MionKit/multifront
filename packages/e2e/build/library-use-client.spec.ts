@@ -77,16 +77,18 @@ describe('buildLibrary(): "use client" per output file', () => {
       expect(useClientCount(statementsOf(file, readOutput(vue, file))), `vue/${file}`).toBe(0);
   });
 
-  it('maps the code of react/Counter.js to its lines in Counter.ucf after the shift', () => {
+  it('maps the code of react/Counter.js to its lines in Counter.front after the shift', () => {
     const result = resultOf(library.results, 'react');
     const code = readOutput(result, 'Counter.js');
     const consumer = new SourceMapConsumer(JSON.parse(readOutput(result, 'Counter.js.map')) as RawSourceMap);
     const before = code.slice(0, code.indexOf('useState(0)')).split('\n');
     const original = consumer.originalPositionFor({line: before.length, column: before.at(-1)!.length});
-    const ucfFile = join(LIBRARY_DIR, 'src', 'Counter.ucf');
-    expect(resolve(dirname(join(result.outDir, 'Counter.js.map')), original.source)).toBe(ucfFile);
-    const ucf = readFileSync(ucfFile, 'utf8');
-    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('useState(0)', ucf.indexOf('<react lang="tsx">'))).split('\n').length);
+    const frontFile = join(LIBRARY_DIR, 'src', 'Counter.front');
+    expect(resolve(dirname(join(result.outDir, 'Counter.js.map')), original.source)).toBe(frontFile);
+    const front = readFileSync(frontFile, 'utf8');
+    expect(original.line).toBe(
+      front.slice(0, front.indexOf('useState(0)', front.indexOf('<react lang="tsx">'))).split('\n').length
+    );
   });
 
   it('logs no warning', () => {
@@ -100,7 +102,7 @@ describe('buildLibrary(): "use client" per output file', () => {
       '<react lang="tsx">\n  export default function Clicker() {\n    return <button onClick={() => alert(1)}>click</button>\n  }\n</react>\n';
     const edits = [
       {file: 'src/hooks/useToggle.ts', content: `'use client';\n${toggle}`},
-      {file: 'src/Clicker.ucf', content: clicker},
+      {file: 'src/Clicker.front', content: clicker},
     ];
     await withEditedLibrary(edits, async (root) => {
       const built = await buildFixtureLibrary(root, {frameworks: ['react']});

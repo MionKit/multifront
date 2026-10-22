@@ -1,1 +1,1 @@
-export const SvelteCard = await import('../../../components/Card.ucf', {with: {framework: 'svelte'}});
+export const SvelteCard = await import('../../../components/Card.front', {with: {framework: 'svelte'}});

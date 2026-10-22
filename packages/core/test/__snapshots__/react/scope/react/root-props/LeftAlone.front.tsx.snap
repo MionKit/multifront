@@ -1,0 +1,15 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  type Props = { branch?: string; tone?: string }
+
+  // The last of several own `className` is merged; a string `style` or `ref` is left as written.
+  export default function LeftAlone(props: Props) {
+    if (props.branch === 'twice')
+      // @ts-expect-error Two `className` attributes, on purpose.
+      return <div {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className="first" className={__frontClass(props.tone, props.className)}>twice</div>
+    if (props.branch === 'braced')
+      // @ts-expect-error A string style and ref, on purpose.
+      return <p {...__frontScopeAttrs(props)} className={props.className} style={'color: red'} ref={'braced'}>braced</p>
+    // @ts-expect-error A string style and ref, on purpose.
+    return <section {...__frontScopeAttrs(props)} className={props.className} style="color: red" ref="plain">plain</section>
+  }

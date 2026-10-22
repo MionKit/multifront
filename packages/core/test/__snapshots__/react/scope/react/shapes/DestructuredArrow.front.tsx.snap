@@ -1,0 +1,5 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default (__props: { branch?: string }) => {const { branch } = __props; return (
+    <p {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("shape", __props.className)}><span className="inner">destructured arrow {branch}</span></p>
+  )}

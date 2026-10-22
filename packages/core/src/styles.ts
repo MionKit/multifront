@@ -11,8 +11,8 @@ import type {Block, CompiledStyle, Diagnostic, SourceMap, VueCompiler} from './t
 
 interface CompileStylesOptions {
   id: string; // the scope id, without 'data-v-'
-  filename: string; // absolute .ucf path
-  source: string; // the whole .ucf source, for the input map
+  filename: string; // absolute .front path
+  source: string; // the whole .front source, for the input map
   compiler: VueCompiler;
   production: boolean;
 }
@@ -156,7 +156,7 @@ function composedPath(file: string, importer: string): string {
   }
 }
 
-// So every map chained after it points into the .ucf file, not the bare block.
+// So every map chained after it points into the .front file, not the bare block.
 function blockMap(block: Block, {filename, source, compiler}: CompileStylesOptions) {
   const text = new compiler.MagicString(source);
   text.remove(0, block.contentStart);
@@ -199,7 +199,7 @@ function compileError(err: Error, block: Block, {filename, source}: CompileStyle
     return report(block.contentStart + span.start.offset, block.contentStart + span.end.offset, sassMessage);
   }
   const {input, reason} = err as Partial<PostcssError>;
-  // PostCSS offsets are into what it read: only the raw block content maps onto the .ucf file.
+  // PostCSS offsets are into what it read: only the raw block content maps onto the .front file.
   if (input && reason && input.source === block.content) {
     return report(block.contentStart + input.offset, block.contentStart + (input.endOffset ?? input.offset), reason);
   }

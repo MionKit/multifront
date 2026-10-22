@@ -1,0 +1,7 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  // A className with no value is left as written; style and ref are still added.
+  export default function Valueless(__props) {
+    // @ts-expect-error `className` with no value is `true`, on purpose.
+    return <div {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className>valueless</div>
+  }

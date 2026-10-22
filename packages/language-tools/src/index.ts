@@ -5,19 +5,19 @@ export type {
   EditorOptions,
   EditorStyleModule,
   EmitSvelteTypesOptions,
-  FormattedUcf,
+  FormattedFront,
   StyleClass,
-  UcfFormatConfig,
-  UcfImportOptions,
-  UcfLintDiagnostic,
-  UcfResolution,
+  FrontFormatConfig,
+  FrontImportOptions,
+  FrontLintDiagnostic,
+  FrontResolution,
 } from './types.ts';
 export {blockFile} from './blocks/blockFile.ts';
 export {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
-export {findFormatConfig, formatUcf} from './format/index.ts';
-export {createUcfLanguagePlugin} from './languagePlugin.ts';
-export {lintUcf} from './lint/index.ts';
-export {readMultifrontOptions, resolveUcfImport} from './resolve.ts';
+export {findFormatConfig, formatFront} from './format/index.ts';
+export {createFrontLanguagePlugin} from './languagePlugin.ts';
+export {lintFront} from './lint/index.ts';
+export {readMultifrontOptions, resolveFrontImport} from './resolve.ts';
 export {emitSvelteTypes} from './svelteDeclarations.ts';
 export {TSSERVER_CODES} from './tsserverCodes.ts';
 export {getTypesScript} from './typesScript.ts';

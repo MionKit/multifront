@@ -1,6 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-    let { tag = 'div', label = 'element', ...__ucfRest }: { tag?: string; label?: string } = $props()
-  </script>
-  <svelte:element {...__ucfScopeAttrs(__ucfRest, 'style')} this={tag} class={__ucfSvelteClass(`shape`, __ucfRest.class)} title={"a & b"}><span class="inner">{label}</span></svelte:element>

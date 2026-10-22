@@ -1,4 +1,4 @@
-// A `.ts` importer picking vue gets `Card.ucf.vue.ts`: the real `DefineComponent`, with the global types it references.
+// A `.ts` importer picking vue gets `Card.front.vue.ts`: the real `DefineComponent`, with the global types it references.
 // The bundled plugin's own checks are in bundle.spec.ts.
 import {dirname, join, resolve} from 'node:path';
 import {getTypesScript} from '@multifront/language-tools';
@@ -16,7 +16,7 @@ const DEMO_DIR = join(FIXTURES_DIR, 'apps', 'demo');
 const readDemo = (file: string): Component => readComponent(join('..', 'apps', 'demo', file));
 const MOUNT_VUE = readDemo('src/mountVue.ts');
 const DEMO_APP = readDemo('src/App.tsx');
-const COUNTER = readComponent('Counter.ucf');
+const COUNTER = readComponent('Counter.front');
 const BARE = readApp('vue-default/bare.ts');
 const IMPORT_VUE = "import {createApp} from 'vue';";
 const IMPORT_H = "import {createApp, h} from 'vue';";
@@ -48,7 +48,7 @@ async function fileNames(server: Tsserver, file: string): Promise<string[]> {
   return info.fileNames ?? [];
 }
 
-describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts', () => {
+describe('tsserver with our plugin: a .ts file picking vue gets Card.front.vue.ts', () => {
   let server: Tsserver;
 
   beforeAll(async () => {
@@ -99,7 +99,7 @@ describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts'
     expect(displayString).toContain('start?: number');
   });
 
-  it('definition on Counter lands in Counter.ucf, generated code mapped to the file itself', async () => {
+  it('definition on Counter lands in Counter.front, generated code mapped to the file itself', async () => {
     const definitions = await server.request<TsDefinitions>('definition', {
       file: MOUNT_VUE.filename,
       ...locate(MOUNT_VUE.source, 'createApp(Counter)', 'createApp('.length),
@@ -107,7 +107,7 @@ describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts'
     expect(definitions.map(({file, start}) => ({file, start}))).toEqual([{file: COUNTER.filename, start: {line: 1, offset: 1}}]);
   });
 
-  it('definition on the start prop lands on its declaration in Counter.ucf', async () => {
+  it('definition on the start prop lands on its declaration in Counter.front', async () => {
     await withUses('h(Counter, {start: 1});', async ({source}) => {
       const definitions = await server.request<TsDefinitions>('definition', {
         file: MOUNT_VUE.filename,
@@ -119,7 +119,7 @@ describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts'
     });
   });
 
-  it('rename of the start prop edits mountVue.ts and Counter.ucf, no generated code', async () => {
+  it('rename of the start prop edits mountVue.ts and Counter.front, no generated code', async () => {
     await withUses('h(Counter, {start: 1});', async ({source}) => {
       const {locs} = await server.request<ts.server.protocol.RenameResponseBody>('rename', {
         file: MOUNT_VUE.filename,
@@ -149,7 +149,7 @@ describe('tsserver with our plugin: a .ts file picking vue gets Card.ucf.vue.ts'
   });
 });
 
-describe('an edit of Card.ucf reaches a project that picks only vue from it', () => {
+describe('an edit of Card.front reaches a project that picks only vue from it', () => {
   let server: Tsserver;
   const usage = {...BARE, source: `${BARE.source}import {h} from 'vue';\nh(Card, {title: 1});\n`};
 
@@ -163,7 +163,7 @@ describe('an edit of Card.ucf reaches a project that picks only vue from it', ()
     await server?.stop();
   });
 
-  it("h(Card, {title: 1}) is an error, and none once Card.ucf's prop is a number", async () => {
+  it("h(Card, {title: 1}) is an error, and none once Card.front's prop is a number", async () => {
     expect((await server.diagnostics(usage.filename)).map(({code}) => code)).toEqual([2769]);
     const revert = await edit(server, CARD, '{ title: string }', '{ title: number }');
     try {

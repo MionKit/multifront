@@ -11,7 +11,7 @@ import {FIXTURES_DIR, TMP_DIR, componentPath, readComponent} from '../fixtures/i
 import {APP_CONFIG_LOADER, buildApp, componentContext} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
-const COMPONENTS = ['react/AllBlocks.ucf', 'imports/Icon.ucf', 'imports/UsesIcon.ucf'];
+const COMPONENTS = ['react/AllBlocks.front', 'imports/Icon.front', 'imports/UsesIcon.front'];
 const REACT_MARKERS = ['all-blocks-react-marker', 'icon-react-marker', 'uses-icon-react-marker'];
 const OTHER_MARKERS = [
   'all-blocks-vue-marker',
@@ -68,9 +68,9 @@ describe('vite build of react-basic', () => {
 
   it('bundles the scope helper once for every forwarding component, without the dev fragment warning', () => {
     expect(chunk.moduleIds).toContain(`\0${SCOPE_HELPER_ID}`);
-    expect(chunk.code.split('function __ucfScopeAttrs(').length - 1).toBe(1);
-    expect(chunk.code.split('__ucfScopeAttrs(').length - 1).toBeGreaterThan(2);
-    expect(chunk.code).not.toContain('__ucfWarnFragment');
+    expect(chunk.code.split('function __frontScopeAttrs(').length - 1).toBe(1);
+    expect(chunk.code.split('__frontScopeAttrs(').length - 1).toBeGreaterThan(2);
+    expect(chunk.code).not.toContain('__frontWarnFragment');
   });
 
   it('leaves out the text of the <vue> and <svelte> blocks', () => {
@@ -90,15 +90,15 @@ describe('vite build of react-basic', () => {
     }
   });
 
-  it('maps a marker in the bundle back to its line in AllBlocks.ucf', () => {
+  it('maps a marker in the bundle back to its line in AllBlocks.front', () => {
     const marker = REACT_MARKERS[0]!;
     const before = chunk.code.slice(0, chunk.code.indexOf(marker)).split('\n');
     const position = originalPositionFor(new TraceMap(chunk.map!.toString()), {
       line: before.length,
       column: before.at(-1)!.length,
     });
-    const {source} = readComponent('react/AllBlocks.ucf');
-    expect(position.source).toMatch(/components\/react\/AllBlocks\.ucf$/);
+    const {source} = readComponent('react/AllBlocks.front');
+    expect(position.source).toMatch(/components\/react\/AllBlocks\.front$/);
     expect(position.line).toBe(source.slice(0, source.indexOf(marker)).split('\n').length);
   });
 });
@@ -107,22 +107,22 @@ describe('vite build of the react-basic error entries', () => {
   it('names both files when the imported file has no <react> block', async () => {
     const err = await buildError('src/errors/missing-block.tsx');
     expect(err.message).toContain(
-      '../../../../components/imports/VueOnly.ucf has no <react> block; missing-block.tsx imports it as react (missing-target-block)'
+      '../../../../components/imports/VueOnly.front has no <react> block; missing-block.tsx imports it as react (missing-target-block)'
     );
   });
 
-  it('reports react-no-default-export at its place in the .ucf file', async () => {
-    const {filename, diagnostics} = diagnosticsOf('react/errors/NoDefault.ucf');
+  it('reports react-no-default-export at its place in the .front file', async () => {
+    const {filename, diagnostics} = diagnosticsOf('react/errors/NoDefault.front');
     const [diagnostic] = diagnostics;
     expect(diagnostic?.code).toBe('react-no-default-export');
     const err = await buildError('src/errors/no-default.tsx');
     expect(err.message).toContain('(react-no-default-export)');
-    expect(err.message).toContain(`NoDefault.ucf:${diagnostic!.line}:${diagnostic!.column}`);
+    expect(err.message).toContain(`NoDefault.front:${diagnostic!.line}:${diagnostic!.column}`);
     expect(err.errors?.[0]?.loc).toEqual({file: filename, line: diagnostic!.line, column: diagnostic!.column});
   });
 
   it('lists every error of the block, one file:line:column line each', async () => {
-    const {filename, diagnostics} = diagnosticsOf('react/errors/TwoSyntaxErrors.ucf');
+    const {filename, diagnostics} = diagnosticsOf('react/errors/TwoSyntaxErrors.front');
     expect(diagnostics.map(({code}) => code)).toEqual(['react-syntax-error', 'react-syntax-error']);
     const [first, second] = diagnostics;
     const err = await buildError('src/errors/two-syntax-errors.tsx');
@@ -132,8 +132,8 @@ describe('vite build of the react-basic error entries', () => {
   });
 
   it.each([
-    ['style-lang.tsx', 'invalid/UnknownStyleLang.ucf', 'unknown-style-lang'],
-    ['style-syntax.tsx', 'invalid/CssSyntaxError.ucf', 'style-compile-error'],
+    ['style-lang.tsx', 'invalid/UnknownStyleLang.front', 'unknown-style-lang'],
+    ['style-syntax.tsx', 'invalid/CssSyntaxError.front', 'style-compile-error'],
   ])('%s: the style module reports its block errors', async (file, name, code) => {
     const err = await buildError(`src/errors/${file}`);
     expect(err.message).toContain(`(${code})`);
@@ -148,7 +148,7 @@ describe('vite build of the react-basic error entries', () => {
     const err = await buildError('src/errors/svelte-pick.ts');
     const importer = join(ROOT, 'src/errors/svelte-pick.ts');
     expect(err.message).toContain(
-      `AllBlocks.ucf (imported by ${importer}): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles ${componentPath('react/AllBlocks.ucf')}.svelte.svelte)`
+      `AllBlocks.front (imported by ${importer}): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles ${componentPath('react/AllBlocks.front')}.svelte.svelte)`
     );
   });
 
@@ -156,13 +156,13 @@ describe('vite build of the react-basic error entries', () => {
     const err = await buildError('src/errors/vue-pick.ts');
     const importer = join(ROOT, 'src/errors/vue-pick.ts');
     expect(err.message).toContain(
-      `AllBlocks.ucf (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
+      `AllBlocks.front (imported by ${importer}): the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );
   });
 
   it('names the import and its importer on a resolveTarget error', async () => {
     const err = await buildError('src/errors/unknown-pick.ts');
-    expect(err.message).toContain(`AllBlocks.ucf (imported by ${join(ROOT, 'src/errors/unknown-pick.ts')}): unknown framework`);
+    expect(err.message).toContain(`AllBlocks.front (imported by ${join(ROOT, 'src/errors/unknown-pick.ts')}): unknown framework`);
     expect(err.message).toContain('(unknown-framework)');
   });
 });
@@ -171,18 +171,18 @@ describe('vite build with the plugin options', () => {
   it('needs the importers option for a .ts importer', async () => {
     expect((await buildError('src/plain.ts')).message).toContain('(no-target)');
     const {chunks} = await buildApp(ROOT, entry('src/plain.ts', {importers: {'.ts': 'react'}}));
-    expect(chunks.flatMap((chunk) => chunk.moduleIds)).toContain(`${componentPath('react/AllBlocks.ucf')}.react.tsx`);
+    expect(chunks.flatMap((chunk) => chunk.moduleIds)).toContain(`${componentPath('react/AllBlocks.front')}.react.tsx`);
   });
 
-  it('builds a .ucf entry, which has no importer, with the framework option', async () => {
-    const input = componentPath('react/AllBlocks.ucf');
+  it('builds a .front entry, which has no importer, with the framework option', async () => {
+    const input = componentPath('react/AllBlocks.front');
     expect((await buildError(input)).message).toContain(`${input} (imported by a build entry): `);
     const {chunks} = await buildApp(ROOT, entry(input, {framework: 'react'}));
     expect(chunks.flatMap((chunk) => chunk.moduleIds)).toContain(`${input}.react.tsx`);
   });
 
-  it('names the file alone when a .ucf entry has no such block', async () => {
-    const input = componentPath('imports/VueOnly.ucf');
+  it('names the file alone when a .front entry has no such block', async () => {
+    const input = componentPath('imports/VueOnly.front');
     const err = await buildError(input, {framework: 'react'});
     expect(err.message).toContain(`${input} has no <react> block (missing-target-block)`);
   });
@@ -193,8 +193,8 @@ describe('vite build with the plugin options', () => {
     try {
       const plugins = [react(), multifront()];
       const write = (marker: string) =>
-        writeFile(join(root, 'Card.ucf'), `<react lang="tsx">\n  export default () => <p>${marker}</p>\n</react>\n`);
-      await writeFile(join(root, 'main.tsx'), "import Card from './Card.ucf';\nconsole.log(Card);\n");
+        writeFile(join(root, 'Card.front'), `<react lang="tsx">\n  export default () => <p>${marker}</p>\n</react>\n`);
+      await writeFile(join(root, 'main.tsx'), "import Card from './Card.front';\nconsole.log(Card);\n");
       const build = async () => {
         const config = {configFile: false as const, plugins, build: {rolldownOptions: {input: join(root, 'main.tsx')}}};
         return (await buildApp(root, config)).chunks[0]!.code;
@@ -255,17 +255,17 @@ describe('dev server of react-basic', () => {
   it('serves the React module at the URL it writes into the importer', async () => {
     const client = server!.environments.client;
     const main = await client.transformRequest('/src/main.tsx');
-    const url = /from "([^"]+AllBlocks\.ucf\.react\.tsx)"/.exec(main!.code)?.[1];
+    const url = /from "([^"]+AllBlocks\.front\.react\.tsx)"/.exec(main!.code)?.[1];
     expect(url).toBeDefined();
     expect((await client.transformRequest(url!))?.code).toContain(REACT_MARKERS[0]);
-    // The watched `.ucf` file is an edge to the real file, not one more import of the React module.
+    // The watched `.front` file is an edge to the real file, not one more import of the React module.
     const module = await client.moduleGraph.getModuleByUrl(url!);
-    expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('react/AllBlocks.ucf'));
+    expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('react/AllBlocks.front'));
   });
 
   it('answers a request for the Vue id, with no plugin-vue in the app, with the plugin-vue error', async () => {
     const client = server!.environments.client;
-    const file = componentPath('react/AllBlocks.ucf');
+    const file = componentPath('react/AllBlocks.front');
     await expect(client.transformRequest(`/@fs${file}`)).rejects.toThrow(
       `${file}: the vue framework needs @vitejs/plugin-vue in your Vite plugins`
     );

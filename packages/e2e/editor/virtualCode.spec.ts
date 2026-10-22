@@ -1,6 +1,6 @@
 import {BLOCK_KINDS, loadVueCompiler, splitBlocks} from '@multifront/core';
 import type {Block} from '@multifront/core';
-import {createUcfLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript} from '@multifront/language-tools';
+import {createFrontLanguagePlugin, EDITOR_BLOCK_KINDS, getTypesScript} from '@multifront/language-tools';
 import {createLanguage, forEachEmbeddedCode} from '@volar/language-core';
 import type {CodeMapping, VirtualCode} from '@volar/language-core';
 import ts from 'typescript';
@@ -10,7 +10,7 @@ import {describe, expect, it} from 'vitest';
 import {componentPath, FIXTURES_DIR, listComponents, readComponent} from '../fixtures/index.ts';
 
 const compiler = loadVueCompiler(FIXTURES_DIR);
-const plugin = createUcfLanguagePlugin({compiler});
+const plugin = createFrontLanguagePlugin({compiler});
 // Volar's own registry: it picks the language, creates the codes, keeps them by id.
 const language = createLanguage([plugin], new Map(), () => {});
 // Plus the root props sites no other fixture has: a memo type argument, a wrapped union, two inserts in one file.
@@ -19,9 +19,9 @@ const NAMES = [
   ...listComponents('invalid'),
   ...listComponents('langs'),
   ...listComponents('editor'),
-  'react/root-props/MemoTyped.ucf',
-  'react/root-props/UnionProps.ucf',
-  'react/shapes/MemoForwardRef.ucf',
+  'react/root-props/MemoTyped.front',
+  'react/root-props/UnionProps.front',
+  'react/shapes/MemoForwardRef.front',
 ];
 const EXTS: Record<string, string> = {css: '.css', scss: '.scss', typescriptreact: '.tsx', 'svelte-markup': '.html'};
 const ALL_ON = {verification: true, completion: true, semantic: true, navigation: true, structure: true, format: true};
@@ -66,40 +66,40 @@ function segments(mapping: CodeMapping): {source: [number, number]; generated: [
   });
 }
 
-describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SCSS codes', () => {
+describe('createFrontLanguagePlugin turns a .front file into mapped TSX and CSS / SCSS codes', () => {
   it('lists the same tags as the core registry, in the same order', () => {
     expect(EDITOR_BLOCK_KINDS.map(({tag}) => tag)).toEqual(BLOCK_KINDS.map(({tag}) => tag));
   });
 
-  it('claims .ucf files only, and tells TypeScript about the extension', () => {
+  it('claims .front files only, and tells TypeScript about the extension', () => {
     const tsFile = join(FIXTURES_DIR, 'apps', 'vue-reference', 'src', 'main.ts');
-    expect(plugin.getLanguageId(componentPath('Card.ucf'))).toBe('ucf');
+    expect(plugin.getLanguageId(componentPath('Card.front'))).toBe('front');
     expect(plugin.getLanguageId(tsFile)).toBeUndefined();
     const tsScript = language.scripts.set(tsFile, ts.ScriptSnapshot.fromString(readFileSync(tsFile, 'utf8')), 'typescript');
     expect(tsScript?.generated).toBeUndefined();
     expect(plugin.typescript?.extraFileExtensions).toEqual([
-      {extension: 'ucf', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred},
+      {extension: 'front', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred},
     ]);
   });
 
   it('reads plain CSS modules with no options, and types the others loosely', () => {
-    const bare = createLanguage([createUcfLanguagePlugin()], new Map(), () => {});
+    const bare = createLanguage([createFrontLanguagePlugin()], new Map(), () => {});
     const reactText = (name: string) => {
       const {filename, source} = readComponent(name);
       const script = bare.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!;
       return textOf(script.generated!.embeddedCodes.get('react')!);
     };
-    expect(reactText('Button.ucf')).toContain('declare const classes: {readonly primary: string};');
-    expect(reactText('Card.ucf')).toContain('declare const $style: {readonly [name: string]: string};');
+    expect(reactText('Button.front')).toContain('declare const classes: {readonly primary: string};');
+    expect(reactText('Card.front')).toContain('declare const $style: {readonly [name: string]: string};');
   });
 
   describe.each(NAMES)('%s', (name) => {
     const {filename, script, source, split, root, byId, embedded} = load(name);
 
-    it('has a ucf root code over the whole source', () => {
-      expect(script.languageId).toBe('ucf');
+    it('has a front root code over the whole source', () => {
+      expect(script.languageId).toBe('front');
       expect(root.id).toBe('root');
-      expect(root.languageId).toBe('ucf');
+      expect(root.languageId).toBe('front');
       expect(textOf(root)).toBe(source);
       expect(root.mappings).toEqual([{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data: ALL_ON}]);
     });
@@ -192,18 +192,20 @@ describe('createUcfLanguagePlugin turns a .ucf file into mapped TSX and CSS / SC
 
 // Every real fixture, broken ones included: the <vue> code is what Vue's parser and tsserver read.
 const VUE_NAMES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
-  .filter((name) => name.endsWith('.ucf'))
+  .filter((name) => name.endsWith('.front'))
   .map((name) => name.split(sep).join('/'))
   .filter((name) => readComponent(name).source.includes('<vue'))
   .sort();
 
 describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () => {
-  const vuePlugin = createUcfLanguagePlugin({compiler, ts});
+  const vuePlugin = createFrontLanguagePlugin({compiler, ts});
   const vueLanguage = createLanguage([vuePlugin], new Map(), () => {});
   const vueKind = EDITOR_BLOCK_KINDS.find(({tag}) => tag === 'vue')!;
 
   it('covers the fixtures with a <vue> block', () => {
-    expect(VUE_NAMES).toEqual(expect.arrayContaining(['Counter.ucf', 'vue/CounterCrlf.ucf', 'vue/VueWithUnclosedReact.ucf']));
+    expect(VUE_NAMES).toEqual(
+      expect.arrayContaining(['Counter.front', 'vue/CounterCrlf.front', 'vue/VueWithUnclosedReact.front'])
+    );
   });
 
   describe.each(VUE_NAMES)('%s', (name) => {
@@ -267,8 +269,8 @@ describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () =>
 
   // Language-core keeps codes in a module-wide registry: a closed file must leave it.
   it('disposes the vue code with its file: reopened, the file gets a new one', () => {
-    const {filename, source} = readComponent('vue/VBind.ucf');
-    const language = createLanguage([createUcfLanguagePlugin({compiler, ts})], new Map(), () => {});
+    const {filename, source} = readComponent('vue/VBind.front');
+    const language = createLanguage([createFrontLanguagePlugin({compiler, ts})], new Map(), () => {});
     const first = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('vue');
     const kept = language.scripts.set(filename, ts.ScriptSnapshot.fromString(source))!.generated!.embeddedCodes.get('vue');
     expect(kept).toBe(first);
@@ -279,8 +281,8 @@ describe('with TypeScript, a <vue> block becomes a nested VueVirtualCode', () =>
   });
 
   it('gives no vue code and no types without TypeScript', () => {
-    const {filename, source} = readComponent('Counter.ucf');
-    expect(load('Counter.ucf').byId.has('vue')).toBe(false);
+    const {filename, source} = readComponent('Counter.front');
+    expect(load('Counter.front').byId.has('vue')).toBe(false);
     expect(getTypesScript(filename, source, 'vue', {compiler})).toBeUndefined();
   });
 });

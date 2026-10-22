@@ -1,11 +1,11 @@
 {
-  "code": "import Card from '../../../components/Card.ucf';\n\nexport default function Widget() {\n  return <Card title=\"Hello\" />;\n}\n",
+  "code": "import Card from '../../../components/Card.front';\n\nexport default function Widget() {\n  return <Card title=\"Hello\" />;\n}\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 17,
-      "end": 47
+      "end": 49
     }
   ],
   "errors": []

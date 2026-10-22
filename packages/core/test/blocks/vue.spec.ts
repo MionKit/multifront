@@ -12,28 +12,28 @@ const ONLY_BLANKS = /^[ \r\n]*$/;
 // Written by hand from the fixture files; `spots` are texts whose first character the map must trace back.
 const CASES: {fixture: string; scriptSetup: boolean; styles: Block['attrs'][]; cssVars: string[]; spots: string[]}[] = [
   {
-    fixture: 'Counter.ucf',
+    fixture: 'Counter.front',
     scriptSetup: true,
     styles: [{scoped: true}, {module: true}],
     cssVars: [],
     spots: ['{{ count }}', 'const count', 'padding'],
   },
   {
-    fixture: 'vue/CounterCrlf.ucf',
+    fixture: 'vue/CounterCrlf.front',
     scriptSetup: true,
     styles: [{scoped: true}, {module: true}],
     cssVars: [],
     spots: ['{{ count }}', 'const count', 'padding'],
   },
-  {fixture: 'vue/VBind.ucf', scriptSetup: true, styles: [{scoped: true}], cssVars: ['color'], spots: ['class="bound"']},
-  {fixture: 'imports/Icon.ucf', scriptSetup: true, styles: [{module: true}], cssVars: [], spots: ['$style.icon']},
+  {fixture: 'vue/VBind.front', scriptSetup: true, styles: [{scoped: true}], cssVars: ['color'], spots: ['class="bound"']},
+  {fixture: 'imports/Icon.front', scriptSetup: true, styles: [{module: true}], cssVars: [], spots: ['$style.icon']},
   // Template only: no script, no style.
-  {fixture: 'imports/VueOnly.ucf', scriptSetup: false, styles: [], cssVars: [], spots: ['Only Vue']},
+  {fixture: 'imports/VueOnly.front', scriptSetup: false, styles: [], cssVars: [], spots: ['Only Vue']},
   // Blanks both a <react> and a <svelte> block.
-  {fixture: 'Card.ucf', scriptSetup: true, styles: [{module: true, lang: 'scss'}], cssVars: [], spots: ['{{ title }}']},
+  {fixture: 'Card.front', scriptSetup: true, styles: [{module: true, lang: 'scss'}], cssVars: [], spots: ['{{ title }}']},
   // A root comment, a <svelte> block and three <style> blocks with multi-line and quoted attributes.
   {
-    fixture: 'editor/GrammarEdges.ucf',
+    fixture: 'editor/GrammarEdges.front',
     scriptSetup: true,
     styles: [{module: true, lang: 'scss'}, {lang: 'less'}, {title: 'a lang=scss b'}],
     cssVars: [],
@@ -52,7 +52,7 @@ describe('vueSfcCode', () => {
     const {filename, source, split, code, map} = sfcOf(fixture);
     const vue = split.targets.vue!;
 
-    it('keeps the length and every line break of the .ucf file', () => {
+    it('keeps the length and every line break of the .front file', () => {
       expect(split.errors).toEqual([]);
       expect(code.length).toBe(source.length);
       expect(code.replace(/[^\r\n]/g, ' ')).toBe(source.replace(/[^\r\n]/g, ' '));
@@ -73,7 +73,7 @@ describe('vueSfcCode', () => {
       }
     });
 
-    it("parses with compiler-sfc as an SFC at the .ucf file's lines", () => {
+    it("parses with compiler-sfc as an SFC at the .front file's lines", () => {
       const {descriptor, errors} = compiler.parse(code, {filename});
       expect(errors).toEqual([]);
       expect(descriptor.template?.loc.start.line).toBe(locate(source, source.indexOf('<template')).line);
@@ -85,7 +85,7 @@ describe('vueSfcCode', () => {
       expect(descriptor.cssVars).toEqual(cssVars);
     });
 
-    it.each(spots)('maps %s back to the same line and column of the .ucf file', (spot) => {
+    it.each(spots)('maps %s back to the same line and column of the .front file', (spot) => {
       const offset = source.indexOf(spot);
       expect(offset).toBeGreaterThan(-1);
       const position = locate(code, offset);
@@ -94,19 +94,19 @@ describe('vueSfcCode', () => {
     });
   });
 
-  it('reads CounterCrlf.ucf as Counter.ucf with CRLF line breaks', () => {
-    expect(readComponent('vue/CounterCrlf.ucf').source).toBe(readComponent('Counter.ucf').source.replaceAll('\n', '\r\n'));
+  it('reads CounterCrlf.front as Counter.front with CRLF line breaks', () => {
+    expect(readComponent('vue/CounterCrlf.front').source).toBe(readComponent('Counter.front').source.replaceAll('\n', '\r\n'));
   });
 
-  it('blanks a two-unit character in Counter.ucf as two spaces', () => {
-    const {split, code} = sfcOf('Counter.ucf');
+  it('blanks a two-unit character in Counter.front as two spaces', () => {
+    const {split, code} = sfcOf('Counter.front');
     const react = split.targets.react!;
     expect(react.content).toMatch(/[\uD800-\uDBFF][\uDC00-\uDFFF]/);
     expect(code.slice(react.start, react.end)).toMatch(ONLY_BLANKS);
   });
 
   it('turns a file with no <vue> block into blanks that compiler-sfc rejects', () => {
-    const {filename, source, code} = sfcOf('imports/ReactOnly.ucf');
+    const {filename, source, code} = sfcOf('imports/ReactOnly.front');
     expect(code.length).toBe(source.length);
     expect(code).toMatch(ONLY_BLANKS);
     const {descriptor, errors} = compiler.parse(code, {filename});
@@ -120,7 +120,7 @@ describe('vueSfcCode', () => {
   });
 
   it('keeps only the first <vue> block and blanks a duplicate', () => {
-    const {filename, split, code} = sfcOf('vue/DuplicateVue.ucf');
+    const {filename, split, code} = sfcOf('vue/DuplicateVue.front');
     expect(split.errors.map(({code}) => code)).toEqual(['duplicate-target']);
     const [first, second] = split.blocks.filter((block) => block.type === 'vue');
     expect(code.slice(first!.contentStart, first!.contentEnd)).toBe(first!.content);
@@ -142,13 +142,13 @@ describe('vue.check', () => {
   // Written by hand from the fixture files; the second one's script has no `lang`, so it parses as JavaScript.
   it.each([
     {
-      fixture: 'vue/AttrInside.ucf',
+      fixture: 'vue/AttrInside.front',
       spots: [
-        {line: 3, column: 65},
-        {line: 7, column: 47},
+        {line: 3, column: 67},
+        {line: 7, column: 49},
       ],
     },
-    {fixture: 'vue/AttrInsideJs.ucf', spots: [{line: 3, column: 47}]},
+    {fixture: 'vue/AttrInsideJs.front', spots: [{line: 3, column: 49}]},
   ])('reports framework-in-block on each framework attribute of $fixture', ({fixture, spots}) => {
     const {split, source, diagnostics} = check(fixture);
     expect(split.errors).toEqual([]);
@@ -158,7 +158,7 @@ describe('vue.check', () => {
     expect(checkBlocks(split)).toEqual(diagnostics);
   });
 
-  it.each(['Counter.ucf', 'imports/UsesIcon.ucf'])(
+  it.each(['Counter.front', 'imports/UsesIcon.front'])(
     'reports nothing for %s, whose <vue> block imports with no attribute',
     (name) => {
       expect(check(name).diagnostics).toEqual([]);

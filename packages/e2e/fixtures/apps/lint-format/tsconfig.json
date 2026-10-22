@@ -1,5 +1,5 @@
 {
-  // Messy.ucf type-checks in every target before and after mf-fmt formats a copy.
+  // Messy.front type-checks in every target before and after mf-fmt formats a copy.
   "compilerOptions": {
     "target": "es2022",
     "module": "preserve",
@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
   },
-  "include": ["Messy.ucf", "react.ts", "vue.ts", "svelte.ts"]
+  "include": ["Messy.front", "react.ts", "vue.ts", "svelte.ts"]
 }

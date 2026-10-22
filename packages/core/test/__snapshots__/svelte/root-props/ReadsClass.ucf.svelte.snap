@@ -1,7 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let props: { label?: string; class?: string } = $props()
-  </script>
-  <!-- Reads `class` itself: only `style` is merged. -->
-  <div {...__ucfScopeAttrs(props, 'style')} class={['own', props.class]}>{props.label ?? 'reads'}</div>

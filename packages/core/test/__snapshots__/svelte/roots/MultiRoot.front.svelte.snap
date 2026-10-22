@@ -1,0 +1,11 @@
+
+  <script lang="ts">
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+    let {
+      label = 'first' // a comment before the trailing comma
+      , ...__frontRest
+    }: { label?: string } = $props()
+;(() => __frontWarnFragment(__frontRest, "MultiRoot", "renders more than one root"))();
+  </script>
+  <p class="shape"><span class="inner">{label}</span></p>
+  second

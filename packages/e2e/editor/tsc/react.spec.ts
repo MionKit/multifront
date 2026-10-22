@@ -1,4 +1,4 @@
-// The real `mf-tsc` on real fixture apps: the command rules, the `<react>` block of each `.ucf` file and its importers.
+// The real `mf-tsc` on real fixture apps: the command rules, the `<react>` block of each `.front` file and its importers.
 import {mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -31,21 +31,21 @@ import {E2E_DIR, locate, offsetAt} from '../lib/tsserver.ts';
 const REPO = join(E2E_DIR, '..', '..');
 const HELP = `Usage: mf-tsc [options] [paths...]
 
-Type-checks .ucf files in every framework, with the .ts, .tsx and .vue files that import them.
+Type-checks .front files in every framework, with the .ts, .tsx and .vue files that import them.
 Paths are files or folders of the project; none checks the whole project.
 
 Options:
   -p, --project <file>   the tsconfig.json to use (default: the nearest one above each path)
-  --framework <name>     check .ucf files only in this framework: vue, react or svelte; repeat for more
+  --framework <name>     check .front files only in this framework: vue, react or svelte; repeat for more
   --format <format>      text or json (default: text)
   -h, --help             show this help
 
 Example:
-  mf-tsc src/Card.ucf --framework svelte --format json
+  mf-tsc src/Card.front --framework svelte --format json
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
-const INCLUDE = '"include": ["*.ucf", "*.ts", "*.vue", "pages"]';
+const INCLUDE = '"include": ["*.front", "*.ts", "*.vue", "pages"]';
 
 const breaksFinding = BREAKS.finding;
 const mainFinding = MAIN.finding;
@@ -117,8 +117,8 @@ describe('mf-tsc on one file or one folder', () => {
   it('checks only the named file, and a file named twice once', async () => {
     await withCopy(BROKEN, async (root) => {
       const once = {code: 1, stdout: `${BREAKS_LINE}\nmf-tsc: checked 1 file with tsconfig.json: 1 error\n`, stderr: ''};
-      expect(await runMfTsc(root, ['ReactBreaks.ucf'])).toEqual(once);
-      expect(await runMfTsc(root, ['ReactBreaks.ucf', 'ReactBreaks.ucf'])).toEqual(once);
+      expect(await runMfTsc(root, ['ReactBreaks.front'])).toEqual(once);
+      expect(await runMfTsc(root, ['ReactBreaks.front', 'ReactBreaks.front'])).toEqual(once);
     });
   });
 
@@ -126,7 +126,7 @@ describe('mf-tsc on one file or one folder', () => {
     await withCopy(BROKEN, async (root) => {
       const skipped = ['pages/node_modules/broken/index.ts', 'pages/.cache/hidden.ts'];
       for (const file of skipped) addFile(root, file, 'export const broken: string = 1;\n');
-      const include = ['*.ucf', '*.ts', '*.vue', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
+      const include = ['*.front', '*.ts', '*.vue', 'pages', ...skipped].map((entry) => JSON.stringify(entry)).join(', ');
       editFile(root, 'tsconfig.json', INCLUDE, `"include": [${include}]`);
       // Both are in the program: named, each is checked.
       const named = await runMfTsc(root, [...skipped, '--format', 'json']);
@@ -166,7 +166,7 @@ describe('mf-tsc on one file or one folder', () => {
 
   it('finds the tsconfig above a file named from the repo root, or takes it from -p', async () => {
     await withCopy(BROKEN, async (root) => {
-      const file = rootRelativePath(REPO, join(root, 'ReactBreaks.ucf'));
+      const file = rootRelativePath(REPO, join(root, 'ReactBreaks.front'));
       const config = rootRelativePath(REPO, join(root, 'tsconfig.json'));
       const expected = {
         code: 1,
@@ -183,7 +183,7 @@ describe('mf-tsc on one file or one folder', () => {
     await withCopy(BROKEN, async (broken) => {
       await withCopy(VALID, async (valid) => {
         editFile(valid, 'main.tsx', 'count={2}', "count={'2'}");
-        const breaks = rootRelativePath(REPO, join(broken, 'ReactBreaks.ucf'));
+        const breaks = rootRelativePath(REPO, join(broken, 'ReactBreaks.front'));
         const main = rootRelativePath(REPO, join(valid, 'main.tsx'));
         const readable = await runMfTsc(REPO, [breaks, main]);
         expect(readable.code).toBe(1);
@@ -221,7 +221,7 @@ describe('mf-tsc with tsconfig references', () => {
         stdout: `${BROKEN_LINES}mf-tsc: checked ${BROKEN_FILES} files with tsconfig.app.json: ${BROKEN_FINDINGS.length} errors\n`,
         stderr: '',
       });
-      expect(await runMfTsc(root, ['ReactBreaks.ucf'])).toEqual({
+      expect(await runMfTsc(root, ['ReactBreaks.front'])).toEqual({
         code: 1,
         stdout: `${BREAKS_LINE}\nmf-tsc: checked 1 file with tsconfig.app.json: 1 error\n`,
         stderr: '',
@@ -234,7 +234,7 @@ describe('mf-tsc findings beside the type errors', () => {
   it("reports the program's own errors with no file", async () => {
     await withCopy(BROKEN, async (root) => {
       editFile(root, 'tsconfig.json', '"skipLibCheck": true,', '"skipLibCheck": true,\n    "types": ["nonexistent"],');
-      const run = await runMfTsc(root, ['ReactBreaks.ucf', '--format', 'json']);
+      const run = await runMfTsc(root, ['ReactBreaks.front', '--format', 'json']);
       expect(run.code).toBe(1);
       expect(report(run.stdout).findings).toEqual([
         {
@@ -249,33 +249,33 @@ describe('mf-tsc findings beside the type errors', () => {
     });
   });
 
-  it("reports the splitter's errors of a .ucf file at their positions", async () => {
+  it("reports the splitter's errors of a .front file at their positions", async () => {
     await withCopy(BROKEN, async (root) => {
-      const {source} = readComponent('invalid/DuplicateReact.ucf');
-      const file = join(root, 'DuplicateReact.ucf');
+      const {source} = readComponent('invalid/DuplicateReact.front');
+      const file = join(root, 'DuplicateReact.front');
       writeFileSync(file, source);
-      const run = await runMfTsc(root, ['DuplicateReact.ucf', '--format', 'json']);
+      const run = await runMfTsc(root, ['DuplicateReact.front', '--format', 'json']);
       const split = splitBlocks(source, file);
       expect(split.errors.map(({code}) => code)).toEqual(['duplicate-target', 'duplicate-target']);
-      const expected = split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.ucf'}));
+      const expected = split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.front'}));
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       expect(report(run.stdout).findings).toEqual(expected);
     });
   });
 
-  it('reports a .ucf import the target rules reject with our code, not TypeScript\'s "Cannot find module"', async () => {
+  it('reports a .front import the target rules reject with our code, not TypeScript\'s "Cannot find module"', async () => {
     await withCopy(BROKEN, async (root) => {
-      const pick = "import Breaks from '../ReactBreaks.ucf' with {framework: 'vue'};\n\nexport {Breaks};\n";
+      const pick = "import Breaks from '../ReactBreaks.front' with {framework: 'vue'};\n\nexport {Breaks};\n";
       addFile(root, 'pages/vue-pick.ts', pick);
       const run = await runMfTsc(root, ['pages/vue-pick.ts', '--format', 'json']);
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       expect(report(run.stdout).findings).toEqual([
         {
           file: 'pages/vue-pick.ts',
-          ...span(pick, "'../ReactBreaks.ucf'"),
+          ...span(pick, "'../ReactBreaks.front'"),
           code: 'missing-target-block',
           severity: 'error',
-          message: '../ReactBreaks.ucf has no <vue> block; vue-pick.ts imports it as vue',
+          message: '../ReactBreaks.front has no <vue> block; vue-pick.ts imports it as vue',
         },
       ]);
     });
@@ -285,22 +285,22 @@ describe('mf-tsc findings beside the type errors', () => {
     await withCopy(BROKEN, async (root) => {
       // The last import's resolution wins: React's, which resolves, so only the Vue import is an error.
       const mixed =
-        "import VueTitle from '../Title.ucf' with {framework: 'vue'};\nimport Title from '../Title.ucf';\n\nexport {Title, VueTitle};\n";
+        "import VueTitle from '../Title.front' with {framework: 'vue'};\nimport Title from '../Title.front';\n\nexport {Title, VueTitle};\n";
       addFile(root, 'pages/mixed.ts', mixed);
       const missing: Finding = {
         file: 'pages/mixed.ts',
-        ...span(mixed, "'../Title.ucf' with", "'../Title.ucf'".length),
+        ...span(mixed, "'../Title.front' with", "'../Title.front'".length),
         code: 'missing-target-block',
         severity: 'error',
-        message: '../Title.ucf has no <vue> block; mixed.ts imports it as vue',
+        message: '../Title.front has no <vue> block; mixed.ts imports it as vue',
       };
       const warning: Finding = {
         file: 'pages/mixed.ts',
-        ...span(mixed, "'../Title.ucf';", "'../Title.ucf'".length),
+        ...span(mixed, "'../Title.front';", "'../Title.front'".length),
         code: 'mixed-frameworks',
         severity: 'warning',
         message:
-          '../Title.ucf is imported as vue and as react in this file; TypeScript keeps one resolution per specifier, so ' +
+          '../Title.front is imported as vue and as react in this file; TypeScript keeps one resolution per specifier, so ' +
           "every import of it here gets the last one's types. Import each framework from its own small re-export file",
       };
       const json = await runMfTsc(root, ['pages/mixed.ts', '--format', 'json']);
@@ -322,7 +322,7 @@ describe('mf-tsc that cannot run', () => {
         fails("unknown option '--nope'; use --project, --framework, --format or --help")
       );
       expect(await runMfTsc(root, ['--format', 'xml'])).toEqual(fails("unknown format 'xml'; use text or json"));
-      expect(await runMfTsc(root, ['nope.ucf'])).toEqual(fails('nope.ucf does not exist'));
+      expect(await runMfTsc(root, ['nope.front'])).toEqual(fails('nope.front does not exist'));
     });
   });
 
@@ -368,7 +368,7 @@ describe('mf-tsc that cannot run', () => {
       const unknown = `tsconfig.json:${line}:${offset}: error TS5023: Unknown compiler option 'foo'.`;
       expect(await runMfTsc(root)).toEqual(fails(unknown));
       editFile(root, 'tsconfig.json', '"foo": true,', '"foo": true,\n    "bar": true,');
-      expect(await runMfTsc(root, ['ReactBreaks.ucf'])).toEqual(fails(`${unknown} (and 1 more)`));
+      expect(await runMfTsc(root, ['ReactBreaks.front'])).toEqual(fails(`${unknown} (and 1 more)`));
     });
   });
 

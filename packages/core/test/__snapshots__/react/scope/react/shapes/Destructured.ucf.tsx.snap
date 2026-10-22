@@ -1,7 +1,0 @@
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  type Props = { branch?: string }
-
-  export default function Destructured(__props: Props) {const { branch } = __props;
-    return <div {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("shape", __props.className)}><span className="inner">destructured {branch}</span></div>
-  }
