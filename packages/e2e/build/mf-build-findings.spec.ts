@@ -263,10 +263,10 @@ describe("mf-build on a type-only module with a component's exact name (M6 6.1 b
         expect(run.code).toBe(1);
         expect(report(run.stdout).findings).toEqual([
           {
-            file: 'src/Card.ts',
+            file: 'src/Card.front',
             code: 'name-clash',
             severity: 'error',
-            message: 'src/Card.ts and src/Card.front would both be written as Card.d.ts',
+            message: 'src/Card.front and src/Card.ts would both be written as Card.d.ts',
             framework,
           },
         ]);

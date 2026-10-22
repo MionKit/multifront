@@ -315,7 +315,7 @@ describe('buildLibrary() errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'buildLibrary: src/Badge.ts and src/Badge.front would both be written as Badge.js'
+        'buildLibrary: src/Badge.front and src/Badge.ts would both be written as Badge.js'
       );
     });
   });
