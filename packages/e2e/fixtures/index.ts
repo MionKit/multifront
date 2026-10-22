@@ -1,9 +1,11 @@
+import {execFile} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import {existsSync, readdirSync, readFileSync} from 'node:fs';
 import {cp, mkdir, mkdtemp, rename, rm, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {basename, dirname, join, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {promisify} from 'node:util';
 
 export const FIXTURES_DIR = dirname(fileURLToPath(import.meta.url));
 // Inside the repo, so a copied app still resolves vue, vite and the plugins from the root node_modules.
@@ -57,8 +59,8 @@ export function packagesIn(dir: string): string[] {
 }
 
 /** Outside the workspace so nothing resolves from above it; `without` = packages the library never installed. */
-export async function copyLibraryOutside(without: string[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), OUTSIDE_PREFIX));
+export async function copyLibraryOutside(without: string[], parent = tmpdir()): Promise<string> {
+  const root = await mkdtemp(join(parent, OUTSIDE_PREFIX));
   try {
     await cp(LIBRARY_DIR, root, {recursive: true, filter: (source) => basename(source) !== 'node_modules'});
     const modules = join(root, 'node_modules');
@@ -76,6 +78,47 @@ export async function copyLibraryOutside(without: string[]): Promise<string> {
     throw err;
   }
   return root;
+}
+
+export interface CaseSensitiveFolder {
+  dir: string;
+  remove: () => Promise<void>;
+}
+
+const run = promisify(execFile);
+
+/** A temp folder where `Card.svelte` and `card.svelte` are two files: on macOS a mounted case-sensitive disk image. */
+export async function caseSensitiveFolder(): Promise<CaseSensitiveFolder> {
+  const dir = await mkdtemp(join(tmpdir(), 'mf-case-'));
+  await writeFile(join(dir, 'probe'), '');
+  if (!existsSync(join(dir, 'PROBE'))) return {dir, remove: () => rm(dir, {recursive: true, force: true})};
+  await rm(join(dir, 'probe'));
+  if (process.platform !== 'darwin') throw new Error(`${dir} ignores case: run this test on a case-sensitive file system`);
+  const image = `${dir}.sparseimage`;
+  const remove = async () => {
+    await run('hdiutil', ['detach', dir, '-force']).catch(() => undefined);
+    await rm(dir, {recursive: true, force: true});
+    await rm(image, {force: true});
+  };
+  try {
+    await run('hdiutil', [
+      'create',
+      '-size',
+      '256m',
+      '-type',
+      'SPARSE',
+      '-fs',
+      'Case-sensitive APFS',
+      '-volname',
+      'mf-case',
+      image,
+    ]);
+    await run('hdiutil', ['attach', '-nobrowse', '-noverify', '-mountpoint', dir, image]);
+  } catch (err) {
+    await remove();
+    throw err;
+  }
+  return {dir, remove};
 }
 
 /** A `copyLibrary()` or `copyLibraryOutside()` copy, or a temp out dir beside the first. */
