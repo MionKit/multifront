@@ -1,5 +1,5 @@
 import {readFileSync} from 'node:fs';
-import {writeFile} from 'node:fs/promises';
+import {rm, symlink, writeFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {SourceMapConsumer} from 'source-map-js';
 import type {RawSourceMap} from 'source-map-js';
@@ -150,6 +150,24 @@ describe('buildLibrary() defaults', () => {
         expect(built.results[0]!.files).toContain('index.js');
       } finally {
         await built.remove();
+      }
+    });
+  });
+
+  // macOS's temp folder is one: /var links to /private/var, and Vite hands the build real paths.
+  it('builds a library reached through a linked folder', async () => {
+    await withEditedLibrary([], async (root) => {
+      const link = `${root}-link`;
+      await symlink(root, link, 'dir');
+      try {
+        const built = await buildFixtureLibrary(link, {frameworks: ['react']});
+        try {
+          expect(resultOf(built.results, 'react').files).toContain('Card.js');
+        } finally {
+          await built.remove();
+        }
+      } finally {
+        await rm(link);
       }
     });
   });
