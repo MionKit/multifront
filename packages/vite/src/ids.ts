@@ -1,12 +1,12 @@
 import type {Target} from '@multifront/core';
 
-// After `X.ucf`, the module id of each target (spec 4.3); vue keeps the real path.
+// After `X.front`, the module id of each target (spec 4.3); vue keeps the real path.
 export const TARGET_SUFFIX: Record<Target, string> = {vue: '', react: '.react.tsx', svelte: '.svelte.svelte'};
 
-/** The Vue target's id is the bare `.ucf` path (spec 4.3). */
-export const VUE_INCLUDE = /\.ucf$/;
+/** The Vue target's id is the bare `.front` path (spec 4.3). */
+export const VUE_INCLUDE = /\.front$/;
 
-// Ids that can import a `.ucf` file, query included: `C.vue?vue&type=script&setup=true&lang.ts`.
+// Ids that can import a `.front` file, query included: `C.vue?vue&type=script&setup=true&lang.ts`.
 export const JS_LIKE = /\.(?:[cm]?[jt]sx?|vue|svelte)(?:\?|$)/;
 
 /** The targets whose id names no file on disk. */
@@ -19,6 +19,6 @@ export function splitId(id: string): {path: string; query: URLSearchParams} {
 }
 
 export function virtualTarget(path: string): {target: Target; file: string} | undefined {
-  const target = VIRTUAL_TARGETS.find((candidate) => path.endsWith(`.ucf${TARGET_SUFFIX[candidate]}`));
+  const target = VIRTUAL_TARGETS.find((candidate) => path.endsWith(`.front${TARGET_SUFFIX[candidate]}`));
   return target && {target, file: path.slice(0, -TARGET_SUFFIX[target].length)};
 }

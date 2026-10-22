@@ -1,0 +1,13 @@
+<vue lang="vue">
+  <script lang="ts">
+  export {default as AgainIcon} from '../imports/Icon.front' with {framework: 'vue'}
+  </script>
+
+  <script setup lang="ts">
+  import Icon from '../imports/Icon.front' with {framework: 'vue'}
+  </script>
+
+  <template>
+    <Icon />
+  </template>
+</vue>

@@ -1,6 +1,0 @@
-import "<fixtures>/components/invalid/CssSyntaxError.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  export default function Note(__props: { text: string }) {const { text } = __props;
-    return <p data-v-77c02d35="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("note", __props.className)}>{text}</p>
-  }

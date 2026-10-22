@@ -1,6 +1,0 @@
-<script>
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-let {...__ucfRest} = $props();
-</script>
-  <svelte:options runes />
-  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(`shape`, __ucfRest.class)}><span class="inner">options</span></p>

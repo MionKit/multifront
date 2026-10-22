@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let { label = 'escaped', ...__frontRest }: { label?: string } = $props()
+  </script>
+  <!-- Plain-text values Svelte escapes, beside the forwarding spread. -->
+  <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)} title={"a & b"} data-html={"<div>"} data-quote={"\"quoted\""} data-mixed="&amp; {label}"><span class="inner">{label}</span></p>

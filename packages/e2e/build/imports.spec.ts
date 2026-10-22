@@ -11,7 +11,7 @@ import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 import {expectNoAttribute, moduleReferences} from './lib/references.ts';
 
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
-const CARD = componentPath('Card.ucf');
+const CARD = componentPath('Card.front');
 // The module ids of spec 4.3.
 const TARGET_ID: Record<Target, string> = {react: `${CARD}.react.tsx`, vue: CARD, svelte: `${CARD}.svelte.svelte`};
 // Vite writes `/@fs` only before a file on disk; the react and svelte ids name none.
@@ -35,15 +35,15 @@ function projectOf(file: string): string {
   return dir;
 }
 
-// A `.ucf` row is served through its React module, the one that holds the block's imports.
+// A `.front` row is served through its React module, the one that holds the block's imports.
 function urlOf(file: string): string {
   const path = relative(projectOf(file), join(APP, file)).split(sep).join('/');
-  return `/${path}${file.endsWith('.ucf') ? '.react.tsx' : ''}`;
+  return `/${path}${file.endsWith('.front') ? '.react.tsx' : ''}`;
 }
 
 // Fast Refresh makes a React module import itself.
-function ucfImports(code: string, url: string) {
-  return moduleReferences(code).filter(({specifier}) => specifier.includes('.ucf') && specifier !== url);
+function frontImports(code: string, url: string) {
+  return moduleReferences(code).filter(({specifier}) => specifier.includes('.front') && specifier !== url);
 }
 
 function expectError(err: BuildError | undefined, loc: BuildError['loc'], file: string) {
@@ -52,7 +52,7 @@ function expectError(err: BuildError | undefined, loc: BuildError['loc'], file: 
   const source = readFileSync(filename, 'utf8');
   const rows = rowsOf(file);
   let expected: (Pick<Diagnostic, 'filename' | 'line' | 'column'> & {code: string})[];
-  if (file.endsWith('.ucf')) expected = checkBlocks(splitBlocks(source, filename));
+  if (file.endsWith('.front')) expected = checkBlocks(splitBlocks(source, filename));
   else {
     const {imports, errors} = rewriteImportAttributes(source, filename);
     expected = rows.map((row) => {
@@ -79,7 +79,7 @@ const TARGET_FILES = FILES.filter((file) => rowsOf(file).every(isTargetRow));
 const REACT_FILES = TARGET_FILES.filter((file) => rowsOf(file).every((row) => row.expect === 'react'));
 
 it('every importer of the app is a row file, or the one with no import', () => {
-  const importers = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|ucf)$/);
+  const importers = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|front)$/);
   expect(importers).toEqual([...FILES, NO_IMPORTS].sort());
   expect([...ERROR_FILES, ...TARGET_FILES].sort()).toEqual([...FILES].sort());
   expect(REACT_FILES).toContain(SSR_ENTRY);
@@ -116,24 +116,24 @@ describe('dev servers of the imports app', () => {
   const environment = (file: string, name: 'client' | 'ssr') => servers.get(projectOf(file))!.environments[name];
 
   for (const name of ['client', 'ssr'] as const) {
-    it.each(TARGET_FILES)(`%s: each .ucf import is its target's id, no attribute left (${name})`, async (file) => {
+    it.each(TARGET_FILES)(`%s: each .front import is its target's id, no attribute left (${name})`, async (file) => {
       const {code} = (await environment(file, name).transformRequest(urlOf(file)))!;
       expectNoAttribute(code);
-      const ucf = ucfImports(code, urlOf(file));
+      const front = frontImports(code, urlOf(file));
       const rows = rowsOf(file);
-      expect(ucf).toHaveLength(rows.length);
+      expect(front).toHaveLength(rows.length);
       rows.forEach((row, index) => {
         if (!isTargetRow(row)) throw new Error(`${row.file}:${row.line} is an error row`);
         expect(resolve(dirname(join(APP, row.file)), row.specifier)).toBe(CARD);
-        const [path, query = ''] = ucf[index]!.specifier.split('?');
+        const [path, query = ''] = front[index]!.specifier.split('?');
         expect(path, `${row.file}:${row.line}`).toBe(DEV_URL[row.expect]);
         expect(new URLSearchParams(query).has('framework')).toBe(false);
       });
     });
 
-    it(`${NO_IMPORTS} has no .ucf import (${name})`, async () => {
+    it(`${NO_IMPORTS} has no .front import (${name})`, async () => {
       const result = await environment(NO_IMPORTS, name).transformRequest(urlOf(NO_IMPORTS));
-      expect(ucfImports(result!.code, urlOf(NO_IMPORTS))).toEqual([]);
+      expect(frontImports(result!.code, urlOf(NO_IMPORTS))).toEqual([]);
     });
   }
 
@@ -146,7 +146,7 @@ describe('dev servers of the imports app', () => {
     const ssr = environment(SSR_ENTRY, 'ssr');
     if (!isRunnableDevEnvironment(ssr)) throw new Error('the ssr environment has no module runner');
     const {render} = (await ssr.runner.import(urlOf(SSR_ENTRY))) as {render: () => string};
-    const {filename, source} = readComponent('Card.ucf');
+    const {filename, source} = readComponent('Card.front');
     const root = projectOf(SSR_ENTRY);
     const ctx = await createBuildContext(splitBlocks(source, filename), {
       root,

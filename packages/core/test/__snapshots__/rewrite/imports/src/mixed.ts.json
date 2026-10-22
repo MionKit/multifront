@@ -1,18 +1,18 @@
 {
-  "code": "// Types keep one resolution per specifier, the last one (react) for both; the build follows each attribute.\nimport VueCard from '../../../components/Card.ucf?framework=vue';\nimport ReactCard from '../../../components/Card.ucf?framework=react';\n\nexport {ReactCard, VueCard};\n",
+  "code": "// Types keep one resolution per specifier, the last one (react) for both; the build follows each attribute.\nimport VueCard from '../../../components/Card.front?framework=vue';\nimport ReactCard from '../../../components/Card.front?framework=react';\n\nexport {ReactCard, VueCard};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 129,
-      "end": 159,
+      "end": 161,
       "framework": "vue"
     },
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
-      "start": 207,
-      "end": 237,
+      "specifier": "../../../components/Card.front",
+      "start": 209,
+      "end": 241,
       "framework": "react"
     }
   ],

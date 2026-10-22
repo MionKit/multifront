@@ -1,0 +1,6 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let { label = 'untyped', ...__frontRest } = $props()
+  </script>
+  <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`own`, __frontRest.class)}>{label}</p>

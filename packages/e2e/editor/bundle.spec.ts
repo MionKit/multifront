@@ -24,7 +24,7 @@ import {
 import {startLanguageServer, TSDK} from './lib/lsp.ts';
 import {addFile, bothHosts, breakSvelteMarkup, BROKEN} from './lib/tsc.ts';
 import type {LanguageServer} from './lib/lsp.ts';
-import {saveUcf} from './lib/svelte.ts';
+import {saveFront} from './lib/svelte.ts';
 import {E2E_DIR, locate, open, startTsserver} from './lib/tsserver.ts';
 import type {TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 import {packVsix, REPO_ROOT} from './lib/vsix.ts';
@@ -87,8 +87,10 @@ describe('the bundled server writes Svelte declarations on save', () => {
 
   it("the same files as emitSvelteTypes from source: svelte2tsx ran on the tsdk's TypeScript", async () => {
     const copy = resolve(app, '..', '..');
-    const outDir = join(copy, '.ucf', 'svelte');
-    expect(await saveUcf(server, join(copy, 'components', 'Panel.ucf'))).toMatch(/^multifront: wrote \d+ Svelte declarations/);
+    const outDir = join(copy, '.front', 'svelte');
+    expect(await saveFront(server, join(copy, 'components', 'Panel.front'))).toMatch(
+      /^multifront: wrote \d+ Svelte declarations/
+    );
     const direct = join(temp, 'svelte-direct');
     const expected = emitSvelteTypes({root: copy, outDir: direct}).map((file) => relative(direct, file));
     expect(expected.length).toBeGreaterThan(10);
@@ -213,14 +215,14 @@ describe("tsserver with the plugin pack and the project's own plugin: the first 
   });
 });
 
-describe('mf-tsc and the plugin pack alone, on the same broken .ucf files', () => {
-  // MarkupBreaks.ucf is Card.ucf as the milestone 7 exit test breaks it.
-  const files = ['ReactBreaks.ucf', 'VueBreaks.ucf', 'SvelteBreaks.ucf', 'MarkupBreaks.ucf'];
+describe('mf-tsc and the plugin pack alone, on the same broken .front files', () => {
+  // MarkupBreaks.front is Card.front as the milestone 7 exit test breaks it.
+  const files = ['ReactBreaks.front', 'VueBreaks.front', 'SvelteBreaks.front', 'MarkupBreaks.front'];
   let root: string;
 
   beforeAll(async () => {
     root = await copyApp(BROKEN);
-    addFile(root, 'MarkupBreaks.ucf', breakSvelteMarkup(readComponent('Card.ucf').source));
+    addFile(root, 'MarkupBreaks.front', breakSvelteMarkup(readComponent('Card.front').source));
   });
 
   afterAll(async () => {

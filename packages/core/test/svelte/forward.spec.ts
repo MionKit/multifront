@@ -9,8 +9,8 @@ import {removeRendered, renderBuild, startTags, svelte, svelteBuild} from './ren
 afterAll(removeRendered);
 
 const ROOTS_DIR = 'svelte/roots';
-const ROOTS_PARENT = join(FIXTURES_DIR, 'apps', 'all-targets', 'Roots.ucf');
-// The scope prop Roots.ucf's stamp passes each child, in dev.
+const ROOTS_PARENT = join(FIXTURES_DIR, 'apps', 'all-targets', 'Roots.front');
+// The scope prop Roots.front's stamp passes each child, in dev.
 const PARENT_SCOPE = `data-v-${scopeId(rootRelativePath(FIXTURES_DIR, ROOTS_PARENT), readFileSync(ROOTS_PARENT, 'utf8'), false)}`;
 
 const PARENT_CLASS = 'parent-extra';
@@ -36,50 +36,69 @@ type RootShape = {
 
 const ROOT_SHAPES: RootShape[] = (
   [
-    {fixture: 'EachRoot.ucf', problem: ['renders an {#each} block as its root'], renders: [{}]},
-    // The name `__ucfRest` is taken; `let {} = $props()` gains the rest.
-    {fixture: 'EmptyPropsRoot.ucf', from: '__ucfRest1', roots: 1, renders: [{}]},
+    {fixture: 'EachRoot.front', problem: ['renders an {#each} block as its root'], renders: [{}]},
+    // The name `__frontRest` is taken; `let {} = $props()` gains the rest.
+    {fixture: 'EmptyPropsRoot.front', from: '__frontRest1', roots: 1, renders: [{}]},
     // `<svelte:options runes />`, an empty instance script.
-    {fixture: 'EmptyScriptRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
+    {fixture: 'EmptyScriptRoot.front', from: '__frontRest', roots: 1, renders: [{}]},
     // Escaped once, as with no spread.
     {
-      fixture: 'EscapedRoot.ucf',
-      from: '__ucfRest',
+      fixture: 'EscapedRoot.front',
+      from: '__frontRest',
       roots: 1,
       renders: [{}],
       html: ['title="a &amp; b"', 'data-html="&lt;div>"', 'data-quote="&quot;quoted&quot;"', 'data-mixed="&amp; escaped"'],
     },
-    // Declares `__ucfScopeAttrs`: the helper is imported under the next free name.
-    {fixture: 'HelperClashRoot.ucf', from: '__ucfRest', helper: '__ucfScopeAttrs1', roots: 1, renders: [{}], html: ['clash own']},
+    // Declares `__frontScopeAttrs`: the helper is imported under the next free name.
+    {
+      fixture: 'HelperClashRoot.front',
+      from: '__frontRest',
+      helper: '__frontScopeAttrs1',
+      roots: 1,
+      renders: [{}],
+      html: ['clash own'],
+    },
     // A comment before the trailing comma of its `$props()` pattern, a `{@const}` beside a root.
-    {fixture: 'IfElseRoot.ucf', from: '__ucfRest', roots: 3, renders: [{branch: 'a'}, {branch: 'b'}, {branch: 'c'}]},
-    {fixture: 'LegacyRoot.ucf', problem: LEGACY, renders: [{}]},
+    {fixture: 'IfElseRoot.front', from: '__frontRest', roots: 3, renders: [{branch: 'a'}, {branch: 'b'}, {branch: 'c'}]},
+    {fixture: 'LegacyRoot.front', problem: LEGACY, renders: [{}]},
     // `$state` of a store, rune names as property names: still legacy.
-    {fixture: 'LegacyStoreRoot.ucf', problem: LEGACY, renders: [{}]},
+    {fixture: 'LegacyStoreRoot.front', problem: LEGACY, renders: [{}]},
     // An element root beside a text root; a line comment before the trailing comma.
-    {fixture: 'MultiRoot.ucf', problem: ['renders more than one root'], renders: [{}]},
+    {fixture: 'MultiRoot.front', problem: ['renders more than one root'], renders: [{}]},
     // Through `{#key}`, `<svelte:boundary>` and its `failed` snippet, `{#if}` and every `{#await}` branch.
-    {fixture: 'NestedRoot.ucf', from: 'props', roots: 5, renders: [{value: 'server'}]},
+    {fixture: 'NestedRoot.front', from: 'props', roots: 5, renders: [{value: 'server'}]},
     // No `$props()`: one is added.
-    {fixture: 'NoPropsRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
+    {fixture: 'NoPropsRoot.front', from: '__frontRest', roots: 1, renders: [{}]},
     // `<svelte:options runes />` and no script: one is added.
-    {fixture: 'OptionsRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
-    // Its root is another `.ucf` component, which takes the scope on.
-    {fixture: 'PassOnRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
+    {fixture: 'OptionsRoot.front', from: '__frontRest', roots: 1, renders: [{}]},
+    // Its root is another `.front` component, which takes the scope on.
+    {fixture: 'PassOnRoot.front', from: '__frontRest', roots: 1, renders: [{}]},
     // `let props = $props()` is its only rune.
-    {fixture: 'PropsOnlyRoot.ucf', from: 'props', roots: 1, renders: [{}]},
+    {fixture: 'PropsOnlyRoot.front', from: 'props', roots: 1, renders: [{}]},
     // `$props()` in the second declarator of a `const`.
-    {fixture: 'RestRoot.ucf', from: 'rest', roots: 1, renders: [{note: 'rest note'}]},
+    {fixture: 'RestRoot.front', from: 'rest', roots: 1, renders: [{note: 'rest note'}]},
     // `{:then props}` hides the props: an alias reads them.
-    {fixture: 'ShadowRoot.ucf', from: '__ucfProps', roots: 1, renders: [{}]},
+    {fixture: 'ShadowRoot.front', from: '__frontProps', roots: 1, renders: [{}]},
     // `$derived` beside svelte/store's `derived` is a rune.
-    {fixture: 'StoreDerivedRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}]},
-    {fixture: 'StringHandlerRoot.ucf', from: '__ucfRest', roots: 1, svelteError: 'attribute_invalid_event_handler', renders: []},
-    {fixture: 'SvelteElementRoot.ucf', from: '__ucfRest', roots: 1, renders: [{}, {tag: 'aside'}], html: ['title="a &amp; b"']},
+    {fixture: 'StoreDerivedRoot.front', from: '__frontRest', roots: 1, renders: [{}]},
+    {
+      fixture: 'StringHandlerRoot.front',
+      from: '__frontRest',
+      roots: 1,
+      svelteError: 'attribute_invalid_event_handler',
+      renders: [],
+    },
+    {
+      fixture: 'SvelteElementRoot.front',
+      from: '__frontRest',
+      roots: 1,
+      renders: [{}, {tag: 'aside'}],
+      html: ['title="a &amp; b"'],
+    },
     // No element root: nothing to forward to, nothing to warn about.
-    {fixture: 'TextRoot.ucf', unchanged: true, renders: []},
-    // Declares `__ucfWarnFragment`: the warning is imported under the next free name.
-    {fixture: 'WarnClashRoot.ucf', problem: ['renders more than one root'], warn: '__ucfWarnFragment1', renders: [{}]},
+    {fixture: 'TextRoot.front', unchanged: true, renders: []},
+    // Declares `__frontWarnFragment`: the warning is imported under the next free name.
+    {fixture: 'WarnClashRoot.front', problem: ['renders more than one root'], warn: '__frontWarnFragment1', renders: [{}]},
   ] satisfies RootShape[]
 ).map((row) => ({...row, fixture: `${ROOTS_DIR}/${row.fixture}`}));
 
@@ -91,8 +110,8 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
   const {
     fixture,
     from,
-    helper = '__ucfScopeAttrs',
-    warn = '__ucfWarnFragment',
+    helper = '__frontScopeAttrs',
+    warn = '__frontWarnFragment',
     roots,
     problem,
     unchanged,
@@ -102,7 +121,7 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
   } = row;
   const dev = await svelteBuild(fixture);
   const production = await svelteBuild(fixture, true);
-  const name = basename(fixture, '.ucf');
+  const name = basename(fixture, '.front');
 
   it(`builds in dev and in production, and Svelte compiles both ${svelteError ? `with its ${svelteError}` : 'with no warning'}`, () => {
     for (const {file, ctx} of [dev, production]) {
@@ -126,11 +145,11 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
     });
   } else if (problem) {
     it('forwards nothing, and warns in dev only, naming the file, why and the fix', () => {
-      const props = problem === LEGACY ? '$$props' : '__ucfRest';
+      const props = problem === LEGACY ? '$$props' : '__frontRest';
       const args = [name, ...problem].map((part) => JSON.stringify(part)).join(', ');
       expect(dev.file!.code).toContain(`${warn}(${props}, ${args})`);
-      for (const {file} of [dev, production]) expect(file!.code).not.toContain('__ucfScopeAttrs');
-      expect(production.file!.code).not.toMatch(/scope-attrs|__ucfRest/);
+      for (const {file} of [dev, production]) expect(file!.code).not.toContain('__frontScopeAttrs');
+      expect(production.file!.code).not.toMatch(/scope-attrs|__frontRest/);
       expect(production.file!.code).not.toContain(`${warn}(`);
     });
   } else {
@@ -139,7 +158,7 @@ describe.each(ROOT_SHAPES)('svelte.build forwarding of $fixture', async (row) =>
         // The root props a root lacks follow the props name.
         expect(file!.code.split(new RegExp(String.raw`\{\.\.\.${helper}\(${from}(?:, '\w+')*\)\}`))).toHaveLength(roots! + 1);
         expect(file!.code.split(`${helper}(`)).toHaveLength(roots! + 1);
-        expect(file!.code).not.toContain('__ucfWarnFragment');
+        expect(file!.code).not.toContain('__frontWarnFragment');
       }
     });
   }

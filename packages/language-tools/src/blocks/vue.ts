@@ -121,7 +121,7 @@ function editor(_block: Block, ctx: EditorContext): VirtualCode[] {
   return code ? [Object.assign(code, {id: 'vue'})] : [];
 }
 
-// Its mappings are already in `.ucf` offsets: the SFC code has the same length.
+// Its mappings are already in `.front` offsets: the SFC code has the same length.
 function types(_block: Block, ctx: EditorContext): EditorFile | undefined {
   const code = vueCode(ctx);
   const script = code && serviceScript(code);

@@ -19,7 +19,7 @@ export interface Script {
 }
 
 export function scriptsOf(fileName: string, source: string): Script[] {
-  if (fileName.endsWith('.ucf')) {
+  if (fileName.endsWith('.front')) {
     const split = splitBlocks(source, fileName);
     if (split.errors.length) throw new Error(`${fileName}: ${split.errors[0]!.message}`);
     const react = split.targets.react;
@@ -50,7 +50,7 @@ export function lineAt(source: string, offset: number): number {
 
 /** Names the script's language in a `lang.<x>` query, like a Vite sub-request. */
 export function scriptName(fileName: string, script: Script): string {
-  return /\.(ucf|vue|svelte)$/.test(fileName) ? `${fileName}?lang.${script.lang}` : fileName;
+  return /\.(front|vue|svelte)$/.test(fileName) ? `${fileName}?lang.${script.lang}` : fileName;
 }
 
 export function readImports(fileName: string): {imports: FoundImport[]; errors: FoundError[]} {

@@ -7,7 +7,7 @@ import {copyApp, readComponent, removeApp, saveFile} from '../fixtures/index.ts'
 import {hotUpdatesOf, withDevServer} from './lib/build.ts';
 import {runFreshDevServer, startViteCli, STOP_GRACE_MS} from './lib/freshProcess.ts';
 
-const counter = readComponent('Counter.ucf').source;
+const counter = readComponent('Counter.front').source;
 const OLD_COLOR = 'rgb(120, 40, 160)';
 
 let root: string;
@@ -16,7 +16,7 @@ let running: ReturnType<typeof startViteCli>[] = [];
 
 beforeEach(async () => {
   root = await copyApp('vue');
-  file = resolve(root, '..', '..', 'components', 'Counter.ucf');
+  file = resolve(root, '..', '..', 'components', 'Counter.front');
   // The CLI puts its dep cache beside the nearest package.json: this one is removed with the copy.
   await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
   return async () => {
@@ -45,7 +45,7 @@ function cli(args: string[], env: NodeJS.ProcessEnv) {
 }
 
 // plugin-vue's descriptor cache is module level: each case gets its own process so the cache starts empty.
-describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
+describe('a .front sub-request plugin-vue has no descriptor for', () => {
   it('is the first request to a fresh dev server and returns the scoped CSS', async () => {
     const vite = cli(['--port', '0'], {NODE_ENV: 'development'});
     const url = /Local:\s+(\S+)/.exec(await vite.waitForOutput(/Local:\s+http\S+/))![1]!;
@@ -64,7 +64,7 @@ describe('a .ucf sub-request plugin-vue has no descriptor for', () => {
     expect(code).toBe('');
   });
 
-  it('serves the new CSS after an in-process restart, when Counter.ucf changed on disk', async () => {
+  it('serves the new CSS after an in-process restart, when Counter.front changed on disk', async () => {
     const newColor = 'rgb(10, 20, 30)';
     const [, before, after] = await runFreshDevServer(root, [
       {env: 'client', request: `/@fs${file}`},
@@ -92,7 +92,7 @@ describe('the warm-up', () => {
     return {plugin, count: () => count};
   }
 
-  it('transforms Counter.ucf once when its sub-requests follow the module', async () => {
+  it('transforms Counter.front once when its sub-requests follow the module', async () => {
     const transforms = transformsOf(file);
     await withDevServer(root, {plugins: [transforms.plugin]}, async (server) => {
       await server.environments.client.transformRequest(`/@fs${file}`);
@@ -102,7 +102,7 @@ describe('the warm-up', () => {
     expect(transforms.count()).toBe(1);
   });
 
-  it('transforms Counter.ucf once for sub-requests that come first and together', async () => {
+  it('transforms Counter.front once for sub-requests that come first and together', async () => {
     const transforms = transformsOf(file);
     const codes = await withDevServer(root, {plugins: [transforms.plugin]}, (server) =>
       Promise.all([0, 1].map((index) => server.environments.client.transformRequest(styleUrl(index))))

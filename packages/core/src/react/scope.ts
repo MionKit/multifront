@@ -349,7 +349,7 @@ export function transformScope(
   const spread = new Set<Root>();
   const dev = !ctx.production;
   const helpers = new Set<string>();
-  const name = basename(ctx.filename, '.ucf');
+  const name = basename(ctx.filename, '.front');
   for (const {root, hop} of roots) {
     const isElement = root.type === 'JSXElement' && !elements.get(root.openingElement);
     if (isElement) {

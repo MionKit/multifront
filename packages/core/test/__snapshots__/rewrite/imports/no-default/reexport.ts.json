@@ -1,11 +1,11 @@
 {
-  "code": "export {default as ReactCard} from '../../../components/Card.ucf?framework=react';\n",
+  "code": "export {default as ReactCard} from '../../../components/Card.front?framework=react';\n",
   "imports": [
     {
       "kind": "reexport",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 35,
-      "end": 65,
+      "end": 67,
       "framework": "react"
     }
   ],

@@ -1,0 +1,6 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  // Spreading the props object on the root hands it every prop: nothing is added or merged.
+  export default function SpreadsProps(props: { title?: string }) {
+    return <div {...__frontScopeAttrs(props)} {...props} className="spreads">spreads</div>
+  }

@@ -1,0 +1,5 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  export default function Hello(__props: { name: string }) {const { name } = __props;
+    return <p {...__frontScopeAttrs(__props)} className={__props.className} style={__props.style} ref={__props.ref}>Hello, {name}!</p>
+  }

@@ -1,0 +1,19 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/EachBlock.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/EachBlock.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {rows = [{id: 1, cells: ['a', 'b']}, {id: 2, cells: []}], empty = [], ...__frontRest}: {
+      rows?: {id: number; cells: string[]}[]
+      empty?: string[]
+    } = $props()
+  </script>
+  <ul data-v-5ee0f785="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.list, __frontRest.class)}>
+    {#each rows as row, index (row.id)}
+      <li data-v-5ee0f785="" class={__frontStyle.row}>
+        {index}
+        {#each row.cells as cell}<span data-v-5ee0f785="" class={__frontStyle.cell}>{cell}</span>{:else}<em data-v-5ee0f785="" class={__frontStyle.cell}>No cells</em>{/each}
+      </li>
+    {/each}
+    {#each empty as item}<li data-v-5ee0f785="" class={__frontStyle.row}>{item}</li>{:else}<li data-v-5ee0f785="" class={__frontStyle.row}>Empty</li>{/each}
+  </ul>

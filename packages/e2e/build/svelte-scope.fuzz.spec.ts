@@ -1,4 +1,4 @@
-// Seeded fuzz of the Svelte scope stamping over generated real `.ucf` files, each beside its plain `.svelte` twin.
+// Seeded fuzz of the Svelte scope stamping over generated real `.front` files, each beside its plain `.svelte` twin.
 import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -26,7 +26,7 @@ import {
   caseAt,
   rootKind,
   shapeOf,
-  ucfSource,
+  frontSource,
   writeCase,
 } from './lib/svelteScopeFuzz.ts';
 import type {SvelteAction, SvelteCase} from './lib/svelteScopeFuzz.ts';
@@ -59,7 +59,7 @@ interface Run {
 type Forwarded = 'root' | 'maybe-root' | 'none';
 type Outcome = {usable: false; reason: string} | {usable: true; violations: Violation[]; forwarded?: Forwarded};
 
-type Kind = 'ucf' | 'plain';
+type Kind = 'front' | 'plain';
 type Entry = [SvelteCase, Kind];
 interface Html {
   head: string;
@@ -67,8 +67,8 @@ interface Html {
 }
 type Render = (name: string, kind: Kind) => Html;
 
-// The cases' Svelte ids, never Parent.ucf's.
-const CASE_ID = /\/Fuzz\d+(?:s\d+)?\.ucf\.svelte\.svelte$/;
+// The cases' Svelte ids, never Parent.front's.
+const CASE_ID = /\/Fuzz\d+(?:s\d+)?\.front\.svelte\.svelte$/;
 let builds = 0;
 
 function breaker(enforce: keyof Breaker, edit: Breaker[keyof Breaker]): Plugin {
@@ -98,7 +98,7 @@ async function buildEntries(run: Run, entries: Entry[]): Promise<Render> {
   ];
   const rows: string[] = [];
   entries.forEach(([{name}, kind], index) => {
-    lines.push(`import C${index} from './${name}${kind === 'ucf' ? `.ucf' with { framework: 'svelte' }` : `.svelte'`}`);
+    lines.push(`import C${index} from './${name}${kind === 'front' ? `.front' with { framework: 'svelte' }` : `.svelte'`}`);
     rows.push(`  ${JSON.stringify(`${name}:${kind}`)}: C${index},`);
   });
   lines.push(`const cases = {\n${rows.join('\n')}\n}`);
@@ -124,12 +124,12 @@ async function buildEntries(run: Run, entries: Entry[]): Promise<Render> {
   return module.renderCase;
 }
 
-// A failed build names the module: `Fuzz3.ucf…` is our Svelte id, `Fuzz3.svelte` the plain file.
+// A failed build names the module: `Fuzz3.front…` is our Svelte id, `Fuzz3.svelte` the plain file.
 function culpritOf(err: unknown, cases: SvelteCase[]): SvelteCase | undefined {
   const bundleError = err as Partial<Rolldown.BundleError>;
   for (const {id, message} of [bundleError, ...(bundleError.errors ?? [])] as Partial<Rolldown.RollupError>[]) {
     for (const text of [id, message]) {
-      const name = /(Fuzz\d+(?:s\d+)?)\.(?:ucf|svelte)\b/.exec(text ?? '')?.[1];
+      const name = /(Fuzz\d+(?:s\d+)?)\.(?:front|svelte)\b/.exec(text ?? '')?.[1];
       const fuzzCase = cases.find((candidate) => candidate.name === name);
       if (fuzzCase) return fuzzCase;
     }
@@ -142,13 +142,13 @@ async function checkAlone(run: Run, fuzzCase: SvelteCase): Promise<Outcome> {
   const fails = (kind: Kind) => buildEntries(run, [[fuzzCase, kind]]).then(() => undefined, firstLine);
   const plain = await fails('plain');
   if (plain) return {usable: false, reason: `the plain file does not build: ${plain}`};
-  const ucf = await fails('ucf');
-  if (ucf) return {usable: true, violations: [{rule: 'builds', message: `the .ucf file does not build: ${ucf}`}]};
+  const front = await fails('front');
+  if (front) return {usable: true, violations: [{rule: 'builds', message: `the .front file does not build: ${front}`}]};
   return checkRendered(
     run,
     fuzzCase,
     await buildEntries(run, [
-      [fuzzCase, 'ucf'],
+      [fuzzCase, 'front'],
       [fuzzCase, 'plain'],
     ])
   );
@@ -211,15 +211,15 @@ const withoutParentProps = (html: string) =>
     .replaceAll(` style="${PARENT_STYLE}"`, '')
     .replaceAll(`; ${PARENT_STYLE}"`, '"');
 
-function checkSameHtml(ucf: Html, plain: Html, stamp: string, parent: string): Violation[] {
+function checkSameHtml(front: Html, plain: Html, stamp: string, parent: string): Violation[] {
   const strip = (html: string) => html.replaceAll(` ${stamp}=""`, '').replaceAll(` ${parent}=""`, '');
   for (const part of ['head', 'body'] as const) {
-    const [ours, theirs] = [strip(ucf[part]), plain[part]]
+    const [ours, theirs] = [strip(front[part]), plain[part]]
       .map(withoutParentProps)
       .map((html) => html.replaceAll(LOAD_REPLAY, ''))
       .map(part === 'head' ? normalizeHead : (html: string) => html);
     if (ours !== theirs)
-      return [{rule: 'same-html', message: `the ${part} differs:\n    .ucf:   ${ours}\n    plain:  ${theirs}`}];
+      return [{rule: 'same-html', message: `the ${part} differs:\n    .front:   ${ours}\n    plain:  ${theirs}`}];
   }
   return [];
 }
@@ -256,13 +256,13 @@ function checkRendered(run: Run, fuzzCase: SvelteCase, render: Render): Outcome 
   } catch (err) {
     return {usable: false, reason: `the plain file's render threw: ${firstLine(err)}`};
   }
-  let ucf: Html;
+  let front: Html;
   try {
-    ucf = render(fuzzCase.name, 'ucf');
+    front = render(fuzzCase.name, 'front');
   } catch (err) {
-    return {usable: true, violations: [{rule: 'same-html', message: `the .ucf render threw: ${firstLine(err)}`}]};
+    return {usable: true, violations: [{rule: 'same-html', message: `the .front render threw: ${firstLine(err)}`}]};
   }
-  const id = scopeId(rootRelativePath(run.dir, join(run.dir, `${fuzzCase.name}.ucf`)), ucfSource(fuzzCase), true);
+  const id = scopeId(rootRelativePath(run.dir, join(run.dir, `${fuzzCase.name}.front`)), frontSource(fuzzCase), true);
   const stamp = `data-v-${id}`;
   const parent = `data-v-${scopeId(rootRelativePath(run.dir, join(run.dir, PARENT_FILE)), PARENT_SOURCE, true)}`;
   const forwarded = forwardedOf(fuzzCase);
@@ -270,9 +270,9 @@ function checkRendered(run: Run, fuzzCase: SvelteCase, render: Render): Outcome 
     usable: true,
     forwarded,
     violations: [
-      ...checkStamps(ucf, stamp, parent),
-      ...checkSameHtml(ucf, plain, stamp, parent),
-      ...checkForwards(ucf, parent, forwarded),
+      ...checkStamps(front, stamp, parent),
+      ...checkSameHtml(front, plain, stamp, parent),
+      ...checkForwards(front, parent, forwarded),
     ],
   };
 }
@@ -288,7 +288,7 @@ async function checkCases(run: Run, cases: SvelteCase[]): Promise<Map<string, Ou
       render = await buildEntries(
         run,
         pending.flatMap((fuzzCase): Entry[] => [
-          [fuzzCase, 'ucf'],
+          [fuzzCase, 'front'],
           [fuzzCase, 'plain'],
         ])
       );
@@ -381,7 +381,7 @@ async function shrink(run: Run, input: SvelteCase, rule: Rule): Promise<SvelteCa
 }
 
 const showCase = (fuzzCase: SvelteCase) =>
-  `  ${fuzzCase.name} (${fuzzCase.legacy ? 'legacy' : 'runes'}), actions ${JSON.stringify(fuzzCase.applied)}:\n${ucfSource(fuzzCase)}\n  plain twin:\n${fuzzCase.plain}`;
+  `  ${fuzzCase.name} (${fuzzCase.legacy ? 'legacy' : 'runes'}), actions ${JSON.stringify(fuzzCase.applied)}:\n${frontSource(fuzzCase)}\n  plain twin:\n${fuzzCase.plain}`;
 
 const describeFailure = (failure: Failure) => describeKeptFailure(failure, SPEC_PATH, showCase);
 
@@ -443,7 +443,7 @@ describe('svelte scope stamping fuzz', () => {
   // Each rule is proven live: a hand-broken output must make it fail, with a seed and a shrunk input.
   describe('negative controls', () => {
     const STAMP = / data-v-[0-9a-f]{8}=""/;
-    const SPREAD = / \{\.\.\.__ucfScopeAttrs\(\w+(?:, '\w+')*\)\}/;
+    const SPREAD = / \{\.\.\.__frontScopeAttrs\(\w+(?:, '\w+')*\)\}/;
     const spreadOnLastStamp = (code: string) => {
       const spread = SPREAD.exec(code)?.[0];
       const last = [...code.matchAll(new RegExp(STAMP.source, 'g'))].at(-1);
@@ -463,7 +463,7 @@ describe('svelte scope stamping fuzz', () => {
         {pre: (code) => code.replace(/<meta(?= )/, (meta) => `${meta}${code.match(STAMP)?.[0] ?? ''}`)},
       ],
       ['an added text', 'same-html', {pre: (code) => `${code}\nbroken`}],
-      ['a renamed shorthand key', 'same-html', {pre: (code) => code.replace(/\$style: (__ucf\w+)/, '$1')}],
+      ['a renamed shorthand key', 'same-html', {pre: (code) => code.replace(/\$style: (__front\w+)/, '$1')}],
       ['a dropped forward', 'forwards', {pre: (code) => code.replace(SPREAD, '')}],
       // On the last stamped element, an inner one when the root has children.
       ['a forward on an inner element', 'forwards', {pre: (code) => spreadOnLastStamp(code)}],

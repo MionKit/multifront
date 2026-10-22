@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import Own from '../../../components/react/root-props/Own.ucf';
-import Badge from '../../../library/src/Badge.ucf';
-import Button from '../../../library/src/Button.ucf';
+import Own from '../../../components/react/root-props/Own.front';
+import Badge from '../../../library/src/Badge.front';
+import Button from '../../../library/src/Button.front';
 
 // Every root gets the parent's className, style and ref; each ref's element tag is written into the page.
 export default function App() {

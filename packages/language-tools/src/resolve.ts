@@ -11,11 +11,11 @@ import type {Diagnostic, Importer, ResolveTargetOptions, Target} from '@multifro
 import type * as ts from 'typescript';
 import {MAIN_SCRIPT_TARGET} from './languagePlugin.ts';
 import {isServedTarget, targetScriptName} from './targetScripts.ts';
-import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
+import type {TypeScript, FrontImportOptions, FrontResolution} from './types.ts';
 
 const PLUGIN_NAME = '@multifront/language-tools/typescript-plugin';
-// TypeScript looks for `Card.d.ucf.ts` when `./Card.ucf` has no TS extension; it stands for the `.ucf` file.
-const UCF_DECLARATION = '.d.ucf.ts';
+// TypeScript looks for `Card.d.front.ts` when `./Card.front` has no TS extension; it stands for the `.front` file.
+const FRONT_DECLARATION = '.d.front.ts';
 
 function propertyValue(ts: TypeScript, object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
   for (const property of object.properties) {
@@ -49,28 +49,28 @@ const rewrites = new WeakMap<ts.SourceFile, Pick<ReturnType<typeof rewriteImport
 function attributeError(literal: ts.StringLiteralLike, sourceFile: ts.SourceFile): Diagnostic | undefined {
   const {imports, errors} = rewrites.get(sourceFile) ?? rewriteImportAttributes(sourceFile.text, sourceFile.fileName);
   rewrites.set(sourceFile, {imports, errors});
-  // An error sits in the options of the last `.ucf` import before it; mid-resolution only plain fields like `end` are safe.
+  // An error sits in the options of the last `.front` import before it; mid-resolution only plain fields like `end` are safe.
   return errors.find(({start}) => imports.findLast(({end}) => end <= start)?.end === literal.end);
 }
 
-function ucfHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
+function frontHost(host: ts.ModuleResolutionHost): ts.ModuleResolutionHost {
   return {
     ...host,
     fileExists: (fileName) =>
-      host.fileExists(fileName.endsWith(UCF_DECLARATION) ? fileName.slice(0, -UCF_DECLARATION.length) + '.ucf' : fileName),
+      host.fileExists(fileName.endsWith(FRONT_DECLARATION) ? fileName.slice(0, -FRONT_DECLARATION.length) + '.front' : fileName),
   };
 }
 
-/** The framework of one `.ucf` import (spec 4.1, 4.2), and the file TypeScript reads for it. */
-export function resolveUcfImport(
+/** The framework of one `.front` import (spec 4.1, 4.2), and the file TypeScript reads for it. */
+export function resolveFrontImport(
   ts: TypeScript,
   literal: ts.StringLiteralLike,
   containingFile: string,
-  options: UcfImportOptions,
+  options: FrontImportOptions,
   sourceFile: ts.SourceFile // the importer's parse; the build's rewrite reads its text
-): UcfResolution {
-  // In tsserver a `.ucf` file's own script is its main target's block; `Card.ucf.vue.ts` is its `<vue>` block.
-  const importer: Importer = containingFile.endsWith('.ucf')
+): FrontResolution {
+  // In tsserver a `.front` file's own script is its main target's block; `Card.front.vue.ts` is its `<vue>` block.
+  const importer: Importer = containingFile.endsWith('.front')
     ? {fileName: containingFile, block: MAIN_SCRIPT_TARGET}
     : importerFromId(containingFile);
   // Block imports never go through the rewrite; a file that does not parse gets no rewrite error.
@@ -85,19 +85,19 @@ export function resolveUcfImport(
   if ('error' in choice) return {resolvedModule: undefined, error: choice.error};
   const {target} = choice;
   // No shared cache: the same specifier gets another answer from another importer.
-  const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, ucfHost(options.host));
-  if (!resolvedModule?.resolvedFileName.endsWith(UCF_DECLARATION)) return {resolvedModule, target};
-  const fileName = resolvedModule.resolvedFileName.slice(0, -UCF_DECLARATION.length) + '.ucf';
+  const {resolvedModule} = ts.resolveModuleName(literal.text, containingFile, options.compilerOptions, frontHost(options.host));
+  if (!resolvedModule?.resolvedFileName.endsWith(FRONT_DECLARATION)) return {resolvedModule, target};
+  const fileName = resolvedModule.resolvedFileName.slice(0, -FRONT_DECLARATION.length) + '.front';
   let split = options.getSplit(fileName);
   // No open buffer (a `tsc` host): the file as the host reads it.
   const source = split ? undefined : options.host.readFile(fileName);
   if (source !== undefined) split = splitBlocks(source, fileName);
-  let error: UcfResolution['error'];
+  let error: FrontResolution['error'];
   if (split && !split.targets[target]) {
     error = {code: 'missing-target-block', message: missingTargetBlockMessage(importer.fileName, fileName, target)};
   }
   const {isExternalLibraryImport} = resolvedModule;
-  // Another target's script, `Card.ucf.vue.ts`, is served beside the `.ucf` file's own; with no block it does not exist.
+  // Another target's script, `Card.front.vue.ts`, is served beside the `.front` file's own; with no block it does not exist.
   if (isServedTarget(target)) {
     if (error) return {resolvedModule: undefined, target, error};
     const resolvedFileName = targetScriptName(fileName, target);
@@ -107,24 +107,24 @@ export function resolveUcfImport(
   return {resolvedModule: {resolvedFileName: fileName, extension: ts.Extension.Tsx, isExternalLibraryImport}, target, error};
 }
 
-export const isUcfSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.ucf');
+export const isFrontSpecifier = (literal: ts.StringLiteralLike): boolean => literal.text.endsWith('.front');
 
 type ResolveLiterals = NonNullable<ts.CompilerHost['resolveModuleNameLiterals']>;
 
-export function withUcfResolution(
+export function withFrontResolution(
   ts: TypeScript,
   inner: ResolveLiterals,
-  importOptions: (compilerOptions: ts.CompilerOptions) => UcfImportOptions
+  importOptions: (compilerOptions: ts.CompilerOptions) => FrontImportOptions
 ): ResolveLiterals {
   return (literals, containingFile, redirected, compilerOptions, sourceFile, reused) => {
-    const others = literals.filter((literal) => !isUcfSpecifier(literal));
+    const others = literals.filter((literal) => !isFrontSpecifier(literal));
     if (others.length === literals.length)
       return inner(literals, containingFile, redirected, compilerOptions, sourceFile, reused);
     const resolved = others.length > 0 ? inner(others, containingFile, redirected, compilerOptions, sourceFile, reused) : [];
     const options = importOptions(compilerOptions);
     let next = 0;
     return literals.map((literal) =>
-      isUcfSpecifier(literal) ? resolveUcfImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
+      isFrontSpecifier(literal) ? resolveFrontImport(ts, literal, containingFile, options, sourceFile) : resolved[next++]!
     );
   };
 }

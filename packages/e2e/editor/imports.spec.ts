@@ -100,7 +100,7 @@ describe.each(SETUPS)('$name, on every row of the imports app, as the build reso
     expect(rewriteImportAttributes(edited.source, edited.filename).errors).toEqual([]);
     const revert = await edit(server, NON_LITERAL, last, `${last}\nconst = ;`);
     try {
-      const at = locate(NON_LITERAL.source, "'../../../components/Card.ucf'");
+      const at = locate(NON_LITERAL.source, "'../../../components/Card.front'");
       const diagnostics = onLine(await server.diagnostics(NON_LITERAL.filename), at.line);
       expect(diagnostics).toMatchObject([{code: 'no-target', source: 'multifront', category: 'error', start: at}]);
     } finally {

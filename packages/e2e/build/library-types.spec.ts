@@ -16,11 +16,11 @@ import {
 import type {BuiltLibrary} from './lib/library.ts';
 
 const TARGETS = ['react', 'vue'] as const;
-const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
-const FIELD = readFileSync(join(LIBRARY_DIR, 'src', 'forms', 'Field.ucf'), 'utf8');
+const CARD = readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8');
+const FIELD = readFileSync(join(LIBRARY_DIR, 'src', 'forms', 'Field.front'), 'utf8');
 // Only in Card's `<react>` block, and only in its `<vue>` block.
 const REACT_RETURN = '    return (\n';
-const REACT_IMPORTS = "  import type { ReactNode } from 'react'\n  import Icon from './Icon.ucf'\n";
+const REACT_IMPORTS = "  import type { ReactNode } from 'react'\n  import Icon from './Icon.front'\n";
 const VUE_PROPS = '  defineProps<{ title: string }>()\n';
 const OPTIONAL_PEERS = ['typescript', '@multifront/language-tools', 'vue-tsc'];
 
@@ -62,12 +62,12 @@ describe('buildLibrary(): .d.ts per target', () => {
     }
   });
 
-  it('leaves no .ucf, .tsx or .vue specifier in a .d.ts', () => {
+  it('leaves no .front, .tsx or .vue specifier in a .d.ts', () => {
     for (const target of TARGETS) {
       const result = resultOf(library.results, target);
       for (const file of result.files.filter((name) => name.endsWith('.d.ts'))) {
         const specifiers = typeSpecifiersOf(file, readOutput(result, file));
-        for (const specifier of specifiers) expect(specifier, `${target}/${file}`).not.toMatch(/\.(ucf|tsx|vue)$/);
+        for (const specifier of specifiers) expect(specifier, `${target}/${file}`).not.toMatch(/\.(front|tsx|vue)$/);
       }
     }
     expect(typeSpecifiersOf('index.d.ts', readOutput(resultOf(library.results, 'vue'), 'index.d.ts'))).toContain('./Card.js');
@@ -81,22 +81,22 @@ describe('buildLibrary(): .d.ts per target', () => {
     expect(await typeCheck('vue-tsc', checks, 'tsconfig.vue.json')).toBe('');
   });
 
-  it('fails the build on a type error in a <react> block, naming the .ucf file', async () => {
+  it('fails the build on a type error in a <react> block, naming the .front file', async () => {
     const card = edited(CARD, REACT_RETURN, `    const count: number = 'x'\n${REACT_RETURN}`);
-    await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
+    await withEditedLibrary([{file: 'src/Card.front', content: card}], async (root) => {
       const build = buildFixtureLibrary(root, {frameworks: ['react']});
-      await expect(build).rejects.toThrow('buildLibrary: the react types do not compile:\nsrc/Card.ucf: error TS2322');
+      await expect(build).rejects.toThrow('buildLibrary: the react types do not compile:\nsrc/Card.front: error TS2322');
       await expect(build).rejects.not.toThrow('.cache');
       await expect(build).rejects.not.toThrow('Card.tsx');
       expect(stagesLeft(root)).toEqual([]);
     });
   });
 
-  it('fails the build on a type error in a <vue> block, naming the .ucf file', async () => {
+  it('fails the build on a type error in a <vue> block, naming the .front file', async () => {
     const card = edited(CARD, VUE_PROPS, `${VUE_PROPS}  const count: number = 'x'\n`);
-    await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
+    await withEditedLibrary([{file: 'src/Card.front', content: card}], async (root) => {
       const build = buildFixtureLibrary(root, {frameworks: ['vue']});
-      await expect(build).rejects.toThrow('buildLibrary: the vue types do not compile:\nsrc/Card.ucf: error TS2322');
+      await expect(build).rejects.toThrow('buildLibrary: the vue types do not compile:\nsrc/Card.front: error TS2322');
       await expect(build).rejects.not.toThrow('.cache');
       await expect(build).rejects.not.toThrow('Card.vue');
       expect(stagesLeft(root)).toEqual([]);
@@ -120,7 +120,7 @@ describe('buildLibrary(): .d.ts per target', () => {
     );
     const types = "export type CardTone = 'info' | 'warn';\n";
     const edits = [
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/Card.front', content: card},
       {file: 'src/types.ts', content: types},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -138,7 +138,7 @@ describe('buildLibrary(): .d.ts per target', () => {
   it('names a syntax error the JS build never saw, in a module only imported for its types', async () => {
     const card = edited(CARD, REACT_IMPORTS, `${REACT_IMPORTS}  import type { CardTone } from './types.js'\n`);
     const edits = [
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/Card.front', content: card},
       {file: 'src/types.ts', content: 'export type CardTone = ;\n'},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -157,7 +157,7 @@ describe('buildLibrary(): .d.ts per target', () => {
     );
     const upper = 'export function upper(text) {\n  return text.toUpperCase();\n}\n';
     const edits = [
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/Card.front', content: card},
       {file: 'src/utils/upper.js', content: upper},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -169,9 +169,9 @@ describe('buildLibrary(): .d.ts per target', () => {
     });
   });
 
-  it('rewrites an escaped .ucf specifier by its value', async () => {
-    const card = edited(CARD, REACT_IMPORTS, REACT_IMPORTS.replace("'./Icon.ucf'", "'./Ic\\u006fn.ucf'"));
-    await withEditedLibrary([{file: 'src/Card.ucf', content: card}], async (root) => {
+  it('rewrites an escaped .front specifier by its value', async () => {
+    const card = edited(CARD, REACT_IMPORTS, REACT_IMPORTS.replace("'./Icon.front'", "'./Ic\\u006fn.front'"));
+    await withEditedLibrary([{file: 'src/Card.front', content: card}], async (root) => {
       await withBuilt(root, 'react', async (built) => {
         expect(resultOf(built.results, 'react').files).toContain('Card.d.ts');
       });
@@ -183,9 +183,9 @@ describe('buildLibrary(): .d.ts per target', () => {
     const field = edited(
       FIELD,
       vueProps,
-      "  import Icon from '../Icon.ucf'\n\n  defineProps<{ label: string; icon?: typeof Icon }>()\n"
+      "  import Icon from '../Icon.front'\n\n  defineProps<{ label: string; icon?: typeof Icon }>()\n"
     );
-    await withEditedLibrary([{file: 'src/forms/Field.ucf', content: field}], async (root) => {
+    await withEditedLibrary([{file: 'src/forms/Field.front', content: field}], async (root) => {
       await withBuilt(root, 'vue', async (built) => {
         const specifiers = typeSpecifiersOf('Field.d.ts', readOutput(resultOf(built.results, 'vue'), 'forms/Field.d.ts'));
         expect(specifiers).toContain('../Icon.js');
@@ -215,10 +215,10 @@ describe('buildLibrary(): .d.ts per target', () => {
     const card = edited(CARD, REACT_RETURN, `    const unused = 1\n${REACT_RETURN}`);
     const edits = [
       {file: 'tsconfig.json', content: tsconfig},
-      {file: 'src/Card.ucf', content: card},
+      {file: 'src/Card.front', content: card},
     ];
     await withEditedLibrary(edits, async (root) => {
-      await expect(buildFixtureLibrary(root, {frameworks: ['react']})).rejects.toThrow('src/Card.ucf: error TS6133');
+      await expect(buildFixtureLibrary(root, {frameworks: ['react']})).rejects.toThrow('src/Card.front: error TS6133');
     });
   });
 

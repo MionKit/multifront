@@ -11,37 +11,37 @@ import {loadServerModule, removeRendered, renderBuild, startTags, svelte, svelte
 
 const ERRORS_DIR = 'svelte/errors';
 const SHAPES_DIR = 'svelte/shapes';
-const ATTR_IN_SVELTE = 'svelte/imports/AttrInSvelte.ucf';
+const ATTR_IN_SVELTE = 'svelte/imports/AttrInSvelte.front';
 
 const NO_STYLE = '<svelte> uses $style, but no <style module> exists; add one';
 
 // Written by hand from the fixture files.
 const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' | 'column'> & {text: string})[]}[] = [
   // A script that does not parse hides its framework attribute: Svelte's error is the one.
-  {fixture: `${ERRORS_DIR}/ImportParseError.ucf`, errors: [{code: 'svelte-parse-error', line: 5, column: 2, text: ''}]},
+  {fixture: `${ERRORS_DIR}/ImportParseError.front`, errors: [{code: 'svelte-parse-error', line: 5, column: 2, text: ''}]},
   // `$:` and `$$props` are Svelte's own.
-  {fixture: `${ERRORS_DIR}/Legacy.ucf`, errors: []},
+  {fixture: `${ERRORS_DIR}/Legacy.front`, errors: []},
   // `$style` reads `module="style"` as `$name` reads `module="name"`.
-  {fixture: `${ERRORS_DIR}/ModuleNamedStyle.ucf`, errors: []},
+  {fixture: `${ERRORS_DIR}/ModuleNamedStyle.front`, errors: []},
   // Every kind of top-level store, `$`-named imports and types, property names, a `style` prop.
-  {fixture: `${ERRORS_DIR}/NamedModule.ucf`, errors: []},
-  {fixture: `${ERRORS_DIR}/Runes.ucf`, errors: []},
-  {fixture: `${ERRORS_DIR}/StyleInHead.ucf`, errors: []},
+  {fixture: `${ERRORS_DIR}/NamedModule.front`, errors: []},
+  {fixture: `${ERRORS_DIR}/Runes.front`, errors: []},
+  {fixture: `${ERRORS_DIR}/StyleInHead.front`, errors: []},
   // `($style as …)` is a use.
   {
-    fixture: `${ERRORS_DIR}/StyleWithoutModule.ucf`,
+    fixture: `${ERRORS_DIR}/StyleWithoutModule.front`,
     errors: [
       {code: 'missing-style-module', line: 3, column: 22, text: '$style'},
       {code: 'missing-style-module', line: 4, column: 22, text: '$style'},
       {code: 'missing-style-module', line: 7, column: 14, text: '$style'},
     ],
   },
-  {fixture: `${ERRORS_DIR}/TopLevelStyle.ucf`, errors: [{code: 'style-inside-target', line: 9, column: 2, text: '<style>'}]},
+  {fixture: `${ERRORS_DIR}/TopLevelStyle.front`, errors: [{code: 'style-inside-target', line: 9, column: 2, text: '<style>'}]},
   // Svelte reads `title</h2>` as `title < /h2>…`, a regular expression that never ends.
-  {fixture: `${ERRORS_DIR}/UnclosedBrace.ucf`, errors: [{code: 'svelte-parse-error', line: 5, column: 28, text: ''}]},
+  {fixture: `${ERRORS_DIR}/UnclosedBrace.front`, errors: [{code: 'svelte-parse-error', line: 5, column: 28, text: ''}]},
   // A computed key or member is a use.
   {
-    fixture: `${ERRORS_DIR}/WrongModuleName.ucf`,
+    fixture: `${ERRORS_DIR}/WrongModuleName.front`,
     errors: [
       {code: 'missing-style-module', line: 3, column: 20, text: '$theme'},
       {code: 'missing-style-module', line: 6, column: 14, text: '$style'},
@@ -98,14 +98,14 @@ describe('the <svelte> rules', () => {
 
   it('names the module, or the store, a $name lacks', async () => {
     const noTheme = '<svelte> uses $theme, but no <style module="theme"> or store named theme exists';
-    expect((await svelteBuild(`${ERRORS_DIR}/WrongModuleName.ucf`)).thrown.map(({message}) => message)).toEqual([
+    expect((await svelteBuild(`${ERRORS_DIR}/WrongModuleName.front`)).thrown.map(({message}) => message)).toEqual([
       noTheme,
       NO_STYLE,
       noTheme,
       noTheme,
       '<svelte> uses $constructor, but no <style module="constructor"> or store named constructor exists',
     ]);
-    expect((await svelteBuild(`${ERRORS_DIR}/StyleWithoutModule.ucf`)).thrown.map(({message}) => message)).toEqual([
+    expect((await svelteBuild(`${ERRORS_DIR}/StyleWithoutModule.front`)).thrown.map(({message}) => message)).toEqual([
       NO_STYLE,
       NO_STYLE,
       NO_STYLE,
@@ -113,19 +113,19 @@ describe('the <svelte> rules', () => {
   });
 
   it("passes on Svelte's own parse error text", async () => {
-    const [error] = (await svelteBuild(`${ERRORS_DIR}/UnclosedBrace.ucf`)).thrown;
+    const [error] = (await svelteBuild(`${ERRORS_DIR}/UnclosedBrace.front`)).thrown;
     expect(error!.message).toBe('<svelte> does not parse: Unterminated regular expression');
   });
 
   const OTHERS = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
-    .filter((name) => name.endsWith('.ucf') && !/^(svelte\/errors|svelte\/shapes|svelte\/roots|invalid)\//.test(name))
+    .filter((name) => name.endsWith('.front') && !/^(svelte\/errors|svelte\/shapes|svelte\/roots|invalid)\//.test(name))
     .filter((name) => name !== ATTR_IN_SVELTE)
     .filter((name) => /<svelte[\s>]/.test(readComponent(name).source))
     .sort();
 
   it('covers the other fixtures with a <svelte> block', () => {
-    expect(OTHERS).toEqual(expect.arrayContaining(['Card.ucf', 'react/AllBlocks.ucf', 'editor/GrammarEdges.ucf']));
+    expect(OTHERS).toEqual(expect.arrayContaining(['Card.front', 'react/AllBlocks.front', 'editor/GrammarEdges.front']));
   });
 
   it.each(OTHERS)('builds %s, and Svelte compiles it', async (name) => {
@@ -139,22 +139,24 @@ describe('the <svelte> rules', () => {
     const {split, source, thrown} = await svelteBuild(ATTR_IN_SVELTE);
     expect(split.errors).toEqual([]);
     expect(thrown.map(({code, line, column, start, end}) => ({code, line, column, text: source.slice(start, end)}))).toEqual([
-      {code: 'framework-in-block', line: 3, column: 71, text: "framework: 'svelte'"},
-      {code: 'framework-in-block', line: 8, column: 51, text: "framework: 'react'"},
-      {code: 'framework-in-block', line: 10, column: 58, text: "framework: 'svelte'"},
+      {code: 'framework-in-block', line: 3, column: 73, text: "framework: 'svelte'"},
+      {code: 'framework-in-block', line: 8, column: 53, text: "framework: 'react'"},
+      {code: 'framework-in-block', line: 10, column: 60, text: "framework: 'svelte'"},
     ]);
     expect(thrown.every(({message}) => message.includes('<svelte> block; imports there always get svelte'))).toBe(true);
     expect(checkBlocks(split)).toEqual(thrown);
   });
 
   // The one in markup is left to the post rewrite of the compiled module.
-  it.each(['svelte/imports/AttrInSvelteMarkup.ucf', 'svelte/imports/UsesReactOnly.ucf', 'Panel.ucf', 'imports/UsesIcon.ucf'])(
-    'reports no framework-in-block for %s',
-    (name) => {
-      const {filename, source} = readComponent(name);
-      expect(checkBlocks(splitBlocks(source, filename))).toEqual([]);
-    }
-  );
+  it.each([
+    'svelte/imports/AttrInSvelteMarkup.front',
+    'svelte/imports/UsesReactOnly.front',
+    'Panel.front',
+    'imports/UsesIcon.front',
+  ])('reports no framework-in-block for %s', (name) => {
+    const {filename, source} = readComponent(name);
+    expect(checkBlocks(splitBlocks(source, filename))).toEqual([]);
+  });
 });
 
 type Node = AST.BaseNode & Record<string, unknown>;
@@ -180,14 +182,14 @@ function offsetOf(text: string, line: number, column: number): number {
 }
 
 // Matches both our CSS imports and our class map imports.
-const IMPORT = String.raw`import (?:(__ucf\w+) from )?"([^"\n]*\?ucf&type=style&[^"\n]*)";`;
+const IMPORT = String.raw`import (?:(__front\w+) from )?"([^"\n]*\?front&type=style&[^"\n]*)";`;
 
 // The forwarding edits: the helper import, the spread, the added rest, the dev warning.
-const HELPER = String.raw`__ucf\w+(?: as __ucf\w+)?`;
+const HELPER = String.raw`__front\w+(?: as __front\w+)?`;
 const HELPER_IMPORT = String.raw`import \{${HELPER}(?:, ${HELPER})*\} from "virtual:multifront/scope-attrs";`;
 // The root-prop type the build writes into a `$props()` annotation or its added line.
 const ROOT_PROPS_TYPE = String.raw`\{(?:class|style)\?[^{}\n]*\}`;
-const FORWARD_LINE = String.raw`(?:(?:/\*\* @type \{${ROOT_PROPS_TYPE}\} \*/ )?let \{\.\.\.__ucfRest\d*\}(?:: ${ROOT_PROPS_TYPE})? = \$props\(\);|const __ucfProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__ucfWarnFragment\(.*\);)`;
+const FORWARD_LINE = String.raw`(?:(?:/\*\* @type \{${ROOT_PROPS_TYPE}\} \*/ )?let \{\.\.\.__frontRest\d*\}(?:: ${ROOT_PROPS_TYPE})? = \$props\(\);|const __frontProps\d* = \$derived\(\w+\);|;\(?(?:\(\) => )?__frontWarnFragment\(.*\);)`;
 
 function undoBuild(code: string, ctx: BuildContext): string {
   const names = new Map<string, string>();
@@ -199,16 +201,16 @@ function undoBuild(code: string, ctx: BuildContext): string {
   return (
     code
       .replaceAll(` data-v-${ctx.scopeId}=""`, '')
-      .replaceAll(/ \{\.\.\.__ucfScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/g, '')
-      // Before the rest goes: the added `let {...__ucfRest} = $props();` line is one of ours.
+      .replaceAll(/ \{\.\.\.__frontScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/g, '')
+      // Before the rest goes: the added `let {...__frontRest} = $props();` line is one of ours.
       .replace(new RegExp(String.raw`^<script>\n(?:${line}\n)*${line}\n</script>`), '')
       .replaceAll(new RegExp(String.raw`\n${line}`, 'g'), '')
-      .replaceAll(/(?:, | |)\.\.\.__ucfRest\d*(?=\s*\})/g, '')
+      .replaceAll(/(?:, | |)\.\.\.__frontRest\d*(?=\s*\})/g, '')
       .replaceAll(new RegExp(String.raw`: \(([\s\S]*?)\) & ${ROOT_PROPS_TYPE}`, 'g'), ': $1')
-      .replaceAll(/(class|style)=\{__ucf(?:SvelteClass|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
-      .replaceAll(/(\$\w+)=\{__ucf\w+\}/g, '{$1}')
-      .replaceAll(/(\$\w+): __ucf\w+/g, '$1')
-      .replaceAll(/__ucf\w+/g, (local) => names.get(local) ?? local)
+      .replaceAll(/(class|style)=\{__front(?:SvelteClass|Style)\d*\((.*?), \w+\.\1\)\}/g, '$1={$2}')
+      .replaceAll(/(\$\w+)=\{__front\w+\}/g, '{$1}')
+      .replaceAll(/(\$\w+): __front\w+/g, '$1')
+      .replaceAll(/__front\w+/g, (local) => names.get(local) ?? local)
   );
 }
 
@@ -225,27 +227,27 @@ type Shape = {fixture: string; script: 'module' | 'instance' | 'added'; child?: 
 
 const SHAPES: Shape[] = (
   [
-    {fixture: 'AttributeGt.ucf', script: 'added'},
-    {fixture: 'AwaitBlock.ucf', script: 'instance'},
+    {fixture: 'AttributeGt.front', script: 'added'},
+    {fixture: 'AwaitBlock.front', script: 'instance'},
     // Both scripts, `$style` in the module one: only there do the imports reach it.
-    {fixture: 'BothScripts.ucf', script: 'module'},
-    {fixture: 'Boundary.ucf', script: 'added'},
-    {fixture: 'CommentedTag.ucf', script: 'added'},
-    {fixture: 'Components.ucf', script: 'instance', child: true},
-    {fixture: 'EachBlock.ucf', script: 'instance'},
-    {fixture: 'Elements.ucf', script: 'instance'},
-    {fixture: 'IfBlock.ucf', script: 'instance'},
-    {fixture: 'KeyBlock.ucf', script: 'instance'},
-    {fixture: 'LessThan.ucf', script: 'instance'},
+    {fixture: 'BothScripts.front', script: 'module'},
+    {fixture: 'Boundary.front', script: 'added'},
+    {fixture: 'CommentedTag.front', script: 'added'},
+    {fixture: 'Components.front', script: 'instance', child: true},
+    {fixture: 'EachBlock.front', script: 'instance'},
+    {fixture: 'Elements.front', script: 'instance'},
+    {fixture: 'IfBlock.front', script: 'instance'},
+    {fixture: 'KeyBlock.front', script: 'instance'},
+    {fixture: 'LessThan.front', script: 'instance'},
     // An import in the instance script would not reach `$style` in `<script module>`.
-    {fixture: 'ModuleScriptOnly.ucf', script: 'module'},
-    {fixture: 'NoScript.ucf', script: 'added'},
-    {fixture: 'ScriptString.ucf', script: 'instance'},
-    {fixture: 'Slots.ucf', script: 'instance', child: true},
-    {fixture: 'Snippets.ucf', script: 'instance'},
-    {fixture: 'SpecialElements.ucf', script: 'instance'},
-    {fixture: 'SvelteComponent.ucf', script: 'instance', child: true},
-    {fixture: 'SvelteElement.ucf', script: 'instance'},
+    {fixture: 'ModuleScriptOnly.front', script: 'module'},
+    {fixture: 'NoScript.front', script: 'added'},
+    {fixture: 'ScriptString.front', script: 'instance'},
+    {fixture: 'Slots.front', script: 'instance', child: true},
+    {fixture: 'Snippets.front', script: 'instance'},
+    {fixture: 'SpecialElements.front', script: 'instance'},
+    {fixture: 'SvelteComponent.front', script: 'instance', child: true},
+    {fixture: 'SvelteElement.front', script: 'instance'},
   ] satisfies Shape[]
 ).map((row) => ({...row, fixture: `${SHAPES_DIR}/${row.fixture}`}));
 
@@ -310,7 +312,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
       for (const line of lines.filter((candidate) => !own.includes(candidate))) expect(line).toMatch(forwarding);
     }
     const other = script === 'module' ? scripts.instance : scripts.module;
-    expect(other ? file!.code.slice(other.start, other.end) : '').not.toMatch(/\?ucf&type=style&/);
+    expect(other ? file!.code.slice(other.start, other.end) : '').not.toMatch(/\?front&type=style&/);
   });
 
   it('maps the text after each stamp, and its forwarding spread, to the end of the element name, and each local to its $name', () => {
@@ -321,14 +323,14 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
       if (!attribute) return;
       // The spread, then the root props it adds.
       const spread =
-        /^ \{\.\.\.__ucfScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/.exec(file!.code.slice(attribute.end))?.[0] ?? '';
+        /^ \{\.\.\.__frontScopeAttrs\d*\(\w+(?:, '(?:class|style)')*\)\}/.exec(file!.code.slice(attribute.end))?.[0] ?? '';
       const original = originalPositionFor(map, locate(file!.code, attribute.end + spread.length));
       const {node: from} = before[index]!;
       const nameEnd = block.contentStart + from.start + 1 + (from.name as string).length;
       expect({line: original.line, column: original.column}).toEqual(locate(source, nameEnd));
     });
-    const imported = [...file!.code.matchAll(/^import (__ucf\w+) from /gm)].map(([, local]) => local);
-    const locals = [...file!.code.matchAll(/(?<![\w"])__ucf\w+\b(?! from)/g)].filter(([local]) => imported.includes(local));
+    const imported = [...file!.code.matchAll(/^import (__front\w+) from /gm)].map(([, local]) => local);
+    const locals = [...file!.code.matchAll(/(?<![\w"])__front\w+\b(?! from)/g)].filter(([local]) => imported.includes(local));
     expect(locals.length).toBeGreaterThan(0);
     for (const local of locals) {
       const original = originalPositionFor(map, locate(file!.code, local.index));
@@ -339,7 +341,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
 
   it('renders every element from the block with the scope once and only module class names', async () => {
     const props = child ? {Child: await childComponent()} : {};
-    const {body, head} = await renderBuild(file!, ctx, basename(fixture, '.ucf'), props);
+    const {body, head} = await renderBuild(file!, ctx, basename(fixture, '.front'), props);
     const tags = startTags(body, stamp);
     expect(tags.length).toBeGreaterThan(0);
     for (const {name, stamps} of tags) expect(stamps, name).toBe(1);
@@ -355,7 +357,7 @@ describe.each(SHAPES)('svelte.build of $fixture', async ({fixture, script, child
 
 describe('svelte.build of the other fixtures', () => {
   it('renames only the class maps: stores, runes, property, import, export and type names stay', async () => {
-    const {file} = await svelteBuild(`${ERRORS_DIR}/NamedModule.ucf`);
+    const {file} = await svelteBuild(`${ERRORS_DIR}/NamedModule.front`);
     const dollars = [...new Set(file!.code.match(/\$\w+/g))].sort();
     expect(dollars).toEqual(
       [
@@ -378,30 +380,30 @@ describe('svelte.build of the other fixtures', () => {
         '$user',
       ].sort()
     );
-    expect(file!.code.match(/__ucfClasses\b/g)).toHaveLength(3);
-    expect(file!.code.match(/__ucfStyle\b/g)).toHaveLength(2);
+    expect(file!.code.match(/__frontClasses\b/g)).toHaveLength(3);
+    expect(file!.code.match(/__frontStyle\b/g)).toHaveLength(2);
     // No `<style scoped>`: no stamp.
     expect(file!.code).not.toContain('data-v-');
   });
 
   it('gives the local a number suffix when the block already uses its name', async () => {
-    const {file} = await svelteBuild(`${SHAPES_DIR}/Elements.ucf`);
-    expect(file!.code).toMatch(/^import __ucfStyle1 from /m);
-    expect(file!.code).toContain("const __ucfStyle = 'own'");
-    expect(file!.code).toContain('class={__ucfSvelteClass(__ucfStyle1.card, __ucfRest.class)}');
+    const {file} = await svelteBuild(`${SHAPES_DIR}/Elements.front`);
+    expect(file!.code).toMatch(/^import __frontStyle1 from /m);
+    expect(file!.code).toContain("const __frontStyle = 'own'");
+    expect(file!.code).toContain('class={__frontSvelteClass(__frontStyle1.card, __frontRest.class)}');
   });
 
   it('leaves a block with nothing to import or stamp, and no rune or legacy syntax, as written', async () => {
     for (const production of [false, true]) {
-      const {split, ctx, file} = await svelteBuild('svelte/NoStyle.ucf', production);
+      const {split, ctx, file} = await svelteBuild('svelte/NoStyle.front', production);
       expect(ctx.styles).toEqual([]);
       expect(file!.code).toBe(split.targets.svelte!.content);
     }
   });
 
   it('gives $style the module="style" class map when there is no bare <style module>', async () => {
-    const {ctx, file} = await svelteBuild(`${ERRORS_DIR}/ModuleNamedStyle.ucf`);
-    expect(file!.code).toContain(`import __ucfStyle from ${JSON.stringify(classMapId(ctx.filename, 0))};`);
+    const {ctx, file} = await svelteBuild(`${ERRORS_DIR}/ModuleNamedStyle.front`);
+    expect(file!.code).toContain(`import __frontStyle from ${JSON.stringify(classMapId(ctx.filename, 0))};`);
   });
 });
 
@@ -409,20 +411,20 @@ describe('svelte.build of the other fixtures', () => {
 describe('svelteEditorSource matches the rename of build()', () => {
   const FIXTURES = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
     .map((name) => name.split(sep).join('/'))
-    .filter((name) => name.endsWith('.ucf') && !name.startsWith('invalid/'))
+    .filter((name) => name.endsWith('.front') && !name.startsWith('invalid/'))
     .filter((name) => /<svelte[\s>]/.test(readComponent(name).source))
     .sort();
   // build() rejects these, so they have no rename to ship.
   const REJECTED = [
-    `${ERRORS_DIR}/ImportParseError.ucf`,
-    `${ERRORS_DIR}/StyleWithoutModule.ucf`,
-    `${ERRORS_DIR}/TopLevelStyle.ucf`,
-    `${ERRORS_DIR}/UnclosedBrace.ucf`,
-    `${ERRORS_DIR}/WrongModuleName.ucf`,
+    `${ERRORS_DIR}/ImportParseError.front`,
+    `${ERRORS_DIR}/StyleWithoutModule.front`,
+    `${ERRORS_DIR}/TopLevelStyle.front`,
+    `${ERRORS_DIR}/UnclosedBrace.front`,
+    `${ERRORS_DIR}/WrongModuleName.front`,
     ATTR_IN_SVELTE,
   ];
 
-  // `<.ucf offset> <local>` for each use of a class map local in `code`, read back through its map.
+  // `<.front offset> <local>` for each use of a class map local in `code`, read back through its map.
   function uses(code: string, map: TraceMap, locals: string[], source: string): string[] {
     const found: string[] = [];
     for (const local of locals) {
@@ -435,7 +437,9 @@ describe('svelteEditorSource matches the rename of build()', () => {
   }
 
   it('covers the shared fixtures and the svelte/ ones', () => {
-    expect(FIXTURES).toEqual(expect.arrayContaining(['Panel.ucf', 'PanelItem.ucf', 'Counter.ucf', `${SHAPES_DIR}/Elements.ucf`]));
+    expect(FIXTURES).toEqual(
+      expect.arrayContaining(['Panel.front', 'PanelItem.front', 'Counter.front', `${SHAPES_DIR}/Elements.front`])
+    );
   });
 
   it.each(FIXTURES)('%s', async (name) => {
@@ -444,7 +448,7 @@ describe('svelteEditorSource matches the rename of build()', () => {
     const renamed = svelteEditorSource(split.targets.svelte!, split, svelte, ctx.modules);
 
     const ids = new Set(Object.values(ctx.modules).map(({id}) => id));
-    const imported = [...built.code.matchAll(/^import (__ucf\w+) from "([^"]+)";$/gm)].filter(([, , id]) => ids.has(id!));
+    const imported = [...built.code.matchAll(/^import (__front\w+) from "([^"]+)";$/gm)].filter(([, , id]) => ids.has(id!));
     const builtLocals = Object.fromEntries(imported.map(([, local, id]) => [id!, local!]));
     const renamedLocals = Object.fromEntries([...renamed.locals].map(([module, local]) => [module.id, local]));
     expect(renamedLocals).toEqual(builtLocals);

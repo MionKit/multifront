@@ -10,15 +10,15 @@ import {BREAKS, line, span} from './lib/tsc.ts';
 import {REPO_ROOT} from './lib/vsix.ts';
 
 const CONFIG = 'tsconfig.fixtures.json';
-const CARD = 'components/Card.ucf';
+const CARD = 'components/Card.front';
 const FOLDER = 'apps/types-every-target';
 const RUNS = 5;
 
 // Type-checked, but broken on purpose for oxlint.
 const LINT_LEFT_OUT = {
-  'components/TsxEdges.ucf': "no-useless-escape: the '<\\/react>' string core/test/split.spec.ts pins",
-  'components/react/errors/NoDefault.ucf': 'no-unused-vars: the component with no default export blocks/react.spec.ts pins',
-  'components/svelte/roots/EmptyPropsRoot.ucf': 'no-empty-pattern: the `let {} = $props()` svelte/forward.spec.ts pins',
+  'components/TsxEdges.front': "no-useless-escape: the '<\\/react>' string core/test/split.spec.ts pins",
+  'components/react/errors/NoDefault.front': 'no-unused-vars: the component with no default export blocks/react.spec.ts pins',
+  'components/svelte/roots/EmptyPropsRoot.front': 'no-empty-pattern: the `let {} = $props()` svelte/forward.spec.ts pins',
 };
 
 type Report = BinReport<Record<string, unknown>>;
@@ -29,8 +29,8 @@ function gateConfig(root: string): typescript.ParsedCommandLine {
     ...typescript.sys,
     onUnRecoverableConfigFileDiagnostic: (error: typescript.Diagnostic) => void errors.push(error),
   };
-  const ucf = [{extension: 'ucf', isMixedContent: true, scriptKind: typescript.ScriptKind.Deferred}];
-  const parsed = typescript.getParsedCommandLineOfConfigFile(join(root, CONFIG), {}, host, undefined, undefined, ucf);
+  const front = [{extension: 'front', isMixedContent: true, scriptKind: typescript.ScriptKind.Deferred}];
+  const parsed = typescript.getParsedCommandLineOfConfigFile(join(root, CONFIG), {}, host, undefined, undefined, front);
   errors.push(...(parsed?.errors ?? []));
   if (!parsed || errors.length > 0) {
     const messages = errors.map(({messageText}) => typescript.flattenDiagnosticMessageText(messageText, ' '));
@@ -39,9 +39,9 @@ function gateConfig(root: string): typescript.ParsedCommandLine {
   return parsed;
 }
 
-function gateUcfFiles(root: string): string[] {
+function gateFrontFiles(root: string): string[] {
   return gateConfig(root)
-    .fileNames.filter((file) => file.endsWith('.ucf'))
+    .fileNames.filter((file) => file.endsWith('.front'))
     .map((file) => relative(root, file).split('\\').join('/'))
     .filter((file) => !Object.hasOwn(LINT_LEFT_OUT, file))
     .sort();
@@ -75,8 +75,8 @@ describe('the fixtures gate', () => {
     expectClean(await runTsc(FIXTURES_DIR));
   });
 
-  it("mf-lint: every valid fixture's .ucf file has no oxlint error under the repo's .oxlintrc.json", async () => {
-    expectClean(await runLint(FIXTURES_DIR, gateUcfFiles(FIXTURES_DIR)));
+  it("mf-lint: every valid fixture's .front file has no oxlint error under the repo's .oxlintrc.json", async () => {
+    expectClean(await runLint(FIXTURES_DIR, gateFrontFiles(FIXTURES_DIR)));
   });
 
   it('fails once a fixture has a type error and an oxlint error', async () => {
@@ -88,10 +88,10 @@ describe('the fixtures gate', () => {
       const config = JSON.parse(await readFile(join(REPO_ROOT, '.oxlintrc.json'), 'utf8')) as Record<string, unknown>;
       delete config.ignorePatterns;
       await writeFile(join(root, '.oxlintrc.json'), JSON.stringify(config));
-      const broken = await readFile(join(FIXTURES_DIR, 'apps', 'types-broken', 'ReactBreaks.ucf'), 'utf8');
+      const broken = await readFile(join(FIXTURES_DIR, 'apps', 'types-broken', 'ReactBreaks.front'), 'utf8');
       const added = broken.replace('return <Label text={42} />', 'debugger;\n    return <Label text={42} />');
-      await writeFile(join(root, 'components', 'ReactBreaks.ucf'), added);
-      const file = 'components/ReactBreaks.ucf';
+      await writeFile(join(root, 'components', 'ReactBreaks.front'), added);
+      const file = 'components/ReactBreaks.front';
 
       const tsc = await runTsc(root);
       expect({code: tsc.code, stderr: tsc.stderr}).toEqual({code: 1, stderr: ''});
@@ -99,7 +99,7 @@ describe('the fixtures gate', () => {
       const errors = (JSON.parse(tsc.stdout) as Report).findings.filter(({severity}) => severity === 'error');
       expect(errors).toEqual([{...BREAKS.finding(file), ...at}]);
 
-      const lint = await runLint(root, gateUcfFiles(root));
+      const lint = await runLint(root, gateFrontFiles(root));
       expect({code: lint.code, stderr: lint.stderr}).toEqual({code: 1, stderr: ''});
       expect((JSON.parse(lint.stdout) as Report).findings).toEqual([
         expect.objectContaining({file, code: 'eslint(no-debugger)', severity: 'error', block: 'react'}),
@@ -110,7 +110,7 @@ describe('the fixtures gate', () => {
   });
 
   it('times one file, one folder and every fixture: the median of 5 fresh runs each', {timeout: 300_000}, async () => {
-    const files = gateUcfFiles(FIXTURES_DIR);
+    const files = gateFrontFiles(FIXTURES_DIR);
     const times = {
       [`mf-tsc ${CARD}`]: await median(() => runTsc(FIXTURES_DIR, [CARD])),
       [`mf-tsc ${FOLDER}`]: await median(() => runTsc(FIXTURES_DIR, [FOLDER])),

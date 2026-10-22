@@ -1,0 +1,12 @@
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  import type { Ref } from 'react'
+
+  type Props = { branch?: string; ref?: Ref<HTMLElement>; title?: string }
+
+  // `rest` holds every other prop: spread on a root, it hands that root all of them.
+  export default function BodyDestructure(props: Props) {
+    const { ref, branch, ...rest } = props
+    if (branch === 'rest') return <div {...__frontScopeAttrs(props)} {...rest}>rest</div>
+    return <p {...__frontScopeAttrs(props)} className={props.className} style={props.style} ref={ref as Ref<HTMLParagraphElement>}>plain</p>
+  }

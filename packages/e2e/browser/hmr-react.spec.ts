@@ -9,7 +9,7 @@ import {scopeAttribute} from './lib/scope.ts';
 import {startDev} from './lib/serve.ts';
 
 const COUNTER = '[data-demo="counter"]';
-// The demo's Vue island mounts the same Counter.ucf.
+// The demo's Vue island mounts the same Counter.front.
 const VUE_COUNTER = '#vue';
 const POLL = {timeout: 10_000};
 
@@ -27,8 +27,8 @@ const edit = (from: string, to: string) => editFile(requests, counterFile, from,
 beforeAll(async () => {
   browser = await launchChromium();
   root = await copyApp('demo');
-  // The copy imports `../../../components/Counter.ucf` from `src/App.tsx`.
-  counterFile = resolve(root, '..', '..', 'components', 'Counter.ucf');
+  // The copy imports `../../../components/Counter.front` from `src/App.tsx`.
+  counterFile = resolve(root, '..', '..', 'components', 'Counter.front');
   app = await startDev(root);
   page = await browser.newPage();
   messages = collectConsole(page);
@@ -44,7 +44,7 @@ afterAll(async () => {
   if (root) await removeApp(root);
 });
 
-describe('HMR of a React .ucf component (demo, Counter clicked to 3)', () => {
+describe('HMR of a React .front component (demo, Counter clicked to 3)', () => {
   it('counts clicks', async () => {
     const button = page.locator(`${COUNTER} button`);
     for (let click = 0; click < 3; click++) await button.click();
@@ -62,7 +62,7 @@ describe('HMR of a React .ucf component (demo, Counter clicked to 3)', () => {
     const scoped = scopeAttribute(root!, counterFile, false).slice('data-v-'.length);
     expect(await page.locator(`${COUNTER} button`).textContent()).toBe('3');
     expect(requests.paths().sort()).toEqual([
-      `/@fs${counterFile}?ucf&type=style&index=0&lang.css`,
+      `/@fs${counterFile}?front&type=style&index=0&lang.css`,
       `/@fs${counterFile}?vue&type=style&index=0&scoped=${scoped}&lang.css`,
     ]);
   });

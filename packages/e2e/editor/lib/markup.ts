@@ -21,7 +21,7 @@ interface Completed {
 export function markupCompletions(getServer: () => LanguageServer, component: Component) {
   async function completeIn(source: string, cursor: number): Promise<Completed> {
     const server = getServer();
-    const document = await server.openTextDocument(component.filename, 'ucf');
+    const document = await server.openTextDocument(component.filename, 'front');
     const whole = (on: typeof document) => ({start: {line: 0, character: 0}, end: on.positionAt(on.getText().length)});
     const edited = await server.updateTextDocument(document.uri, [{range: whole(document), newText: source}]);
     try {

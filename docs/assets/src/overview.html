@@ -45,7 +45,7 @@
   <p class="sub">Every root block becomes a normal file that an existing tool already understands. We make those files and pick the tool. The framework compilers do the rest.</p>
 
   <div class="body">
-    <div class="file-head">Card.ucf <span class="ext">one source file</span></div>
+    <div class="file-head">Card.front <span class="ext">one source file</span></div>
     <div class="file card">
       <div class="blk k-style" style="top:12px"><div class="t">&lt;style module&gt;</div><pre>.card { padding: 1rem }</pre></div>
       <div class="blk k-react" style="top:180px"><div class="t">&lt;react&gt;</div><pre>export default function Card()
@@ -78,21 +78,21 @@
 
     <div class="lane k-style" style="top:0">
       <div class="kind"><span class="name">&lt;style&gt;</span><span class="tag">shared · first</span></div>
-      <div class="vfile"><div class="id">Card.ucf?ucf&amp;type=style<br>&amp;index=0&amp;<em>lang.css</em></div><div class="note">plus a class-map module for <code>$style</code></div></div>
+      <div class="vfile"><div class="id">Card.front?front&amp;type=style<br>&amp;index=0&amp;<em>lang.css</em></div><div class="note">plus a class-map module for <code>$style</code></div></div>
       <div class="tool"><div class="n">compileStyleAsync → Vite CSS</div><div class="d">Vue's style compiler: scoped, modules, scss / less. Every target gets the scope id, <code>$style</code> and the CSS.</div></div>
       <div class="arrow a1"></div><div class="arrow a2"></div>
     </div>
 
     <div class="lane k-react" style="top:168px">
       <div class="kind"><span class="name">&lt;react&gt;</span><span class="tag">target</span></div>
-      <div class="vfile"><div class="id">Card.ucf<em>.react.tsx</em></div><span class="pill">+ $style · scope stamp</span></div>
+      <div class="vfile"><div class="id">Card.front<em>.react.tsx</em></div><span class="pill">+ $style · scope stamp</span></div>
       <div class="tool"><div class="n">@vitejs/plugin-react</div><div class="d">JSX and TypeScript, Fast Refresh.</div></div>
       <div class="arrow a1"></div><div class="arrow a2"></div>
     </div>
 
     <div class="lane k-vue" style="top:336px">
       <div class="kind"><span class="name">&lt;vue&gt;</span><span class="tag">target</span></div>
-      <div class="vfile"><div class="id">Card.ucf <em>as SFC code</em></div><div class="note">real path, root styles put back in, so plugin-vue compiles them itself</div></div>
+      <div class="vfile"><div class="id">Card.front <em>as SFC code</em></div><div class="note">real path, root styles put back in, so plugin-vue compiles them itself</div></div>
       <div class="tool"><div class="n">@vitejs/plugin-vue</div>
         <div class="nested"><span class="lbl">Vue's own block pipeline runs here, unchanged</span><span class="m">?vue&amp;type=script</span><span class="m">template</span><span class="m">style</span></div></div>
       <div class="arrow a1"></div><div class="arrow a2"></div>
@@ -100,7 +100,7 @@
 
     <div class="lane k-svelte" style="top:504px">
       <div class="kind"><span class="name">&lt;svelte&gt;</span><span class="tag">target</span></div>
-      <div class="vfile"><div class="id">Card.ucf<em>.svelte.svelte</em></div><span class="pill">+ $style · scope stamp</span></div>
+      <div class="vfile"><div class="id">Card.front<em>.svelte.svelte</em></div><span class="pill">+ $style · scope stamp</span></div>
       <div class="tool"><div class="n">@sveltejs/vite-plugin-svelte</div><div class="d">The Svelte compiler. No Svelte &lt;style&gt;: CSS comes from the shared block.</div></div>
       <div class="arrow a1"></div><div class="arrow a2"></div>
     </div>

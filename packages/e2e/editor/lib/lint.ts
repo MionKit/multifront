@@ -4,7 +4,7 @@ import {expect} from 'vitest';
 import {byStart, diagnosticsOf} from './cases.ts';
 import {runMfLint} from './commands.ts';
 import type {BinReport} from './commands.ts';
-import {openUcf} from './lsp.ts';
+import {openFront} from './lsp.ts';
 import type {LanguageServer} from './lsp.ts';
 
 type Diagnostic = Awaited<ReturnType<typeof diagnosticsOf>>[number];
@@ -14,7 +14,7 @@ type LintPoint = Pick<Diagnostic, 'code' | 'range' | 'severity'>;
 
 /** The pulled oxlint diagnostics of `file`, its buffer first set to `text`. */
 export async function lintDiagnostics(server: LanguageServer, file: string, text?: string): Promise<Diagnostic[]> {
-  const items = await diagnosticsOf(server, await openUcf(server, file, text));
+  const items = await diagnosticsOf(server, await openFront(server, file, text));
   // oxlint lints the block files in parallel: their order is not the file's.
   return items.filter(({source}) => source === 'oxlint').sort(byStart);
 }

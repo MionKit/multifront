@@ -1,0 +1,10 @@
+
+  'use client'
+  'use strict';
+import "<fixtures>/components/react/Directives.front?front&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/react/Directives.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function Directives(__props) {
+    return <p {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass($style.note, __props.className)}>Two directives</p>;
+  }

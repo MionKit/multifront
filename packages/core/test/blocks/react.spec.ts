@@ -20,38 +20,38 @@ function check(name: string) {
 // Written by hand from the fixture files.
 const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' | 'column'> & {text: string})[]}[] = [
   {
-    fixture: 'react/errors/AttrInBlock.ucf',
+    fixture: 'react/errors/AttrInBlock.front',
     errors: [
-      {code: IN_BLOCK, line: 3, column: 45, text: "framework: 'vue'"},
-      {code: IN_BLOCK, line: 4, column: 66, text: `"framework": 'react'`},
-      {code: IN_BLOCK, line: 5, column: 60, text: "framework: 'svelte'"},
-      {code: IN_BLOCK, line: 6, column: 41, text: "framework: 'vue'"},
-      {code: IN_BLOCK, line: 12, column: 61, text: "framework: 'vue'"},
-      {code: IN_BLOCK, line: 13, column: 63, text: "'framework': pick()"},
-      {code: IN_BLOCK, line: 14, column: 65, text: 'framework'},
+      {code: IN_BLOCK, line: 3, column: 47, text: "framework: 'vue'"},
+      {code: IN_BLOCK, line: 4, column: 68, text: `"framework": 'react'`},
+      {code: IN_BLOCK, line: 5, column: 62, text: "framework: 'svelte'"},
+      {code: IN_BLOCK, line: 6, column: 43, text: "framework: 'vue'"},
+      {code: IN_BLOCK, line: 12, column: 63, text: "framework: 'vue'"},
+      {code: IN_BLOCK, line: 13, column: 65, text: "'framework': pick()"},
+      {code: IN_BLOCK, line: 14, column: 67, text: 'framework'},
     ],
   },
   {
-    fixture: 'react/errors/AttrNoDefault.ucf',
+    fixture: 'react/errors/AttrNoDefault.front',
     errors: [
       {code: 'react-no-default-export', line: 1, column: 0, text: '<react lang="tsx">'},
-      {code: IN_BLOCK, line: 2, column: 45, text: "framework: 'vue'"},
+      {code: IN_BLOCK, line: 2, column: 47, text: "framework: 'vue'"},
     ],
   },
   // No JSX, so the block also parses as a .ts file: the editor must not read it through the build's rewrite.
-  {fixture: 'react/errors/AttrNoJsx.ucf', errors: [{code: IN_BLOCK, line: 5, column: 61, text: 'framework'}]},
+  {fixture: 'react/errors/AttrNoJsx.front', errors: [{code: IN_BLOCK, line: 5, column: 63, text: 'framework'}]},
   {
-    fixture: 'react/errors/NamedOnly.ucf',
+    fixture: 'react/errors/NamedOnly.front',
     errors: [{code: 'react-no-default-export', line: 1, column: 0, text: '<react lang="tsx">'}],
   },
   {
-    fixture: 'react/errors/NoDefault.ucf',
+    fixture: 'react/errors/NoDefault.front',
     errors: [{code: 'react-no-default-export', line: 7, column: 0, text: '<react lang="tsx">'}],
   },
   // Column 38 counts the emoji as two UTF-16 units.
-  {fixture: 'react/errors/SyntaxError.ucf', errors: [{code: 'react-syntax-error', line: 4, column: 38, text: 'div'}]},
+  {fixture: 'react/errors/SyntaxError.front', errors: [{code: 'react-syntax-error', line: 4, column: 38, text: 'div'}]},
   {
-    fixture: 'react/errors/TwoSyntaxErrors.ucf',
+    fixture: 'react/errors/TwoSyntaxErrors.front',
     errors: [
       {code: 'react-syntax-error', line: 3, column: 21, text: 'div'},
       {code: 'react-syntax-error', line: 7, column: 22, text: 'i'},
@@ -60,13 +60,13 @@ const ERROR_CASES: {fixture: string; errors: (Pick<Diagnostic, 'code' | 'line' |
 ];
 
 const DEFAULT_FORMS: {fixture: string; form: string}[] = [
-  {fixture: 'react/default-forms/AsDefault.ucf', form: 'export { AsDefault as default }'},
-  {fixture: 'react/default-forms/DefaultArrow.ucf', form: 'export default () =>'},
-  {fixture: 'react/default-forms/DefaultClass.ucf', form: 'export default class DefaultClass extends Component'},
-  {fixture: 'react/default-forms/DefaultFrom.ucf', form: "export { default } from '../../Card.ucf'"},
-  {fixture: 'react/default-forms/DefaultFunction.ucf', form: 'export default function DefaultFunction()'},
-  {fixture: 'react/default-forms/DefaultIdentifier.ucf', form: 'export default DefaultIdentifier'},
-  {fixture: 'react/default-forms/DefaultMemo.ucf', form: 'export default memo(function DefaultMemo()'},
+  {fixture: 'react/default-forms/AsDefault.front', form: 'export { AsDefault as default }'},
+  {fixture: 'react/default-forms/DefaultArrow.front', form: 'export default () =>'},
+  {fixture: 'react/default-forms/DefaultClass.front', form: 'export default class DefaultClass extends Component'},
+  {fixture: 'react/default-forms/DefaultFrom.front', form: "export { default } from '../../Card.front'"},
+  {fixture: 'react/default-forms/DefaultFunction.front', form: 'export default function DefaultFunction()'},
+  {fixture: 'react/default-forms/DefaultIdentifier.front', form: 'export default DefaultIdentifier'},
+  {fixture: 'react/default-forms/DefaultMemo.front', form: 'export default memo(function DefaultMemo()'},
 ];
 
 describe('react.check', () => {
@@ -84,7 +84,7 @@ describe('react.check', () => {
       expect(found).toEqual(errors);
     });
 
-    it('gives the line and column of its start offset, in the .ucf file', () => {
+    it('gives the line and column of its start offset, in the .front file', () => {
       for (const diagnostic of diagnostics) {
         expect(diagnostic.filename).toBe(split.filename);
         const before = source.slice(0, diagnostic.start).split('\n');
@@ -112,7 +112,7 @@ describe('react.check', () => {
 
 const compiler = createRequire(import.meta.url)('@vue/compiler-sfc') as VueCompiler;
 
-// Hand-read from the fixtures; `tokens` sit at their .ucf line (1-based) and column (0-based, UTF-16).
+// Hand-read from the fixtures; `tokens` sit at their .front line (1-based) and column (0-based, UTF-16).
 // `modules` maps injection name to the <style> index it keeps; `foreign` is text of the other target blocks.
 const BUILD_CASES: {
   fixture: string;
@@ -123,7 +123,7 @@ const BUILD_CASES: {
   foreign?: string[];
 }[] = [
   {
-    fixture: 'Hello.ucf',
+    fixture: 'Hello.front',
     css: [],
     modules: {},
     tokens: [
@@ -134,7 +134,7 @@ const BUILD_CASES: {
   },
   {
     // `module="my-theme"` is no identifier: its CSS is imported, its class map is not.
-    fixture: 'editor/StyleModuleEdges.ucf',
+    fixture: 'editor/StyleModuleEdges.front',
     css: [0, 1, 2, 3],
     modules: {$style: 0, theme: 1, rows: 2},
     tokens: [
@@ -144,7 +144,7 @@ const BUILD_CASES: {
     ],
   },
   {
-    fixture: 'invalid/DuplicateStyleModule.ucf',
+    fixture: 'invalid/DuplicateStyleModule.front',
     css: [0, 1, 2, 3, 4],
     modules: {$style: 4, classes: 1},
     tokens: [
@@ -154,7 +154,7 @@ const BUILD_CASES: {
     ],
   },
   {
-    fixture: 'react/AllBlocks.ucf',
+    fixture: 'react/AllBlocks.front',
     css: [0, 1, 2],
     modules: {$style: 0, classes: 1},
     tokens: [
@@ -165,7 +165,7 @@ const BUILD_CASES: {
     foreign: ['all-blocks-vue-marker', 'all-blocks-svelte-marker', '<script', ':class=', 'class={'],
   },
   {
-    fixture: 'react/Directives.ucf',
+    fixture: 'react/Directives.front',
     css: [0],
     modules: {$style: 0},
     tokens: [
@@ -177,7 +177,7 @@ const BUILD_CASES: {
   },
   {
     // The moved pattern still maps to where it was written.
-    fixture: 'react/ScopedBadge.ucf',
+    fixture: 'react/ScopedBadge.front',
     css: [],
     modules: {},
     tokens: [
@@ -187,7 +187,7 @@ const BUILD_CASES: {
     ],
   },
   {
-    fixture: 'react/ScopedPanel.ucf',
+    fixture: 'react/ScopedPanel.front',
     css: [0],
     modules: {},
     tokens: [
@@ -198,7 +198,7 @@ const BUILD_CASES: {
     ],
   },
   {
-    fixture: 'react/Unicode.ucf',
+    fixture: 'react/Unicode.front',
     css: [0],
     modules: {$style: 0},
     tokens: [
@@ -208,7 +208,7 @@ const BUILD_CASES: {
     ],
   },
   {
-    fixture: 'react/UseClient.ucf',
+    fixture: 'react/UseClient.front',
     css: [0],
     modules: {$style: 0},
     tokens: [
@@ -274,7 +274,7 @@ describe('react.build', () => {
       for (const node of injected) expect(node.start).toBeGreaterThan(prologue.at(-1)?.end ?? -1);
     });
 
-    it('maps each marked token back to its line and column in the .ucf file', () => {
+    it('maps each marked token back to its line and column in the .front file', () => {
       expect(file.map!.sources).toEqual([filename]);
       expect(file.map!.sourcesContent).toEqual([source]);
       const map = new TraceMap(file.map!);

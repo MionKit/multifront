@@ -23,7 +23,7 @@ interface TargetJob extends LibraryPackageJob, Pick<LibraryResult, 'target' | 's
   row: LibraryTarget;
   src: string;
   entries: Record<string, string>;
-  sources: LibraryComponent[]; // the `.ucf` files with this target's block
+  sources: LibraryComponent[]; // the `.front` files with this target's block
 }
 
 // Overlapping calls share one swap: first in saves the caller's value, last out restores it.
@@ -50,7 +50,7 @@ export function defineLibrary(options: LibraryOptions): LibraryOptions {
 }
 
 async function scan(src: string): Promise<LibraryComponent[]> {
-  const names = (await readdir(src, {recursive: true})).filter((name) => name.endsWith('.ucf')).map(normalizePath);
+  const names = (await readdir(src, {recursive: true})).filter((name) => name.endsWith('.front')).map(normalizePath);
   return Promise.all(
     names.sort().map(async (name) => {
       const file = `${src}/${name}`;
@@ -112,7 +112,7 @@ function libraryPlugin({root, src, target, packageName, peers}: TargetJob): Plug
   };
 }
 
-/** The real files of `src` the build wrote, `.ucf` sub-modules counted as their file. */
+/** The real files of `src` the build wrote, `.front` sub-modules counted as their file. */
 function writtenModules(src: string, modules: Set<string>): Plugin {
   return {
     name: 'multifront:library-modules',
@@ -199,7 +199,7 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const frameworks = options.frameworks
     ? [...new Set(options.frameworks)]
     : TARGETS.filter((target) => withBlock(target).length > 0);
-  if (frameworks.length === 0) throw new Error(`buildLibrary: nothing to build, no .ucf file in ${src} has a framework block`);
+  if (frameworks.length === 0) throw new Error(`buildLibrary: nothing to build, no .front file in ${src} has a framework block`);
   // A JS config reaches here untyped.
   const unknown = frameworks.find((target) => !isTarget(target));
   if (unknown !== undefined) throw new Error(`buildLibrary: unknown framework '${unknown}'; use ${TARGETS.join(', ')}`);
@@ -208,7 +208,7 @@ export async function buildLibrary(options: LibraryOptions = {}): Promise<Librar
   const jobs = frameworks.map((target): TargetJob => {
     const row: LibraryTarget = libraryTargets[target];
     const withTargetBlock = withBlock(target);
-    if (withTargetBlock.length === 0) throw new Error(`buildLibrary: no .ucf file in ${src} has a <${target}> block`);
+    if (withTargetBlock.length === 0) throw new Error(`buildLibrary: no .front file in ${src} has a <${target}> block`);
     const packageName = options.packages?.[target]?.name ?? (rootName && `${rootName}-${target}`);
     if (!packageName) throw new Error(`buildLibrary: ${root}/package.json has no name; set packages.${target}.name`);
     const entries = Object.fromEntries(withTargetBlock.map((component) => [component.relative, `${src}/${component.relative}`]));

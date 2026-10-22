@@ -1,0 +1,35 @@
+import "<fixtures>/components/react/scope/FragmentImports.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs} from "virtual:multifront/scope-attrs";
+
+  // Build only: './other' does not exist. Each way an import binds React's Fragment, or does not.
+  import { default as R, 'Fragment' as Quoted, type Fragment as SpecFrag } from 'react'
+  import type { Fragment as TypeFrag } from 'react'
+  import * as React from 'react'
+  import { Fragment } from 'react'
+  import Card, { Fragment as Other } from './other'
+
+  function ShadowedByConst() {
+    const Fragment = Card
+    return <Fragment data-v-fe156357="" className="const-shadow" />
+  }
+
+  function ShadowedByParam(React: { Fragment: typeof Card }) {
+    return <React.Fragment data-v-fe156357="" className="param-shadow" />
+  }
+
+  export default function FragmentImports(__props) {
+    return (
+      <div data-v-fe156357="" {...__frontScopeAttrs(__props)} className={__props.className} style={__props.style} ref={__props.ref}>
+        <R.Fragment><span data-v-fe156357="">default as</span></R.Fragment>
+        <Quoted><span data-v-fe156357="">quoted</span></Quoted>
+        <SpecFrag data-v-fe156357="" />
+        <TypeFrag data-v-fe156357="" />
+        <Other data-v-fe156357="" />
+        <Fragment><span data-v-fe156357="">not shadowed here</span></Fragment>
+        <React.Fragment><span data-v-fe156357="">nor here</span></React.Fragment>
+        <ShadowedByConst data-v-fe156357="" />
+        <ShadowedByParam data-v-fe156357="" Fragment={Card} />
+        {[Card].map((Fragment) => <Fragment data-v-fe156357="" key="arrow-shadow" />)}
+      </div>
+    )
+  }

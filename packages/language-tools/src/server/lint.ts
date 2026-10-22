@@ -1,16 +1,16 @@
-/** oxlint findings on a `.ucf` file: what `mf-lint` reports, from the buffer (spec 6.1). */
+/** oxlint findings on a `.front` file: what `mf-lint` reports, from the buffer (spec 6.1). */
 import {basename, dirname} from 'node:path';
 import {DiagnosticSeverity} from '@volar/language-server';
 import type {Diagnostic, LanguageServer, LanguageServicePlugin} from '@volar/language-server';
 import {URI} from 'vscode-uri';
 import {workspaceRoot} from '../files.ts';
-import {lintUcf} from '../lint/index.ts';
-import {ucfRoot} from '../multifrontService.ts';
-import type {UcfLintDiagnostic} from '../types.ts';
+import {lintFront} from '../lint/index.ts';
+import {frontRoot} from '../multifrontService.ts';
+import type {FrontLintDiagnostic} from '../types.ts';
 
 const CONFIG_NAMES = new Set(['.oxlintrc.json', '.oxlintrc.jsonc']);
 
-const SEVERITY: Record<UcfLintDiagnostic['severity'], DiagnosticSeverity> = {
+const SEVERITY: Record<FrontLintDiagnostic['severity'], DiagnosticSeverity> = {
   error: DiagnosticSeverity.Error,
   warning: DiagnosticSeverity.Warning,
   advice: DiagnosticSeverity.Information,
@@ -37,16 +37,16 @@ export function lintService(server: LanguageServer): LanguageServicePlugin {
     create(context) {
       return {
         async provideDiagnostics(document): Promise<Diagnostic[] | undefined> {
-          if (document.languageId !== 'ucf') return undefined;
+          if (document.languageId !== 'front') return undefined;
           const source = context.decodeEmbeddedDocumentUri(URI.parse(document.uri))?.[0];
-          const root = ucfRoot(context, document.uri);
+          const root = frontRoot(context, document.uri);
           if (source?.scheme !== 'file' || !root) return undefined;
           const file = source.fsPath;
           const folder = workspaceRoot(file, server.workspaceFolders.all) ?? dirname(file);
           let diagnostics;
           try {
             // The buffer's split, not the file on disk.
-            diagnostics = await lintUcf([root.split], folder);
+            diagnostics = await lintFront([root.split], folder);
           } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
             if (failures.get(folder) !== reason) console.warn(`multifront: no linting in ${folder} (${reason})`);

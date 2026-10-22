@@ -1,0 +1,7 @@
+<react lang="tsx">
+  import Card from '../../../components/Card.front'
+
+  export default function Showcase() {
+    return <Card title="Hello" />
+  }
+</react>

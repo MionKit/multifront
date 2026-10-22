@@ -46,7 +46,7 @@ async function checkPage(root: string, url: string, production: boolean) {
     const response = await page.goto(url);
     const html = await response!.text();
     const scopeOf = (name: string) => scopeAttribute(root, resolve(root, '..', '..', 'components', name), production);
-    const [panel, item, counter] = [scopeOf('Panel.ucf'), scopeOf('PanelItem.ucf'), scopeOf('Counter.ucf')];
+    const [panel, item, counter] = [scopeOf('Panel.front'), scopeOf('PanelItem.front'), scopeOf('Counter.front')];
     expect(html).toContain(`<section ${panel}="" class="panel"`);
     // Panel forwards its scope to PanelItem's root, after PanelItem's own.
     expect(html).toContain(`<p ${item}="" ${panel}="" class="item"`);
@@ -99,7 +99,7 @@ describe('SvelteKit dev server', () => {
     if (root) await removeApp(root);
   });
 
-  it('renders .ucf sources on the server and hydrates them', async () => {
+  it('renders .front sources on the server and hydrates them', async () => {
     server = startViteDev(root!);
     await checkPage(root!, await server.url, false);
     expect(server.output()).not.toMatch(/error/i);
@@ -133,7 +133,7 @@ describe('SvelteKit build with adapter-node', () => {
     if (root) await removeApp(root);
   });
 
-  it('renders .ucf sources on the server and hydrates them', async () => {
+  it('renders .front sources on the server and hydrates them', async () => {
     await checkPage(root!, await server!.url, true);
   });
 });

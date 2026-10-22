@@ -1,0 +1,7 @@
+
+  <script>
+import {__frontScopeAttrs, __frontSvelteClass, __frontStyle} from "virtual:multifront/scope-attrs";
+    /** @type {{ label?: string }} */
+    let { label = 'jsdoc', ...__frontRest } = $props()
+  </script>
+  <p {...__frontScopeAttrs(__frontRest)} class={__frontSvelteClass(`own`, __frontRest.class)} style={__frontStyle(`padding: 1px`, __frontRest.style)}>{label}</p>

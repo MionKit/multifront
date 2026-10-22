@@ -1,4 +1,4 @@
-// Stamped.ucf renders a custom element, which React's JSX types do not know.
+// Stamped.front renders a custom element, which React's JSX types do not know.
 import type {HTMLAttributes} from 'react';
 
 declare module 'react' {

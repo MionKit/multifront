@@ -1,0 +1,48 @@
+import "<fixtures>/components/react/scope/Stamped.front?front&type=style&index=0&lang.css";
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+
+  import { Fragment, Fragment as Frag } from 'react'
+  import * as React from 'react'
+  import type { ReactNode } from 'react'
+
+  const ITEMS = ['one', 'two']
+  const identity = <T,>(value: T) => value
+
+  const Foo = { Bar: ({ children }: { children: ReactNode }) => <b data-v-458bc867="" className="member">{children}</b> }
+  // Not React's Fragment: a component like any other.
+  const Ui = { Fragment: ({ children }: { children: ReactNode }) => <em data-v-458bc867="" className="lookalike">{children}</em> }
+
+  function List<Item extends string>({ items }: { items: Item[] }) {
+    return <ol data-v-458bc867="" className="list">{items.map((item) => <li data-v-458bc867="" key={item}>{item}</li>)}</ol>
+  }
+
+  export default function Stamped(__props) {
+    const count = 1
+    const limit = 2
+    const less = count < limit
+    // Each named fragment is a sole child once: only there does React check Fragment props on mount.
+    return (
+      (__frontWarnFragment(__props, "Stamped"), <>
+        <div data-v-458bc867="" className="box">
+          <p data-v-458bc867="" className="text">{identity(String(less))}</p>
+          <svg data-v-458bc867="" className="icon" width="10" height="10">
+            <circle data-v-458bc867="" className="dot" cx="5" cy="5" r="4" />
+          </svg>
+          <my-el data-v-458bc867="" class="custom">custom</my-el>
+          <Foo.Bar data-v-458bc867="">member</Foo.Bar>
+          <Ui.Fragment data-v-458bc867="">lookalike</Ui.Fragment>
+          <List<string> data-v-458bc867="" items={ITEMS} />
+          <ul data-v-458bc867="">
+            {ITEMS.map((item) => (
+              <Fragment key={item}>
+                <li data-v-458bc867="" className="item">{item}</li>
+              </Fragment>
+            ))}
+          </ul>
+          <p data-v-458bc867="" className="direct"><Fragment><span data-v-458bc867="">direct</span></Fragment></p>
+          <p data-v-458bc867="" className="alias"><Frag><span data-v-458bc867="">alias</span></Frag></p>
+          <p data-v-458bc867="" className="namespace"><React.Fragment><span data-v-458bc867="">namespace</span></React.Fragment></p>
+        </div>
+      </>)
+    )
+  }

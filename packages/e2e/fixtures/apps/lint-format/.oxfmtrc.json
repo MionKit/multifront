@@ -5,8 +5,8 @@
   "overrides": [
     {"files": ["*.vue"], "options": {"semi": true}},
     {"files": ["*.tsx"], "excludeFiles": ["*.react.tsx"], "options": {"semi": true}},
-    {"files": ["./Messy.ucf.style.scss"], "options": {"tabWidth": 2}},
+    {"files": ["./Messy.front.style.scss"], "options": {"tabWidth": 2}},
     {"files": ["nested/*.vue"], "options": {"printWidth": 40}}
   ],
-  "ignorePatterns": ["old/**", "Lint.ucf", "Clean.ucf"]
+  "ignorePatterns": ["old/**", "Lint.front", "Clean.front"]
 }

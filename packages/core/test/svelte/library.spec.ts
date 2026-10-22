@@ -15,7 +15,7 @@ const FIXTURES = [
   ...['svelte/shapes', 'svelte/roots', 'svelte/root-props', 'svelte/imports', 'svelte/library'].flatMap((folder) =>
     listComponents(folder).map((name) => ({filename: componentPath(name), library: COMPONENTS}))
   ),
-  ...['Card.ucf', 'Panel.ucf', 'Icon.ucf', 'forms/Field.ucf'].map((name) => ({
+  ...['Card.front', 'Panel.front', 'Icon.front', 'forms/Field.front'].map((name) => ({
     filename: join(LIBRARY_SRC, name),
     library: {src: LIBRARY_SRC},
   })),
@@ -55,34 +55,34 @@ describe.each(FIXTURES)('library mode: $filename', ({filename, library}) => {
     expect(compiled(shipped.file!.code)).toEqual(compiled(app.file.code));
   });
 
-  it('imports real files beside it: its CSS, the shipped helper, `.svelte` for each `.ucf`; class maps inlined', async () => {
+  it('imports real files beside it: its CSS, the shipped helper, `.svelte` for each `.front`; class maps inlined', async () => {
     const {ctx, file} = await built(filename, library);
     if (!file) return;
-    expect(file.code).not.toMatch(/\?ucf|virtual:/);
+    expect(file.code).not.toMatch(/\?front|virtual:/);
     const found = specifiers(file.code);
-    expect(found.filter((specifier) => specifier.endsWith('.ucf'))).toEqual([]);
-    const css = `./${basename(filename, '.ucf')}.css`;
+    expect(found.filter((specifier) => specifier.endsWith('.front'))).toEqual([]);
+    const css = `./${basename(filename, '.front')}.css`;
     expect(found.includes(css)).toBe(ctx.styles.length > 0);
     const depth = relative(library.src, filename).split(sep).length - 1;
-    const helper = `${depth === 0 ? './' : '../'.repeat(depth)}_ucf/scopeAttrs.js`;
+    const helper = `${depth === 0 ? './' : '../'.repeat(depth)}_front/scopeAttrs.js`;
     expect(found.filter((specifier) => specifier.endsWith('scopeAttrs.js'))).toEqual(
-      /__ucfScopeAttrs\d*\(/.test(file.code) ? [helper] : []
+      /__frontScopeAttrs\d*\(/.test(file.code) ? [helper] : []
     );
     // One inlined map per class map the app build imports.
-    const inlined = [...file.code.matchAll(/^const __ucf\w+ = (\{.*\});$/gm)].map(([, json]) => JSON.parse(json!) as unknown);
-    const imported = (await built(filename)).file!.code.match(/^import __ucf\w+ from "[^"]*&module&lang\.js";$/gm) ?? [];
+    const inlined = [...file.code.matchAll(/^const __front\w+ = (\{.*\});$/gm)].map(([, json]) => JSON.parse(json!) as unknown);
+    const imported = (await built(filename)).file!.code.match(/^import __front\w+ from "[^"]*&module&lang\.js";$/gm) ?? [];
     expect(inlined).toHaveLength(imported.length);
     for (const classes of inlined) expect(Object.values(ctx.modules).map((module) => module.classes)).toContainEqual(classes);
   });
 });
 
-describe('library mode: .ucf imports', () => {
+describe('library mode: .front imports', () => {
   it('ships static and dynamic imports, in the script and the markup, as .svelte', async () => {
-    const {file} = await built(componentPath('svelte/library/DynamicImport.ucf'), COMPONENTS);
+    const {file} = await built(componentPath('svelte/library/DynamicImport.front'), COMPONENTS);
     expect(specifiers(file!.code)).toEqual(['../../imports/Icon.svelte', '../../imports/UsesIcon.svelte']);
-    const card = await built(join(LIBRARY_SRC, 'Card.ucf'), {src: LIBRARY_SRC});
+    const card = await built(join(LIBRARY_SRC, 'Card.front'), {src: LIBRARY_SRC});
     expect(specifiers(card.file!.code)).toEqual(
-      expect.arrayContaining(['./Card.css', './_ucf/scopeAttrs.js', './Icon.svelte', './utils/cx.js'])
+      expect.arrayContaining(['./Card.css', './_front/scopeAttrs.js', './Icon.svelte', './utils/cx.js'])
     );
   });
 });

@@ -10,14 +10,14 @@ const STYLES = 'styles.css';
 
 function isStyleId(id: string): boolean {
   const {path, query} = splitId(id);
-  return path.endsWith('.ucf') && query.get('type') === 'style';
+  return path.endsWith('.front') && query.get('type') === 'style';
 }
 
-// The `.ucf` file of a component's own chunk (`/abs/Card.ucf` or `/abs/Card.ucf.react.tsx`), not a sub-module's.
+// The `.front` file of a component's own chunk (`/abs/Card.front` or `/abs/Card.front.react.tsx`), not a sub-module's.
 function componentFile(id: string | null): string | undefined {
   if (!id || splitId(id).query.size > 0) return undefined;
   const file = fileOf(id);
-  return file.endsWith('.ucf') ? file : undefined;
+  return file.endsWith('.front') ? file : undefined;
 }
 
 function cssName(file: string, src: string): string {
@@ -26,7 +26,7 @@ function cssName(file: string, src: string): string {
 
 /** A `Card.css` per component, imported by `Card.js`; `styles.css` joins them all, dependencies first. */
 export function libraryCss(root: string, src: string): Plugin {
-  // `.ucf` files with a style block Vite's CSS step compiles (not our class map, a JS module).
+  // `.front` files with a style block Vite's CSS step compiles (not our class map, a JS module).
   const styled = new Set<string>();
   // Keyed by Vite's CSS file of one `<style>` block.
   const blocks = new Map<string, {file: string; index: number}>();
@@ -58,7 +58,7 @@ export function libraryCss(root: string, src: string): Plugin {
         if (!isStyleId(facade)) {
           const importer = this.getModuleInfo(facade)?.importers[0];
           const by = importer === undefined ? '' : ` is imported by ${shown(fileOf(importer))}`;
-          const message = `${shown(fileOf(facade))}${by}: a library package ships CSS from .ucf <style> blocks only`;
+          const message = `${shown(fileOf(facade))}${by}: a library package ships CSS from .front <style> blocks only`;
           this.error(libraryRollupError('css-outside-style', fileOf(facade), message));
         }
         const index = Number(splitId(facade).query.get('index') ?? 0);

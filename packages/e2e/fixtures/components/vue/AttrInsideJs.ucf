@@ -1,9 +1,0 @@
-<vue lang="vue">
-  <script setup>
-  import Icon from '../imports/Icon.ucf' with {framework: 'vue'}
-  </script>
-
-  <template>
-    <Icon />
-  </template>
-</vue>

@@ -1,0 +1,11 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    import { derived, readable } from 'svelte/store'
+
+    // `$derived` stays a rune beside svelte/store's `derived`.
+    const doubled = $derived(2)
+    const store = derived(readable(1), (value) => value)
+let {...__frontRest} = $props();
+  </script>
+  <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span class="inner">{doubled} {$store}</span></p>

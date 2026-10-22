@@ -1,0 +1,19 @@
+import "<fixtures>/components/react/fuzz-found/ConstFragment.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontWarnFragment, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { Fragment } from 'react'
+
+  // Found by the scope fuzz: a const's fragment warns at each return naming it, only as the const's whole value; `mixed` never warns.
+  export default function ConstFragment(props: { branch?: string }) {
+    const mixed = props.branch === 'mixed' ? (<Fragment><p data-v-836a1798="" className="shape">mixed</p><p data-v-836a1798="">second</p></Fragment>) : 'text'
+    const content = (
+      <>
+        <p data-v-836a1798="" className="shape">content</p>
+        <p data-v-836a1798="">second</p>
+      </>
+    )!
+    if (props.branch === 'mixed') return mixed
+    if (props.branch === 'content') return (__frontWarnFragment(props, "ConstFragment"), content)
+    if (props.branch === 'again') return (__frontWarnFragment(props, "ConstFragment"), content)
+    return <div data-v-836a1798="" {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span data-v-836a1798="" className="inner">element</span></div>
+  }

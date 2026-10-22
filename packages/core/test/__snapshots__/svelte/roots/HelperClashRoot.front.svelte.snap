@@ -1,0 +1,8 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs as __frontScopeAttrs1, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    // Named like the build's helpers: the build imports them under other names.
+    const __frontScopeAttrs = 'own'
+    let { label = 'clash', ...__frontRest }: { label?: string } = $props()
+  </script>
+  <p {...__frontScopeAttrs1(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span class="inner">{label} {__frontScopeAttrs}</span></p>

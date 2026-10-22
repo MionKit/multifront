@@ -12,23 +12,23 @@ import type {LanguageServer} from './lib/lsp.ts';
 import {offsetAt, open, startTsserver, tsLocation} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsLocation, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
-const PANEL = readComponent('Panel.ucf');
-const PANEL_ITEM = readComponent('PanelItem.ucf');
-const COUNTER = readComponent('Counter.ucf');
-const COUNTER_CRLF = readComponent('vue/CounterCrlf.ucf');
-const ATTR_IN_SVELTE = readComponent('svelte/imports/AttrInSvelte.ucf');
-const TOP_LEVEL_STYLE = readComponent('svelte/errors/TopLevelStyle.ucf');
-const COMPONENTS = readComponent('svelte/shapes/Components.ucf');
-const ELEMENTS = readComponent('svelte/shapes/Elements.ucf');
+const PANEL = readComponent('Panel.front');
+const PANEL_ITEM = readComponent('PanelItem.front');
+const COUNTER = readComponent('Counter.front');
+const COUNTER_CRLF = readComponent('vue/CounterCrlf.front');
+const ATTR_IN_SVELTE = readComponent('svelte/imports/AttrInSvelte.front');
+const TOP_LEVEL_STYLE = readComponent('svelte/errors/TopLevelStyle.front');
+const COMPONENTS = readComponent('svelte/shapes/Components.front');
+const ELEMENTS = readComponent('svelte/shapes/Elements.front');
 const SHARED = [
   CARD,
   PANEL,
   PANEL_ITEM,
   COUNTER,
   COUNTER_CRLF,
-  readComponent('imports/Icon.ucf'),
-  readComponent('imports/UsesIcon.ucf'),
-  readComponent('svelte/NoStyle.ucf'),
+  readComponent('imports/Icon.front'),
+  readComponent('imports/UsesIcon.front'),
+  readComponent('svelte/NoStyle.front'),
 ];
 
 let tsserver: Tsserver;
@@ -105,7 +105,7 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
     expect((await quickInfo(component, 'count++}>{count}', 'count++}>{'.length)).displayString).toContain('count: number');
   });
 
-  describe("Card.ucf's $style", () => {
+  describe("Card.front's $style", () => {
     it('as written: no diagnostic', async () => {
       expect(await diagnostics(CARD)).toEqual([]);
     });
@@ -135,14 +135,14 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
     });
 
     it('hover on $style shows the class map it is renamed to', async () => {
-      expect((await quickInfo(CARD, '$style.card', 1)).displayString).toContain('__ucfStyle: {');
+      expect((await quickInfo(CARD, '$style.card', 1)).displayString).toContain('__frontStyle: {');
     });
 
     it.each([
       {component: COMPONENTS, needle: '<Child {$style} />', shift: '<Child {'.length},
       {component: ELEMENTS, needle: 'classes = {$style}', shift: 'classes = {'.length},
     ])('hover on a shorthand use, $needle, shows its class map too', async ({component, needle, shift}) => {
-      expect((await quickInfo(component, needle, shift + 1)).displayString).toMatch(/__ucfStyle\d*: \{/);
+      expect((await quickInfo(component, needle, shift + 1)).displayString).toMatch(/__frontStyle\d*: \{/);
     });
 
     it('definition on card lands on .card in <style module>', async () => {
@@ -176,7 +176,7 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
     });
   });
 
-  it('definition on <PanelItem lands in PanelItem.ucf', async () => {
+  it('definition on <PanelItem lands in PanelItem.front', async () => {
     const definitions = await tsserver.request<TsDefinitions>('definition', {
       file: PANEL.filename,
       ...inSvelte(PANEL, '<PanelItem label', 1),
@@ -188,8 +188,8 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
     expect(await tsserver.diagnostics(filename)).toEqual([]);
   });
 
-  it('AttrInSvelte.ucf: tsserver reports framework-in-block at each of its three specifiers', async () => {
-    const specifier = "'../../imports/Icon.ucf'";
+  it('AttrInSvelte.front: tsserver reports framework-in-block at each of its three specifiers', async () => {
+    const specifier = "'../../imports/Icon.front'";
     const expected = [...ATTR_IN_SVELTE.source.matchAll(new RegExp(specifier, 'g'))].map(({index}) => ({
       code: 'framework-in-block',
       start: index,
@@ -200,15 +200,15 @@ describe('tsserver: TypeScript inside the <svelte> block', () => {
     expect(reported).toEqual(expected);
   });
 
-  it('TopLevelStyle.ucf: nothing from tsserver', async () => {
+  it('TopLevelStyle.front: nothing from tsserver', async () => {
     expect(await tsserver.diagnostics(TOP_LEVEL_STYLE.filename)).toEqual([]);
   });
 });
 
 describe('the language server: our check diagnostics on the <svelte> block', () => {
-  it('TopLevelStyle.ucf: style-inside-target, exactly as checkBlocks reports it', async () => {
+  it('TopLevelStyle.front: style-inside-target, exactly as checkBlocks reports it', async () => {
     const {filename, source} = TOP_LEVEL_STYLE;
-    const document = await server.openTextDocument(filename, 'ucf');
+    const document = await server.openTextDocument(filename, 'front');
     const expected = checkBlocks(splitBlocks(source, filename)).map(({code, start, end}) => ({
       code,
       range: {start: document.positionAt(start), end: document.positionAt(end)},
@@ -217,9 +217,9 @@ describe('the language server: our check diagnostics on the <svelte> block', () 
     expect((await multifrontDiagnostics(server, document)).map(({code, range}) => ({code, range}))).toEqual(expected);
   });
 
-  it('AttrInSvelte.ucf: no framework-in-block, tsserver reports it', async () => {
+  it('AttrInSvelte.front: no framework-in-block, tsserver reports it', async () => {
     expect(TSSERVER_CODES.has('framework-in-block')).toBe(true);
-    const document = await server.openTextDocument(ATTR_IN_SVELTE.filename, 'ucf');
+    const document = await server.openTextDocument(ATTR_IN_SVELTE.filename, 'front');
     expect(await multifrontDiagnostics(server, document)).toEqual([]);
   });
 });
@@ -228,7 +228,7 @@ describe("the <svelte> script's mappings, over every fixture with a <svelte> blo
   const svelteCompiler = loadSvelteCompiler(FIXTURES_DIR);
   const compiler = loadVueCompiler(FIXTURES_DIR);
   const names = readdirSync(componentPath(''), {recursive: true, encoding: 'utf8'})
-    .filter((name) => name.endsWith('.ucf'))
+    .filter((name) => name.endsWith('.front'))
     .map((name) => name.replaceAll('\\', '/'))
     .filter((name) => splitBlocks(readComponent(name).source, componentPath(name)).targets.svelte)
     .sort();
@@ -241,7 +241,7 @@ describe("the <svelte> script's mappings, over every fixture with a <svelte> blo
     const {filename, source} = readComponent(name);
     const types = getTypesScript(filename, source, 'svelte', {svelteCompiler, compiler});
     // svelte2tsx throws on markup even the loose parser cannot read, and on StyleInSvelte's `'<style>'` script string.
-    if (!types) return expect(['svelte/errors/UnclosedBrace.ucf', 'invalid/StyleInSvelte.ucf']).toContain(name);
+    if (!types) return expect(['svelte/errors/UnclosedBrace.front', 'invalid/StyleInSvelte.front']).toContain(name);
     const block = splitBlocks(source, filename).targets.svelte!;
     // Class name keys jump into <style> blocks: navigation only.
     const blockMappings = types.mappings.filter(({data}) => data.verification);
@@ -258,7 +258,7 @@ describe("the <svelte> script's mappings, over every fixture with a <svelte> blo
       const text = source.slice(from, from + length);
       const generated = types.code.slice(at, at + (generatedLengths?.[0] ?? length));
       if (generatedLengths)
-        expect([text, generated]).toEqual([expect.stringMatching(/^\$\w+$/), expect.stringMatching(/^__ucf\w+$/)]);
+        expect([text, generated]).toEqual([expect.stringMatching(/^\$\w+$/), expect.stringMatching(/^__front\w+$/)]);
       else expect(generated).toBe(text);
     }
   });

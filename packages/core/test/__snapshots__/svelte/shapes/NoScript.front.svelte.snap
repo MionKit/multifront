@@ -1,0 +1,5 @@
+<script>
+import "<fixtures>/components/svelte/shapes/NoScript.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/NoScript.front?front&type=style&index=0&module&lang.js";
+</script>
+  <div data-v-118a61cf="" class={__frontStyle.box}><p data-v-118a61cf="" class={__frontStyle.text}>No script</p></div>

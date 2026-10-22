@@ -1,7 +1,0 @@
-<svelte lang="html">
-  <script lang="ts">
-  import ReactOnly from '../../imports/ReactOnly.ucf'
-  </script>
-
-  <ReactOnly />
-</svelte>

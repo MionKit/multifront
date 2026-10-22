@@ -1,3 +1,3 @@
-import VueCard from '../../../components/Card.ucf' with {framework: 'vue'};
+import VueCard from '../../../components/Card.front' with {framework: 'vue'};
 
 export {VueCard};

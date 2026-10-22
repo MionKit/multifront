@@ -1,7 +1,0 @@
-import "<fixtures>/components/ComposesScoped.ucf?ucf&type=style&index=0&lang.css";
-import $style from "<fixtures>/components/ComposesScoped.ucf?ucf&type=style&index=0&module&lang.js";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  export default function Tag(__props: { label: string }) {const { label } = __props;
-    return <span data-v-dd01d018="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass(`${$style.tag} ${$style.chip}`, __props.className)}>{label}</span>
-  }

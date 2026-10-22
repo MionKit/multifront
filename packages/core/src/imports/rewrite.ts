@@ -17,7 +17,7 @@ import type {
 import {walk} from '../ast.ts';
 import {createDiagnostic} from '../diagnostics.ts';
 import {findClosingTag, type topLevelTags} from '../scan.ts';
-import type {Block, Diagnostic, SourceMap, SplitResult, Target, UcfImport} from '../types.ts';
+import type {Block, Diagnostic, SourceMap, SplitResult, Target, FrontImport} from '../types.ts';
 import {frameworkInBlockMessage} from './resolveTarget.ts';
 
 type Lang = Exclude<NonNullable<ParserOptions['lang']>, 'dts'>;
@@ -32,7 +32,7 @@ const LANGS: Record<string, Lang> = {
 };
 const VALUE_NOT_LITERAL = "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)";
 const OPTIONS_NOT_LITERAL =
-  'import() options of a .ucf import must be an object literal, so multifront can read its framework attribute';
+  'import() options of a .front import must be an object literal, so multifront can read its framework attribute';
 
 /** A `lang.<ext>` query looks like `C.vue?vue&type=script&lang.ts`; `.ts`, `.mts`, `.cts` fall through to ts. */
 function langOf(filename: string): Lang {
@@ -56,15 +56,15 @@ export function keyName(key: ObjectProperty['key'] | ImportAttribute['key']): st
   return key.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
 }
 
-// The `.ucf` imports `rewriteImportAttributes` reads; the attribute is an error whatever its value.
+// The `.front` imports `rewriteImportAttributes` reads; the attribute is an error whatever its value.
 export function frameworkAttributes(program: Program): Span[] {
   const found: Span[] = [];
-  const isUcf = (source: Expression) => literalValue(source)?.endsWith('.ucf') ?? false;
+  const isFront = (source: Expression) => literalValue(source)?.endsWith('.front') ?? false;
   const fromStatic = (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
-    if (node.source && isUcf(node.source)) found.push(...node.attributes.filter(({key}) => keyName(key) === 'framework'));
+    if (node.source && isFront(node.source)) found.push(...node.attributes.filter(({key}) => keyName(key) === 'framework'));
   };
   const fromDynamic = ({source, options}: ImportExpression) => {
-    if (!isUcf(source) || options?.type !== 'ObjectExpression') return;
+    if (!isFront(source) || options?.type !== 'ObjectExpression') return;
     for (const option of options.properties) {
       if (option.type !== 'Property' || option.computed || keyName(option.key) !== 'with') continue;
       if (option.value.type !== 'ObjectExpression') continue;
@@ -93,7 +93,7 @@ export function frameworkInBlock(
   const lang = langOf(`?lang.${scripts.find(({attrs}) => attrs.lang)?.attrs.lang ?? 'js'}`);
   return scripts.flatMap(({end}) => {
     const content = block.content.slice(end, findClosingTag(block.content, 'script', end)?.start);
-    if (!content.includes('.ucf')) return [];
+    if (!content.includes('.front')) return [];
     const {program, errors} = parseSync(split.filename, content, {lang, sourceType: 'module'});
     // The framework's own compiler reports the syntax error.
     if (errors.length > 0) return [];
@@ -109,15 +109,15 @@ function isPlainObject(node: Expression): node is PlainObject {
   return node.type === 'ObjectExpression' && node.properties.every((prop) => prop.type === 'Property' && !prop.computed);
 }
 
-/** Rewrites `.ucf` imports so `with { framework }` becomes `?framework=<value>` on the specifier (spec 4.4). */
+/** Rewrites `.front` imports so `with { framework }` becomes `?framework=<value>` on the specifier (spec 4.4). */
 export function rewriteImportAttributes(
   code: string,
   filename: string
-): {code: string; map: SourceMap | null; imports: UcfImport[]; errors: Diagnostic[]} {
-  const imports: UcfImport[] = [];
+): {code: string; map: SourceMap | null; imports: FrontImport[]; errors: Diagnostic[]} {
+  const imports: FrontImport[] = [];
   const errors: Diagnostic[] = [];
   const unchanged = {code, map: null, imports, errors};
-  if (!code.includes('.ucf')) return unchanged;
+  if (!code.includes('.front')) return unchanged;
   const {program, comments, errors: parseErrors} = parseSync(filename, code, {lang: langOf(filename), sourceType: 'module'});
   // The importer's own compiler reports its syntax errors.
   if (parseErrors.length) return unchanged;
@@ -141,21 +141,21 @@ export function rewriteImportAttributes(
     if (next) text.remove(items[index]!.start, next.start);
     else text.remove(items[index - 1]!.end, items[index]!.end);
   };
-  const found = (kind: UcfImport['kind'], source: Expression): UcfImport | undefined => {
+  const found = (kind: FrontImport['kind'], source: Expression): FrontImport | undefined => {
     const specifier = literalValue(source);
-    if (!specifier?.endsWith('.ucf')) return undefined;
-    const entry: UcfImport = {kind, specifier, start: source.start, end: source.end};
+    if (!specifier?.endsWith('.front')) return undefined;
+    const entry: FrontImport = {kind, specifier, start: source.start, end: source.end};
     imports.push(entry);
     return entry;
   };
-  const moveIntoSpecifier = (entry: UcfImport, framework: string) => {
+  const moveIntoSpecifier = (entry: FrontImport, framework: string) => {
     entry.framework = framework;
     // `'` stays as is in encodeURIComponent and would end a single-quoted specifier; a lone surrogate makes it throw.
     const value = encodeURIComponent(framework.replace(/[\uD800-\uDFFF]/gu, '\uFFFD')).replaceAll("'", '%27');
     text.appendLeft(entry.end - 1, `?framework=${value}`);
   };
 
-  const fromStatic = (kind: UcfImport['kind']) => (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
+  const fromStatic = (kind: FrontImport['kind']) => (node: ImportDeclaration | ExportNamedDeclaration | ExportAllDeclaration) => {
     const entry = node.source && found(kind, node.source);
     if (!entry) return;
     const {attributes} = node;

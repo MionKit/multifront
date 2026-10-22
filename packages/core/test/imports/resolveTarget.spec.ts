@@ -11,21 +11,21 @@ import {readImports, scriptName, scriptsOf} from './readImports.ts';
 const APP = join(FIXTURES_DIR, 'apps', 'imports');
 const PLUGIN = '@multifront/language-tools/typescript-plugin';
 
-const APP_FILES = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|ucf)$/);
+const APP_FILES = filesOf('imports', /\.(?:[cm]?[jt]sx?|vue|svelte|front)$/);
 
 // Written by hand.
 const MESSAGES: Record<string, string> = {
   'src/bad.ts:1': 'unknown framework "angular"; use vue, react or svelte',
-  'src/BlockAttribute.ucf:2': 'a framework attribute cannot sit inside the <react> block; imports there always get react',
-  'src/BlockAttribute.ucf:3': 'a framework attribute cannot sit inside the <react> block; imports there always get react',
+  'src/BlockAttribute.front:2': 'a framework attribute cannot sit inside the <react> block; imports there always get react',
+  'src/BlockAttribute.front:3': 'a framework attribute cannot sit inside the <react> block; imports there always get react',
   'no-default/unknown.ts:1': 'unknown framework "angular"; use vue, react or svelte',
   'no-default/non-literal.ts:2': "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)",
   'no-default/bare.ts:1':
-    "no framework for this .ucf import; add with {framework: 'react'} (or vue, svelte), " +
+    "no framework for this .front import; add with {framework: 'react'} (or vue, svelte), " +
     'import it from a .vue, .svelte, .jsx, .tsx or .mts file, or set the framework option',
   'react-only/not-enabled.ts:1': 'framework "svelte" is not enabled; use react, or add svelte to the frameworks option',
 };
-const NO_ENTRY_TARGET = 'no framework for this .ucf entry; set the framework option';
+const NO_ENTRY_TARGET = 'no framework for this .front entry; set the framework option';
 
 // The target module ids of spec 4.3.
 const BLOCK_IDS: Record<Target, (fileName: string) => string> = {
@@ -41,17 +41,17 @@ function hostId(fileName: string, block: Target | undefined): string {
   return scriptName(fileName, scriptsOf(fileName, readFileSync(fileName, 'utf8'))[0]!);
 }
 
-const CARD = componentPath('Card.ucf');
+const CARD = componentPath('Card.front');
 // The attribute of a real block import, `with { framework: 'react' }`.
-const BLOCK_ATTRIBUTE = readImports(join(APP, 'src/BlockAttribute.ucf')).imports.find(({line}) => line === 3)!.attribute;
-// Card.ucf's module ids, then the editor's virtual scripts (`Card.ucf.react.tsx` is both).
+const BLOCK_ATTRIBUTE = readImports(join(APP, 'src/BlockAttribute.front')).imports.find(({line}) => line === 3)!.attribute;
+// Card.front's module ids, then the editor's virtual scripts (`Card.front.react.tsx` is both).
 const IN_BLOCK: [string, Target][] = [
-  ['Card.ucf', 'vue'],
-  ['Card.ucf?vue&type=script&setup=true&lang.ts', 'vue'],
-  ['Card.ucf.react.tsx', 'react'],
-  ['Card.ucf.svelte.svelte', 'svelte'],
-  ['Card.ucf.vue.ts', 'vue'],
-  ['Card.ucf.svelte.ts', 'svelte'],
+  ['Card.front', 'vue'],
+  ['Card.front?vue&type=script&setup=true&lang.ts', 'vue'],
+  ['Card.front.react.tsx', 'react'],
+  ['Card.front.svelte.svelte', 'svelte'],
+  ['Card.front.vue.ts', 'vue'],
+  ['Card.front.svelte.ts', 'svelte'],
 ];
 // Written by hand.
 const IN_BLOCK_MESSAGES: Record<string, string> = {
@@ -111,7 +111,7 @@ describe('resolveTarget over the shared imports fixture set', () => {
     else expect(choice).toEqual({error: {code: row.expect, message: MESSAGES[key]}});
   });
 
-  it('has one row for every .ucf import of the app', () => {
+  it('has one row for every .front import of the app', () => {
     const imports = APP_FILES.flatMap((file) =>
       readImports(join(APP, file)).imports.map((entry) => `${file}:${entry.line} ${entry.specifier}`)
     );

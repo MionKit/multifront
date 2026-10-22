@@ -1,3 +1,3 @@
-import Card from '../../../components/Card.ucf' with {framework: 'react'};
+import Card from '../../../components/Card.front' with {framework: 'react'};
 
 export {Card};

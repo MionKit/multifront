@@ -22,7 +22,7 @@ import {
 
 // Plain Svelte component, runes module and the `svelte.config.js` preprocessing them.
 export const CHILD = `<script lang="ts">
-  import Icon from './Icon.ucf'
+  import Icon from './Icon.front'
   import { count } from './count.svelte.js'
 
   let { label }: { label: string } = $props()

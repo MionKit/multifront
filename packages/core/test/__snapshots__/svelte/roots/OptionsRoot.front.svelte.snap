@@ -1,0 +1,6 @@
+<script>
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+let {...__frontRest} = $props();
+</script>
+  <svelte:options runes />
+  <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)}><span class="inner">options</span></p>

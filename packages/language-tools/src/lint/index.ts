@@ -17,21 +17,21 @@ import type {
   Target,
 } from '@multifront/core';
 import {blockFile} from '../blocks/blockFile.ts';
-import {counted, isIgnored, nearestFile, parseJsonc, problems, resolveInProject, slashed, ucfFiles} from '../files.ts';
-import type {UcfLintDiagnostic} from '../types.ts';
+import {counted, isIgnored, nearestFile, parseJsonc, problems, resolveInProject, slashed, frontFiles} from '../files.ts';
+import type {FrontLintDiagnostic} from '../types.ts';
 
 const MF_LINT: CommandSpec = {
   name: 'mf-lint',
-  summary: ["Lints each block of .ucf files with oxlint and the project's .oxlintrc.json."],
-  paths: 'Paths are .ucf files or folders; none lints every .ucf file under the current folder.',
+  summary: ["Lints each block of .front files with oxlint and the project's .oxlintrc.json."],
+  paths: 'Paths are .front files or folders; none lints every .front file under the current folder.',
   options: {'deny-warnings': {type: 'boolean', description: 'exit 1 on warnings too'}},
-  example: 'mf-lint src/Card.ucf --format json',
+  example: 'mf-lint src/Card.front --format json',
 };
 
 const CONFIG_NAMES = ['.oxlintrc.json', '.oxlintrc.jsonc'];
 const WRAPPER = '.oxlintrc.json';
 
-interface OxlintDiagnostic extends Pick<UcfLintDiagnostic, 'message' | 'severity' | 'url' | 'help'> {
+interface OxlintDiagnostic extends Pick<FrontLintDiagnostic, 'message' | 'severity' | 'url' | 'help'> {
   code?: string; // none when the block does not parse
   filename: string;
   labels: {span: {offset: number; length: number}}[];
@@ -130,7 +130,7 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
     }
     const wrapper = {...(config && {extends: [config]}), globals: {$style: 'readonly'}, overrides};
     await writeFile(join(dir, WRAPPER), JSON.stringify(wrapper));
-    return (await runOxlint(bin, dir, root, config)).map((diagnostic): UcfLintDiagnostic => {
+    return (await runOxlint(bin, dir, root, config)).map((diagnostic): FrontLintDiagnostic => {
       const hit = written.get(slashed(diagnostic.filename));
       if (!hit) throw new Error(`oxlint reported ${diagnostic.filename}, which mf-lint did not write`);
       const {split, block, bytes} = hit;
@@ -159,7 +159,7 @@ async function lintGroup(bin: string, config: string | undefined, splits: SplitR
 }
 
 /** One oxlint run per nearest `.oxlintrc.json`, loaded from `root`; skips a split with errors or one its config ignores. */
-export async function lintUcf(files: SplitResult[], root: string): Promise<UcfLintDiagnostic[]> {
+export async function lintFront(files: SplitResult[], root: string): Promise<FrontLintDiagnostic[]> {
   const bin = oxlintBin(root);
   const groups = new Map<string | undefined, SplitResult[]>();
   for (const split of files) {
@@ -168,12 +168,12 @@ export async function lintUcf(files: SplitResult[], root: string): Promise<UcfLi
     const config = lintConfig(fileName);
     groups.set(config, [...(groups.get(config) ?? []), split]);
   }
-  const diagnostics: UcfLintDiagnostic[] = [];
+  const diagnostics: FrontLintDiagnostic[] = [];
   for (const [config, splits] of groups) diagnostics.push(...(await lintGroup(bin, config, splits, root)));
   return diagnostics;
 }
 
-function lintFinding(diagnostic: UcfLintDiagnostic, split: SplitResult): Finding {
+function lintFinding(diagnostic: FrontLintDiagnostic, split: SplitResult): Finding {
   const at = (offset: number) => {
     const {line, column} = locate(split.source, offset);
     return {line, column: column + 1};
@@ -197,7 +197,7 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     const config = ignoringConfig(file, cwd);
     return config && rootRelativePath(cwd, config);
   };
-  const files = ucfFiles(paths, ignoredBy, 'lint it with oxlint');
+  const files = frontFiles(paths, ignoredBy, 'lint it with oxlint');
   const findings: Finding[] = [];
   const splits = new Map<string, SplitResult>();
   for (const file of files) {
@@ -205,7 +205,7 @@ async function run(values: CommandValues, paths: string[]): Promise<CommandResul
     findings.push(...split.errors.map((error) => findingOf(error, split)));
     splits.set(file, split);
   }
-  for (const diagnostic of await lintUcf([...splits.values()], cwd)) {
+  for (const diagnostic of await lintFront([...splits.values()], cwd)) {
     findings.push(lintFinding(diagnostic, splits.get(diagnostic.file)!));
   }
   return {

@@ -1,0 +1,11 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import { memo as memoized } from 'react'
+
+  function Inner(props: { branch?: string }) {
+    return <div {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">identifier {props.branch}</span></div>
+  }
+
+  const ExportIdentifier = memoized(Inner)
+
+  export default ExportIdentifier

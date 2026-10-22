@@ -1,60 +1,60 @@
 {
-  "code": "import First from '../../components/Card.ucf?framework=react' with {type: 'component'};\nimport Last from '../../components/Card.ucf?framework=vue' with { type: 'component' };\nimport Middle from '../../components/Card.ucf?framework=svelte' with {mode: 'a', type: 'b',};\nimport Trailing from '../../components/Card.ucf?framework=react';\nimport Quoted from \"../../components/Card.ucf?framework=vue\";\nimport Quote from '../../components/Card.ucf?framework=it%27s';\nimport '../../components/Card.ucf?framework=react';\nexport * as All from '../../components/Card.ucf?framework=svelte';\nimport NotUcf from './target.js' with {framework: 'react'};\nimport data from './data.json' with {type: 'json'};\n\nexport {data, First, Last, Middle, NotUcf, Quote, Quoted, Trailing};\n",
+  "code": "import First from '../../components/Card.front?framework=react' with {type: 'component'};\nimport Last from '../../components/Card.front?framework=vue' with { type: 'component' };\nimport Middle from '../../components/Card.front?framework=svelte' with {mode: 'a', type: 'b',};\nimport Trailing from '../../components/Card.front?framework=react';\nimport Quoted from \"../../components/Card.front?framework=vue\";\nimport Quote from '../../components/Card.front?framework=it%27s';\nimport '../../components/Card.front?framework=react';\nexport * as All from '../../components/Card.front?framework=svelte';\nimport NotFront from './target.js' with {framework: 'react'};\nimport data from './data.json' with {type: 'json'};\n\nexport {data, First, Last, Middle, NotFront, Quote, Quoted, Trailing};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
+      "specifier": "../../components/Card.front",
       "start": 18,
-      "end": 45,
+      "end": 47,
       "framework": "react"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 109,
-      "end": 136,
+      "specifier": "../../components/Card.front",
+      "start": 111,
+      "end": 140,
       "framework": "vue"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 202,
-      "end": 229,
+      "specifier": "../../components/Card.front",
+      "start": 206,
+      "end": 235,
       "framework": "svelte"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 302,
-      "end": 329,
+      "specifier": "../../components/Card.front",
+      "start": 308,
+      "end": 337,
       "framework": "react"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 377,
-      "end": 404,
+      "specifier": "../../components/Card.front",
+      "start": 385,
+      "end": 414,
       "framework": "vue"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 450,
-      "end": 477,
+      "specifier": "../../components/Card.front",
+      "start": 460,
+      "end": 489,
       "framework": "it's"
     },
     {
       "kind": "static",
-      "specifier": "../../components/Card.ucf",
-      "start": 511,
-      "end": 538,
+      "specifier": "../../components/Card.front",
+      "start": 523,
+      "end": 552,
       "framework": "react"
     },
     {
       "kind": "reexport",
-      "specifier": "../../components/Card.ucf",
-      "start": 587,
-      "end": 614,
+      "specifier": "../../components/Card.front",
+      "start": 601,
+      "end": 630,
       "framework": "svelte"
     }
   ],

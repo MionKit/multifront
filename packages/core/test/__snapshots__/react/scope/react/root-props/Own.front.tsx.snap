@@ -1,0 +1,15 @@
+import {__frontScopeAttrs, __frontClass, __frontStyle, __frontRef} from "virtual:multifront/scope-attrs";
+
+  import { useEffect, useRef } from 'react'
+
+  type Props = { branch?: string; tone?: string }
+
+  // Branch `a`: the root's own className, style and ref are merged with the parent's.
+  export default function Own(props: Props) {
+    const own = useRef<HTMLElement>(null)
+    useEffect(() => {
+      if (own.current) own.current.dataset.ownRef = own.current.tagName
+    }, [])
+    if (props.branch === 'a') return <section {...__frontScopeAttrs(props)} ref={__frontRef(own, props.ref)} className={__frontClass("own", props.className)} style={__frontStyle({ padding: 4 }, props.style)}>own</section>
+    return <p {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass(`own-${props.tone ?? 'plain'}`, props.className)}>own</p>
+  }

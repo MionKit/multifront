@@ -14,9 +14,9 @@ import {E2E_DIR} from './tsserver.ts';
 
 export const LINT_FORMAT = 'lint-format';
 export const LINT_FORMAT_SVELTE = 'lint-format-svelte';
-export const MESSY = 'Messy.ucf';
+export const MESSY = 'Messy.front';
 
-// The endings of the blocks of `Messy.ucf` that oxfmt formats with its `svelte` option off.
+// The endings of the blocks of `Messy.front` that oxfmt formats with its `svelte` option off.
 export const SENT: Partial<Record<BlockTag, string>> = {react: '.tsx', vue: '.vue', style: '.scss'};
 // With oxfmt's `svelte` option on.
 export const SENT_WITH_SVELTE: typeof SENT = {...SENT, svelte: '.svelte'};

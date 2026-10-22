@@ -1,0 +1,8 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  const aria = { role: 'note' }
+
+  // A spread of anything but the props still gets the root props, added before it.
+  export default function OtherSpread(__props) {
+    return <div {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} {...aria} className={__frontClass("other", __props.className)}>other</div>
+  }

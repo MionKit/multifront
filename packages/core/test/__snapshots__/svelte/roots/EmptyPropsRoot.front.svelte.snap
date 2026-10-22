@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    const __frontRest = 'taken'
+    let {...__frontRest1} = $props()
+  </script>
+  <p {...__frontScopeAttrs(__frontRest1, 'style')} class={__frontSvelteClass(`shape`, __frontRest1.class)}><span class="inner">{__frontRest}</span></p>

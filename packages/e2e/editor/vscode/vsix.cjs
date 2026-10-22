@@ -23,7 +23,7 @@ const describe = ({code, line, column}) => `${code} at ${line}:${column}`;
 async function holdsEvery(key, what, matches) {
   const findings = expected()[key];
   assert.ok(findings.length > 0, `the real mf-${key} found nothing`);
-  const uri = vscode.Uri.file(workspaceFile('Greeting.ucf'));
+  const uri = vscode.Uri.file(workspaceFile('Greeting.front'));
   const held = () => {
     const diagnostics = vscode.languages.getDiagnostics(uri);
     return findings.every((finding) => diagnostics.some((diagnostic) => matches(diagnostic, finding) && sameRange(diagnostic, finding)));
@@ -33,10 +33,10 @@ async function holdsEvery(key, what, matches) {
 
 const checks = [
   {
-    name: 'Greeting.ucf opens with language id ucf, served by the installed extension',
+    name: 'Greeting.front opens with language id front, served by the installed extension',
     async run() {
-      const greeting = await show(workspaceFile('Greeting.ucf'));
-      assert.equal(greeting.languageId, 'ucf');
+      const greeting = await show(workspaceFile('Greeting.front'));
+      assert.equal(greeting.languageId, 'front');
       const extension = vscode.extensions.getExtension('mionkit.multifront-vscode');
       assert.ok(extension, 'mionkit.multifront-vscode is not loaded');
       await until(() => extension.isActive, 'the extension to activate');
@@ -46,17 +46,17 @@ const checks = [
     },
   },
   {
-    name: "Greeting.ucf's diagnostics hold every mf-lint finding, from oxlint",
+    name: "Greeting.front's diagnostics hold every mf-lint finding, from oxlint",
     run: () => holdsEvery('lint', 'oxlint', (diagnostic, {code}) => diagnostic.source === 'oxlint' && codeOf(diagnostic) === code),
   },
   {
-    name: "Greeting.ucf's diagnostics hold every mf-tsc finding, from tsserver with the plugin",
+    name: "Greeting.front's diagnostics hold every mf-tsc finding, from tsserver with the plugin",
     run: () => holdsEvery('tsc', 'TypeScript', (diagnostic, {code}) => `TS${codeOf(diagnostic)}` === code),
   },
   {
-    name: 'Format Document on Greeting.ucf gives what mf-fmt writes',
+    name: 'Format Document on Greeting.front gives what mf-fmt writes',
     async run() {
-      const greeting = await show(workspaceFile('Greeting.ucf'));
+      const greeting = await show(workspaceFile('Greeting.front'));
       const formatted = await formattedText(greeting);
       assert.notEqual(formatted, greeting.getText(), 'formatting changed nothing');
       assert.equal(formatted, expected().formatted);

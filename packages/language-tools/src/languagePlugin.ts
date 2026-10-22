@@ -9,7 +9,7 @@ import type * as ts from 'typescript';
 import {disposeVueCode, forwardToVueCode} from './blocks/vue.ts';
 import {createEditorContext, editorFiles} from './context.ts';
 import {BLOCK_FEATURES, stringSnapshot} from './mappings.ts';
-import type {EditorOptions, UcfVirtualCode} from './types.ts';
+import type {EditorOptions, FrontVirtualCode} from './types.ts';
 
 const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.tsx': 'typescriptreact',
@@ -20,10 +20,10 @@ const LANGUAGE_ID_BY_EXT: Record<VirtualFile['ext'], string> = {
   '.svelte': 'svelte',
 };
 
-/** Target served as the `.ucf` file's own script: Volar's tsserver plugin serves no extra scripts. */
+/** Target served as the `.front` file's own script: Volar's tsserver plugin serves no extra scripts. */
 export const MAIN_SCRIPT_TARGET = 'react' satisfies Target;
 
-// Without one, tsserver reads the raw `.ucf` text as TSX; one per root, so Volar's mapping cache holds.
+// Without one, tsserver reads the raw `.front` text as TSX; one per root, so Volar's mapping cache holds.
 const emptyScripts = new WeakMap<VirtualCode, VirtualCode>();
 
 function emptyScript(root: VirtualCode): VirtualCode {
@@ -39,7 +39,12 @@ function codeId(block: Block): string {
   return isTarget(block.type) ? block.type : `${block.type}_${block.index}`;
 }
 
-function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: EditorOptions, last?: VirtualCode): UcfVirtualCode {
+function createRootCode(
+  fileName: string,
+  snapshot: IScriptSnapshot,
+  options: EditorOptions,
+  last?: VirtualCode
+): FrontVirtualCode {
   const source = snapshot.getText(0, snapshot.getLength());
   const split = splitBlocks(source, fileName);
   const ctx = createEditorContext(split, options, last);
@@ -52,18 +57,18 @@ function createRootCode(fileName: string, snapshot: IScriptSnapshot, options: Ed
   // Volar formats only a code with formatting on: the root alone, where `multifront-format` answers.
   const data = {...BLOCK_FEATURES, format: true};
   const mappings = [{sourceOffsets: [0], generatedOffsets: [0], lengths: [source.length], data}];
-  const root: UcfVirtualCode = {id: 'root', languageId: 'ucf', snapshot, mappings, embeddedCodes, split};
+  const root: FrontVirtualCode = {id: 'root', languageId: 'front', snapshot, mappings, embeddedCodes, split};
   const vue = embeddedCodes.find(({id}) => id === 'vue');
   if (vue) forwardToVueCode(root, vue);
   return root;
 }
 
-/** The Volar language plugin for `.ucf` files: a root code per file, one embedded code per block a service reads. */
-export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePlugin<string> {
+/** The Volar language plugin for `.front` files: a root code per file, one embedded code per block a service reads. */
+export function createFrontLanguagePlugin(options: EditorOptions = {}): LanguagePlugin<string> {
   return {
-    getLanguageId: (fileName) => (fileName.endsWith('.ucf') ? 'ucf' : undefined),
+    getLanguageId: (fileName) => (fileName.endsWith('.front') ? 'front' : undefined),
     createVirtualCode: (fileName, languageId, snapshot) =>
-      languageId === 'ucf' ? createRootCode(fileName, snapshot, options) : undefined,
+      languageId === 'front' ? createRootCode(fileName, snapshot, options) : undefined,
     // A block that does not build now serves its code from the last root.
     updateVirtualCode: (fileName, root, snapshot) => createRootCode(fileName, snapshot, options, root),
     disposeVirtualCode(fileName, root) {
@@ -71,7 +76,7 @@ export function createUcfLanguagePlugin(options: EditorOptions = {}): LanguagePl
       if (vue) disposeVueCode(fileName, vue, options);
     },
     typescript: {
-      extraFileExtensions: [{extension: 'ucf', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
+      extraFileExtensions: [{extension: 'front', isMixedContent: true, scriptKind: 7 satisfies ts.ScriptKind.Deferred}],
       getServiceScript(root): TypeScriptServiceScript {
         const code = root.embeddedCodes?.find(({id}) => id === MAIN_SCRIPT_TARGET) ?? emptyScript(root);
         return {code, extension: '.tsx', scriptKind: 4 satisfies ts.ScriptKind.TSX};

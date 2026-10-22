@@ -1,4 +1,4 @@
-// Milestone 7 exit test, run by exit.spec.ts in VS Code with the packed .vsix on a broken Card.ucf copy.
+// Milestone 7 exit test, run by exit.spec.ts in VS Code with the packed .vsix on a broken Card.front copy.
 // `vscode` is required in `run`, so exit.spec.ts can load the check names outside VS Code.
 const assert = require('node:assert/strict');
 const {join} = require('node:path');
@@ -8,7 +8,7 @@ let vscode;
 // The last <svelte> markup line's end, where a tag is typed unclosed.
 const MARKUP_END = ['\n</svelte>', 0];
 
-const card = () => join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'Card.ucf');
+const card = () => join(vscode.workspace.workspaceFolders[0].uri.fsPath, 'Card.front');
 
 /** mf-* positions are 1-based, VS Code's 0-based. */
 const rangeOf = ({line, column, end}) => `${line - 1}:${column - 1}-${end.line - 1}:${end.column - 1}`;
@@ -56,10 +56,10 @@ async function revert(document) {
 
 const checks = [
   {
-    name: '3. Card.ucf shows the same two findings as mf-tsc and mf-lint, at the same ranges',
+    name: '3. Card.front shows the same two findings as mf-tsc and mf-lint, at the same ranges',
     async run() {
       const document = await show(card());
-      assert.equal(document.languageId, 'ucf');
+      assert.equal(document.languageId, 'front');
       const {tsc, lint} = expected();
       const wanted = [...tsc, ...lint].map((finding) => asText(finding.code, rangeOf(finding))).sort();
       assert.equal(wanted.length, 2, `mf-tsc and mf-lint found ${wanted.join(', ')}`);
@@ -71,7 +71,7 @@ const checks = [
     },
   },
   {
-    name: '4. Format Document on Card.ucf gives byte for byte what mf-fmt writes on a second copy',
+    name: '4. Format Document on Card.front gives byte for byte what mf-fmt writes on a second copy',
     async run() {
       const formatted = await formattedText(await show(card()));
       assert.equal(formatted, expected().formatted);
@@ -96,7 +96,7 @@ const checks = [
       try {
         const script = '<svelte lang="html">\n  <script lang="ts">';
         await type(document, [
-          ["\n    import Icon from './Icon.ucf'", script],
+          ["\n    import Icon from './Icon.front'", script],
           ['\n  <Icon ', ...MARKUP_END],
         ]);
         await labelsAt(document, '<Icon ', ['name', 'size'], 'completion after <Icon ');

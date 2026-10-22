@@ -1,7 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs, __ucfSvelteClass} from "virtual:multifront/scope-attrs";
-    let { label = 'escaped', ...__ucfRest }: { label?: string } = $props()
-  </script>
-  <!-- Plain-text values Svelte escapes, beside the forwarding spread. -->
-  <p {...__ucfScopeAttrs(__ucfRest, 'style')} class={__ucfSvelteClass(`shape`, __ucfRest.class)} title={"a & b"} data-html={"<div>"} data-quote={"\"quoted\""} data-mixed="&amp; {label}"><span class="inner">{label}</span></p>

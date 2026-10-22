@@ -112,7 +112,7 @@ function prologueEnd(program: Program): number | undefined {
   return end;
 }
 
-// MagicString over the whole .ucf source, so the map points straight into the .ucf file.
+// MagicString over the whole .front source, so the map points straight into the .front file.
 function build(block: Block, ctx: BuildContext): VirtualFile {
   const text = new MagicString(ctx.source);
   text.remove(0, block.contentStart);

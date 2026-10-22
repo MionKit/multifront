@@ -1,0 +1,25 @@
+<style scoped>
+.panel {
+  padding: 8px;
+}
+.badge {
+  color: rgb(30, 120, 60);
+}
+/* Must not reach ScopedBadge's inner element. */
+.badge-label {
+  text-decoration: underline;
+}
+</style>
+
+<react lang="tsx">
+  import ScopedBadge from './ScopedBadge.front'
+
+  export default function ScopedPanel() {
+    return (
+      <section className="panel">
+        <h2 className="title">Scoped panel</h2>
+        <ScopedBadge label="new" className="badge" />
+      </section>
+    )
+  }
+</react>

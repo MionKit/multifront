@@ -1,3 +1,0 @@
-<react lang="tsx">
-  export { default } from '../../Card.ucf'
-</react>

@@ -1,0 +1,18 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/Components.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/Components.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    import type {Component} from 'svelte'
+
+    let {Child, ...__frontRest}: {Child: Component<Record<string, unknown>>} = $props()
+    const ui = $derived({Child})
+  </script>
+  {#snippet extra()}<em data-v-c82d2ecf="" class={__frontStyle.note}>Snippet prop</em>{/snippet}
+  <div data-v-c82d2ecf="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.list, __frontRest.class)}>
+    <Child data-v-c82d2ecf="" label="Plain" />
+    <Child data-v-c82d2ecf="" label="With children"><span data-v-c82d2ecf="" class={__frontStyle.note}>Child content</span></Child>
+    <ui.Child data-v-c82d2ecf="" label="Dotted" />
+    <Child data-v-c82d2ecf="" $style={__frontStyle} />
+    <Child data-v-c82d2ecf="" label="Snippet" children={extra} />
+  </div>

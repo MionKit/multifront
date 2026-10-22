@@ -1,0 +1,17 @@
+
+  <script>
+import "<fixtures>/components/svelte/shapes/Slots.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/Slots.front?front&type=style&index=0&module&lang.js";
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+    export let depth = 0
+    export let Child
+;__frontWarnFragment($$props, "Slots", "is a legacy-mode Svelte component", "Use $props() to make it a runes-mode component.");
+  </script>
+  <div data-v-b39a4df4="" class={__frontStyle.box}>
+    <slot><p data-v-b39a4df4="" class={__frontStyle.note}>Fallback</p></slot>
+    <slot name="named" />
+    {#if depth === 0}
+      <svelte:self data-v-b39a4df4="" depth={1} {Child}><span data-v-b39a4df4="" class={__frontStyle.note}>Default</span></svelte:self>
+    {/if}
+    <Child data-v-b39a4df4=""><svelte:fragment slot="named"><em data-v-b39a4df4="" class={__frontStyle.note}>Named</em></svelte:fragment></Child>
+  </div>

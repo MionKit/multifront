@@ -1,12 +1,12 @@
 # Errors
 
-Every error in a `.ucf` file or an import has a code and a one-line message that names the problem. The build prints the file, line and column, and ends the message with the code: `(react-no-default-export)`. The [check commands](05-editor-setup.md#installing-the-check-commands) print the same codes.
+Every error in a `.front` file or an import has a code and a one-line message that names the problem. The build prints the file, line and column, and ends the message with the code: `(react-no-default-export)`. The [check commands](05-editor-setup.md#installing-the-check-commands) print the same codes.
 
 > **Note:** Library build errors have their own codes, `name-clash` say. [Fixing a Failed Build](06-building-a-library.md#fixing-a-failed-build) lists them.
 
 ## Component File Errors
 
-These mark a `.ucf` file that breaks a [block rule](02-component-files.md#block-rules).
+These mark a `.front` file that breaks a [block rule](02-component-files.md#block-rules).
 
 | Code | Fix |
 | --- | --- |
@@ -31,7 +31,7 @@ These mark a `.ucf` file that breaks a [block rule](02-component-files.md#block-
 
 ## Import Errors
 
-These sit on the path of a `.ucf` import. [Imports](04-imports.md) says how an import picks its framework.
+These sit on the path of a `.front` import. [Imports](04-imports.md) says how an import picks its framework.
 
 | Code | Fix |
 | --- | --- |
@@ -60,7 +60,7 @@ These stop a command with exit code 2, one line on stderr after the command's na
 | --- | --- |
 | `oxlint is not installed in <folder>; add it to devDependencies`, or the same for `typescript`, `svelte` or `oxfmt` | Install the package the message names in the project. |
 | `notes/Loose.ts is not part of tsconfig.json; add it to "include" or pass -p` | Add the file to that tsconfig, or pass the one that holds it with `-p`. |
-| `react.ts is not a .ucf file; lint it with oxlint` | Run oxlint or oxfmt on it. `mf-lint` and `mf-fmt` take `.ucf` files only. |
-| `old/Lint.ucf is ignored by .oxlintrc.json` | Remove the file from the config's `ignorePatterns`, or do not name it. |
-| `ReactBreaks.ucf has no <svelte> block` | Pick a framework the file has a block for with `--framework`. |
-| `empty holds no .ucf file` | Name a folder that holds `.ucf` files. |
+| `react.ts is not a .front file; lint it with oxlint` | Run oxlint or oxfmt on it. `mf-lint` and `mf-fmt` take `.front` files only. |
+| `old/Lint.front is ignored by .oxlintrc.json` | Remove the file from the config's `ignorePatterns`, or do not name it. |
+| `ReactBreaks.front has no <svelte> block` | Pick a framework the file has a block for with `--framework`. |
+| `empty holds no .front file` | Name a folder that holds `.front` files. |

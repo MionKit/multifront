@@ -6,7 +6,7 @@ export function describeDiagnostic({message, code}: Pick<Diagnostic, 'message' |
   return `${message} (${code})`;
 }
 
-/** An error on one `.ucf` import; no importer is a build entry. */
+/** An error on one `.front` import; no importer is a build entry. */
 export function importErrorMessage(specifier: string, importerFile: string | undefined, message: string): string {
   return `${specifier} (imported by ${importerFile ?? 'a build entry'}): ${message}`;
 }

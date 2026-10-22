@@ -7,7 +7,7 @@ let client: LanguageClient | undefined;
 
 /** tsserver loads our TypeScript plugin from the plugin pack on its own. */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  // The TypeScript extension activates on JS and TS files only: a lone .ucf file would get no tsserver features.
+  // The TypeScript extension activates on JS and TS files only: a lone .front file would get no tsserver features.
   await vscode.extensions.getExtension('vscode.typescript-language-features')?.activate();
   // VS Code's built-in TypeScript, or the workspace one when the user picked it.
   const tsdk = (await getTsdk(context))?.tsdk;
@@ -17,7 +17,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     debug: {module, transport: TransportKind.ipc, options: {execArgv: ['--nolazy', '--inspect=6009']}},
   };
   const clientOptions: LanguageClientOptions = {
-    documentSelector: [{language: 'ucf'}],
+    documentSelector: [{language: 'front'}],
     initializationOptions: {typescript: {tsdk}},
   };
   client = new LanguageClient('multifront', 'multifront', serverOptions, clientOptions);

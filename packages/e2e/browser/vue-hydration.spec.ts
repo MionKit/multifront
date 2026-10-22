@@ -26,13 +26,13 @@ afterAll(async () => {
   if (root) await removeApp(root);
 });
 
-it('hydrates the server-rendered Counter.ucf, counts a click, and logs no warning', async () => {
+it('hydrates the server-rendered Counter.front, counts a click, and logs no warning', async () => {
   const page = await browser!.newPage();
   try {
     const messages = collectConsole(page);
     const response = await page.goto(await server!.url);
     const html = await response!.text();
-    const scope = scopeAttribute(root!, resolve(root!, '..', '..', 'components', 'Counter.ucf'), false);
+    const scope = scopeAttribute(root!, resolve(root!, '..', '..', 'components', 'Counter.front'), false);
     // Server-rendered: the markup is in the page before any script runs.
     expect(html).toContain(`<div class="counter" ${scope}>`);
     expect(html).toMatch(/<button [^>]*>2<\/button>/);

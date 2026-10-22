@@ -7,7 +7,7 @@ import type {SVELTE_ROOT_PROPS} from './svelte/rootProps.ts';
 /** The frameworks a component file can hold one implementation for. */
 export type Target = 'vue' | 'react' | 'svelte';
 
-/** Every root tag of a `.ucf` file. */
+/** Every root tag of a `.front` file. */
 export type BlockTag = 'style' | Target;
 
 /** `target` = a framework component, `shared` = used by every target. */
@@ -58,7 +58,7 @@ export interface BlockKind {
 export interface VirtualFile {
   ext: '.tsx' | '.vue' | '.svelte' | '.css' | '.scss' | '.ts';
   code: string;
-  map: SourceMap | undefined; // back to the block in the .ucf file
+  map: SourceMap | undefined; // back to the block in the .front file
 }
 
 /** Why an opening tag never ends cleanly; set = the tag counts as unclosed. */
@@ -104,7 +104,7 @@ export interface Diagnostic {
   severity: 'error' | 'warning';
   message: string; // one line, names the tag: "<react> appears more than once; keep one"
   filename: string;
-  start: number; // offsets into the .ucf source
+  start: number; // offsets into the .front source
   end: number;
   line: number; // 1-based line of start
   column: number; // 0-based column of start (the Rollup / Vite `loc` convention)
@@ -117,7 +117,7 @@ export interface Finding extends Pick<Diagnostic, 'severity' | 'message'> {
   column?: number;
   end?: {line: number; column: number}; // just past the last character
   code: string; // ours, a tool's (`TS2322`) or a plugin's (`vite:vue`)
-  block?: BlockTag; // the .ucf block the position falls in
+  block?: BlockTag; // the .front block the position falls in
   framework?: Target; // the framework build or check that reported it
 }
 
@@ -189,7 +189,7 @@ export interface SvelteEditorSource<Module> {
   code: string; // the block content only
   locals: Map<Module, string>; // each module used, and the local name its uses got
   lang: SvelteScriptLang; // of the block's scripts, or of the one added
-  mappings: string; // a v3 source map's, back into the .ucf file
+  mappings: string; // a v3 source map's, back into the .front file
 }
 
 export interface SourceMap {
@@ -206,11 +206,11 @@ export interface CompiledStyle {
   index: number; // the block's index among the <style> blocks
   id: string; // module id, from styleId()
   code: string; // plain CSS
-  map: SourceMap | undefined; // back to the .ucf file
+  map: SourceMap | undefined; // back to the .front file
   scoped: boolean;
   module: string | undefined; // injection name: '$style' or the module="name" value
   classes: Record<string, string> | undefined; // CSS module class map, local → generated
-  errors: Diagnostic[]; // 'style-compile-error', positioned in the .ucf file
+  errors: Diagnostic[]; // 'style-compile-error', positioned in the .front file
 }
 
 export interface BuildContextOptions {
@@ -220,15 +220,15 @@ export interface BuildContextOptions {
   library?: LibraryMode; // a library package build: the svelte build imports real files beside it, not virtual ids
 }
 
-/** A library package mirrors `src`: `src/forms/Field.ucf` ships as `forms/Field.svelte`. */
+/** A library package mirrors `src`: `src/forms/Field.front` ships as `forms/Field.svelte`. */
 export interface LibraryMode {
   src: string;
 }
 
-/** What the shared kinds fill for the target builds; one per `.ucf` file. */
+/** What the shared kinds fill for the target builds; one per `.front` file. */
 export interface BuildContext {
   root: string; // the Vite root: target builds load the project's compilers from it
-  filename: string; // absolute .ucf path
+  filename: string; // absolute .front path
   split: SplitResult; // every block; the vue build (M4) needs all of them
   relativePath: string; // from options.root, '/' separators: the scopeId input
   source: string;
@@ -248,10 +248,10 @@ export interface StyleModule {
   classes: Record<string, string>; // local → generated class name
 }
 
-/** The file holding a `.ucf` import. */
+/** The file holding a `.front` import. */
 export interface Importer {
   fileName: string;
-  block?: Target; // the import sits inside that .ucf target block (spec 4.1)
+  block?: Target; // the import sits inside that .front target block (spec 4.1)
 }
 
 export interface ResolveTargetOptions {
@@ -265,8 +265,8 @@ export type TargetRule = 'block' | 'attribute' | 'importer' | 'default';
 
 export type TargetChoice = {target: Target; rule: TargetRule} | {error: {code: TargetErrorCode; message: string}};
 
-/** One `.ucf` import found by `rewriteImportAttributes`. */
-export interface UcfImport {
+/** One `.front` import found by `rewriteImportAttributes`. */
+export interface FrontImport {
   kind: 'static' | 'reexport' | 'dynamic';
   specifier: string; // as written, before the rewrite
   framework?: string; // the attribute's value, not checked; unset without one or when it is not a literal

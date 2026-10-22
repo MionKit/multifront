@@ -1,0 +1,22 @@
+[
+  {
+    "code": "duplicate-target",
+    "severity": "error",
+    "message": "<react> appears more than once; keep one",
+    "filename": "invalid/DuplicateReact.front",
+    "start": 162,
+    "end": 180,
+    "line": 13,
+    "column": 0
+  },
+  {
+    "code": "duplicate-target",
+    "severity": "error",
+    "message": "<react> appears more than once; keep one",
+    "filename": "invalid/DuplicateReact.front",
+    "start": 275,
+    "end": 293,
+    "line": 19,
+    "column": 0
+  }
+]

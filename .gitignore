@@ -16,4 +16,4 @@ coverage/
 # Copied from the root LICENSE by pnpm devx vsix.
 packages/vscode/LICENSE
 # Svelte declarations our language server writes on save.
-.ucf/
+.front/

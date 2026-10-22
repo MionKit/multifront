@@ -1,5 +1,5 @@
 {
-  // The milestone 7 exit test (editor/vscode/exit.spec.ts) adds fixtures Card.ucf to a copy.
+  // The milestone 7 exit test (editor/vscode/exit.spec.ts) adds fixtures Card.front to a copy.
   "compilerOptions": {
     "target": "es2022",
     "module": "preserve",
@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "plugins": [{"name": "@multifront/language-tools/typescript-plugin", "framework": "react"}]
   },
-  "include": ["*.ucf"]
+  "include": ["*.front"]
 }

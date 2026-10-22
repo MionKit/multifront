@@ -73,9 +73,9 @@ describe('the bins of the packed @multifront/language-tools', () => {
       stderr: '',
     });
     for (const root of [join(app!.dir, VALID), sources.get(VALID)!]) {
-      editFile(root, 'Greeting.ucf', 'label={String(count)}', 'label={count}');
-      editFile(root, 'Greeting.ucf', 'Hello {{ name }}', 'Hello {{ name.toFixed() }}');
-      editFile(root, 'Greeting.ucf', 'Hello {name} ({count})', 'Hello {name.toFixed()} ({count})');
+      editFile(root, 'Greeting.front', 'label={String(count)}', 'label={count}');
+      editFile(root, 'Greeting.front', 'Hello {{ name }}', 'Hello {{ name.toFixed() }}');
+      editFile(root, 'Greeting.front', 'Hello {name} ({count})', 'Hello {name.toFixed()} ({count})');
     }
     const run = await installed('mf-tsc', VALID, ['--format', 'json']);
     expect(run.code).toBe(1);
@@ -97,7 +97,7 @@ describe('the bins of the packed @multifront/language-tools', () => {
   it('mf-fmt --check finds the unformatted file with the project oxfmt, as from source', async () => {
     const run = await installed('mf-fmt', LINT_FORMAT, ['--check', '--format', 'json']);
     expect(run.code).toBe(1);
-    expect(JSON.parse(run.stdout).changed).toEqual(['Messy.ucf']);
+    expect(JSON.parse(run.stdout).changed).toEqual(['Messy.front']);
     expect(run).toEqual(await fromSource('mf-fmt', LINT_FORMAT, ['--check', '--format', 'json']));
   });
 

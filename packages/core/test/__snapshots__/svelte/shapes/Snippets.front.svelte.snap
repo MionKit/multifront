@@ -1,0 +1,15 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/Snippets.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/Snippets.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {items = ['one', 'two'], ...__frontRest}: {items?: string[]} = $props()
+  </script>
+  {#snippet item(text: string)}
+    <li data-v-d1aec5a8="" class={__frontStyle.item}><span data-v-d1aec5a8="" class={__frontStyle.text}>{text}</span></li>
+  {/snippet}
+  <ul data-v-d1aec5a8="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.list, __frontRest.class)}>
+    {#snippet last()}<li data-v-d1aec5a8="" class={__frontStyle.item}>Last</li>{/snippet}
+    {#each items as text}{@render item(text)}{/each}
+    {@render last()}
+  </ul>

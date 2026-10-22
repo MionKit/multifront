@@ -3,9 +3,9 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {buildTarget, createBuildContext, loadSvelteCompiler, loadVueCompiler, splitBlocks} from '../src/index.ts';
 
-const CARD = fileURLToPath(new URL('../../e2e/fixtures/components/Card.ucf', import.meta.url));
+const CARD = fileURLToPath(new URL('../../e2e/fixtures/components/Card.front', import.meta.url));
 
-// `svelte-build`: Card.ucf's svelte pick in a project at the root, through the host call.
+// `svelte-build`: Card.front's svelte pick in a project at the root, through the host call.
 async function run(mode: string, root: string): Promise<void> {
   if (mode === 'vue') loadVueCompiler(root);
   else if (mode === 'svelte') loadSvelteCompiler(root);

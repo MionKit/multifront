@@ -68,17 +68,17 @@ describe('buildLibrary(): one JS file per component, per target', () => {
       expect(output(target).outDir).toBe(join(library.outDir, target).replaceAll('\\', '/'));
       expect(jsFiles(target), target).toEqual(EXPECTED_JS[target].map((name) => `${name}.js`).sort());
     }
-    expect(output('react').skipped).toEqual(['VueOnly.ucf']);
+    expect(output('react').skipped).toEqual(['VueOnly.front']);
     expect(output('vue').skipped).toEqual([]);
   });
 
-  it('leaves no .ucf in a file name or an import specifier', () => {
+  it('leaves no .front in a file name or an import specifier', () => {
     for (const target of ['vue', 'react'] as const) {
       for (const file of output(target).files) {
-        expect(file).not.toContain('.ucf');
+        expect(file).not.toContain('.front');
         if (!file.endsWith('.js')) continue;
         for (const specifier of specifiersOf(file, read(target, file)))
-          expect(specifier, `${target}/${file}`).not.toContain('.ucf');
+          expect(specifier, `${target}/${file}`).not.toContain('.front');
       }
     }
     expect(specifiersOf('Card.js', read('react', 'Card.js'))).toContain('./Icon.js');
@@ -114,34 +114,34 @@ describe('buildLibrary(): one JS file per component, per target', () => {
         .module.staticImports.filter((entry) => entry.moduleRequest.value === `./${helper}`)
         .flatMap((entry) => entry.entries.map(({importName}) => importName.name));
     // Button merges its own className and style; Badge handles className itself.
-    expect(importedFromHelper('Button.js')).toEqual(expect.arrayContaining(['__ucfClass', '__ucfStyle']));
-    expect(importedFromHelper('Badge.js')).not.toContain('__ucfClass');
+    expect(importedFromHelper('Button.js')).toEqual(expect.arrayContaining(['__frontClass', '__frontStyle']));
+    expect(importedFromHelper('Badge.js')).not.toContain('__frontClass');
     for (const file of jsFiles('react')) {
-      const defines = /function __ucf\w+\(/.test(read('react', file));
+      const defines = /function __front\w+\(/.test(read('react', file));
       expect({file, defines}).toEqual({file, defines: file === helper});
     }
   });
 
-  it('maps the JSX in react/Card.js back to its line in Card.ucf', () => {
+  it('maps the JSX in react/Card.js back to its line in Card.front', () => {
     const code = read('react', 'Card.js');
     const consumer = new SourceMapConsumer(JSON.parse(read('react', 'Card.js.map')) as RawSourceMap);
     // One JSX element's output lines all map to one source line; `return` maps to a line of its own.
     const offset = code.indexOf('return /* @__PURE__ */ jsxs("article"');
     const before = code.slice(0, offset).split('\n');
     const original = consumer.originalPositionFor({line: before.length, column: before.at(-1)!.length});
-    const ucfFile = join(LIBRARY_DIR, 'src', 'Card.ucf');
-    expect(resolve(dirname(join(output('react').outDir, 'Card.js.map')), original.source)).toBe(ucfFile);
-    const ucf = readFileSync(ucfFile, 'utf8');
-    expect(original.line).toBe(ucf.slice(0, ucf.indexOf('return (', ucf.indexOf('<react lang="tsx">'))).split('\n').length);
+    const frontFile = join(LIBRARY_DIR, 'src', 'Card.front');
+    expect(resolve(dirname(join(output('react').outDir, 'Card.js.map')), original.source)).toBe(frontFile);
+    const front = readFileSync(frontFile, 'utf8');
+    expect(original.line).toBe(front.slice(0, front.indexOf('return (', front.indexOf('<react lang="tsx">'))).split('\n').length);
   });
 });
 
 describe('buildLibrary() defaults', () => {
   it('builds only the frameworks some file has a block for, with the index of its own src', async () => {
-    const vueOnly = readFileSync(join(LIBRARY_DIR, 'src', 'VueOnly.ucf'), 'utf8');
+    const vueOnly = readFileSync(join(LIBRARY_DIR, 'src', 'VueOnly.front'), 'utf8');
     const edits = [
-      {file: 'lib/VueOnly.ucf', content: vueOnly},
-      {file: 'lib/index.ts', content: "export {default as VueOnly} from './VueOnly.ucf';\n"},
+      {file: 'lib/VueOnly.front', content: vueOnly},
+      {file: 'lib/index.ts', content: "export {default as VueOnly} from './VueOnly.front';\n"},
     ];
     await withEditedLibrary(edits, async (root) => {
       const built = await buildFixtureLibrary(root, {src: 'lib'});
@@ -185,11 +185,11 @@ describe('buildLibrary() defaults', () => {
   });
 
   it('merges the vite option into the build, builds a framework named twice once, and empties its folder first', async () => {
-    const button = readFileSync(join(LIBRARY_DIR, 'src', 'Button.ucf'), 'utf8');
+    const button = readFileSync(join(LIBRARY_DIR, 'src', 'Button.front'), 'utf8');
     const reactImport = "import type { MouseEventHandler } from 'react'\n  import { cx } from './utils/cx.js'";
-    if (!button.includes(reactImport)) throw new Error('Button.ucf changed');
+    if (!button.includes(reactImport)) throw new Error('Button.front changed');
     const aliased = button.replace(reactImport, reactImport.replace('./utils/cx.js', '~/utils/cx.js'));
-    await withEditedLibrary([{file: 'src/Button.ucf', content: aliased}], async (root) => {
+    await withEditedLibrary([{file: 'src/Button.front', content: aliased}], async (root) => {
       const options: LibraryOptions = {
         frameworks: ['react', 'react'],
         index: false,
@@ -263,11 +263,11 @@ describe('buildLibrary() errors', () => {
   });
 
   it('fails on a component importing a file outside src', async () => {
-    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8');
     const edits = [
       {file: 'shared/tokens.ts', content: "export const accent = 'rgb(1, 2, 3)';\n"},
       {
-        file: 'src/Card.ucf',
+        file: 'src/Card.front',
         content: card.replace('<react lang="tsx">\n', '<react lang="tsx">\n  import \'../shared/tokens.js\'\n'),
       },
     ];
@@ -277,18 +277,18 @@ describe('buildLibrary() errors', () => {
   });
 
   it('fails on a framework no file has a block for', async () => {
-    const vueOnly = readFileSync(join(LIBRARY_DIR, 'src', 'VueOnly.ucf'), 'utf8');
-    await withEditedLibrary([{file: 'vue-only/VueOnly.ucf', content: vueOnly}], async (root) => {
+    const vueOnly = readFileSync(join(LIBRARY_DIR, 'src', 'VueOnly.front'), 'utf8');
+    await withEditedLibrary([{file: 'vue-only/VueOnly.front', content: vueOnly}], async (root) => {
       const build = buildFixtureLibrary(root, {src: 'vue-only', index: false, frameworks: ['react']});
-      await expect(build).rejects.toThrow(/no \.ucf file in .*\/vue-only has a <react> block/);
+      await expect(build).rejects.toThrow(/no \.front file in .*\/vue-only has a <react> block/);
     });
   });
 
   it('fails when no file has a framework block', async () => {
     const stylesOnly = '<style>\n.theme {\n  color: red;\n}\n</style>\n';
-    await withEditedLibrary([{file: 'styles-only/Theme.ucf', content: stylesOnly}], async (root) => {
+    await withEditedLibrary([{file: 'styles-only/Theme.front', content: stylesOnly}], async (root) => {
       await expect(buildFixtureLibrary(root, {src: 'styles-only', index: false})).rejects.toThrow(
-        /nothing to build, no \.ucf file in .*\/styles-only has a framework block/
+        /nothing to build, no \.front file in .*\/styles-only has a framework block/
       );
     });
   });
@@ -315,7 +315,7 @@ describe('buildLibrary() errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'buildLibrary: src/Badge.ts and src/Badge.ucf would both be written as Badge.js'
+        'buildLibrary: src/Badge.ts and src/Badge.front would both be written as Badge.js'
       );
     });
   });
@@ -328,7 +328,7 @@ describe('buildLibrary() errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'buildLibrary: src/Badge.ucf and src/badge.ts would be written as Badge.js and badge.js, ' +
+        'buildLibrary: src/Badge.front and src/badge.ts would be written as Badge.js and badge.js, ' +
           'which macOS and Windows see as one file'
       );
     });
@@ -338,13 +338,13 @@ describe('buildLibrary() errors', () => {
     const [composed, decomposed] = ['Café', 'Café'];
     const index = readFileSync(join(LIBRARY_DIR, 'src', 'index.ts'), 'utf8');
     const edits = [
-      {file: `src/${composed}.ucf`, content: readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8')},
+      {file: `src/${composed}.front`, content: readFileSync(join(LIBRARY_DIR, 'src', 'Icon.front'), 'utf8')},
       {file: `src/${decomposed}.ts`, content: "export const tone = 'info';\n"},
       {file: 'src/index.ts', content: `${index}export {tone} from './${decomposed}.js';\n`},
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        `buildLibrary: src/${decomposed}.ts and src/${composed}.ucf would be written as ${decomposed}.js and ` +
+        `buildLibrary: src/${decomposed}.ts and src/${composed}.front would be written as ${decomposed}.js and ` +
           `${composed}.js, which macOS sees as one file`
       );
     });

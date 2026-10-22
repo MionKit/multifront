@@ -1,6 +1,6 @@
 # Getting Started
 
-Add the multifront Vite plugin to a React, Vue or Svelte app, then import `.ucf` files like any other component.
+Add the multifront Vite plugin to a React, Vue or Svelte app, then import `.front` files like any other component.
 
 ## Setting Up Vite
 
@@ -34,7 +34,7 @@ The app also needs these packages:
 
 Write the component in a `<react>` block, with its styles beside it.
 
-`Counter.ucf`
+`Counter.front`
 
 ```vue
 <style scoped>
@@ -68,7 +68,7 @@ Then import it from a `.tsx` file. [Imports](04-imports.md) says how other files
 `App.tsx`
 
 ```tsx
-import Counter from '../../../components/Counter.ucf';
+import Counter from '../../../components/Counter.front';
 
 export default function App() {
   return (
@@ -85,7 +85,7 @@ export default function App() {
 
 Add a `<vue>` block to the same file. It shares the `<style>` blocks, so `$style.button` and the scoped `.counter` style it too.
 
-`Counter.ucf`
+`Counter.front`
 
 ```vue
 <vue lang="vue">
@@ -110,7 +110,7 @@ Then import it from a `.vue` file.
 
 ```vue
 <script setup lang="ts">
-import Counter from '../../../components/Counter.ucf';
+import Counter from '../../../components/Counter.front';
 </script>
 
 <template>
@@ -122,7 +122,7 @@ import Counter from '../../../components/Counter.ucf';
 
 Add a `<svelte>` block to the same file. It is a Svelte 5 component and shares the `<style>` blocks too.
 
-`Counter.ucf`
+`Counter.front`
 
 ```vue
 <svelte lang="html">
@@ -145,7 +145,7 @@ Then import it from a `.svelte` file.
 
 ```svelte
 <script lang="ts">
-  import Counter from '../../../components/Counter.ucf' with { framework: 'svelte' };
+  import Counter from '../../../components/Counter.front' with { framework: 'svelte' };
 </script>
 
 <Counter start={2} />
@@ -155,7 +155,7 @@ Then import it from a `.svelte` file.
 
 ## Using SvelteKit
 
-Add `multifront()` before `sveltekit()`. Pages built from `.ucf` files render on the server and hydrate with the same scoped styles.
+Add `multifront()` before `sveltekit()`. Pages built from `.front` files render on the server and hydrate with the same scoped styles.
 
 `vite.config.ts`
 
@@ -169,7 +169,7 @@ export default defineConfig({plugins: [multifront(), sveltekit()]});
 
 ## Editing While the Dev Server Runs
 
-An edit to a `.ucf` file updates only the components it changes.
+An edit to a `.front` file updates only the components it changes.
 
 | You edit | React component | Vue component | Svelte component |
 | --- | --- | --- | --- |

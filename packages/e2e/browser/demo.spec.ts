@@ -9,7 +9,7 @@ import {buildAndPreview, startDev} from './lib/serve.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'demo');
 
-// [what, selector, property, value], hand-read from Counter.ucf, ScopedPanel.ucf and Card.ucf.
+// [what, selector, property, value], hand-read from Counter.front, ScopedPanel.front and Card.front.
 const STYLES: [string, string, string, string][] = [
   ['Counter scoped .counter', '[data-demo="counter"] .counter', 'color', 'rgb(120, 40, 160)'],
   ['Counter $style.button', '[data-demo="counter"] button', 'padding', '4px 12px'],

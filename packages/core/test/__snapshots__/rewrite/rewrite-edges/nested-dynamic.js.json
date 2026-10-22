@@ -1,30 +1,30 @@
 {
-  "code": "const options = {with: {framework: 'react'}};\n// The inner import's options are no object literal: its error, never the outer import's.\nexport const Card = await import('../../components/Card.ucf?framework=react', {\n  load: () => import('../../components/Badge.ucf', options),\n});\n",
+  "code": "const options = {with: {framework: 'react'}};\n// The inner import's options are no object literal: its error, never the outer import's.\nexport const Card = await import('../../components/Card.front?framework=react', {\n  load: () => import('../../components/Badge.front', options),\n});\n",
   "imports": [
     {
       "kind": "dynamic",
-      "specifier": "../../components/Card.ucf",
+      "specifier": "../../components/Card.front",
       "start": 169,
-      "end": 196,
+      "end": 198,
       "framework": "react"
     },
     {
       "kind": "dynamic",
-      "specifier": "../../components/Badge.ucf",
-      "start": 251,
-      "end": 279
+      "specifier": "../../components/Badge.front",
+      "start": 253,
+      "end": 283
     }
   ],
   "errors": [
     {
       "code": "framework-attribute-not-literal",
       "severity": "error",
-      "message": "import() options of a .ucf import must be an object literal, so multifront can read its framework attribute",
+      "message": "import() options of a .front import must be an object literal, so multifront can read its framework attribute",
       "filename": "rewrite-edges/nested-dynamic.js",
-      "start": 281,
-      "end": 288,
+      "start": 285,
+      "end": 292,
       "line": 5,
-      "column": 51
+      "column": 53
     }
   ]
 }

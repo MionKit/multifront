@@ -9,15 +9,15 @@ import {walk} from './ast.ts';
 const SOURCE_NODES: ReadonlySet<string> = new Set(['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration']);
 
 /** `offset`: where the parsed code starts in `text`; `import()` in markup is rewritten too. */
-export function shipUcfImports(text: MagicString, root: AST.Root, offset: number): void {
+export function shipFrontImports(text: MagicString, root: AST.Root, offset: number): void {
   walk([root.module, root.instance, root.fragment], (node) => {
     const source = (SOURCE_NODES.has(node.type) || node.type === 'ImportExpression' ? node.source : undefined) as
       | SvelteNode
       | undefined;
     const value = source?.type === 'Literal' ? source.value : undefined;
-    if (typeof value !== 'string' || !/^\.\.?\//.test(value) || !value.endsWith('.ucf')) return;
+    if (typeof value !== 'string' || !/^\.\.?\//.test(value) || !value.endsWith('.front')) return;
     // The whole literal: an escaped specifier's text is not its value.
-    const shipped = JSON.stringify(`${value.slice(0, -'.ucf'.length)}.svelte`);
+    const shipped = JSON.stringify(`${value.slice(0, -'.front'.length)}.svelte`);
     text.overwrite(offset + source!.start, offset + source!.end, shipped);
   });
 }
@@ -28,7 +28,7 @@ export function libraryImports(
   locals: Map<StyleModule, string>,
   helpers: string[]
 ): string[] {
-  const css = `./${basename(ctx.filename, '.ucf')}.css`;
+  const css = `./${basename(ctx.filename, '.front')}.css`;
   const helper = importPath(ctx.filename, `${ctx.library.src}/${LIBRARY_SCOPE_HELPER}`);
   return [
     ...(ctx.styles.length > 0 ? [`import ${JSON.stringify(css)};`] : []),

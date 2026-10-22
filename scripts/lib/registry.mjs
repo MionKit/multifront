@@ -12,7 +12,7 @@ export const COMMANDS = [
   {name: 'commitlint', args: '[commitlint args…]', summary: 'check commit messages against Conventional Commits (args go to commitlint, e.g. --from <ref> --to <ref>)'},
   {name: 'clean', summary: 'delete every dist/, coverage/ and *.tsbuildinfo', flags: [['--deps', 'also delete every node_modules'], ['--dry-run', 'list, delete nothing']]},
   {name: 'docs-images', args: '[names…]', summary: 'render docs/ and publicdocs/ assets/src/*.html to assets/*.png with Playwright (vscode-icon to packages/vscode/assets/icon.png)'},
-  {name: 'vsix', summary: 'write the .ucf grammars and bundle the extension, server and TypeScript plugin into packages/vscode/dist/, then pack packages/vscode/multifront-vscode-<version>.vsix'},
+  {name: 'vsix', summary: 'write the .front grammars and bundle the extension, server and TypeScript plugin into packages/vscode/dist/, then pack packages/vscode/multifront-vscode-<version>.vsix'},
   {name: 'peer-floor', args: '<framework>', summary: "CI only: pin the lowest versions of @multifront/vite's <framework> peer ranges as pnpm overrides and reinstall (rewrites the lockfile)"},
   {name: 'consumer-pack', args: '<dir>', summary: 'build the e2e fixture library and pack one tarball per framework into <dir>, listed in <dir>/tarballs.json (CI hands it to the consumer job)'},
   {name: 'env', summary: 'print every env var the repo reads'},

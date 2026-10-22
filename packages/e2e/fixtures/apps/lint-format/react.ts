@@ -1,3 +1,3 @@
-import Messy from './Messy.ucf' with { framework: 'react' }
+import Messy from './Messy.front' with { framework: 'react' }
 
 export default Messy

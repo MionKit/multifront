@@ -1,0 +1,7 @@
+import "<fixtures>/components/scoped-modules/ScopedModuleEdges.front?front&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/scoped-modules/ScopedModuleEdges.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function Fader(__props) {
+    return <div data-v-cc1ebbcf="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass(`${$style.wrap} ${$style.fade}`, __props.className)} />
+  }

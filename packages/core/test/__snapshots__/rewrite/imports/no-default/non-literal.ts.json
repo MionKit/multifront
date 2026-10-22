@@ -1,11 +1,11 @@
 {
-  "code": "const framework = 'react';\nexport const Card = await import('../../../components/Card.ucf', {with: {framework}});\n",
+  "code": "const framework = 'react';\nexport const Card = await import('../../../components/Card.front', {with: {framework}});\n",
   "imports": [
     {
       "kind": "dynamic",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 60,
-      "end": 90
+      "end": 92
     }
   ],
   "errors": [
@@ -14,10 +14,10 @@
       "severity": "error",
       "message": "the framework attribute must be a string literal: with {framework: 'react'} (or vue, svelte)",
       "filename": "imports/no-default/non-literal.ts",
-      "start": 100,
-      "end": 109,
+      "start": 102,
+      "end": 111,
       "line": 2,
-      "column": 73
+      "column": 75
     }
   ]
 }

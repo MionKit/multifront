@@ -1,4 +1,4 @@
-// The Svelte scope stamping fuzz generator: real `.ucf` files recombined from the svelte/shapes/ fixtures.
+// The Svelte scope stamping fuzz generator: real `.front` files recombined from the svelte/shapes/ fixtures.
 import {copyFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {parse} from 'svelte/compiler';
@@ -28,7 +28,7 @@ type ScriptLayout = (typeof SCRIPT_LAYOUTS)[number];
 const SHAPES_DIR = 'svelte/shapes';
 export const FUZZ_DIR = join(TMP_DIR, 'svelte-fuzz');
 export const CHILD_FILE = 'Child.svelte';
-export const PARENT_FILE = 'Parent.ucf';
+export const PARENT_FILE = 'Parent.front';
 
 // What the parent passes every case besides its scope: a forwarded root merges both.
 export const PARENT_CLASS = 'fuzz-extra';
@@ -611,7 +611,7 @@ function writeBlock(model: Model, filename: string): Pick<SvelteCase, 'block' | 
     lines.push(...pieces);
     return `\n${lines.join('\n')}\n`;
   };
-  // Svelte's own `$style`: a store of the `.ucf` file's class map, so only our stamps and rename differ.
+  // Svelte's own `$style`: a store of the `.front` file's class map, so only our stamps and rename differ.
   const header = [
     `import {readable} from 'svelte/store'`,
     `import __fuzzClasses from ${JSON.stringify(classMapId(filename, 0))}`,
@@ -626,7 +626,7 @@ export function buildCase(
   {name, dir}: {name: string; dir: string}
 ): SvelteCase {
   const {model, applied} = replay(legacy, base, actions);
-  const {block, plain, layout} = writeBlock(model, join(dir, `${name}.ucf`));
+  const {block, plain, layout} = writeBlock(model, join(dir, `${name}.front`));
   return {name, legacy, base, actions, applied, block, plain, layout};
 }
 
@@ -649,19 +649,19 @@ export function caseAt(seed: number, runIndex: number, dir: string): SvelteCase 
   return buildCase({legacy, base}, actions, {name: `Fuzz${runIndex}`, dir});
 }
 
-export function ucfSource(fuzzCase: SvelteCase): string {
+export function frontSource(fuzzCase: SvelteCase): string {
   return `<svelte lang="html">${fuzzCase.block}</svelte>\n\n<style module scoped>\n${STYLE}\n</style>\n`;
 }
 
 /** Also copies the shapes' `Child.svelte`, which the cases render, and writes the parent that renders them. */
-export function writeCase(dir: string, fuzzCase: SvelteCase): {ucf: string; plain: string} {
+export function writeCase(dir: string, fuzzCase: SvelteCase): {front: string; plain: string} {
   copyFileSync(componentPath(`${SHAPES_DIR}/${CHILD_FILE}`), join(dir, CHILD_FILE));
   writeFileSync(join(dir, PARENT_FILE), PARENT_SOURCE);
-  const ucf = join(dir, `${fuzzCase.name}.ucf`);
+  const front = join(dir, `${fuzzCase.name}.front`);
   const plain = join(dir, `${fuzzCase.name}.svelte`);
-  writeFileSync(ucf, ucfSource(fuzzCase));
+  writeFileSync(front, frontSource(fuzzCase));
   writeFileSync(plain, fuzzCase.plain);
-  return {ucf, plain};
+  return {front, plain};
 }
 
 // --- roots, as spec 3.6 defines them ------------------------------------------------------------------------------

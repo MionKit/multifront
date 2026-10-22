@@ -1,11 +1,11 @@
 {
-  "code": "export const ReactCard = await import('../../../components/Card.ucf?framework=react');\n",
+  "code": "export const ReactCard = await import('../../../components/Card.front?framework=react');\n",
   "imports": [
     {
       "kind": "dynamic",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 38,
-      "end": 68,
+      "end": 70,
       "framework": "react"
     }
   ],

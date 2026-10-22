@@ -1,4 +1,4 @@
-// A `.vue` importer gets a `.ucf` file's Vue type with Vue's TypeScript plugin beside ours, in either load order,
+// A `.vue` importer gets a `.front` file's Vue type with Vue's TypeScript plugin beside ours, in either load order,
 // as VS Code loads them (each from its own folder) and from one install's `compilerOptions.plugins`.
 import {mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -74,7 +74,7 @@ describe.each(SETUPS)('$name', ({tsconfig, vueFirst}) => {
       );
     }
     app = read(join(root, 'src', 'App.vue'));
-    counter = read(join(root, '..', '..', 'components', 'Counter.ucf'));
+    counter = read(join(root, '..', '..', 'components', 'Counter.front'));
     logFile = join(temp, `${tsconfig ? 'tsconfig' : 'global'}-${vueFirst ? 'vue' : 'ours'}-first.log`);
     server = startTsserver({
       cwd: root,
@@ -115,7 +115,7 @@ describe.each(SETUPS)('$name', ({tsconfig, vueFirst}) => {
     expect(loadedFrom(log, ours)).toBe(tsconfig ? E2E_DIR : extension);
   });
 
-  it('App.vue as written has no error: every .ucf import resolves, its attribute included', async () => {
+  it('App.vue as written has no error: every .front import resolves, its attribute included', async () => {
     expect(await server.diagnostics(app.filename)).toEqual([]);
   });
 
@@ -138,12 +138,12 @@ describe.each(SETUPS)('$name', ({tsconfig, vueFirst}) => {
     expect(info.displayString).toMatch(/^\(property\) Counter: DefineComponent</);
   });
 
-  it('definition on <Counter is Counter.ucf at its start, as Volar gives a .vue component', async () => {
+  it('definition on <Counter is Counter.front at its start, as Volar gives a .vue component', async () => {
     const found = await definitions('<Counter', 1);
     expect(found.map(({file, start}) => ({file, start}))).toEqual([{file: counter.filename, start: {line: 1, offset: 1}}]);
   });
 
-  it("definition on :start lands on its declaration in Counter.ucf's <vue> block", async () => {
+  it("definition on :start lands on its declaration in Counter.front's <vue> block", async () => {
     const found = await definitions(':start', 1);
     expect(found.map(({file, start}) => ({file, start}))).toEqual([
       {file: counter.filename, start: locate(counter.source, 'start?: number')},
@@ -151,7 +151,7 @@ describe.each(SETUPS)('$name', ({tsconfig, vueFirst}) => {
     expect(inBlock(counter, 'vue', found[0]!)).toBe(true);
   });
 
-  it("Counter.ucf's own <vue> block still gets its errors, at the .ucf range", async () => {
+  it("Counter.front's own <vue> block still gets its errors, at the .front range", async () => {
     await expectVueError(counter);
   });
 
@@ -160,9 +160,9 @@ describe.each(SETUPS)('$name', ({tsconfig, vueFirst}) => {
     expect(found.map(({file}) => file)).toEqual([join(root, 'src', 'Plain.vue')]);
   });
 
-  // tsserver calls each plugin factory again on a reload: decorating the host twice loses the `.ucf` file's scripts.
-  it('after a reload, a .ucf file added under src joins the project and is served as before', async () => {
-    const added = {...counter, filename: join(root, 'src', 'Extra.ucf')};
+  // tsserver calls each plugin factory again on a reload: decorating the host twice loses the `.front` file's scripts.
+  it('after a reload, a .front file added under src joins the project and is served as before', async () => {
+    const added = {...counter, filename: join(root, 'src', 'Extra.front')};
     writeFileSync(added.filename, added.source);
     await server.request('reloadProjects');
     const info = await server.request<ts.server.protocol.ProjectInfo>('projectInfo', {

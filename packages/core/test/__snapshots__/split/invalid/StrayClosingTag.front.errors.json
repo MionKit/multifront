@@ -1,0 +1,12 @@
+[
+  {
+    "code": "text-outside-block",
+    "severity": "error",
+    "message": "Text outside a block; move it into a block or an HTML comment",
+    "filename": "invalid/StrayClosingTag.front",
+    "start": 185,
+    "end": 193,
+    "line": 12,
+    "column": 0
+  }
+]

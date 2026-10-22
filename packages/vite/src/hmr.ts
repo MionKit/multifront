@@ -2,7 +2,7 @@ import {classMapId, styleId} from '@multifront/core';
 import type {Block} from '@multifront/core';
 import type {Plugin} from 'vite';
 import {TARGET_SUFFIX, VIRTUAL_TARGETS, splitId} from './ids.ts';
-import type {UcfCache, UcfEntry, UcfSnapshot, UcfVersion} from './types.ts';
+import type {FrontCache, FrontEntry, FrontSnapshot, FrontVersion} from './types.ts';
 
 type BlockText = Pick<Block, 'content' | 'attrs'>;
 
@@ -17,7 +17,7 @@ export function sameBlock(left: BlockText | null | undefined, right: BlockText |
   return left.content === right.content && sameRecord(left.attrs, right.attrs);
 }
 
-async function classesOf(entry: Promise<UcfEntry> | undefined, index: number) {
+async function classesOf(entry: Promise<FrontEntry> | undefined, index: number) {
   try {
     return entry && (await entry).ctx.styles[index]?.classes;
   } catch {
@@ -25,10 +25,10 @@ async function classesOf(entry: Promise<UcfEntry> | undefined, index: number) {
   }
 }
 
-async function changedIds(file: string, before: UcfSnapshot, after: UcfVersion, cache: UcfCache) {
+async function changedIds(file: string, before: FrontSnapshot, after: FrontVersion, cache: FrontCache) {
   const old = before.split;
   const now = after.split;
-  // The overlay shows the error, the fix clears it; never an index `now` lacks: it would load the `.ucf` as CSS.
+  // The overlay shows the error, the fix clears it; never an index `now` lacks: it would load the `.front` as CSS.
   if (old.errors.length > 0 || now.errors.length > 0) {
     return [
       ...VIRTUAL_TARGETS.map((target) => file + TARGET_SUFFIX[target]),
@@ -61,22 +61,22 @@ async function changedIds(file: string, before: UcfSnapshot, after: UcfVersion, 
 type HotUpdate = Extract<NonNullable<Plugin['hotUpdate']>, Function>;
 
 /** Spec 7: a `<style>` edit updates its style module, a target block edit only that target's module. */
-export function ucfHotUpdate(cache: UcfCache, hasVuePlugin: () => boolean): HotUpdate {
+export function frontHotUpdate(cache: FrontCache, hasVuePlugin: () => boolean): HotUpdate {
   // Every environment's hook of one change gets its timestamp: one read, so a later save never splits them.
-  const changes = new Map<string, {timestamp: number; before: UcfSnapshot | undefined; after: UcfVersion}>();
+  const changes = new Map<string, {timestamp: number; before: FrontSnapshot | undefined; after: FrontVersion}>();
   return async function hotUpdate({type, file, modules, read, timestamp}) {
-    if (type !== 'update' || !file.endsWith('.ucf')) return;
+    if (type !== 'update' || !file.endsWith('.front')) return;
     const vuePlugin = hasVuePlugin();
     const handedOn = modules.filter((mod) => {
       if (!mod.id) return true;
       const {path, query} = splitId(mod.id);
-      if (query.has('ucf')) return false;
+      if (query.has('front')) return false;
       // Without plugin-vue the bare node is only our `addWatchFile` edge, and handing it on re-runs the react module.
-      return vuePlugin || !(query.has('vue') || (query.size === 0 && path.endsWith('.ucf')));
+      return vuePlugin || !(query.has('vue') || (query.size === 0 && path.endsWith('.front')));
     });
     let change = changes.get(file);
     if (change?.timestamp !== timestamp) {
-      const after = cache.updateUcf(file, await read());
+      const after = cache.updateFront(file, await read());
       change = {timestamp, before: change ? change.after : after.previous, after};
       changes.set(file, change);
     }

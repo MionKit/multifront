@@ -2,7 +2,7 @@ import type {IRawGrammar} from 'vscode-textmate';
 
 export type TmRule = IRawGrammar['patterns'][number];
 
-/** The root .ucf grammar has no repository. */
+/** The root .front grammar has no repository. */
 export type TmGrammar = Omit<IRawGrammar, 'repository'> & {repository?: IRawGrammar['repository']};
 
 export interface GrammarFile {

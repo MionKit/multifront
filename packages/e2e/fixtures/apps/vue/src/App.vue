@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import Counter from '../../../components/Counter.ucf';
-import VBind from '../../../components/vue/VBind.ucf';
-import UsesIcon from '../../../components/imports/UsesIcon.ucf' with { framework: 'vue' };
+import Counter from '../../../components/Counter.front';
+import VBind from '../../../components/vue/VBind.front';
+import UsesIcon from '../../../components/imports/UsesIcon.front' with { framework: 'vue' };
 import Plain from './Plain.vue';
 </script>
 

@@ -29,7 +29,7 @@ const MISSING_SVELTE: Finding = {
 };
 
 describe('mf-fmt with the svelte option on', () => {
-  it('starts from the same Messy.ucf as lint-format/', () => {
+  it('starts from the same Messy.front as lint-format/', () => {
     expect(read(join(FIXTURES_DIR, 'apps', LINT_FORMAT_SVELTE), MESSY)).toBe(ORIGINAL);
   });
 
@@ -75,8 +75,8 @@ describe('mf-fmt with the svelte option on', () => {
       );
       expect(await runMfFmt(root)).toEqual({code: 0, stdout: 'mf-fmt: formatted 2 of 2 files\n', stderr: ''});
       expectCliOutput(root, MESSY, '\n', SENT_WITH_SVELTE);
-      expectCliOutput(root, 'nested/Messy.ucf');
-      expect(contents(read(root, 'nested/Messy.ucf')).svelte).toBe(contents(ORIGINAL).svelte);
+      expectCliOutput(root, 'nested/Messy.front');
+      expect(contents(read(root, 'nested/Messy.front')).svelte).toBe(contents(ORIGINAL).svelte);
     });
   });
 
@@ -110,15 +110,15 @@ describe('mf-fmt with the svelte option on', () => {
     await withCopy(LINT_FORMAT_SVELTE, async (root) => {
       const head = '<svelte:head><script type="application/ld+json">{"@context":"https://schema.org"}</script></svelte:head>';
       const valid = `<svelte lang="html">\n<script module lang="ts">export const size = 1</script>\n<script lang="typescript">let a = 1</script>\n${head}\n</svelte>\n`;
-      addFile(root, 'Scripts.ucf', valid);
-      expect(await runMfFmt(root, ['Scripts.ucf'])).toEqual(FORMATTED_ONE);
-      addFile(root, 'Scripts.ucf', valid.replace('let a = 1', 'let a = 1 +'));
-      const source = read(root, 'Scripts.ucf');
-      const run = await runMfFmt(root, ['Scripts.ucf', '--format', 'json']);
+      addFile(root, 'Scripts.front', valid);
+      expect(await runMfFmt(root, ['Scripts.front'])).toEqual(FORMATTED_ONE);
+      addFile(root, 'Scripts.front', valid.replace('let a = 1', 'let a = 1 +'));
+      const source = read(root, 'Scripts.front');
+      const run = await runMfFmt(root, ['Scripts.front', '--format', 'json']);
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       expect(report(run.stdout).findings).toEqual([
         {
-          file: 'Scripts.ucf',
+          file: 'Scripts.front',
           ...span(source, '</script>\n<svelte:head>', 0),
           code: 'format-error',
           severity: 'error',
@@ -126,7 +126,7 @@ describe('mf-fmt with the svelte option on', () => {
           block: 'svelte',
         },
       ]);
-      expect(read(root, 'Scripts.ucf')).toBe(source);
+      expect(read(root, 'Scripts.front')).toBe(source);
     });
   });
 
@@ -165,19 +165,19 @@ describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
           // A finding with no file sorts first.
           findings: [
             MISSING_SVELTE,
-            ...[MESSY, 'nested/Messy.ucf'].map((file) => expect.objectContaining({file, code: 'unformatted'})),
+            ...[MESSY, 'nested/Messy.front'].map((file) => expect.objectContaining({file, code: 'unformatted'})),
           ],
           errorCount: 2,
           warningCount: 1,
           files: 2,
-          changed: [MESSY, 'nested/Messy.ucf'],
+          changed: [MESSY, 'nested/Messy.front'],
         });
         expect(await runMfFmt(root, [], env)).toEqual({
           code: 0,
           stdout: `warning missing-svelte: ${MISSING_SVELTE.message}\nmf-fmt: formatted 2 of 2 files\n`,
           stderr: '',
         });
-        for (const file of [MESSY, 'nested/Messy.ucf']) {
+        for (const file of [MESSY, 'nested/Messy.front']) {
           const [before, after] = [contents(ORIGINAL), contents(read(root, file))];
           expect(after.svelte, file).toBe(before.svelte);
           for (const tag of Object.keys(SENT) as (keyof typeof SENT)[])
@@ -187,15 +187,15 @@ describe('mf-fmt with the svelte option on and no svelte for oxfmt', () => {
         expect({code: json.code, stderr: json.stderr}).toEqual({code: 0, stderr: ''});
         expect(report(json.stdout)).toEqual({findings: [MISSING_SVELTE], errorCount: 0, warningCount: 1, files: 2, changed: []});
         // Beside a block oxfmt cannot parse, which leaves that file as written.
-        editFile(root, 'nested/Messy.ucf', 'setCount(count + 1)', 'setCount(count +)');
+        editFile(root, 'nested/Messy.front', 'setCount(count + 1)', 'setCount(count +)');
         const broken = await runMfFmt(root, ['nested', '--format', 'json'], env);
         expect(broken.code).toBe(1);
         expect(report(broken.stdout).findings).toEqual([
           MISSING_SVELTE,
-          expect.objectContaining({file: 'nested/Messy.ucf', code: 'format-error', block: 'react'}),
+          expect.objectContaining({file: 'nested/Messy.front', code: 'format-error', block: 'react'}),
         ]);
-        addFile(root, 'Plain.ucf', '<react lang="tsx">\nexport default function Plain() {\n  return <p />;\n}\n</react>\n');
-        const plain = await runMfFmt(root, ['Plain.ucf', '--format', 'json'], env);
+        addFile(root, 'Plain.front', '<react lang="tsx">\nexport default function Plain() {\n  return <p />;\n}\n</react>\n');
+        const plain = await runMfFmt(root, ['Plain.front', '--format', 'json'], env);
         expect({code: plain.code, stderr: plain.stderr}).toEqual({code: 0, stderr: ''});
         expect(report(plain.stdout)).toMatchObject({findings: [], warningCount: 0});
       },

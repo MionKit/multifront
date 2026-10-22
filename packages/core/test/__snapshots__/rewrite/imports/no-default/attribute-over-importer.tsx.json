@@ -1,11 +1,11 @@
 {
-  "code": "import VueCard from '../../../components/Card.ucf?framework=vue';\n\nexport {VueCard};\n",
+  "code": "import VueCard from '../../../components/Card.front?framework=vue';\n\nexport {VueCard};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 20,
-      "end": 50,
+      "end": 52,
       "framework": "vue"
     }
   ],

@@ -27,7 +27,7 @@ const UNCLOSED_MODULE = ['padding: 4px 12px;\n}\n</style>', 'padding: 4px 12px;\
 const SVELTE_BLOCK =
   '<svelte lang="html">\n  <script lang="ts">\n  import { untrack } from \'svelte\'\n\n  let { start = 0 }: { start?: number } = $props()\n  let count = $state(untrack(() => start))\n  </script>\n\n  <div class="counter">\n    <span class="label">Clicks</span>\n    <button class={$style.button} title="Zähler 𝄞" onclick={() => count++}>{count}</button>\n  </div>\n</svelte>\n';
 
-// One edit per row: [what, from, to, our modules returned]; css<N>, map<N> and react name ids of Counter.ucf.
+// One edit per row: [what, from, to, our modules returned]; css<N>, map<N> and react name ids of Counter.front.
 const EDITS: [string, string, string, string[]][] = [
   ['a scoped declaration', 'rgb(120, 40, 160)', 'rgb(10, 20, 30)', ['css0']],
   ['a module declaration (dev class names ignore the CSS)', 'padding: 4px 12px', 'padding: 5px 12px', ['css1']],
@@ -81,7 +81,7 @@ function hmrApp(plugins: () => Plugin[]) {
       if (id === `${state.file}.react.tsx`) return 'react';
       if (id === state.file) return 'bare';
       if (id === `${state.file}?raw`) return 'raw';
-      const match = /^.*\?ucf&type=style&index=(\d+)(&module)?&lang\.(css|js)$/.exec(id);
+      const match = /^.*\?front&type=style&index=(\d+)(&module)?&lang\.(css|js)$/.exec(id);
       if (match) return `${match[2] ? 'map' : 'css'}${match[1]}`;
       const vueStyle = /^.*\?vue&type=style&index=(\d+)&/.exec(id);
       return vueStyle ? `vue-css${vueStyle[1]}` : id;
@@ -103,7 +103,7 @@ function hmrApp(plugins: () => Plugin[]) {
     return found as Record<EnvironmentName, Update>;
   }
 
-  // From App.tsx, as a page does: Vite links the React module to Counter.ucf only if the module existed before load.
+  // From App.tsx, as a page does: Vite links the React module to Counter.front only if the module existed before load.
   async function crawl(): Promise<void> {
     for (const name of ENVIRONMENTS) {
       const environment = state.server!.environments[name];
@@ -118,7 +118,7 @@ function hmrApp(plugins: () => Plugin[]) {
         const mod = await environment.moduleGraph.getModuleByUrl(url);
         for (const imported of mod?.importedModules ?? []) {
           const id = imported.id ?? '';
-          if (id === `${state.file}.react.tsx` || id.startsWith(`${state.file}?ucf&`)) pending.push(imported.url);
+          if (id === `${state.file}.react.tsx` || id.startsWith(`${state.file}?front&`)) pending.push(imported.url);
         }
       }
     }
@@ -140,7 +140,7 @@ function hmrApp(plugins: () => Plugin[]) {
 
   beforeAll(async () => {
     state.root = await copyApp('demo');
-    state.file = resolve(state.root, '..', '..', 'components', 'Counter.ucf');
+    state.file = resolve(state.root, '..', '..', 'components', 'Counter.front');
     state.app = join(state.root, 'src', 'App.tsx');
     state.original = await readFile(state.file, 'utf8');
     state.cacheDir = await mkdtemp(join(TMP_DIR, 'hmr-cache-'));
@@ -191,7 +191,7 @@ function inBoth(names: string[]) {
   return {client: sorted, ssr: sorted};
 }
 
-describe('hotUpdate of a .ucf file (demo, Counter.ucf), in client and SSR', () => {
+describe('hotUpdate of a .front file (demo, Counter.front), in client and SSR', () => {
   const app = hmrApp(() => []);
 
   beforeEach(() => app.restore());
@@ -236,7 +236,7 @@ describe('hotUpdate with plugin-vue in the app', () => {
   });
 });
 
-describe('hotUpdate with plugin-vue holding Counter.ucf as Vue and the page holding it as React', () => {
+describe('hotUpdate with plugin-vue holding Counter.front as Vue and the page holding it as React', () => {
   const app = hmrApp(() => [vue()]);
 
   beforeEach(async () => {
@@ -263,13 +263,13 @@ describe('hotUpdate beyond edits of a served file', () => {
     expect(returned(app, updates)).toEqual(inBoth(['raw']));
   });
 
-  it('leaves a file that is no .ucf as Vite listed it', async () => {
+  it('leaves a file that is no .front as Vite listed it', async () => {
     const source = await readFile(app.state.app, 'utf8');
     const updates = await app.write(app.state.app, `${source}\n// edited\n`);
     for (const name of ENVIRONMENTS) expect({name, given: updates[name].given}).toEqual({name, given: updates[name].byFile});
   });
 
-  it('leaves a deleted .ucf file to Vite', async () => {
+  it('leaves a deleted .front file to Vite', async () => {
     app.records.length = 0;
     await unlink(app.state.file);
     const updates = await app.updated((update) => update.file === app.state.file && update.type === 'delete');

@@ -110,7 +110,7 @@ describe('a VS Code that dies by SIGSEGV', () => {
 
 const FULL_EDITOR = join(import.meta.dirname, 'fullEditor.cjs');
 const {checks: fullEditorChecks} = createRequire(import.meta.url)(FULL_EDITOR) as {checks: Check[]};
-const CARD = 'Card.ucf';
+const CARD = 'Card.front';
 const VUE_PROPS = 'defineProps<{ title: string }>();\n';
 const projects: string[] = [];
 
@@ -118,7 +118,7 @@ afterAll(async () => {
   for (const root of projects) await removeApp(root);
 });
 
-/** Fixtures Card.ucf in a copy of card-project: tsconfig, `.oxlintrc.json`, `.oxfmtrc.json`. */
+/** Fixtures Card.front in a copy of card-project: tsconfig, `.oxlintrc.json`, `.oxfmtrc.json`. */
 async function cardProject(): Promise<string> {
   const root = await copyApp('card-project');
   projects.push(root);
@@ -131,7 +131,7 @@ function breakCard(root: string): void {
   editFile(root, CARD, VUE_PROPS, `${VUE_PROPS}  debugger;\n`);
 }
 
-describe('milestone 7 exit test: Card.ucf through mf-tsc, mf-lint and mf-fmt', () => {
+describe('milestone 7 exit test: Card.front through mf-tsc, mf-lint and mf-fmt', () => {
   it('1. mf-tsc, mf-lint and mf-fmt --check all exit 0 on the copy', async () => {
     const root = await cardProject();
     const runs = await Promise.all([runMfTsc(root), runMfLint(root), runMfFmt(root, ['--check'])]);
@@ -162,7 +162,7 @@ describe('milestone 7 exit test: Card.ucf through mf-tsc, mf-lint and mf-fmt', (
   });
 });
 
-describe('milestone 7 exit test: a real VS Code with the packed .vsix installed, on the same Card.ucf', () => {
+describe('milestone 7 exit test: a real VS Code with the packed .vsix installed, on the same Card.front', () => {
   reportChecks(fullEditorChecks, async () => {
     const [workspace, other] = await Promise.all([cardProject(), cardProject()]);
     for (const root of [workspace, other]) breakCard(root);
@@ -172,8 +172,8 @@ describe('milestone 7 exit test: a real VS Code with the packed .vsix installed,
       runMfFmt(other, [CARD]),
     ]);
     expect({code: fmt.code, stderr: fmt.stderr}).toEqual({code: 0, stderr: ''});
-    // Check 5 imports step 7.5's Icon.ucf from the unsaved Card.ucf buffer.
-    copyFileSync(join(FIXTURES_DIR, 'apps', 'svelte-markup', 'Icon.ucf'), join(workspace, 'Icon.ucf'));
+    // Check 5 imports step 7.5's Icon.front from the unsaved Card.front buffer.
+    copyFileSync(join(FIXTURES_DIR, 'apps', 'svelte-markup', 'Icon.front'), join(workspace, 'Icon.front'));
     const vsix = join(temp, VSIX_FILE);
     return runInVsCode({vsix, workspace, suite: FULL_EDITOR, data: {tsc, lint, formatted: read(other, CARD)}});
   });

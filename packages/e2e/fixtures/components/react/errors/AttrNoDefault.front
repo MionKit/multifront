@@ -1,0 +1,7 @@
+<react lang="tsx">
+  import Badge from '../../Badge.front' with { framework: 'vue' }
+
+  export function AttrNoDefault() {
+    return <Badge label="New" />
+  }
+</react>

@@ -26,25 +26,25 @@ type Row = {fixture: string; roots: Record<RootProp, State>[]; typed: string; re
 const ROWS: Row[] = (
   [
     {
-      fixture: 'DestructuresClass.ucf',
+      fixture: 'DestructuresClass.front',
       roots: [{class: 'author', style: 'author'}],
-      typed: "let { class: klass = '', style, ...__ucfRest }: { class?: string; style?: string } = $props()",
+      typed: "let { class: klass = '', style, ...__frontRest }: { class?: string; style?: string } = $props()",
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'JsDoc.ucf',
+      fixture: 'JsDoc.front',
       roots: [{class: 'merged', style: 'merged'}],
-      typed: `/** @type {({ label?: string }) & ${TYPE}} */\n    let { label = 'jsdoc', ...__ucfRest } = $props()`,
+      typed: `/** @type {({ label?: string }) & ${TYPE}} */\n    let { label = 'jsdoc', ...__frontRest } = $props()`,
       renders: [{classes: ['own', 'parent-extra'], style: 'padding: 1px; color: red'}],
     },
     {
-      fixture: 'JsNoProps.ucf',
+      fixture: 'JsNoProps.front',
       roots: [{class: 'merged', style: 'added'}],
-      typed: `/** @type {${TYPE}} */ let {...__ucfRest} = $props();`,
+      typed: `/** @type {${TYPE}} */ let {...__frontRest} = $props();`,
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'Merges.ucf',
+      fixture: 'Merges.front',
       roots: [
         {class: 'merged', style: 'merged'},
         {class: 'merged', style: 'merged'},
@@ -52,7 +52,7 @@ const ROWS: Row[] = (
         {class: 'merged', style: 'added'},
         {class: 'merged', style: 'added'},
       ],
-      typed: `let { branch, tone = 'calm', ...__ucfRest }: ({ branch: string; tone?: string }) & ${TYPE} = $props()`,
+      typed: `let { branch, tone = 'calm', ...__frontRest }: ({ branch: string; tone?: string }) & ${TYPE} = $props()`,
       renders: [
         {props: {branch: 'text'}, classes: ['own', 'text', 'parent-extra'], style: 'padding: 4px;; color: red'},
         // A class value Svelte flattens, as on an element.
@@ -78,55 +78,55 @@ const ROWS: Row[] = (
       ],
     },
     {
-      fixture: 'MergesOnComponent.ucf',
+      fixture: 'MergesOnComponent.front',
       roots: [{class: 'merged', style: 'merged'}],
-      typed: `let { tag = 'aside', ...__ucfRest }: ({ tag?: string }) & ${TYPE} = $props()`,
+      typed: `let { tag = 'aside', ...__frontRest }: ({ tag?: string }) & ${TYPE} = $props()`,
       // SvelteElementRoot merges again: its own class first, then the one this root passed on.
       renders: [{classes: ['shape', 'own', 'parent-extra'], style: 'padding: 1px; color: red'}],
     },
     {
-      fixture: 'ReadsCast.ucf',
+      fixture: 'ReadsCast.front',
       roots: [{class: 'author', style: 'author'}],
       typed: 'let props: Props = $props()',
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'ReadsClass.ucf',
+      fixture: 'ReadsClass.front',
       roots: [{class: 'author', style: 'added'}],
       typed: 'let props: ({ label?: string; class?: string }) & {style?: string | null} = $props()',
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'ReadsDestructure.ucf',
+      fixture: 'ReadsDestructure.front',
       roots: [{class: 'author', style: 'author'}],
       typed: "let { label = 'destructure', ...rest }: { label?: string; class?: string; style?: string } = $props()",
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'ReadsOptional.ucf',
+      fixture: 'ReadsOptional.front',
       roots: [{class: 'author', style: 'author'}],
       typed: 'let props: { label?: string; class?: string; style?: string } = $props()',
       renders: [{classes: ['own', 'parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'SpreadsRest.ucf',
+      fixture: 'SpreadsRest.front',
       roots: [{class: 'author', style: 'none'}],
       typed: "let { label = 'spreads', ...rest }: { label?: string; [key: string]: unknown } = $props()",
       renders: [{classes: ['parent-extra'], style: 'color: red'}],
     },
     {
-      fixture: 'Untyped.ucf',
+      fixture: 'Untyped.front',
       roots: [{class: 'merged', style: 'added'}],
-      typed: "let { label = 'untyped', ...__ucfRest } = $props()",
+      typed: "let { label = 'untyped', ...__frontRest } = $props()",
       renders: [
         {classes: ['own', 'parent-extra'], style: 'color: red'},
         {parent: false, classes: ['own']},
       ],
     },
     {
-      fixture: 'ValuelessClass.ucf',
+      fixture: 'ValuelessClass.front',
       roots: [{class: 'author', style: 'merged'}],
-      typed: `let { label = 'valueless', ...__ucfRest }: ({ label?: string }) & {style?: string | null} = $props()`,
+      typed: `let { label = 'valueless', ...__frontRest }: ({ label?: string }) & {style?: string | null} = $props()`,
       // Left as written; beside the scope spread, Svelte renders a `class` with no value as `class="true"`.
       renders: [{classes: ['true'], style: 'padding: 1px; color: red'}],
     },
@@ -150,7 +150,7 @@ function forwardedRoots(code: string): {root: Node; props: string; added: string
   const found: {root: Node; props: string; added: string[]}[] = [];
   visit(svelte.parse(code, {modern: true}).fragment, (node) => {
     for (const attribute of (node.attributes as Node[] | undefined) ?? []) {
-      const spread = /^\{\.\.\.__ucfScopeAttrs\d*\((\w+)((?:, '\w+')*)\)\}$/.exec(code.slice(attribute.start, attribute.end));
+      const spread = /^\{\.\.\.__frontScopeAttrs\d*\((\w+)((?:, '\w+')*)\)\}$/.exec(code.slice(attribute.start, attribute.end));
       if (attribute.type === 'SpreadAttribute' && spread)
         found.push({root: node, props: spread[1]!, added: [...spread[2]!.matchAll(/'(\w+)'/g)].map(([, key]) => key!)});
     }
@@ -163,14 +163,14 @@ function state(code: string, {root, props, added}: ReturnType<typeof forwardedRo
   const own = (root.attributes as Node[]).find(({type, name}) => type === 'Attribute' && name === prop);
   if (!own) return 'none';
   const value = code.slice(own.start, own.end);
-  const merge = prop === 'class' ? '__ucfSvelteClass' : '__ucfStyle';
+  const merge = prop === 'class' ? '__frontSvelteClass' : '__frontStyle';
   return new RegExp(String.raw`^${prop}=\{${merge}\d*\(.*, ${props}\.${prop}\)\}$`, 's').test(value) ? 'merged' : 'author';
 }
 
 describe.each(ROWS)('svelte.build root props of $fixture', async ({fixture, roots, typed, renders}) => {
   const dev = await svelteBuild(fixture);
   const production = await svelteBuild(fixture, true);
-  const name = basename(fixture, '.ucf');
+  const name = basename(fixture, '.front');
 
   it('builds in dev and in production, and Svelte compiles both with no warning', () => {
     for (const {file, ctx} of [dev, production]) {

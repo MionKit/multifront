@@ -101,7 +101,7 @@ describe('M6 exit: mf-build, packed, in four fresh apps', () => {
   it('builds every framework with the real mf-build bin', () => {
     expect(built!.stderr).toBe('');
     expect(built!.stdout).toMatch(
-      /^mf-build: built 3 packages in dist: vue \d+ files, react \d+ files \(skipped VueOnly\.ucf\), svelte \d+ files \(skipped Badge\.ucf, VueOnly\.ucf\)\n$/
+      /^mf-build: built 3 packages in dist: vue \d+ files, react \d+ files \(skipped VueOnly\.front\), svelte \d+ files \(skipped Badge\.front, VueOnly\.front\)\n$/
     );
   });
 

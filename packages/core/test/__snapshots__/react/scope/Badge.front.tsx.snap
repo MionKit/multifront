@@ -1,0 +1,6 @@
+import "<fixtures>/components/Badge.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function Badge(__props: { label: string }) {const { label } = __props;
+    return <span data-v-e2b6b459="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("badge", __props.className)}>{label}</span>
+  }

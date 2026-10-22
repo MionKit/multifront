@@ -1,0 +1,12 @@
+[
+  {
+    "code": "react-syntax-error",
+    "severity": "error",
+    "message": "<react> does not parse: Expected corresponding JSX closing tag for 'p'.",
+    "filename": "react/errors/SyntaxError.front",
+    "start": 183,
+    "end": 186,
+    "line": 4,
+    "column": 38
+  }
+]

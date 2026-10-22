@@ -5,10 +5,10 @@ import type {Rolldown, ViteDevServer} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, expectImportError, rejection, withDevServer, withEditedApp} from './lib/build.ts';
-import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
+import {expectNoAttribute, resolutionRecorder, frontPaths} from './lib/references.ts';
 
-const COUNTER = '../../../components/Counter.ucf';
-const USES_ICON = '../../../components/imports/UsesIcon.ucf';
+const COUNTER = '../../../components/Counter.front';
+const USES_ICON = '../../../components/imports/UsesIcon.front';
 const VUE_MARKERS = ['icon-vue-marker', 'uses-icon-vue-marker'];
 const OTHER_MARKERS = ['icon-react-marker', 'uses-icon-react-marker', 'icon-svelte-marker', 'uses-icon-svelte-marker'];
 
@@ -42,9 +42,9 @@ describe('imports through plugin-vue in the vue app', () => {
 
     it('gives a bare import in App.vue the Vue target', () => {
       const ids = chunks.flatMap((chunk) => chunk.moduleIds);
-      for (const name of ['Counter.ucf', 'imports/UsesIcon.ucf', 'imports/Icon.ucf'])
+      for (const name of ['Counter.front', 'imports/UsesIcon.front', 'imports/Icon.front'])
         expect(ids).toContain(join(components, name));
-      expect(ids.filter((id) => id.includes('.ucf.'))).toEqual([]);
+      expect(ids.filter((id) => id.includes('.front.'))).toEqual([]);
       const app = recorder.from('/src/App.vue');
       expect(app.map(({id}) => id)).toContain(COUNTER);
       expect(app.every(({query}) => query.startsWith('vue&type=script'))).toBe(true);
@@ -58,11 +58,11 @@ describe('imports through plugin-vue in the vue app', () => {
       }
     });
 
-    it('builds the Vue Icon UsesIcon.ucf imports with no attribute', () => {
+    it('builds the Vue Icon UsesIcon.front imports with no attribute', () => {
       // Its own style sub-requests aside.
-      const imports = recorder.from('/imports/UsesIcon.ucf').filter(({id}) => !id.includes('?vue'));
+      const imports = recorder.from('/imports/UsesIcon.front').filter(({id}) => !id.includes('?vue'));
       expect(new Set(imports.map(({id, query}) => `${id} from ?${query}`))).toEqual(
-        new Set(['./Icon.ucf from ?vue&type=script&setup=true&lang.ts'])
+        new Set(['./Icon.front from ?vue&type=script&setup=true&lang.ts'])
       );
       const code = chunks.map((chunk) => chunk.code).join('\n');
       for (const marker of VUE_MARKERS) expect(code).toContain(marker);
@@ -79,7 +79,7 @@ describe('imports through plugin-vue in the vue app', () => {
       await withDevServer(root, {plugins: [recorder.plugin]}, async (server: ViteDevServer) => {
         const transform = async (name: 'client' | 'ssr') => ({
           app: (await server.environments[name].transformRequest('/src/App.vue'))!.code,
-          usesIcon: (await server.environments[name].transformRequest(`/@fs${join(components, 'imports/UsesIcon.ucf')}`))!.code,
+          usesIcon: (await server.environments[name].transformRequest(`/@fs${join(components, 'imports/UsesIcon.front')}`))!.code,
         });
         results = {client: await transform('client'), ssr: await transform('ssr')};
         const {render} = (await server.ssrLoadModule('/src/entry-server.ts')) as {render: () => Promise<string>};
@@ -91,14 +91,16 @@ describe('imports through plugin-vue in the vue app', () => {
       it(`gives App.vue's imports the Vue target, the attribute moved into the id and gone (${environment})`, () => {
         const {app, usesIcon} = results[environment];
         expectNoAttribute(app);
-        expect(ucfPaths(app).sort()).toEqual([
-          '/components/Counter.ucf',
-          '/components/imports/UsesIcon.ucf',
-          '/components/vue/VBind.ucf',
+        expect(frontPaths(app).sort()).toEqual([
+          '/components/Counter.front',
+          '/components/imports/UsesIcon.front',
+          '/components/vue/VBind.front',
         ]);
         const ids = recorder.from('/src/App.vue', environment).map(({id}) => id);
         expect(ids).toEqual(expect.arrayContaining([COUNTER, `${USES_ICON}?framework=vue`]));
-        expect(ucfPaths(usesIcon).filter((path) => !path.endsWith('UsesIcon.ucf'))).toEqual(['/components/imports/Icon.ucf']);
+        expect(frontPaths(usesIcon).filter((path) => !path.endsWith('UsesIcon.front'))).toEqual([
+          '/components/imports/Icon.front',
+        ]);
       });
     }
 
@@ -114,10 +116,10 @@ describe('imports through plugin-vue in the vue app', () => {
 
 describe('import errors through plugin-vue', () => {
   it.each(['AttrInside', 'AttrInsideJs'])(
-    'fails a framework attribute inside the <vue> block of %s.ucf at its place, in build and dev',
+    'fails a framework attribute inside the <vue> block of %s.front at its place, in build and dev',
     async (name) => {
-      await withImport(name, `'../../../components/vue/${name}.ucf'`, async (root) => {
-        const file = resolve(root, '..', '..', 'components', 'vue', `${name}.ucf`);
+      await withImport(name, `'../../../components/vue/${name}.front'`, async (root) => {
+        const file = resolve(root, '..', '..', 'components', 'vue', `${name}.front`);
         const diagnostics = checkBlocks(splitBlocks(await readFile(file, 'utf8'), file));
         expect(new Set(diagnostics.map(({code}) => code))).toEqual(new Set(['framework-in-block']));
         const [first, ...rest] = diagnostics;
@@ -140,10 +142,10 @@ describe('import errors through plugin-vue', () => {
     }
   );
 
-  it('fails importing ReactOnly.ucf from App.vue, naming both files, in build and dev', async () => {
-    await withImport('ReactOnly', "'../../../components/imports/ReactOnly.ucf'", async (root) => {
+  it('fails importing ReactOnly.front from App.vue, naming both files, in build and dev', async () => {
+    await withImport('ReactOnly', "'../../../components/imports/ReactOnly.front'", async (root) => {
       const message =
-        '../../../components/imports/ReactOnly.ucf has no <vue> block; App.vue imports it as vue (missing-target-block)';
+        '../../../components/imports/ReactOnly.front has no <vue> block; App.vue imports it as vue (missing-target-block)';
       expect((await rejection<Rolldown.BundleError>(buildApp(root))).message).toContain(message);
       await withDevServer(root, {}, async (server) => {
         const client = await rejection<Rolldown.RollupError>(server.environments.client.transformRequest('/src/App.vue'));

@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    // `props` is declared by its rune: `$props` stays a rune, not a store.
+    let props = $props()
+  </script>
+  <p {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">{props.label ?? 'props only'}</span></p>

@@ -4,7 +4,7 @@ import {EDITOR_BLOCK_KINDS} from './blocks/index.ts';
 import {createEditorContext, editorFiles} from './context.ts';
 import type {EditorFile, EditorOptions} from './types.ts';
 
-/** `Card.ucf.<target><ext>` without a language server. */
+/** `Card.front.<target><ext>` without a language server. */
 export function getTypesScript(
   filename: string,
   source: string,

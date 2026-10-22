@@ -1,0 +1,20 @@
+import "<fixtures>/components/TsxEdges.front?front&type=style&index=0&lang.css";
+import {__frontWarnFragment} from "virtual:multifront/scope-attrs";
+
+  // <style> in a comment is not a block
+  const identity = <T,>(x: T) => x
+
+  export default function TsxEdges(__props: { a: number; b: number; c: number; d: number }) {const { a, b, c, d } = __props;
+    const less = a < b
+    const both = a<b && c>d
+    const open = '<react>'
+    const close = '<\/react>'
+    const longer = '</reactive>'
+    return (
+      (__frontWarnFragment(__props, "TsxEdges"), <>
+        <span data-v-4604102a="" className="edge">{identity(less)}</span>
+        <span data-v-4604102a="">{String(both)}</span>
+        <span data-v-4604102a="">{open + close + longer}</span>
+      </>)
+    )
+  }

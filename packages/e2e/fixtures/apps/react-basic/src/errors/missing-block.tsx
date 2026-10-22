@@ -1,3 +1,3 @@
-import VueOnly from '../../../../components/imports/VueOnly.ucf';
+import VueOnly from '../../../../components/imports/VueOnly.front';
 
 export default VueOnly;

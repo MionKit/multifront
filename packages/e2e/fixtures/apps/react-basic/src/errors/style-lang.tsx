@@ -1,3 +1,3 @@
-import UnknownStyleLang from '../../../../components/invalid/UnknownStyleLang.ucf';
+import UnknownStyleLang from '../../../../components/invalid/UnknownStyleLang.front';
 
 export default UnknownStyleLang;

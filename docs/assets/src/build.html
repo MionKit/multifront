@@ -41,12 +41,12 @@
 <div class="canvas">
   <div class="eyebrow">multifront · build</div>
   <h1>One import, one target, one module</h1>
-  <p class="sub">What the Vite plugin does when an app imports a <code>.ucf</code> file. Shared blocks run first, then only the chosen target is compiled. The other blocks never reach the bundle.</p>
+  <p class="sub">What the Vite plugin does when an app imports a <code>.front</code> file. Shared blocks run first, then only the chosen target is compiled. The other blocks never reach the bundle.</p>
 
   <div class="rail">
     <div class="step tool"><div class="num">1</div><div class="box"><div class="t">Import</div><div class="c"><span class="m">// App.tsx</span>
 import Card
-  from './Card.ucf'</div><div class="d">A bare import. An attribute is only needed to mix frameworks.</div></div></div>
+  from './Card.front'</div><div class="d">A bare import. An attribute is only needed to mix frameworks.</div></div></div>
     <div class="step ours"><div class="num">2</div><div class="box"><div class="t">Pick the target</div><div class="d">The rules below. Here the importer is a <code>.tsx</code> file.</div><div class="c">→ <span class="a">react</span></div></div></div>
     <div class="step ours"><div class="num">3</div><div class="box"><div class="t">Split</div><div class="d">Once per file, cached. Every target reuses the same blocks.</div><div class="c">style · react
 vue · svelte</div></div></div>
@@ -54,7 +54,7 @@ vue · svelte</div></div></div>
   scopeId,
   $style,
   cssIds }</div></div></div>
-    <div class="step ours k-react"><div class="num">5</div><div class="box"><div class="t">Target block</div><div class="d"><code>react.check()</code>, then <code>react.build(ctx)</code> makes the file.</div><div class="c"><span class="m">Card.ucf</span>
+    <div class="step ours k-react"><div class="num">5</div><div class="box"><div class="t">Target block</div><div class="d"><code>react.check()</code>, then <code>react.build(ctx)</code> makes the file.</div><div class="c"><span class="m">Card.front</span>
 <span class="a">.react.tsx</span></div></div></div>
     <div class="step tool"><div class="num">6</div><div class="box"><div class="t">Framework plugin</div><div class="d"><code>@vitejs/plugin-react</code> compiles it, as if it were a normal <code>.tsx</code> file. Fast Refresh included.</div></div></div>
     <div class="step tool"><div class="num">7</div><div class="box"><div class="t">Bundle</div><div class="d">One module per file and target. The CSS ships once, even when two targets import the same file.</div></div></div>
@@ -64,7 +64,7 @@ vue · svelte</div></div></div>
     <div class="panel">
       <h3>Picking the target <span>step 2 · first match wins</span></h3>
       <div class="ladder">
-        <div class="rung"><span class="i">1</span><span class="w">Import inside a <code>.ucf</code> block</span><span class="r">that block's framework</span></div>
+        <div class="rung"><span class="i">1</span><span class="w">Import inside a <code>.front</code> block</span><span class="r">that block's framework</span></div>
         <div class="rung"><span class="i">2</span><span class="w"><code>with { framework: 'vue' }</code></span><span class="r">the attribute</span></div>
         <div class="rung"><span class="i">3</span><span class="w">Importer is <code>.vue</code> · <code>.svelte</code> · <code>.tsx</code></span><span class="r">its framework</span></div>
         <div class="rung"><span class="i">4</span><span class="w">The plugin's <code>framework</code> option</span><span class="r">global default</span></div>
@@ -74,19 +74,19 @@ vue · svelte</div></div></div>
     <div class="panel">
       <h3>Module ids <span>internal · users never write them</span></h3>
       <table>
-        <tr class="k-style"><td>style</td><td class="id">Card.ucf?ucf&amp;type=style&amp;index=0&amp;lang.css</td><td>shared by every target</td></tr>
-        <tr class="k-react"><td>react</td><td class="id">Card.ucf.react.tsx</td><td>plugin-react picks up .tsx</td></tr>
-        <tr class="k-vue"><td>vue</td><td class="id">Card.ucf</td><td>the real path: plugin-vue re-reads it from disk</td></tr>
-        <tr class="k-svelte"><td>svelte</td><td class="id">Card.ucf.svelte.svelte</td><td>plugin-svelte picks up .svelte</td></tr>
+        <tr class="k-style"><td>style</td><td class="id">Card.front?front&amp;type=style&amp;index=0&amp;lang.css</td><td>shared by every target</td></tr>
+        <tr class="k-react"><td>react</td><td class="id">Card.front.react.tsx</td><td>plugin-react picks up .tsx</td></tr>
+        <tr class="k-vue"><td>vue</td><td class="id">Card.front</td><td>the real path: plugin-vue re-reads it from disk</td></tr>
+        <tr class="k-svelte"><td>svelte</td><td class="id">Card.front.svelte.svelte</td><td>plugin-svelte picks up .svelte</td></tr>
       </table>
     </div>
   </div>
 
   <div class="strip">
     <span class="lbl">Attribute rewrite<br><span style="font-weight:500;color:var(--muted);font-size:13px">a post plugin, on every importer</span></span>
-    <code class="c" style="background:transparent;border:0">import Card from './Card.ucf' with { framework: 'svelte' }</code>
+    <code class="c" style="background:transparent;border:0">import Card from './Card.front' with { framework: 'svelte' }</code>
     <span class="arr">→</span>
-    <code class="c" style="background:transparent;border:0">import Card from './Card.ucf?framework=svelte'</code>
+    <code class="c" style="background:transparent;border:0">import Card from './Card.front?framework=svelte'</code>
   </div>
   <p class="legend" style="margin-top:10px">Browsers and Node reject import attributes they do not know, so the attribute moves into the id before any runtime sees the code.</p>
 </div>

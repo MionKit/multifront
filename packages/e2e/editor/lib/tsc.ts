@@ -65,7 +65,7 @@ export async function bothHosts(
   }
 }
 
-// The milestone 7 exit test's edit of fixtures Card.ucf: a number in a string attribute.
+// The milestone 7 exit test's edit of fixtures Card.front: a number in a string attribute.
 const SVELTE_PROPS = '    let { title }: { title: string } = $props()\n';
 const SVELTE_HEADING = '<h2>{title}</h2></div>\n</svelte>';
 
@@ -87,21 +87,21 @@ function expected(file: string, needle: string, text: string, rest: Omit<Finding
 }
 
 // TypeScript marks the prop whose value has the wrong type, and the member a target lacks.
-export const BREAKS = expected('ReactBreaks.ucf', 'text={42}', 'text', {
+export const BREAKS = expected('ReactBreaks.front', 'text={42}', 'text', {
   code: 'TS2322',
   severity: 'error',
   message: NOT_STRING,
   block: 'react',
   framework: 'react',
 });
-export const SVELTE_BREAKS = expected('SvelteBreaks.ucf', 'label.toFixed', 'toFixed', {
+export const SVELTE_BREAKS = expected('SvelteBreaks.front', 'label.toFixed', 'toFixed', {
   code: 'TS2551',
   severity: 'error',
   message: TO_FIXED,
   block: 'svelte',
   framework: 'svelte',
 });
-export const VUE_BREAKS = expected('VueBreaks.ucf', 'label.toFixed', 'toFixed', {
+export const VUE_BREAKS = expected('VueBreaks.front', 'label.toFixed', 'toFixed', {
   code: 'TS2551',
   severity: 'error',
   message: TO_FIXED,
@@ -112,8 +112,8 @@ export const NO_SIZE = expected('main.ts', '{size}', 'size', {
   code: 'TS2614',
   severity: 'error',
   message:
-    `Module '"./OnlyReactExport.ucf"' has no exported member 'size'. ` +
-    `Did you mean to use 'import size from "./OnlyReactExport.ucf"' instead?`,
+    `Module '"./OnlyReactExport.front"' has no exported member 'size'. ` +
+    `Did you mean to use 'import size from "./OnlyReactExport.front"' instead?`,
 });
 export const BAD_PAGE = expected('BadPage.vue', ':label="1"', 'label', {
   code: 'TS2322',

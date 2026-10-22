@@ -5,7 +5,7 @@ import type {GrammarFile, TmGrammar, TmRule} from './types.ts';
 
 export type {GrammarFile} from './types.ts';
 
-const ROOT_SCOPE = 'source.ucf';
+const ROOT_SCOPE = 'source.front';
 
 interface VendoredGrammar {
   dir: string; // under syntaxes/vendor/
@@ -29,9 +29,9 @@ const VENDORED: Record<string, VendoredGrammar> = {
 };
 
 const TAG_CAPTURES = {
-  1: {name: 'punctuation.definition.tag.begin.ucf'},
-  2: {name: 'entity.name.tag.ucf'},
-  3: {name: 'punctuation.definition.tag.end.ucf'},
+  1: {name: 'punctuation.definition.tag.begin.front'},
+  2: {name: 'entity.name.tag.front'},
+  3: {name: 'punctuation.definition.tag.end.front'},
 };
 
 // The splitter drops an opening tag whose quote holds a `>` or runs past the line: the block never opens.
@@ -40,11 +40,11 @@ const BROKEN_QUOTE = `(?=(?:"[^"]*|'[^']*)(?:>|$))`;
 const ATTRIBUTE: TmRule = {
   match: `([^\\s"'=<>/]+)(?:\\s*(=)\\s*(?:("[^">]*")|('[^'>]*')|([^\\s"'>][^\\s>]*)))?`,
   captures: {
-    1: {name: 'entity.other.attribute-name.ucf'},
-    2: {name: 'punctuation.separator.key-value.ucf'},
-    3: {name: 'string.quoted.double.ucf'},
-    4: {name: 'string.quoted.single.ucf'},
-    5: {name: 'string.unquoted.ucf'},
+    1: {name: 'entity.other.attribute-name.front'},
+    2: {name: 'punctuation.separator.key-value.front'},
+    3: {name: 'string.quoted.double.front'},
+    4: {name: 'string.quoted.single.front'},
+    5: {name: 'string.unquoted.front'},
   },
 };
 
@@ -158,10 +158,10 @@ function serveVendored(
   return files;
 }
 
-/** The `.ucf` grammar first, then the pinned copies it embeds; a registry row needs no grammar edit. */
+/** The `.front` grammar first, then the pinned copies it embeds; a registry row needs no grammar edit. */
 export function generateGrammar(kinds: readonly BlockKind[] = BLOCK_KINDS): GrammarFile[] {
   // An HTML comment between blocks opens nothing, as in the splitter.
-  const patterns: TmRule[] = [{begin: '<!--', end: '-->', name: 'comment.block.ucf'}];
+  const patterns: TmRule[] = [{begin: '<!--', end: '-->', name: 'comment.block.front'}];
   const injections: Record<string, TmRule> = {};
   const vendored: GrammarFile[] = [];
   for (const {tag, grammar} of kinds) {

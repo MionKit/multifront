@@ -1,4 +1,4 @@
-/** `mf-tsc`: the tsconfig's whole program with `.ucf` files in it, diagnostics of the given files only (spec 5). */
+/** `mf-tsc`: the tsconfig's whole program with `.front` files in it, diagnostics of the given files only (spec 5). */
 import {basename, dirname, resolve} from 'node:path';
 import {TARGETS, findingOf, isTarget, orList, rootRelativePath, runCommand} from '@multifront/core';
 import type {CommandResult, CommandSpec, CommandValues, Finding, SplitResult, Target} from '@multifront/core';
@@ -11,7 +11,7 @@ import {createChecked} from './program.ts';
 
 const MF_TSC: CommandSpec = {
   name: 'mf-tsc',
-  summary: ['Type-checks .ucf files in every framework, with the .ts, .tsx and .vue files that import them.'],
+  summary: ['Type-checks .front files in every framework, with the .ts, .tsx and .vue files that import them.'],
   paths: 'Paths are files or folders of the project; none checks the whole project.',
   options: {
     project: {
@@ -24,10 +24,10 @@ const MF_TSC: CommandSpec = {
       type: 'string',
       multiple: true,
       value: '<name>',
-      description: 'check .ucf files only in this framework: vue, react or svelte; repeat for more',
+      description: 'check .front files only in this framework: vue, react or svelte; repeat for more',
     },
   },
-  example: 'mf-tsc src/Card.ucf --framework svelte --format json',
+  example: 'mf-tsc src/Card.front --framework svelte --format json',
 };
 
 const CONFIG_NAME = 'tsconfig.json';
@@ -73,7 +73,7 @@ function tscFinding(ts: TypeScript, diagnostic: ts.Diagnostic, split?: SplitResu
   };
   if (!file) return finding;
   if (start === undefined) return {file: file.fileName, ...finding};
-  // Volar's leading offset keeps a `.ucf` file's line starts in its script.
+  // Volar's leading offset keeps a `.front` file's line starts in its script.
   const at = (offset: number) => {
     const {line, character} = file.getLineAndCharacterOfPosition(offset);
     return {line: line + 1, column: character + 1};
@@ -116,7 +116,7 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     };
     // As `vue-tsc` reads them: before the file list, which takes their extensions too.
     const {vueOptions} = createParsedCommandLine(ts as Parameters<typeof createParsedCommandLine>[0], ts.sys, key);
-    const extensions = ['ucf', ...getAllExtensions(vueOptions).map((ext) => ext.slice(1))].map((extension) => ({
+    const extensions = ['front', ...getAllExtensions(vueOptions).map((ext) => ext.slice(1))].map((extension) => ({
       extension,
       isMixedContent: true,
       scriptKind: ts.ScriptKind.Deferred,
@@ -144,7 +144,7 @@ async function check(values: CommandValues, paths: string[]): Promise<CommandRes
     return sourceFile && !program.isSourceFileDefaultLibrary(sourceFile) ? sourceFile.fileName : undefined;
   };
   const filesOf = (project: Project): string[] => checkedOf(project).files();
-  // Undefined: not a `.ucf` file.
+  // Undefined: not a `.front` file.
   const targetsOf = (project: Project, fileName: string): Target[] | undefined => {
     const split = checkedOf(project).getSplit(fileName);
     return split && (frameworks ?? TARGETS).filter((target) => split.targets[target]);

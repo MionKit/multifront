@@ -1,0 +1,5 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function NoParams /* () */ (__props) {
+    return <div {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("shape", __props.className)}><span className="inner">no params</span></div>
+  }

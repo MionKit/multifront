@@ -1,0 +1,12 @@
+[
+  {
+    "code": "missing-target",
+    "severity": "error",
+    "message": "No target block; add a <vue>, <react> or <svelte> block",
+    "filename": "invalid/StylesOnly.front",
+    "start": 0,
+    "end": 0,
+    "line": 1,
+    "column": 0
+  }
+]

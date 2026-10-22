@@ -62,7 +62,7 @@ describe('buildLibrary(): CSS as real files', () => {
     }
     const plain =
       '<vue lang="vue">\n  <template><p>plain</p></template>\n</vue>\n\n<react lang="tsx">\n  export default () => <p>plain</p>\n</react>\n';
-    await withEditedLibrary([{file: 'src/Plain.ucf', content: plain}], async (root) => {
+    await withEditedLibrary([{file: 'src/Plain.front', content: plain}], async (root) => {
       const built = await buildFixtureLibrary(root);
       try {
         for (const target of FRAMEWORKS) {
@@ -78,7 +78,7 @@ describe('buildLibrary(): CSS as real files', () => {
   });
 
   it("holds the component's compiled CSS, scoped with core's scope id, module rules first", () => {
-    const attribute = `[data-v-${scopeId('src/Card.ucf', readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8'), true)}]`;
+    const attribute = `[data-v-${scopeId('src/Card.front', readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8'), true)}]`;
     for (const target of FRAMEWORKS) {
       const css = readOutput(resultOf(library.results, target), 'Card.css');
       expect(css, target).toContain(`.card${attribute}:hover {`);
@@ -122,7 +122,7 @@ describe('buildLibrary() CSS edge cases', () => {
   it('writes an empty CSS file, still imported, for a component whose style block compiles to nothing', async () => {
     const empty =
       '<vue lang="vue">\n  <template><p>empty</p></template>\n</vue>\n\n<style lang="scss">\n$unused: 1px;\n</style>\n\n<react lang="tsx">\n  export default () => <p>empty</p>\n</react>\n';
-    await withEditedLibrary([{file: 'src/Empty.ucf', content: empty}], async (root) => {
+    await withEditedLibrary([{file: 'src/Empty.front', content: empty}], async (root) => {
       const built = await buildFixtureLibrary(root);
       try {
         for (const target of FRAMEWORKS) {
@@ -167,19 +167,19 @@ describe('buildLibrary() CSS edge cases', () => {
 
 describe('buildLibrary() CSS errors', () => {
   it('fails on a component that would be written as styles.css', async () => {
-    const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8');
-    await withEditedLibrary([{file: 'src/styles.ucf', content: icon}], async (root) => {
+    const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.front'), 'utf8');
+    await withEditedLibrary([{file: 'src/styles.front', content: icon}], async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'src/styles.ucf would be written as styles.css, the name of the combined CSS file'
+        'src/styles.front would be written as styles.css, the name of the combined CSS file'
       );
     });
   });
 
   it('fails on a component whose CSS file name differs only by case from styles.css', async () => {
-    const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.ucf'), 'utf8');
-    await withEditedLibrary([{file: 'src/Styles.ucf', content: icon}], async (root) => {
+    const icon = readFileSync(join(LIBRARY_DIR, 'src', 'Icon.front'), 'utf8');
+    await withEditedLibrary([{file: 'src/Styles.front', content: icon}], async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'buildLibrary: src/Styles.ucf would be written as Styles.css, which macOS and Windows see as styles.css, ' +
+        'buildLibrary: src/Styles.front would be written as Styles.css, which macOS and Windows see as styles.css, ' +
           'the name of the combined CSS file'
       );
     });
@@ -193,7 +193,7 @@ describe('buildLibrary() CSS errors', () => {
     ];
     await withEditedLibrary(edits, async (root) => {
       await expect(buildFixtureLibrary(root)).rejects.toThrow(
-        'src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .ucf <style> blocks only'
+        'src/utils/cx.css is imported by src/utils/cx.ts: a library package ships CSS from .front <style> blocks only'
       );
     });
   });

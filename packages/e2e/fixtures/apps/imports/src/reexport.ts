@@ -1,1 +1,1 @@
-export {default as VueCard} from '../../../components/Card.ucf' with {framework: 'vue'};
+export {default as VueCard} from '../../../components/Card.front' with {framework: 'vue'};

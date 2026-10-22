@@ -1,6 +1,0 @@
-import "<fixtures>/components/langs/SassIndented.ucf?ucf&type=style&index=0&lang.css";
-import {__ucfScopeAttrs, __ucfClass} from "virtual:multifront/scope-attrs";
-
-  export default function SassIndented(__props: { label: string }) {const { label } = __props;
-    return <span data-v-dc2cf0fe="" {...__ucfScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__ucfClass("tag", __props.className)}>{label}</span>
-  }

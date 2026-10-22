@@ -1,0 +1,72 @@
+[
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 104,
+    "end": 120,
+    "line": 3,
+    "column": 47
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 191,
+    "end": 211,
+    "line": 4,
+    "column": 68
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 276,
+    "end": 295,
+    "line": 5,
+    "column": 62
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 341,
+    "end": 357,
+    "line": 6,
+    "column": 43
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 582,
+    "end": 598,
+    "line": 12,
+    "column": 63
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 669,
+    "end": 688,
+    "line": 13,
+    "column": 65
+  },
+  {
+    "code": "framework-in-block",
+    "severity": "error",
+    "message": "a framework attribute cannot sit inside the <react> block; imports there always get react",
+    "filename": "react/errors/AttrInBlock.front",
+    "start": 761,
+    "end": 770,
+    "line": 14,
+    "column": 67
+  }
+]

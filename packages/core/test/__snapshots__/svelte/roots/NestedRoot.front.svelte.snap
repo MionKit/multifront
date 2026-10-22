@@ -1,0 +1,28 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let props = $props()
+    const value = $derived(props.fail ? Promise.reject(new Error('fail')) : Promise.resolve(String(props.value ?? 'then')))
+
+    function boom(): string {
+      throw new Error('boom')
+    }
+  </script>
+  {#key props.value}
+    <svelte:boundary>
+      {#if props.boom}
+        <p {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">{boom()}</span></p>
+      {:else}
+        {#await value}
+          <p {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">pending</span></p>
+        {:then text}
+          <div {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">{text}</span></div>
+        {:catch}
+          <section {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">catch</span></section>
+        {/await}
+      {/if}
+      {#snippet failed()}
+        <section {...__frontScopeAttrs(props, 'style')} class={__frontSvelteClass(`shape`, props.class)}><span class="inner">failed</span></section>
+      {/snippet}
+    </svelte:boundary>
+  {/key}

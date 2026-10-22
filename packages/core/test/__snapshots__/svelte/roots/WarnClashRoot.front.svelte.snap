@@ -1,0 +1,10 @@
+
+  <script lang="ts">
+import {__frontWarnFragment as __frontWarnFragment1} from "virtual:multifront/scope-attrs";
+    // Named like the build's warning: the build imports it under another name.
+    const __frontWarnFragment = 'own'
+    let { label = 'warn clash', ...__frontRest }: { label?: string } = $props()
+;(() => __frontWarnFragment1(__frontRest, "WarnClashRoot", "renders more than one root"))();
+  </script>
+  <p class="shape"><span class="inner">{label} {__frontWarnFragment}</span></p>
+  <p class="shape">second</p>

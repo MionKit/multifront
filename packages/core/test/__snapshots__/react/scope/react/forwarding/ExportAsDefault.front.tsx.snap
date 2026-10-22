@@ -1,0 +1,10 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  type Props = { branch?: string }
+
+  // A default-valued parameter still names every prop.
+  function ExportAsDefault(props: Props = {}) {
+    return <div {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">as default {props.branch}</span></div>
+  }
+
+  export { ExportAsDefault as default }

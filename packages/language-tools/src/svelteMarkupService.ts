@@ -3,7 +3,7 @@
 import {CompletionItemKind, InsertTextFormat} from '@volar/language-server';
 import type {CompletionItem, LanguageServicePlugin, TextEdit} from '@volar/language-server';
 import {create as createHtmlService} from 'volar-service-html';
-import {ucfRoot} from './multifrontService.ts';
+import {frontRoot} from './multifrontService.ts';
 import {META_ELEMENTS, svelteHtmlData} from './svelteHtmlData.ts';
 import {SVELTE_MARKUP_LANGUAGE, inText, isComponent, openAt, scanMarkup} from './svelteMarkup.ts';
 import type {MarkupOpen, MarkupScan} from './types.ts';
@@ -91,7 +91,7 @@ export function svelteHtmlService(): LanguageServicePlugin {
         ...instance,
         async provideCompletionItems(document, position, completionContext, token) {
           const list = await instance.provideCompletionItems?.(document, position, completionContext, token);
-          const block = list && ucfRoot(context, document.uri)?.split.targets.svelte;
+          const block = list && frontRoot(context, document.uri)?.split.targets.svelte;
           if (!list || !block) return list;
           // The markup document blanks `{…}`; what is open comes from the block as written, at the same offsets.
           const scan = scanMarkup(block.content);
@@ -110,15 +110,15 @@ export function svelteHtmlService(): LanguageServicePlugin {
   };
 }
 
-/** `{#if}` and the others, on the `.ucf` document: the markup document has every `{…}` blanked. */
+/** `{#if}` and the others, on the `.front` document: the markup document has every `{…}` blanked. */
 export const svelteBlocksService: LanguageServicePlugin = {
   name: 'multifront-svelte-markup',
   capabilities: {completionProvider: {triggerCharacters: ['#', '@', ':']}},
   create(context) {
     return {
       provideCompletionItems(document, position) {
-        if (document.languageId !== 'ucf') return;
-        const block = ucfRoot(context, document.uri)?.split.targets.svelte;
+        if (document.languageId !== 'front') return;
+        const block = frontRoot(context, document.uri)?.split.targets.svelte;
         if (!block) return;
         const {content, contentStart} = block;
         const offset = document.offsetAt(position) - contentStart;

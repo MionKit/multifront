@@ -13,7 +13,7 @@ let file: string;
 
 beforeEach(async () => {
   root = await copyApp('vue');
-  file = resolve(root, '..', '..', 'components', 'Counter.ucf');
+  file = resolve(root, '..', '..', 'components', 'Counter.front');
   // Vite puts its dep cache beside the nearest package.json: this one is removed with the copy.
   await writeFile(join(root, 'package.json'), '{"type": "module"}\n');
   return () => removeApp(root);
@@ -34,17 +34,17 @@ async function fetchText(url: URL, context: () => string): Promise<string> {
   return text;
 }
 
-describe('Counter.ucf rendered on the server', () => {
+describe('Counter.front rendered on the server', () => {
   it('dev SSR in a fresh process gets the client module scope id', async () => {
     const server = startSsrServer(root);
     // Stopped here, not in onTestFinished: that runs after beforeEach's cleanup removes the copy.
     try {
       const url = await server.url;
-      // The first request: ssrLoadModule() reaches Counter.ucf on a cold plugin-vue cache.
+      // The first request: ssrLoadModule() reaches Counter.front on a cold plugin-vue cache.
       const html = await fetchText(new URL(url), server.output);
-      // The module the browser gets: App.vue's own import of Counter.ucf, as Vite rewrote it.
+      // The module the browser gets: App.vue's own import of Counter.front, as Vite rewrote it.
       const app = await fetchText(new URL('/src/App.vue', url), server.output);
-      const counterUrl = moduleReferences(app).find(({specifier}) => /Counter\.ucf/.test(specifier))!.specifier;
+      const counterUrl = moduleReferences(app).find(({specifier}) => /Counter\.front/.test(specifier))!.specifier;
       const code = await fetchText(new URL(counterUrl, url), server.output);
 
       const rendered = renderedCounter(html);

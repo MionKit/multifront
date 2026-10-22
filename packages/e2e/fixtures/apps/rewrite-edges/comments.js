@@ -1,5 +1,5 @@
-import Card from '../../components/Card.ucf' /* a } */ with /* b */ { /* c */ framework: 'react' /* d } */ } /* e */;
-import Other from '../../components/Card.ucf' with {
+import Card from '../../components/Card.front' /* a } */ with /* b */ { /* c */ framework: 'react' /* d } */ } /* e */;
+import Other from '../../components/Card.front' with {
   // the framework
   framework: 'vue', // trailing
   // after

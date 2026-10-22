@@ -1,0 +1,9 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/ScriptString.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/ScriptString.front?front&type=style&index=0&module&lang.js";
+    const html = '<div>'
+    const other = "<p class='x'>"
+    const template = `<span>${html}</span>`
+  </script>
+  <p data-v-7ab06bb2="" class={__frontStyle.text}>{html} {other} {template}</p>

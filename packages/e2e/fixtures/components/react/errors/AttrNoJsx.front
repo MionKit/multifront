@@ -1,0 +1,11 @@
+<react lang="tsx">
+  import { createElement } from 'react'
+
+  const framework = 'vue'
+  export const lazyCard = import('../../Card.front', { with: { framework } })
+
+  // No JSX: the block also parses as plain TypeScript.
+  export default function AttrNoJsx() {
+    return createElement('div')
+  }
+</react>

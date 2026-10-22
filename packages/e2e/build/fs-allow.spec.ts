@@ -8,7 +8,7 @@ import {APP_CONFIG_LOADER, buildApp} from './lib/build.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'react-basic');
 // Shared components sit beside the app, outside the only allowed folder.
-const CARD = componentPath('Card.ucf');
+const CARD = componentPath('Card.front');
 
 describe('dev server of react-basic with server.fs.allow set to the app folder', () => {
   let server: ViteDevServer | undefined;
@@ -39,11 +39,11 @@ describe('dev server of react-basic with server.fs.allow set to the app folder',
   });
 
   it.each([
-    ['the .ucf file itself (Vite checks it)', `/@fs${CARD}`],
+    ['the .front file itself (Vite checks it)', `/@fs${CARD}`],
     ['its React module', `/@fs${CARD}.react.tsx`],
     ['its React module, as an absolute URL', `${CARD}.react.tsx`],
-    ['its style module', `/@fs${CARD}?ucf&type=style&index=0&lang.css`],
-    ['its class map module', `/@fs${CARD}?ucf&type=style&index=0&module&lang.js`],
+    ['its style module', `/@fs${CARD}?front&type=style&index=0&lang.css`],
+    ['its class map module', `/@fs${CARD}?front&type=style&index=0&module&lang.js`],
     // A JS request, which reaches our `load`; the raw file never does.
     ['its Vue module, as a JS request', `/@fs${CARD}?import`],
   ])('%s: 403', async (_what, path) => {
@@ -54,7 +54,7 @@ describe('dev server of react-basic with server.fs.allow set to the app folder',
   // Stricter than a plain `.tsx` there: Vite's pre-transform of an import skips the check and caches what it read.
   it('denies the React module an allowed importer names, after Vite pre-transformed its imports', async () => {
     const main = await (await fetch(`${base}/src/main.tsx`)).text();
-    const imported = `${componentPath('react/AllBlocks.ucf')}.react.tsx`;
+    const imported = `${componentPath('react/AllBlocks.front')}.react.tsx`;
     expect(main).toContain(imported);
     await server!.environments.client.waitForRequestsIdle();
     expect((await fetch(base + imported)).status).toBe(403);

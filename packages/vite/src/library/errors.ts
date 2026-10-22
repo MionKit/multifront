@@ -41,7 +41,7 @@ function missingPreprocessor(error: Rolldown.RollupError, firstLine: string): Fi
   const name = error.plugin === 'vite:css' ? VITE_MISSING_PREPROCESSOR.exec(firstLine)?.[1] : undefined;
   if (name === undefined || error.id === undefined) return undefined;
   const {path, query} = splitId(error.id);
-  // Only a `.ucf` block's id carries its lang; a plain `.less` file is no `<style>` block.
+  // Only a `.front` block's id carries its lang; a plain `.less` file is no `<style>` block.
   const lang = [...query.keys()].find((key) => key.startsWith('lang.'))?.slice('lang.'.length);
   if (!lang) return undefined;
   return {
@@ -69,7 +69,7 @@ function foreignFinding(error: Rolldown.RollupError): Finding {
   // A `loc` with no file is relative to whatever the plugin parsed: a Vue `<script>` alone, say.
   const loc = error.loc?.file && isAbsolute(path) && query.size === 0 && !virtualTarget(path) ? error.loc : undefined;
   const position = loc && {line: loc.line, column: loc.column + (ONE_BASED_COLUMNS.has(error.plugin ?? '') ? 0 : 1)};
-  // The module id names the block: a style query, the bare `.ucf` path (the Vue target) or `Card.ucf.react.tsx`.
+  // The module id names the block: a style query, the bare `.front` path (the Vue target) or `Card.front.react.tsx`.
   const id = error.id ?? source;
   const block = splitId(id).query.get('type') === 'style' ? 'style' : importerFromId(id).block;
   return {file: fileOf(source), ...position, code, severity: 'error', message, ...(block && {block})};
@@ -92,7 +92,7 @@ export function frameworkError(err: unknown, framework: Target, root: string): u
   // A missing tool is no error in the library's files: `mf-build` exits 2.
   const missing = findings.find((finding) => finding.code === 'missing-preprocessor');
   if (missing) {
-    // Core's finding and Vite's both name the `.ucf` file.
+    // Core's finding and Vite's both name the `.front` file.
     return new Error(`buildLibrary: ${shownFile(root, missing.file!)}: ${missing.message}`, {cause: err});
   }
   const message = err instanceof Error ? err.message : String(err);

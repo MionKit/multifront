@@ -42,9 +42,9 @@ describe('getVueCompiler', () => {
   });
 
   it('returns a compiler core compiles styles with', async () => {
-    const {filename, source} = readComponent('Badge.ucf');
+    const {filename, source} = readComponent('Badge.front');
     const compiler = getVueCompiler([], new URL('..', import.meta.url).pathname);
-    const id = scopeId('Badge.ucf', source, true);
+    const id = scopeId('Badge.front', source, true);
     const [style] = await compileStyles(splitBlocks(source, filename).styles, {id, filename, source, compiler, production: true});
     expect(style?.errors).toEqual([]);
     expect(style?.code).toContain(`.badge[data-v-${id}]`);

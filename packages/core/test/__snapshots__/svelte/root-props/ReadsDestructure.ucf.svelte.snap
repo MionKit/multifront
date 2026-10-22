@@ -1,8 +1,0 @@
-
-  <script lang="ts">
-import {__ucfScopeAttrs} from "virtual:multifront/scope-attrs";
-    let { label = 'destructure', ...rest }: { label?: string; class?: string; style?: string } = $props()
-    const { class: klass, 'style': css } = $derived(rest)
-  </script>
-  <!-- Destructures both from the rest itself, through `$derived`: neither is merged. -->
-  <p {...__ucfScopeAttrs(rest)} class={['own', klass]} style={css}>{label}</p>

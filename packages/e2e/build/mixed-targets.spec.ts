@@ -1,4 +1,4 @@
-// The demo imports Counter.ucf as React and as Vue: each target's modules hold only its own framework.
+// The demo imports Counter.front as React and as Vue: each target's modules hold only its own framework.
 import {join} from 'node:path';
 import type {Plugin} from 'vite';
 import {beforeAll, describe, expect, it} from 'vitest';
@@ -7,7 +7,7 @@ import {buildApp} from './lib/build.ts';
 import {expectNoAttribute} from './lib/references.ts';
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'demo');
-const COUNTER = componentPath('Counter.ucf');
+const COUNTER = componentPath('Counter.front');
 const REACT_ID = `${COUNTER}.react.tsx`;
 const VUE_HELPERS = /openBlock|createElementBlock|createElementVNode/;
 
@@ -15,7 +15,7 @@ let output: Awaited<ReturnType<typeof buildApp>>;
 const imports = new Map<string, readonly string[]>();
 const withFramework: string[] = [];
 
-// Leaves out our `?ucf&` style modules: they belong to no framework.
+// Leaves out our `?front&` style modules: they belong to no framework.
 const isVueModule = (id: string) => id === COUNTER || id.startsWith(`${COUNTER}?vue&`);
 
 beforeAll(async () => {
@@ -43,7 +43,7 @@ function importedPackages(matches: (id: string) => boolean): string[] {
     .flatMap(([, ids]) => ids.flatMap((id) => /.*node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(id)?.[1] ?? []));
 }
 
-describe('vite build of the demo, Counter.ucf as React and as Vue', () => {
+describe('vite build of the demo, Counter.front as React and as Vue', () => {
   it('keeps Vue out of the React module', () => {
     expect(imports.has(REACT_ID)).toBe(true);
     expect(importedPackages((id) => id === REACT_ID).sort()).toEqual(['react', 'react']);

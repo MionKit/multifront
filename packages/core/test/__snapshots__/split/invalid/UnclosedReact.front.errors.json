@@ -1,0 +1,12 @@
+[
+  {
+    "code": "unclosed-block",
+    "severity": "error",
+    "message": "<react> is never closed; add </react>",
+    "filename": "invalid/UnclosedReact.front",
+    "start": 0,
+    "end": 7,
+    "line": 1,
+    "column": 0
+  }
+]

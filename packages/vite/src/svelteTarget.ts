@@ -10,7 +10,7 @@ const HOT_UPDATE_PLUGIN_NAME = 'vite-plugin-svelte:hot-update';
 
 export const SVELTE_PLUGIN_MISSING = 'the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins';
 
-const SVELTE_ID = /\.ucf\.svelte\.svelte$/;
+const SVELTE_ID = /\.front\.svelte\.svelte$/;
 
 // Every compiled component imports Svelte's runtime; Vite's import analysis runs only after our post plugins.
 const COMPILED = /\bfrom\s*["']svelte\/internal\/(?:client|server)["']/;
@@ -32,10 +32,10 @@ function withMember<Target extends object>(target: Target, key: keyof Target, va
 }
 
 // plugin-svelte prefixes its message with the compiled file's name (may hold spaces) and position.
-const GENERATED_PREFIX = /^.*?\.ucf\.svelte\.svelte(?::\d+:\d+)? /;
+const GENERATED_PREFIX = /^.*?\.front\.svelte\.svelte(?::\d+:\d+)? /;
 
-/** A Svelte compiler error at its place in the `.ucf` file: an agent cannot open the compiled `Card.ucf.svelte.svelte`. */
-function compileErrorInUcf(
+/** A Svelte compiler error at its place in the `.front` file: an agent cannot open the compiled `Card.front.svelte.svelte`. */
+function compileErrorInFront(
   context: Rolldown.TransformPluginContext,
   id: string,
   err: Rolldown.RollupError
@@ -64,19 +64,19 @@ function wrapCompile(config: ResolvedConfig): void {
     } catch (err) {
       // Vite's dev server maps positions back itself; a `loc` would get mapped twice.
       if (this.environment.mode === 'dev') throw err;
-      return this.error(compileErrorInUcf(this, id, err as Rolldown.RollupError));
+      return this.error(compileErrorInFront(this, id, err as Rolldown.RollupError));
     }
   };
   wrappedHandlers.add(transform.handler);
 }
 
-/** plugin-svelte's hot update first transforms the changed file: a `.ucf` file's bare Vue id, which throws without plugin-vue. */
+/** plugin-svelte's hot update first transforms the changed file: a `.front` file's bare Vue id, which throws without plugin-vue. */
 function wrapHotUpdate(config: ResolvedConfig): void {
   const hotUpdate = config.plugins.find((plugin) => plugin.name === HOT_UPDATE_PLUGIN_NAME)?.hotUpdate;
   if (!hotUpdate || typeof hotUpdate === 'function' || wrappedHandlers.has(hotUpdate.handler)) return;
   const handler = hotUpdate.handler;
   hotUpdate.handler = function (options) {
-    if (!options.file.endsWith('.ucf')) return handler.call(this, options);
+    if (!options.file.endsWith('.front')) return handler.call(this, options);
     const {environment} = this;
     // That request only refreshes plugin-svelte's CSS cache, and our Svelte ids emit no Svelte CSS.
     const transformRequest = (url: string) => (url === options.file ? Promise.resolve(null) : environment.transformRequest(url));
@@ -102,7 +102,7 @@ export function svelteCompiledPlugin(hasPlugin: () => boolean): Plugin {
         // A dev URL of the id skips the import's plugin check.
         if (!hasPlugin()) this.error(`${id}: ${SVELTE_PLUGIN_MISSING}`);
         this.error(
-          `${id}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options must let ids ending in .ucf.svelte.svelte through`
+          `${id}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options must let ids ending in .front.svelte.svelte through`
         );
       },
     },

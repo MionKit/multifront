@@ -1,0 +1,6 @@
+import "<fixtures>/components/invalid/CssSyntaxError.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function Note(__props: { text: string }) {const { text } = __props;
+    return <p data-v-8f616be4="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("note", __props.className)}>{text}</p>
+  }

@@ -1,0 +1,7 @@
+<svelte lang="html">
+  <script lang="ts">
+    const __frontRest = 'taken'
+    let {} = $props()
+  </script>
+  <p class="shape"><span class="inner">{__frontRest}</span></p>
+</svelte>

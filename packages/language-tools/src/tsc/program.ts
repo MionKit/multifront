@@ -1,4 +1,4 @@
-/** One tsconfig's program for `mf-tsc`: every `.ucf` file with each target's script, diagnostics in the `.ucf` text. */
+/** One tsconfig's program for `mf-tsc`: every `.front` file with each target's script, diagnostics in the `.front` text. */
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {loadSvelteCompiler, loadVueCompiler, svelteParseError} from '@multifront/core';
@@ -11,10 +11,10 @@ import {transformDiagnostic, transformTextSpan} from '@volar/typescript/lib/node
 import {getServiceScript} from '@volar/typescript/lib/node/utils.js';
 import type * as ts from 'typescript';
 import {withImportErrors} from '../importErrors.ts';
-import {MAIN_SCRIPT_TARGET, createUcfLanguagePlugin} from '../languagePlugin.ts';
-import {entryOptions, withUcfResolution} from '../resolve.ts';
+import {MAIN_SCRIPT_TARGET, createFrontLanguagePlugin} from '../languagePlugin.ts';
+import {entryOptions, withFrontResolution} from '../resolve.ts';
 import {programTargetScripts, targetScriptName} from '../targetScripts.ts';
-import type {Checked, CheckedFile, TypeScript, UcfImportOptions, UcfVirtualCode} from '../types.ts';
+import type {Checked, CheckedFile, TypeScript, FrontImportOptions, FrontVirtualCode} from '../types.ts';
 
 type Scripts = ReturnType<typeof programTargetScripts>;
 
@@ -52,7 +52,7 @@ function createHost(ts: TypeScript, options: ts.CompilerOptions, scripts: () => 
     parsed.set(fileName, sourceFile);
     return sourceFile;
   };
-  host.fileExists = (fileName) => (scripts()?.ucfOf(fileName) ? !!scripts()!.scriptOf(fileName) : fileExists(fileName));
+  host.fileExists = (fileName) => (scripts()?.frontOf(fileName) ? !!scripts()!.scriptOf(fileName) : fileExists(fileName));
   return host;
 }
 
@@ -77,7 +77,7 @@ export function createChecked(
   let scripts: Scripts | undefined;
   let raw: Record<'syntactic' | 'semantic', ts.Program['getSemanticDiagnostics']> | undefined;
   const getSplit = (fileName: string): SplitResult | undefined =>
-    (main?.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+    (main?.scripts.get(fileName)?.generated?.root as FrontVirtualCode | undefined)?.split;
   // Never emits: the tsconfig's emit options would only add errors about files it never writes.
   const options: ts.CompilerOptions = {...parsed.options, noEmit: true, allowNonTsExtensions: true};
   const root = dirname(configFile);
@@ -91,30 +91,30 @@ export function createChecked(
   // Runs inside Volar's proxy, after `setup` and after Volar put its own resolver on the host.
   const inner = ((createOptions: ts.CreateProgramOptions) => {
     const host = createOptions.host!;
-    const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
+    const importOptions = (compilerOptions: ts.CompilerOptions): FrontImportOptions => ({
       ...entryOptions(compilerOptions),
       compilerOptions,
       host,
       getSplit,
     });
-    host.resolveModuleNameLiterals = withUcfResolution(ts, host.resolveModuleNameLiterals!.bind(host), importOptions);
-    // Every `.ucf` file the program holds brings each target's script, imported or not.
+    host.resolveModuleNameLiterals = withFrontResolution(ts, host.resolveModuleNameLiterals!.bind(host), importOptions);
+    // Every `.front` file the program holds brings each target's script, imported or not.
     const roots = new Set(createOptions.rootNames);
-    const addUcf = (ucf: string): void => {
-      roots.add(ucf);
-      for (const name of scripts!.namesOf(ucf)) roots.add(name);
+    const addFront = (front: string): void => {
+      roots.add(front);
+      for (const name of scripts!.namesOf(front)) roots.add(name);
     };
-    for (const name of createOptions.rootNames) if (name.endsWith('.ucf')) addUcf(name);
+    for (const name of createOptions.rootNames) if (name.endsWith('.front')) addFront(name);
     let program = ts.createProgram({...createOptions, rootNames: [...roots]});
     for (let size = 0; size !== roots.size;) {
       size = roots.size;
       for (const {fileName} of program.getSourceFiles()) {
-        const ucf = fileName.endsWith('.ucf') ? fileName : scripts!.ucfOf(fileName);
-        if (ucf && !roots.has(ucf) && !inNodeModules(ucf)) addUcf(ucf);
+        const front = fileName.endsWith('.front') ? fileName : scripts!.frontOf(fileName);
+        if (front && !roots.has(front) && !inNodeModules(front)) addFront(front);
       }
       if (size !== roots.size) program = ts.createProgram({...createOptions, rootNames: [...roots], oldProgram: program});
     }
-    // Before Volar decorates the program, so it maps our import errors into the `.ucf` file too.
+    // Before Volar decorates the program, so it maps our import errors into the `.front` file too.
     const semantic = program.getSemanticDiagnostics;
     program.getSemanticDiagnostics = (sourceFile, token) => {
       const diagnostics = semantic(sourceFile, token);
@@ -122,15 +122,15 @@ export function createChecked(
         ? withImportErrors(ts, sourceFile, diagnostics, importOptions(program.getCompilerOptions()))
         : diagnostics;
     };
-    // Volar drops diagnostics that map nowhere; `intoUcf` puts them on the block's opening tag.
+    // Volar drops diagnostics that map nowhere; `intoFront` puts them on the block's opening tag.
     raw = {syntactic: program.getSyntacticDiagnostics, semantic: program.getSemanticDiagnostics};
     return program;
   }) as typeof ts.createProgram;
   const editorOptions = {ts, compilerOptions: options, compiler: optional(loadVueCompiler, root), svelteCompiler};
   const createProgram = proxyCreateProgram(ts as Parameters<typeof proxyCreateProgram>[0], inner, () => ({
-    // `.vue` files, as `vue-tsc` builds them; a `.ucf` `<vue>` block keeps our own options.
+    // `.vue` files, as `vue-tsc` builds them; a `.front` `<vue>` block keeps our own options.
     languagePlugins: [
-      createUcfLanguagePlugin(editorOptions),
+      createFrontLanguagePlugin(editorOptions),
       createVueLanguagePlugin(ts as Parameters<typeof createVueLanguagePlugin>[0], options, vueOptions, (id: string) => id),
     ],
     setup(language) {
@@ -141,10 +141,10 @@ export function createChecked(
   const host = createHost(ts, options, () => scripts);
   const program = createProgram({rootNames: parsed.fileNames, options, host});
 
-  const intoUcf = (
+  const intoFront = (
     language: Language<string>,
     diagnostics: readonly ts.Diagnostic[],
-    ucf: ts.SourceFile,
+    front: ts.SourceFile,
     split: SplitResult,
     target: Target
   ): CheckedFile['diagnostics'] =>
@@ -155,7 +155,7 @@ export function createChecked(
       if (diagnostic.start === undefined || diagnostic.reportsUnnecessary || TS_ONLY_SYNTAX.has(diagnostic.code)) return [];
       if (mapsAnywhere(language, diagnostic)) return [];
       const {start, contentStart} = split.targets[target]!;
-      return [{diagnostic: {...diagnostic, file: ucf, start, length: contentStart - start}, target}];
+      return [{diagnostic: {...diagnostic, file: front, start, length: contentStart - start}, target}];
     });
   const scriptDiagnostics = (sourceFile: ts.SourceFile) => [...raw!.syntactic(sourceFile), ...raw!.semantic(sourceFile)];
 
@@ -167,7 +167,7 @@ export function createChecked(
         .getSourceFiles()
         .filter((sourceFile) => !program.isSourceFileDefaultLibrary(sourceFile))
         .map(({fileName}) => fileName)
-        .filter((fileName) => !inNodeModules(fileName) && !scripts!.ucfOf(fileName)),
+        .filter((fileName) => !inNodeModules(fileName) && !scripts!.frontOf(fileName)),
     check(fileName, targets) {
       const sourceFile = program.getSourceFile(fileName)!;
       const split = getSplit(fileName);
@@ -178,13 +178,13 @@ export function createChecked(
       const checked: CheckedFile = {diagnostics: [], errors: []};
       for (const target of targets) {
         if (target === MAIN_SCRIPT_TARGET) {
-          checked.diagnostics.push(...intoUcf(main!, scriptDiagnostics(sourceFile), sourceFile, split, target));
+          checked.diagnostics.push(...intoFront(main!, scriptDiagnostics(sourceFile), sourceFile, split, target));
           continue;
         }
         const script = program.getSourceFile(targetScriptName(fileName, target));
         const language = scripts!.languageOf(target);
         if (script && language) {
-          checked.diagnostics.push(...intoUcf(language, scriptDiagnostics(script), sourceFile, split, target));
+          checked.diagnostics.push(...intoFront(language, scriptDiagnostics(script), sourceFile, split, target));
           continue;
         }
         // No script for a block it has: Svelte cannot be loaded, or cannot read the markup.

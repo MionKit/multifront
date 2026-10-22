@@ -1,5 +1,5 @@
 {
-  // The project tsserver opens Parent.ucf in; the global plugin serves it, so no plugin entry.
+  // The project tsserver opens Parent.front in; the global plugin serves it, so no plugin entry.
   "compilerOptions": {
     "target": "es2022",
     "module": "preserve",
@@ -9,5 +9,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "*.ucf"]
+  "include": ["src", "*.front"]
 }

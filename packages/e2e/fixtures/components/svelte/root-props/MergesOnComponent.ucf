@@ -1,9 +1,0 @@
-<svelte lang="html">
-  <script lang="ts">
-    import SvelteElementRoot from '../roots/SvelteElementRoot.ucf'
-
-    let { tag = 'aside' }: { tag?: string } = $props()
-  </script>
-  <!-- The merged class and style go on as the child's props. -->
-  <SvelteElementRoot {tag} class="own" style="padding: 1px" />
-</svelte>

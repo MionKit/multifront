@@ -1,0 +1,18 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/Elements.front?front&type=style&index=0&lang.css";
+import __frontStyle1 from "<fixtures>/components/svelte/shapes/Elements.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {label = 'Hello', ...__frontRest}: {label?: string} = $props()
+    const classes = {$style: __frontStyle1}
+    const titleClass: string = __frontStyle1.title
+    // Taken: the class map's local gets a number suffix.
+    const __frontStyle = 'own'
+  </script>
+  <article data-v-899638ff="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle1.card, __frontRest.class)}>
+    <h2 data-v-899638ff="" class={titleClass} data-own={__frontStyle}>{label}</h2>
+    <p data-v-899638ff="" class={classes.$style.text}>Text <strong data-v-899638ff="" class={__frontStyle1.text}>bold</strong><br data-v-899638ff="" />after</p>
+    <input data-v-899638ff="" class={__frontStyle1.field} value={label} aria-label="Label" />
+    <img data-v-899638ff="" class={__frontStyle1.image} src="/card.png" alt="Card">
+    <svg data-v-899638ff="" class={__frontStyle1.icon} viewBox="0 0 10 10"><circle data-v-899638ff="" cx="5" cy="5" r="4" /></svg>
+  </article>

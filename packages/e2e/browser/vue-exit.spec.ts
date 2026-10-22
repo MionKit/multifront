@@ -1,4 +1,4 @@
-// Milestone 4 exit test: Counter.ucf as Vue through real Vite, plugin-vue, Chromium and tsserver.
+// Milestone 4 exit test: Counter.front as Vue through real Vite, plugin-vue, Chromium and tsserver.
 import {readFileSync, writeFileSync} from 'node:fs';
 import {readFile, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
@@ -44,7 +44,7 @@ async function vueCopy(): Promise<{root: string; counter: string}> {
     await removeApp(root);
     throw err;
   }
-  return {root, counter: resolve(root, '..', '..', 'components', 'Counter.ucf')};
+  return {root, counter: resolve(root, '..', '..', 'components', 'Counter.front')};
 }
 
 let browser: Browser | undefined;
@@ -58,7 +58,7 @@ afterAll(async () => {
 });
 
 describe('milestone 4 exit test', () => {
-  it('1. a production build of the demo renders Counter.ucf as React and as Vue, same data-v-*, same styles', async () => {
+  it('1. a production build of the demo renders Counter.front as React and as Vue, same data-v-*, same styles', async () => {
     const page = await browser!.newPage();
     const app = await buildAndPreview(DEMO);
     try {
@@ -67,7 +67,7 @@ describe('milestone 4 exit test', () => {
       await page.locator(`${COUNTERS.react} button`).waitFor();
       await page.locator(`${COUNTERS.vue} button`).waitFor();
 
-      const scope = scopeAttribute(DEMO, componentPath('Counter.ucf'), true);
+      const scope = scopeAttribute(DEMO, componentPath('Counter.front'), true);
       expect(await page.locator(COUNTERS.react).getAttribute(scope)).toBe('');
       expect(await page.locator(COUNTERS.vue).getAttribute(scope)).toBe('');
       // Literal values: parity alone also passes when both are unstyled.

@@ -1,4 +1,4 @@
-// The real `mf-tsc` checks `.vue` files in the same program, their `.ucf` imports in the Vue target, as `vue-tsc` would.
+// The real `mf-tsc` checks `.vue` files in the same program, their `.front` imports in the Vue target, as `vue-tsc` would.
 import {readFileSync, renameSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {describe, expect, it} from 'vitest';
@@ -64,19 +64,19 @@ describe('mf-tsc on .vue files', () => {
     });
   });
 
-  it("resolves a .vue file's .ucf import to the Vue target, with our code when it has none", async () => {
+  it("resolves a .vue file's .front import to the Vue target, with our code when it has none", async () => {
     await withCopy(BROKEN, async (root) => {
-      editFile(root, 'BadPage.vue', "import OnlyReactExport from './OnlyReactExport.ucf'", "import Title from './Title.ucf'");
+      editFile(root, 'BadPage.vue', "import OnlyReactExport from './OnlyReactExport.front'", "import Title from './Title.front'");
       editFile(root, 'BadPage.vue', '<OnlyReactExport :label="1" />', '<Title text="a" />');
       const source = readFileSync(join(root, 'BadPage.vue'), 'utf8');
       const run = await runMfTsc(root, ['BadPage.vue', '--format', 'json']);
       expect(report(run.stdout).findings).toEqual([
         {
           file: 'BadPage.vue',
-          ...span(source, "'./Title.ucf'"),
+          ...span(source, "'./Title.front'"),
           code: 'missing-target-block',
           severity: 'error',
-          message: './Title.ucf has no <vue> block; BadPage.vue imports it as vue',
+          message: './Title.front has no <vue> block; BadPage.vue imports it as vue',
         },
       ]);
     });
@@ -84,12 +84,12 @@ describe('mf-tsc on .vue files', () => {
 });
 
 describe("mf-tsc with the tsconfig's vueCompilerOptions", () => {
-  it("follows strictTemplates through extends and each project's own config, never in a .ucf <vue> block", async () => {
+  it("follows strictTemplates through extends and each project's own config, never in a .front <vue> block", async () => {
     await withCopy(VALID, async (root) => {
       editFile(root, 'Page.vue', '<Greeting name="Ada" :count="2" />', '<Greeting name="Ada" :count="2" extra="x" />');
-      // The same unknown prop inside a `.ucf` `<vue>` block, which keeps our own Vue options.
-      editFile(root, 'Greeting.ucf', 'defineProps<', "import Badge from './Badge.ucf'\n  defineProps<");
-      editFile(root, 'Greeting.ucf', 'Hello {{ name }}</p>', 'Hello {{ name }} <Badge label="a" extra="x" /></p>');
+      // The same unknown prop inside a `.front` `<vue>` block, which keeps our own Vue options.
+      editFile(root, 'Greeting.front', 'defineProps<', "import Badge from './Badge.front'\n  defineProps<");
+      editFile(root, 'Greeting.front', 'Hello {{ name }}</p>', 'Hello {{ name }} <Badge label="a" extra="x" /></p>');
       expect(await runMfTsc(root)).toMatchObject({code: 0, stderr: ''});
       // The create-vue layout: the options in the referenced project, through its `extends`.
       renameSync(join(root, 'tsconfig.json'), join(root, 'tsconfig.app.json'));

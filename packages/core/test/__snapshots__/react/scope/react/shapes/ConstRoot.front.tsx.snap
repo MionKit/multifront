@@ -1,0 +1,10 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function ConstRoot(props: { branch?: string }) {
+    const root = (
+      <article {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">const {props.branch}</span></article>
+    )
+    // The same const returned twice still gets one spread.
+    if (props.branch === 'again') return root
+    return root
+  }

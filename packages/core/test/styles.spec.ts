@@ -19,37 +19,37 @@ function token(text: string, offset: number): string {
 
 // Written by hand from the fixture files.
 const STYLE_BLOCKS: Record<string, Pick<CompiledStyle, 'scoped' | 'module'>[]> = {
-  'Badge.ucf': [{scoped: true, module: undefined}],
-  'Button.ucf': [
+  'Badge.front': [{scoped: true, module: undefined}],
+  'Button.front': [
     {scoped: true, module: undefined},
     {scoped: false, module: 'classes'},
   ],
-  'Card.ucf': [{scoped: false, module: '$style'}],
-  'ComposesFrom.ucf': [{scoped: false, module: '$style'}],
-  'ComposesScoped.ucf': [{scoped: true, module: '$style'}],
-  'Counter.ucf': [
+  'Card.front': [{scoped: false, module: '$style'}],
+  'ComposesFrom.front': [{scoped: false, module: '$style'}],
+  'ComposesScoped.front': [{scoped: true, module: '$style'}],
+  'Counter.front': [
     {scoped: true, module: undefined},
     {scoped: false, module: '$style'},
   ],
-  'Hello.ucf': [],
-  'Note.ucf': [{scoped: true, module: undefined}],
-  'Panel.ucf': [
+  'Hello.front': [],
+  'Note.front': [{scoped: true, module: undefined}],
+  'Panel.front': [
     {scoped: true, module: undefined},
     {scoped: false, module: undefined},
     {scoped: false, module: '$style'},
   ],
-  'PanelItem.ucf': [{scoped: true, module: undefined}],
-  'ReactDefaultSpecifier.ucf': [{scoped: false, module: '$style'}],
-  'ScopedModuleScss.ucf': [{scoped: true, module: '$style'}],
-  'TsxEdges.ucf': [{scoped: true, module: undefined}],
-  'scoped-modules/ScopedModuleEdges.ucf': [{scoped: true, module: '$style'}],
+  'PanelItem.front': [{scoped: true, module: undefined}],
+  'ReactDefaultSpecifier.front': [{scoped: false, module: '$style'}],
+  'ScopedModuleScss.front': [{scoped: true, module: '$style'}],
+  'TsxEdges.front': [{scoped: true, module: undefined}],
+  'scoped-modules/ScopedModuleEdges.front': [{scoped: true, module: '$style'}],
 };
 
 // Hand-written: the classes each local class composes, in postcss-modules order.
 const COMPOSED: Record<string, Record<string, string[]>> = {
-  'ComposesFrom.ucf': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
-  'ComposesScoped.ucf': {tag: ['accent', 'base'], chip: ['round', 'base']},
-  'ScopedModuleScss.ucf': {meter: ['base']},
+  'ComposesFrom.front': {tag: ['base'], chip: ['round', 'base', 'base'], pill: ['base']},
+  'ComposesScoped.front': {tag: ['accent', 'base'], chip: ['round', 'base']},
+  'ScopedModuleScss.front': {meter: ['base']},
 };
 
 // `scoped-modules/` holds the scoped module selectors Shiki's css and scss grammars cannot tokenize.
@@ -68,7 +68,7 @@ describe('compileStyles on valid fixtures', () => {
       expect(styles.map(({scoped, module}) => ({scoped, module}))).toEqual(STYLE_BLOCKS[name]);
       styles.forEach((style, index) => {
         expect(style.index).toBe(index);
-        expect(style.id).toBe(`${filename}?ucf&type=style&index=${index}&lang.css`);
+        expect(style.id).toBe(`${filename}?front&type=style&index=${index}&lang.css`);
         expect(styleId(filename, index)).toBe(style.id);
         expect(style.errors).toEqual([]);
       });
@@ -100,7 +100,7 @@ describe('compileStyles on valid fixtures', () => {
       }
     });
 
-    it('maps every segment into the .ucf file, inside the block it came from', () => {
+    it('maps every segment into the .front file, inside the block it came from', () => {
       for (const {style, block} of pairs) {
         expect(style.map!.sources).toEqual([filename]);
         expect(style.map!.sourcesContent).toEqual([source]);
@@ -127,11 +127,11 @@ describe('compileStyles on valid fixtures', () => {
 
 // Written by hand from the fixtures. `rule` is the error's whole line, `text` its span (opening tag when unplaced).
 const ERROR_CASES = [
-  {fixture: 'invalid/ScssSyntaxError.ucf', line: 4, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
-  {fixture: 'invalid/CssSyntaxError.ucf', line: 2, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
+  {fixture: 'invalid/ScssSyntaxError.front', line: 4, column: 13, rule: '.tag-#{$size {', text: '', tag: '<style lang="scss">'},
+  {fixture: 'invalid/CssSyntaxError.front', line: 2, column: 0, rule: '.note {', text: '', tag: '<style lang="postcss">'},
   // Error is in the imported _broken-partial.scss: its offsets say nothing about the block.
   {
-    fixture: 'invalid/ScssPartialError.ucf',
+    fixture: 'invalid/ScssPartialError.front',
     line: 1,
     column: 0,
     rule: '<style lang="scss">',
@@ -140,7 +140,7 @@ const ERROR_CASES = [
   },
   // Each error is in a composed file and has no offsets into the block.
   {
-    fixture: 'invalid/ComposesCycle.ucf',
+    fixture: 'invalid/ComposesCycle.front',
     line: 1,
     column: 0,
     rule: '<style module>',
@@ -148,9 +148,16 @@ const ERROR_CASES = [
     tag: '<style>',
     reason: /composes cycle: \S+\/cycle-b\.css composes from \S+\/cycle-a\.css$/,
   },
-  {fixture: 'invalid/ComposesBrokenFile.ucf', line: 1, column: 0, rule: '<style module>', text: '<style module>', tag: '<style>'},
   {
-    fixture: 'invalid/ComposesMissingFile.ucf',
+    fixture: 'invalid/ComposesBrokenFile.front',
+    line: 1,
+    column: 0,
+    rule: '<style module>',
+    text: '<style module>',
+    tag: '<style>',
+  },
+  {
+    fixture: 'invalid/ComposesMissingFile.front',
     line: 1,
     column: 0,
     rule: '<style module>',
@@ -159,7 +166,7 @@ const ERROR_CASES = [
   },
   // Neither a package nor a file: the package error names what the user wrote.
   {
-    fixture: 'invalid/ComposesMissingPackage.ucf',
+    fixture: 'invalid/ComposesMissingPackage.front',
     line: 1,
     column: 0,
     rule: '<style module>',
@@ -200,14 +207,17 @@ describe('compileStyles on blocks that do not compile', () => {
 });
 
 describe('compileStyles where the preprocessor is not installed', () => {
-  it('runs MissingPreprocessor.ucf where less cannot load', () => {
+  it('runs MissingPreprocessor.front where less cannot load', () => {
     const require = createRequire(import.meta.url);
     expect(() => require.resolve('less', {paths: [require.resolve('@vue/compiler-sfc')]})).toThrow(/Cannot find module/);
   });
 
-  const {filename, source} = readComponent('invalid/MissingPreprocessor.ucf');
+  const {filename, source} = readComponent('invalid/MissingPreprocessor.front');
   const script = fileURLToPath(new URL('styles.child.ts', import.meta.url));
-  const output = execFileSync(process.execPath, [script, 'invalid/MissingPreprocessor.ucf'], {encoding: 'utf8', timeout: 30_000});
+  const output = execFileSync(process.execPath, [script, 'invalid/MissingPreprocessor.front'], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
   const [style] = JSON.parse(output) as [CompiledStyle];
 
   it('reports one missing-preprocessor error on the opening tag, naming the package to install', () => {

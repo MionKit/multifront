@@ -93,4 +93,4 @@ Detail → [worksheet-A.md](worksheet-A.md) + the templates below.
 
 - Block splitter: the blocks join back into the exact file.
 - Scope step: removing the ranges it added gives the original text.
-- Position maps: a mapped character is the same character in the `.ucf` file.
+- Position maps: a mapped character is the same character in the `.front` file.

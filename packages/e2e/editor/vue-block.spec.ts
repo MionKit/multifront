@@ -9,14 +9,14 @@ import {locate, open, startTsserver, tsLocation} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsLocation, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 import type * as ts from 'typescript';
 
-const COUNTER = readComponent('Counter.ucf');
-const COUNTER_CRLF = readComponent('vue/CounterCrlf.ucf');
-const UNCLOSED = readComponent('vue/VueWithUnclosedReact.ucf');
-const EMPTY = readComponent('vue/Empty.ucf');
+const COUNTER = readComponent('Counter.front');
+const COUNTER_CRLF = readComponent('vue/CounterCrlf.front');
+const UNCLOSED = readComponent('vue/VueWithUnclosedReact.front');
+const EMPTY = readComponent('vue/Empty.front');
 // A plain `<script setup>`: its script is JavaScript.
-const GRAMMAR_EDGES = readComponent('editor/GrammarEdges.ucf');
-const IMPORT_ERRORS = readComponent('editor/ImportErrors.ucf');
-const VUE_ONLY = readComponent('imports/VueOnly.ucf');
+const GRAMMAR_EDGES = readComponent('editor/GrammarEdges.front');
+const IMPORT_ERRORS = readComponent('editor/ImportErrors.front');
+const VUE_ONLY = readComponent('imports/VueOnly.front');
 
 async function diagnosticsAfter(server: Tsserver, component: Component, needle: string, newText: string) {
   const revert = await edit(server, component, needle, newText);
@@ -55,7 +55,7 @@ describe('tsserver serves the vue script beside the react one', () => {
   });
 
   it.each([COUNTER, COUNTER_CRLF])(
-    'a wrong type in a template expression is one TS2345, at its .ucf range',
+    'a wrong type in a template expression is one TS2345, at its .front range',
     async (component) => {
       const [needle, newText] = ['{{ count }}', "{{ count.toFixed('x') }}"];
       expect(await diagnosticsAfter(server, component, needle, newText)).toEqual([
@@ -87,7 +87,7 @@ describe('tsserver serves the vue script beside the react one', () => {
     ]);
   });
 
-  describe('references, highlights and rename on a <script setup> binding stay in the .ucf file', () => {
+  describe('references, highlights and rename on a <script setup> binding stay in the .front file', () => {
     const at = () => ({file: COUNTER.filename, ...locate(COUNTER.source, 'count = ref')});
     // The declaration, `{{ count }}` and `count++`: Vue's generated uses map back onto them or are dropped.
     const vueUses = ['count = ref', 'count++', 'count }}'].map((needle) => locate(COUNTER.source, needle));
@@ -105,7 +105,7 @@ describe('tsserver serves the vue script beside the react one', () => {
         ...at(),
         filesToSearch: [COUNTER.filename],
       });
-      // One group per linked position, as Volar gives for a `.vue` file: all in Counter.ucf.
+      // One group per linked position, as Volar gives for a `.vue` file: all in Counter.front.
       expect(new Set(highlights.map(({file}) => file))).toEqual(new Set([COUNTER.filename]));
       const starts = highlights.flatMap(({highlightSpans}) => highlightSpans.map(({start}) => JSON.stringify(start)));
       expect(sorted([...new Set(starts)].map((start) => JSON.parse(start) as TsLocation))).toEqual(sorted(vueUses));
@@ -130,7 +130,7 @@ describe('tsserver serves the vue script beside the react one', () => {
   });
 });
 
-describe('a .ucf file a project reaches only through an import', () => {
+describe('a .front file a project reaches only through an import', () => {
   let server: Tsserver;
 
   beforeAll(async () => {
@@ -180,38 +180,38 @@ describe('the language server reads the <vue> block', () => {
   }
 
   it('builds the vue code with TypeScript from the tsdk, and none without it', async () => {
-    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const document = await server.openTextDocument(COUNTER.filename, 'front');
     expect(await codeIds(server, document.uri)).toEqual(expect.arrayContaining(['vue', 'script_ts', 'template']));
-    const withoutTs = await badTsdk.openTextDocument(COUNTER.filename, 'ucf');
+    const withoutTs = await badTsdk.openTextDocument(COUNTER.filename, 'front');
     const ids = await codeIds(badTsdk, withoutTs.uri);
     expect(ids).not.toContain('vue');
     expect(ids).toEqual(expect.arrayContaining(['react', 'style_0', 'style_1']));
   });
 
   it('a tsdk with no TypeScript leaves the other blocks served', async () => {
-    const document = await badTsdk.openTextDocument(EMPTY.filename, 'ucf');
+    const document = await badTsdk.openTextDocument(EMPTY.filename, 'front');
     expect((await multifrontDiagnostics(badTsdk, document)).map(({code}) => code)).toEqual(['vue-empty-block']);
   });
 
-  it('Empty.ucf: vue-empty-block on the <vue> line, and nothing else', async () => {
-    const document = await server.openTextDocument(EMPTY.filename, 'ucf');
+  it('Empty.front: vue-empty-block on the <vue> line, and nothing else', async () => {
+    const document = await server.openTextDocument(EMPTY.filename, 'front');
     const diagnostics = await multifrontDiagnostics(server, document);
     expect(diagnostics.map(({code, range}) => ({code, line: range.start.line}))).toEqual([{code: 'vue-empty-block', line: 0}]);
     expect(await diagnosticsOf(server, document)).toHaveLength(1);
   });
 
-  it('VueWithUnclosedReact.ucf: the splitter’s unclosed-block, and nothing from the <react> text', async () => {
-    const document = await server.openTextDocument(UNCLOSED.filename, 'ucf');
+  it('VueWithUnclosedReact.front: the splitter’s unclosed-block, and nothing from the <react> text', async () => {
+    const document = await server.openTextDocument(UNCLOSED.filename, 'front');
     const diagnostics = await diagnosticsOf(server, document);
     expect(diagnostics.map(({source, code}) => ({source, code}))).toEqual([{source: 'multifront', code: 'unclosed-block'}]);
   });
 
-  describe('Counter.ucf: one answer per <style> block, Vue’s own style codes left out', () => {
+  describe('Counter.front: one answer per <style> block, Vue’s own style codes left out', () => {
     const needle = 'color: rgb(120, 40, 160);';
     const source = COUNTER.source.replace(needle, `${needle}\n  colr: red;`);
 
     it('a CSS error in <style scoped> is one CSS diagnostic', async () => {
-      const document = await server.openUntitledDocument('ucf', source);
+      const document = await server.openUntitledDocument('front', source);
       const diagnostics = await diagnosticsOf(server, document);
       expect(diagnostics.map(({source: from, range}) => ({from, start: document.offsetAt(range.start)}))).toEqual([
         {from: 'css', start: source.indexOf('colr')},
@@ -219,7 +219,7 @@ describe('the language server reads the <vue> block', () => {
     });
 
     it('a hover on a property has its docs once', async () => {
-      const document = await server.openUntitledDocument('ucf', source);
+      const document = await server.openUntitledDocument('front', source);
       const hover = await server.sendHoverRequest(document.uri, document.positionAt(source.indexOf(needle) + 1));
       expect(hover?.contents).toMatchObject({kind: 'markdown'});
       const {value} = hover!.contents as {value: string};

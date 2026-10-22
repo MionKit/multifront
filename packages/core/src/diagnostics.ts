@@ -7,7 +7,7 @@ export function locate(source: string, offset: number): Pick<Diagnostic, 'line' 
   return {line: lines.length, column: lines.at(-1)!.length};
 }
 
-/** `start` and `end` are offsets into the whole `.ucf` source. */
+/** `start` and `end` are offsets into the whole `.front` source. */
 export function createDiagnostic(
   file: Pick<SplitResult, 'filename' | 'source'>,
   code: DiagnosticCode,

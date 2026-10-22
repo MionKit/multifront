@@ -27,7 +27,7 @@ async function buildCss(root: string, entry: string, ctx: BuildContext): Promise
 }
 
 describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build', (name) => {
-  const base = basename(name, '.ucf');
+  const base = basename(name, '.front');
   let root: string;
   let split: SplitResult;
   let ctx: BuildContext;
@@ -37,12 +37,12 @@ describe.each(FIXTURES)('%s, our CSS against plugin-vue after a real Vite build'
   beforeAll(async () => {
     const {filename, source} = readComponent(name);
     root = await copyApp('vue-reference');
-    await copyFile(filename, join(root, 'src', `${base}.ucf`));
+    await copyFile(filename, join(root, 'src', `${base}.front`));
     // Relative `composes … from` paths need the fixture CSS files beside the copied component.
     for (const file of await readdir(dirname(filename))) {
       if (file.endsWith('.css')) await copyFile(join(dirname(filename), file), join(root, 'src', file));
     }
-    split = splitBlocks(source, join(root, 'src', `${base}.ucf`));
+    split = splitBlocks(source, join(root, 'src', `${base}.front`));
     ctx = await createBuildContext(split, {root, compiler, production: true});
 
     const vueSource = ['<template><div /></template>', ...split.styles.map((block) => source.slice(block.start, block.end))];

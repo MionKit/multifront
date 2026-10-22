@@ -9,10 +9,10 @@ import type {LanguageServer} from './lib/lsp.ts';
 import {locate, offsetAt, open, startTsserver, tsLocation} from './lib/tsserver.ts';
 import type {Component, TsDefinitions, TsQuickInfo, Tsserver} from './lib/tsserver.ts';
 
-const COUNTER = readComponent('Counter.ucf');
-const COUNTER_CRLF = readComponent('vue/CounterCrlf.ucf');
-const USES_ICON = readComponent('imports/UsesIcon.ucf');
-const ATTR_INSIDE = readComponent('vue/AttrInside.ucf');
+const COUNTER = readComponent('Counter.front');
+const COUNTER_CRLF = readComponent('vue/CounterCrlf.front');
+const USES_ICON = readComponent('imports/UsesIcon.front');
+const ATTR_INSIDE = readComponent('vue/AttrInside.front');
 
 let tsserver: Tsserver;
 let server: LanguageServer;
@@ -83,7 +83,7 @@ describe('tsserver: TypeScript inside the <vue> block', () => {
     expect(errors.map(({code}) => code)).toEqual([2551]);
   });
 
-  describe('UsesIcon.ucf: its <vue> block imports the Vue Icon (in-block rule)', () => {
+  describe('UsesIcon.front: its <vue> block imports the Vue Icon (in-block rule)', () => {
     it('has no diagnostic as written', async () => {
       expect(await tsserver.diagnostics(USES_ICON.filename)).toEqual([]);
     });
@@ -101,9 +101,9 @@ describe('tsserver: TypeScript inside the <vue> block', () => {
   });
 
   it('an import of a file with no <vue> block from the <vue> block is missing-target-block', async () => {
-    const errors = await diagnosticsAfter(USES_ICON, "import Icon from './Icon.ucf'", "import Icon from './ReactOnly.ucf'");
+    const errors = await diagnosticsAfter(USES_ICON, "import Icon from './Icon.front'", "import Icon from './ReactOnly.front'");
     expect(errors.map(({code, text}) => ({code, text}))).toEqual([
-      {code: 'missing-target-block', text: './ReactOnly.ucf has no <vue> block; UsesIcon.ucf imports it as vue'},
+      {code: 'missing-target-block', text: './ReactOnly.front has no <vue> block; UsesIcon.front imports it as vue'},
     ]);
   });
 
@@ -112,9 +112,9 @@ describe('tsserver: TypeScript inside the <vue> block', () => {
     expect(await tsserver.request<string[]>(command, [COUNTER.filename])).toEqual(expect.arrayContaining(['vShow', 'vIf']));
   });
 
-  it('AttrInside.ucf: tsserver reports framework-in-block at both specifiers', async () => {
+  it('AttrInside.front: tsserver reports framework-in-block at both specifiers', async () => {
     const {source} = ATTR_INSIDE;
-    const specifier = "'../imports/Icon.ucf'";
+    const specifier = "'../imports/Icon.front'";
     const first = source.indexOf(specifier);
     const second = source.indexOf(specifier, first + 1);
     const diagnostics = (await tsserver.diagnostics(ATTR_INSIDE.filename)).map(({code, start}) => ({code, start}));
@@ -128,7 +128,7 @@ describe('tsserver: TypeScript inside the <vue> block', () => {
 
 describe("the language server: Vue's template services, answered by tsserver", () => {
   it('completion at <sp lists span, div and the file itself', async () => {
-    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const document = await server.openTextDocument(COUNTER.filename, 'front');
     const [needle, newText] = ['<div class="counter">', '<div class="counter">\n      <sp'];
     const start = COUNTER.source.indexOf(needle);
     const range = {start: document.positionAt(start), end: document.positionAt(start + needle.length)};
@@ -145,7 +145,7 @@ describe("the language server: Vue's template services, answered by tsserver", (
   });
 
   it('completion before an attribute lists :id, @click and v-if', async () => {
-    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const document = await server.openTextDocument(COUNTER.filename, 'front');
     const at = document.positionAt(COUNTER.source.indexOf('class="label"'));
     expect(labels(await server.sendCompletionRequest(document.uri, at))).toEqual(
       expect.arrayContaining([':id', '@click', 'v-if'])
@@ -153,13 +153,13 @@ describe("the language server: Vue's template services, answered by tsserver", (
   });
 
   it("completion before the end of a component tag lists its props: Icon's :size", async () => {
-    const document = await server.openTextDocument(USES_ICON.filename, 'ucf');
+    const document = await server.openTextDocument(USES_ICON.filename, 'front');
     const at = document.positionAt(USES_ICON.source.indexOf('<Icon />') + '<Icon '.length);
     expect(labels(await server.sendCompletionRequest(document.uri, at))).toContain(':size');
   });
 
   it('class="counter" links to .counter in <style scoped>', async () => {
-    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const document = await server.openTextDocument(COUNTER.filename, 'front');
     const links = await server.sendDocumentLinkRequest(document.uri);
     const use = COUNTER.source.indexOf('counter"');
     const rule = tsLocation(COUNTER.source, COUNTER.source.indexOf('.counter {'));
@@ -170,7 +170,7 @@ describe("the language server: Vue's template services, answered by tsserver", (
 
   it('an SFC error in the <vue> block, a <template> never closed, is reported at its tag', async () => {
     const source = COUNTER.source.replace('  </template>\n</vue>', '\n</vue>');
-    const document = await server.openUntitledDocument('ucf', source);
+    const document = await server.openUntitledDocument('front', source);
     const errors = (await diagnosticsOf(server, document)).filter(({source: from}) => from === 'vue');
     const tag = source.indexOf('<template>');
     expect(errors.map(({message, range}) => ({message, start: document.offsetAt(range.start)}))).toEqual([
@@ -180,7 +180,7 @@ describe("the language server: Vue's template services, answered by tsserver", (
 
   // Completion items are merged by label, a hover's contents are not: Vue's css plugin would show its docs twice.
   it("in <style scoped>, completion lists color once and its hover has its docs once: Vue's css plugin is left out", async () => {
-    const document = await server.openTextDocument(COUNTER.filename, 'ucf');
+    const document = await server.openTextDocument(COUNTER.filename, 'front');
     const at = document.positionAt(COUNTER.source.indexOf('color: rgb') + 2);
     expect(labels(await server.sendCompletionRequest(document.uri, at)).filter((label) => label === 'color')).toEqual(['color']);
     const hover = await server.sendHoverRequest(document.uri, at);
@@ -190,8 +190,8 @@ describe("the language server: Vue's template services, answered by tsserver", (
     expect(value.split(firstLine)).toHaveLength(2);
   });
 
-  it('AttrInside.ucf: framework-in-block is left to tsserver', async () => {
-    const document = await server.openTextDocument(ATTR_INSIDE.filename, 'ucf');
+  it('AttrInside.front: framework-in-block is left to tsserver', async () => {
+    const document = await server.openTextDocument(ATTR_INSIDE.filename, 'front');
     expect(await diagnosticsOf(server, document)).toEqual([]);
   });
 

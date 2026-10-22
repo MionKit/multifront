@@ -9,7 +9,7 @@ import {copyInto, formatting, LINT_FORMAT, read} from '../lib/format.ts';
 import {asLintPoint, lintDiagnostics, lintPoints, mfLintFindings} from '../lib/lint.ts';
 import {assertNotInstalled} from '../lib/tsc.ts';
 
-const LINT = 'Lint.ucf';
+const LINT = 'Lint.front';
 const LINT_SOURCE = read(join(FIXTURES_DIR, 'apps', LINT_FORMAT), LINT);
 const CONFIG = '.oxlintrc.json';
 // The `<vue>` block's `debugger;`, blanked so every other range stays where it was.
@@ -52,13 +52,13 @@ describe('lint diagnostics on lint-format/', () => {
   });
 
   it("give oxlint's own message, mf-lint's code and no rule link, for a finding with neither help nor URL", async () => {
-    writeFileSync(join(state.root, 'Broken.ucf'), VUE_PARSE_ERROR);
-    const findings = await mfLintFindings(state.root, 'Broken.ucf');
+    writeFileSync(join(state.root, 'Broken.front'), VUE_PARSE_ERROR);
+    const findings = await mfLintFindings(state.root, 'Broken.front');
     const parseErrors = findings.filter(({block}) => block === 'vue');
     expect(parseErrors).toEqual([
       expect.objectContaining({code: 'lint-parse-error', message: 'Unexpected token', severity: 'error'}),
     ]);
-    const diagnostics = await lint(undefined, 'Broken.ucf');
+    const diagnostics = await lint(undefined, 'Broken.front');
     expect(lintPoints(diagnostics)).toEqual(findings.map(asLintPoint));
     const parseError = diagnostics.find(({range}) => range.start.line === asLintPoint(parseErrors[0]!).range.start.line)!;
     expect(parseError).toMatchObject({severity: 1, source: 'oxlint', code: 'lint-parse-error', message: 'Unexpected token'});
@@ -106,14 +106,14 @@ describe('lint diagnostics on lint-format/', () => {
 
   it('skip a file oxlint is not run on: clean, ignored, untitled, or one whose blocks do not split', async () => {
     const from = state.server.log.length;
-    expect(await lint(undefined, 'Clean.ucf')).toEqual([]);
+    expect(await lint(undefined, 'Clean.front')).toEqual([]);
     copyInto(state.root, LINT, ['old']);
     expect(await lint(undefined, `old/${LINT}`)).toEqual([]);
-    const untitled = await state.server.openUntitledDocument('ucf', LINT_SOURCE);
+    const untitled = await state.server.openUntitledDocument('front', LINT_SOURCE);
     expect(await state.server.sendDocumentDiagnosticRequest(untitled.uri)).toEqual({kind: 'full', items: []});
-    const duplicate = join(state.root, 'DuplicateReact.ucf');
-    writeFileSync(duplicate, readComponent('invalid/DuplicateReact.ucf').source);
-    const document = await state.server.openTextDocument(duplicate, 'ucf');
+    const duplicate = join(state.root, 'DuplicateReact.front');
+    writeFileSync(duplicate, readComponent('invalid/DuplicateReact.front').source);
+    const document = await state.server.openTextDocument(duplicate, 'front');
     const report = await state.server.sendDocumentDiagnosticRequest(document.uri);
     const items = report.kind === 'full' ? report.items : [];
     expect(items.map(({source, code}) => [source, code])).toContainEqual(['multifront', 'duplicate-target']);
@@ -153,7 +153,7 @@ describe('lint diagnostics with no oxlint in the project', () => {
   it('give none, log one line, and the server keeps answering', async () => {
     const file = join(state.root, LINT);
     expect(await lintDiagnostics(state.server, file)).toEqual([]);
-    const document = await state.server.openTextDocument(file, 'ucf');
+    const document = await state.server.openTextDocument(file, 'front');
     expect(await state.server.sendDocumentDiagnosticRequest(document.uri)).toMatchObject({kind: 'full'});
     expect(await lintDiagnostics(state.server, file, WITHOUT_VUE_DEBUGGER)).toEqual([]);
     const missing = `oxlint is not installed in ${state.root}; add it to devDependencies`;

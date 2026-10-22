@@ -1,0 +1,13 @@
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  import type { ReactNode } from 'react'
+
+  export default function NestedTernary(props: { branch?: string }) {
+    return props.branch === 'a' ? (
+      <div {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">a</span></div>
+    ) : props.branch === 'b' ? (
+      <p {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">b</span></p>
+    ) : (
+      <section {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span className="inner">c</span></section> satisfies ReactNode
+    )
+  }

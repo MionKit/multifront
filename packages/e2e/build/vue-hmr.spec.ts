@@ -10,8 +10,8 @@ const RERENDER = 'export const _rerender_only';
 // Twice the watcher's 50 ms per-file change throttle.
 const WATCHER_THROTTLE_MS = 100;
 
-const counter = readComponent('Counter.ucf').source;
-const globalProps = readComponent('vue/GlobalProps.ucf').source;
+const counter = readComponent('Counter.front').source;
+const globalProps = readComponent('vue/GlobalProps.front').source;
 
 let root: string;
 let components: string;
@@ -46,18 +46,18 @@ function mainAfterSaves(file: string, sources: string[], config: InlineConfig = 
   });
 }
 
-describe('the Vue main module of a .ucf file after a hot update', () => {
+describe('the Vue main module of a .front file after a hot update', () => {
   it('re-renders after a template typo is fixed, as plugin-vue does for a .vue file', async () => {
     const typo = counter.replace('<span class="label">Clicks</span>', '<span class="label">Clicks</spam>');
     expect(typo).not.toBe(counter);
-    const [broken, fixed] = await mainAfterSaves(resolve(components, 'Counter.ucf'), [typo, counter]);
+    const [broken, fixed] = await mainAfterSaves(resolve(components, 'Counter.front'), [typo, counter]);
     expect(broken).toEqual({error: expect.stringContaining('Invalid end tag')});
     expect(fixed).toEqual({code: expect.stringContaining(RERENDER)});
   });
 
   it('fails while the <vue> block is gone and builds again once it is back', async () => {
     const vueEnd = counter.indexOf('</vue>') + '</vue>'.length;
-    const [gone, back] = await mainAfterSaves(resolve(components, 'Counter.ucf'), [counter.slice(vueEnd), counter]);
+    const [gone, back] = await mainAfterSaves(resolve(components, 'Counter.front'), [counter.slice(vueEnd), counter]);
     expect(gone).toEqual({error: expect.stringContaining('<vue>')});
     expect(back).toEqual({code: expect.stringContaining('Clicks')});
   });
@@ -69,7 +69,7 @@ describe('the Vue main module of a .ucf file after a hot update', () => {
     };
     const edited = globalProps.replace('<p class="global">', '<p class="global edited">');
     expect(edited).not.toBe(globalProps);
-    const [main] = await mainAfterSaves(resolve(components, 'vue', 'GlobalProps.ucf'), [edited], config);
+    const [main] = await mainAfterSaves(resolve(components, 'vue', 'GlobalProps.front'), [edited], config);
     expect(main).toEqual({code: expect.stringContaining('global edited')});
     expect(main).toEqual({code: expect.stringContaining(RERENDER)});
   });

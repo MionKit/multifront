@@ -1,5 +1,5 @@
 {
   // The project tsserver opens these components in, with the subfolders.
   "extends": "../editor/tsconfig.json",
-  "include": ["**/*.ucf"]
+  "include": ["**/*.front"]
 }

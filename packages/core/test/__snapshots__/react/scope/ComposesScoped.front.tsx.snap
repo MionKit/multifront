@@ -1,0 +1,7 @@
+import "<fixtures>/components/ComposesScoped.front?front&type=style&index=0&lang.css";
+import $style from "<fixtures>/components/ComposesScoped.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function Tag(__props: { label: string }) {const { label } = __props;
+    return <span data-v-059bb44e="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass(`${$style.tag} ${$style.chip}`, __props.className)}>{label}</span>
+  }

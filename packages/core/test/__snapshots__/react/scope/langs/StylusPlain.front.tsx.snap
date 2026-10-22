@@ -1,0 +1,6 @@
+import "<fixtures>/components/langs/StylusPlain.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function StylusPlain(__props: { label: string }) {const { label } = __props;
+    return <span data-v-da875df0="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("chip", __props.className)}>{label}</span>
+  }

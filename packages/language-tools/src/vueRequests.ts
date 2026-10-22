@@ -1,5 +1,5 @@
 // Vue's template services ask tsserver for components, elements, attributes, props and directives. Vue's own `_vue:*`
-// handlers need a `VueVirtualCode` root; ours run the same request functions on the code nested in a `.ucf` file.
+// handlers need a `VueVirtualCode` root; ours run the same request functions on the code nested in a `.front` file.
 import type {Language, SourceScript, VirtualCode} from '@volar/language-core';
 import type {TypeScriptServiceScript} from '@volar/typescript';
 import type {VueVirtualCode} from '@vue/language-core';
@@ -31,7 +31,7 @@ function createAnswer(typescript: TypeScript, language: Language<string>, base: 
     const scriptName = targetScriptName(fileName, 'vue');
     const program = base.getProgram();
     if (!sourceScript?.generated || !vue || !script || !program?.getSourceFile(scriptName)) return undefined;
-    // The request functions read the `.ucf` file's program file; its Vue script is `Card.ucf.vue.ts`.
+    // The request functions read the `.front` file's program file; its Vue script is `Card.front.vue.ts`.
     const vueProgram = new Proxy(program, {
       get: (target, key, receiver) =>
         key === 'getSourceFile'

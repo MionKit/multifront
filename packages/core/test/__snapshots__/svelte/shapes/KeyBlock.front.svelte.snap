@@ -1,0 +1,10 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/KeyBlock.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/KeyBlock.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {id = 1, ...__frontRest}: {id?: number} = $props()
+  </script>
+  {#key id}
+    <div data-v-ab4f436a="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.box, __frontRest.class)}><p data-v-ab4f436a="" class={__frontStyle.text}>Key {id}</p></div>
+  {/key}

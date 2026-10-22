@@ -1,0 +1,18 @@
+import "<fixtures>/components/react/shapes/MultiReturn.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  const ITEMS = ['one', 'two']
+
+  export default function MultiReturn(props: { branch?: string }) {
+    if (props.branch === 'early') return (<section data-v-fe724967="" {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}><span data-v-fe724967="" className="inner">early</span></section>)!
+    // A nested function's return is not a root of this component.
+    const items = ITEMS.map((item) => {
+      return <li data-v-fe724967="" key={item}>{item}</li>
+    })
+    return (
+      <div data-v-fe724967="" {...__frontScopeAttrs(props)} style={props.style} ref={props.ref} className={__frontClass("shape", props.className)}>
+        <span data-v-fe724967="" className="inner">last</span>
+        <ul data-v-fe724967="">{items}</ul>
+      </div>
+    )
+  }

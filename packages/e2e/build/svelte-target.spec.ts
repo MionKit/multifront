@@ -10,7 +10,7 @@ import {buildApp, componentContext, rejection, withDevServer} from './lib/build.
 
 const ROOT = join(FIXTURES_DIR, 'apps', 'svelte-vite');
 const MAIN = join(ROOT, 'src', 'main.ts');
-const COMPONENTS = ['Panel.ucf', 'PanelItem.ucf', 'Counter.ucf'];
+const COMPONENTS = ['Panel.front', 'PanelItem.front', 'Counter.front'];
 const SVELTE_MARKERS = ['panel-svelte-marker', 'panel-item-svelte-marker'];
 // Panel's own <vue> and <react> blocks carry no marker.
 const OTHER_MARKERS = ['panel-item-vue-marker', 'panel-item-react-marker'];
@@ -19,12 +19,12 @@ const SVELTE_ID = (name: string) => `${componentPath(name)}.svelte.svelte`;
 const contextOf = (name: string) => componentContext(ROOT, name);
 
 function expectPanelMappings(map: SourceMapInput): void {
-  const {source} = readComponent('Panel.ucf');
+  const {source} = readComponent('Panel.front');
   const lineOf = (offset: number) => source.slice(0, offset).split('\n').length;
   const lines: number[] = [];
   eachMapping(new TraceMap(map), (mapping) => {
     // Dev maps name the source relative to the module, beside it; build maps relative to the output.
-    if (/(?:^|\/)Panel\.ucf$/.test(mapping.source ?? '')) lines.push(mapping.originalLine!);
+    if (/(?:^|\/)Panel\.front$/.test(mapping.source ?? '')) lines.push(mapping.originalLine!);
   });
   expect(lines.length).toBeGreaterThan(0);
   const svelte = source.indexOf('<svelte lang="html">');
@@ -58,8 +58,8 @@ describe('vite build of svelte-vite', () => {
   });
 
   it("stamps Panel's compiled template with its production scope id", async () => {
-    const ctx = await contextOf('Panel.ucf');
-    expect(chunk.modules[SVELTE_ID('Panel.ucf')]!.code).toContain(`data-v-${ctx.scopeId}=""`);
+    const ctx = await contextOf('Panel.front');
+    expect(chunk.modules[SVELTE_ID('Panel.front')]!.code).toContain(`data-v-${ctx.scopeId}=""`);
   });
 
   it('puts each style block once in the one CSS asset, each class map in the bundle, and no Svelte CSS', async () => {
@@ -80,7 +80,7 @@ describe('vite build of svelte-vite', () => {
     for (const marker of OTHER_MARKERS) for (const text of [chunk.code, ...css]) expect(text).not.toContain(marker);
   });
 
-  it("maps the compiled Panel back into Panel.ucf's <svelte> block", () => {
+  it("maps the compiled Panel back into Panel.front's <svelte> block", () => {
     expectPanelMappings(chunk.map!.toString());
   });
 });
@@ -99,24 +99,24 @@ async function withSvelteDevServer(config: InlineConfig, run: (server: ViteDevSe
 async function panelModule(server: ViteDevServer, environment: 'client' | 'ssr') {
   const main = await server.environments[environment].transformRequest('/src/main.ts');
   // Client code imports it `from "<url>"`, SSR code through `__vite_ssr_import__("<url>")`.
-  const url = /"([^"]+Panel\.ucf\.svelte\.svelte)"/.exec(main!.code)?.[1];
+  const url = /"([^"]+Panel\.front\.svelte\.svelte)"/.exec(main!.code)?.[1];
   expect(url).toBeDefined();
   return {url: url!, result: (await server.environments[environment].transformRequest(url!))!};
 }
 
 describe('dev server of svelte-vite', () => {
-  it('serves the compiled Panel module at the URL main.ts imports, mapped into Panel.ucf and watching it', async () => {
+  it('serves the compiled Panel module at the URL main.ts imports, mapped into Panel.front and watching it', async () => {
     await withSvelteDevServer({}, async (server) => {
       const {url, result} = await panelModule(server, 'client');
       expect(result.code).toMatch(/from "[^"]*svelte[/_]internal[/_]client/);
       expectPanelMappings(result.map as SourceMapInput);
       const module = await server.environments.client.moduleGraph.getModuleByUrl(url);
-      expect(module?.id).toBe(SVELTE_ID('Panel.ucf'));
-      expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('Panel.ucf'));
+      expect(module?.id).toBe(SVELTE_ID('Panel.front'));
+      expect([...module!.importedModules].map(({id}) => id)).toContain(componentPath('Panel.front'));
     });
   });
 
-  it('serves the server-compiled Panel module to SSR, mapped into Panel.ucf', async () => {
+  it('serves the server-compiled Panel module to SSR, mapped into Panel.front', async () => {
     await withSvelteDevServer({}, async (server) => {
       const {result} = await panelModule(server, 'ssr');
       // `svelte/internal/server` comes pre-bundled (`svelte_internal_server.js`) or, on plugin-svelte 7.0, as its source.
@@ -141,7 +141,7 @@ describe('dev server of svelte-vite', () => {
 
   it('answers a request for the Svelte id, with no plugin-svelte in the app, with the plugin-svelte error', async () => {
     await withSvelteDevServer({configFile: false, plugins: [multifront()]}, async (server) => {
-      const id = SVELTE_ID('Panel.ucf');
+      const id = SVELTE_ID('Panel.front');
       await expect(server.environments.client.transformRequest(id)).rejects.toThrow(
         `${id}: the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins`
       );
@@ -156,17 +156,17 @@ describe('vite build of svelte-vite without a working plugin-svelte', () => {
   it('fails with our message, naming the import, its importer and the Svelte id, when plugin-svelte is missing', async () => {
     const err = await build([multifront()]);
     // Panel and Counter resolve in parallel: either one fails first.
-    const name = /components\/(Panel|Counter)\.ucf \(imported by/.exec(err.message)?.[1];
+    const name = /components\/(Panel|Counter)\.front \(imported by/.exec(err.message)?.[1];
     expect(name).toBeDefined();
     expect(err.message).toContain(
-      `../../../components/${name}.ucf (imported by ${MAIN}): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles ${SVELTE_ID(`${name}.ucf`)})`
+      `../../../components/${name}.front (imported by ${MAIN}): the svelte framework needs @sveltejs/vite-plugin-svelte in your Vite plugins (it compiles ${SVELTE_ID(`${name}.front`)})`
     );
   });
 
   it('fails with our message, naming the id, when plugin-svelte leaves our id out', async () => {
-    const err = await build([svelte({exclude: [/\.ucf\.svelte\.svelte$/]}), multifront()]);
+    const err = await build([svelte({exclude: [/\.front\.svelte\.svelte$/]}), multifront()]);
     expect(err.message).toContain(
-      `${SVELTE_ID('Panel.ucf')}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options must let ids ending in .ucf.svelte.svelte through`
+      `${SVELTE_ID('Panel.front')}: @sveltejs/vite-plugin-svelte did not compile this module; its include and exclude options must let ids ending in .front.svelte.svelte through`
     );
   });
 });

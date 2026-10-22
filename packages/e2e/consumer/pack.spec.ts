@@ -49,12 +49,12 @@ describe('packLibrary', () => {
     expect(Object.keys(tarballs).sort()).toEqual(['react', 'svelte', 'vue']);
   });
 
-  it.each(TARGETS)('%s: the tarball holds every written file, and no .ucf or node_modules', async (target) => {
+  it.each(TARGETS)('%s: the tarball holds every written file, and no .front or node_modules', async (target) => {
     const files = await tarFiles(tarballs[target]!);
     expect(files).toEqual(resultOf(library.results, target).files.map((file) => `package/${file}`));
     const expected = ['Card.js', 'Card.d.ts', 'Card.css', 'styles.css', 'index.js', 'index.d.ts', 'package.json'];
     for (const file of [...expected, 'README.md', 'LICENSE']) expect(files).toContain(`package/${file}`);
-    expect(files.filter((file) => file.includes('.ucf') || file.includes('node_modules'))).toEqual([]);
+    expect(files.filter((file) => file.includes('.front') || file.includes('node_modules'))).toEqual([]);
   });
 
   it.each(TARGETS)('%s: the tarball passes publint, warnings included', async (target) => {
@@ -153,7 +153,7 @@ describe('package.json', () => {
   });
 
   it('exports only what exists: no index, no types, and the empty styles.css', async () => {
-    await withEditedLibrary([{file: 'plain/Plain.ucf', content: PLAIN}], async (root) => {
+    await withEditedLibrary([{file: 'plain/Plain.front', content: PLAIN}], async (root) => {
       const built = await buildFixtureLibrary(root, {src: 'plain', frameworks: ['react'], dts: false});
       try {
         const packageJson = packageJsonOf(resultOf(built.results, 'react').outDir);

@@ -7,7 +7,7 @@ const VIRTUAL_DIR = '_virtual';
 const SCRIPT_EXT = /\.[cm]?[jt]sx?$/;
 const UNSAFE = /[^\w./-]/g;
 
-// `/abs/Card.ucf.react.tsx` or a style id → `/abs/Card.ucf`.
+// `/abs/Card.front.react.tsx` or a style id → `/abs/Card.front`.
 export function fileOf(id: string): string {
   const {path} = splitId(id);
   return virtualTarget(path)?.file ?? path;
@@ -35,7 +35,7 @@ export function insideDir(dir: string, child: string): string | undefined {
   return relative === '' || relative.startsWith('../') || posix.isAbsolute(relative) ? undefined : relative;
 }
 
-// A `.ucf` sub-module by its query: `script`, `module-0` (a class map), `style-0` (CSS only, so never written).
+// A `.front` sub-module by its query: `script`, `module-0` (a class map), `style-0` (CSS only, so never written).
 function subModuleName(query: URLSearchParams): string {
   const type = query.get('type');
   if (!type) return query.toString().replace(UNSAFE, '_');
@@ -60,7 +60,7 @@ export function outputName(id: string, src: string): string {
   const file = virtualTarget(path)?.file ?? path;
   const relative = insideDir(src, file);
   if (relative === undefined) throw new Error(`${file} is outside the library's src folder ${src}`);
-  const base = relative.endsWith('.ucf') ? relative.slice(0, -'.ucf'.length) : relative.replace(SCRIPT_EXT, '');
+  const base = relative.endsWith('.front') ? relative.slice(0, -'.front'.length) : relative.replace(SCRIPT_EXT, '');
   return query.size === 0 ? base : `${VIRTUAL_DIR}/${base}.${subModuleName(query)}`;
 }
 

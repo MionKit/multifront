@@ -1,8 +1,0 @@
-<svelte lang="html">
-  <script lang="ts">
-    // Named like the build's helpers: the build imports them under other names.
-    const __ucfScopeAttrs = 'own'
-    let { label = 'clash' }: { label?: string } = $props()
-  </script>
-  <p class="shape"><span class="inner">{label} {__ucfScopeAttrs}</span></p>
-</svelte>

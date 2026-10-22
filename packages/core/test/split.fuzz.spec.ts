@@ -93,7 +93,7 @@ function modelOf({source, blocks}: SplitResult): Model {
 const GAP_COMMENTS = [...BASE_MODELS.values()].flatMap((model) => model.gaps.flatMap((gap) => gap.match(/<!--[^]*?-->/g) ?? []));
 
 // Lines of TsxEdges' <react> block that are a statement on their own and cannot close a block.
-const DONOR_LINES = BASE_MODELS.get('TsxEdges.ucf')!
+const DONOR_LINES = BASE_MODELS.get('TsxEdges.front')!
   .blocks.filter((block) => block.type === 'react')
   .flatMap((block) => block.content.split('\n'))
   .map((line) => line.trim())
@@ -467,7 +467,7 @@ describe('splitBlocks fuzz', () => {
   });
 
   it('shrinks to the fewest actions and lines that still fail', async () => {
-    const input = build('Hello.ucf', [
+    const input = build('Hello.front', [
       {kind: 'gap', seed: 1},
       {kind: 'duplicate', seed: 2},
       {kind: 'requote', seed: 3},

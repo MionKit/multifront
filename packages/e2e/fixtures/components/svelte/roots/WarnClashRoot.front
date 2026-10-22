@@ -1,0 +1,9 @@
+<svelte lang="html">
+  <script lang="ts">
+    // Named like the build's warning: the build imports it under another name.
+    const __frontWarnFragment = 'own'
+    let { label = 'warn clash' }: { label?: string } = $props()
+  </script>
+  <p class="shape"><span class="inner">{label} {__frontWarnFragment}</span></p>
+  <p class="shape">second</p>
+</svelte>

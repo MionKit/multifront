@@ -1,0 +1,9 @@
+import {__frontScopeAttrs as __frontScopeAttrs1, __frontClass as __frontClass1} from "virtual:multifront/scope-attrs";
+
+  // The block's own names: the build imports its helpers under other ones.
+  const __frontScopeAttrs = 'author'
+  const __frontClass = (name: string) => `${name}-${__frontScopeAttrs}`
+
+  export default function HelperClash(props: { tone?: string }) {
+    return <div {...__frontScopeAttrs1(props)} style={props.style} ref={props.ref} className={__frontClass1(__frontClass('clash'), props.className)}>{props.tone}</div>
+  }

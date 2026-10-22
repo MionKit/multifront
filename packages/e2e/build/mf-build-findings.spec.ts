@@ -7,28 +7,28 @@ import {LIBRARY_DIR, readComponent} from '../fixtures/index.ts';
 import {locate} from '../editor/lib/tsserver.ts';
 import {edited, report, runMfBuild, withEditedLibrary} from './lib/library.ts';
 
-/** Card.ucf with both script blocks typing their props from `specifier`, by `import type` only: no chunk for it. */
+/** Card.front with both script blocks typing their props from `specifier`, by `import type` only: no chunk for it. */
 function typedCard(specifier: string): string {
   const typeImport = `  import type { CardTitle } from '${specifier}'\n`;
-  let card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
-  card = edited(card, "  import Icon from './Icon.ucf'\n", `  import Icon from './Icon.ucf'\n${typeImport}`);
+  let card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8');
+  card = edited(card, "  import Icon from './Icon.front'\n", `  import Icon from './Icon.front'\n${typeImport}`);
   card = edited(card, 'defineProps<{ title: string }>()', 'defineProps<CardTitle>()');
   card = edited(card, "  import type { ReactNode } from 'react'\n", `  import type { ReactNode } from 'react'\n${typeImport}`);
   return edited(card, '{ title: string; children?: ReactNode }', 'CardTitle & { children?: ReactNode }');
 }
 
 describe('mf-build on a vue-only-style component (6.1.4 through 6.1.5)', () => {
-  const {source} = readComponent('invalid/VueOnlyStyle.ucf');
-  const edits = [{file: 'src/VueOnlyStyle.ucf', content: source}];
+  const {source} = readComponent('invalid/VueOnlyStyle.front');
+  const edits = [{file: 'src/VueOnlyStyle.front', content: source}];
 
   it.each(['react', 'svelte'] as const)(
-    'prints every v-bind() and :slotted() spot at its .ucf position in the %s build, exit 1',
+    'prints every v-bind() and :slotted() spot at its .front position in the %s build, exit 1',
     async (framework) => {
       await withEditedLibrary(edits, async (root) => {
-        const split = splitBlocks(source, join(root, 'src', 'VueOnlyStyle.ucf'));
+        const split = splitBlocks(source, join(root, 'src', 'VueOnlyStyle.front'));
         const expected = checkBlocks(split)
           .filter(({code}) => code === 'vue-only-style')
-          .map((diagnostic) => ({...findingOf(diagnostic, split), file: 'src/VueOnlyStyle.ucf', framework}));
+          .map((diagnostic) => ({...findingOf(diagnostic, split), file: 'src/VueOnlyStyle.front', framework}));
         expect(expected.length).toBeGreaterThan(0);
         const json = await runMfBuild(root, ['--framework', framework, '--no-dts', '--format', 'json']);
         expect(json.stderr).toBe('');
@@ -42,7 +42,8 @@ describe('mf-build on a vue-only-style component (6.1.4 through 6.1.5)', () => {
         const text = await runMfBuild(root, ['--framework', framework, '--no-dts']);
         expect(text.code).toBe(1);
         const lines = expected.map(
-          ({line, column, message}) => `src/VueOnlyStyle.ucf:${line}:${column}: error vue-only-style (${framework}): ${message}\n`
+          ({line, column, message}) =>
+            `src/VueOnlyStyle.front:${line}:${column}: error vue-only-style (${framework}): ${message}\n`
         );
         expect(text.stdout).toBe(`${lines.join('')}mf-build: ${expected.length} errors in the ${framework} build\n`);
       });
@@ -63,7 +64,7 @@ describe('mf-build on a vue-only-style component (6.1.4 through 6.1.5)', () => {
 
 describe('mf-build on a type-only module whose name differs only by case from a component (6.1.2 goal)', () => {
   const edits = [
-    {file: 'src/Card.ucf', content: typedCard('./card.js')},
+    {file: 'src/Card.front', content: typedCard('./card.js')},
     // Reached by type-only imports: no chunk, only tsc's card.d.ts beside Card.d.ts.
     {file: 'src/card.ts', content: 'export interface CardTitle {\n  title: string;\n}\n'},
   ];
@@ -93,7 +94,7 @@ describe('mf-build on a type-only module of another script kind beside a compone
   // React only: the fixture's tsconfig sets no `jsx`, so vue-tsc rejects any .tsx module.
   it.each(['react'] as const)('writes card.tsx as card.d.ts: a name-clash in the %s build', async (framework) => {
     const edits = [
-      {file: 'src/Card.ucf', content: typedCard('./card.js')},
+      {file: 'src/Card.front', content: typedCard('./card.js')},
       {file: 'src/card.tsx', content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -103,7 +104,7 @@ describe('mf-build on a type-only module of another script kind beside a compone
         expect.objectContaining({
           code: 'name-clash',
           message:
-            'src/Card.ucf and src/card.tsx would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file',
+            'src/Card.front and src/card.tsx would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file',
         }),
       ]);
     });
@@ -112,7 +113,7 @@ describe('mf-build on a type-only module of another script kind beside a compone
   it.each(frameworks)('writes card.mts as card.d.mts, no clash in the %s build', async (framework) => {
     const edits = [
       // Not `./card.mjs`: the floor compiler-sfc (3.5.15) finds no `.mts` behind it for `defineProps<CardTitle>()`.
-      {file: 'src/Card.ucf', content: typedCard('./card.mts')},
+      {file: 'src/Card.front', content: typedCard('./card.mts')},
       {file: 'src/card.mts', content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -130,7 +131,7 @@ describe('mf-build on a type-only module of another script kind beside a compone
 describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
   const cardTitle = '/** @typedef {{ title: string }} CardTitle */\nexport {};\n';
 
-  /** Card.ucf typed from a JavaScript module in every block; Vue past `defineProps`, whose compiler reads no JSDoc. */
+  /** Card.front typed from a JavaScript module in every block; Vue past `defineProps`, whose compiler reads no JSDoc. */
   function jsdocCard(specifier: string): string {
     const typeImport = `  import type { CardTitle } from '${specifier}'\n`;
     let card = typedCard(specifier);
@@ -156,7 +157,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
     ['tsx', 'svelte'],
   ] as const)('writes title.%s as title.d.ts in the %s build', async (ext, framework) => {
     const edits = [
-      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: 'src/Card.front', content: jsdocCard('./title.js')},
       {file: `src/title.${ext}`, content: ext === 'tsx' ? tsTitle : cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -170,7 +171,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
     'writes a module reached through another as title.d.ts in the %s build',
     async (framework) => {
       const edits = [
-        {file: 'src/Card.ucf', content: jsdocCard('./types.js')},
+        {file: 'src/Card.front', content: jsdocCard('./types.js')},
         {file: 'src/types.ts', content: "export type { CardTitle } from './title.js';\n"},
         {file: 'src/title.js', content: cardTitle},
       ];
@@ -186,7 +187,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
     const options = {target: 'es2022', module: 'esnext', moduleResolution: 'bundler', strict: true, skipLibCheck: true};
     const edits = [
       {file: 'tsconfig.json', content: JSON.stringify({compilerOptions: {...options, jsx: 'preserve'}})},
-      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: 'src/Card.front', content: jsdocCard('./title.js')},
       {file: 'src/title.jsx', content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -198,9 +199,9 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
 
   it("ignores an untyped package's JavaScript that only the listing run loads", async () => {
     const typeImport = "  import type { ReactNode } from 'react'\n";
-    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.ucf'), 'utf8');
+    const card = readFileSync(join(LIBRARY_DIR, 'src', 'Card.front'), 'utf8');
     const edits = [
-      {file: 'src/Card.ucf', content: edited(card, typeImport, `${typeImport}  import type { format } from 'flow-pkg'\n`)},
+      {file: 'src/Card.front', content: edited(card, typeImport, `${typeImport}  import type { format } from 'flow-pkg'\n`)},
       {file: 'src/flow-pkg.d.ts', content: "declare module 'flow-pkg' {\n  export function format(value: string): string;\n}\n"},
       {file: 'node_modules/flow-pkg/package.json', content: '{"name": "flow-pkg", "type": "module", "main": "index.js"}\n'},
       // Flow syntax, which tsc rejects in a .js file.
@@ -213,14 +214,14 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
 
   it('reports a .jsx module as needing jsx in the vue build', async () => {
     const edits = [
-      {file: 'src/Card.ucf', content: jsdocCard('./title.js')},
+      {file: 'src/Card.front', content: jsdocCard('./title.js')},
       {file: 'src/title.jsx', content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
       const run = await runMfBuild(root, ['--framework', 'vue', '--format', 'json']);
       expect(run.code).toBe(1);
       expect(report(run.stdout).findings).toEqual([
-        expect.objectContaining({code: 'TS6142', file: 'src/Card.ucf', message: expect.stringContaining("'--jsx' is not set")}),
+        expect.objectContaining({code: 'TS6142', file: 'src/Card.front', message: expect.stringContaining("'--jsx' is not set")}),
       ]);
     });
   });
@@ -231,7 +232,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
     ['js', 'vue'],
   ] as const)('writes card.%s as card.d.ts: a name-clash in the %s build', async (ext, framework) => {
     const edits = [
-      {file: 'src/Card.ucf', content: jsdocCard('./card.js')},
+      {file: 'src/Card.front', content: jsdocCard('./card.js')},
       {file: `src/card.${ext}`, content: cardTitle},
     ];
     await withEditedLibrary(edits, async (root) => {
@@ -240,7 +241,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
       expect(report(run.stdout).findings).toEqual([
         expect.objectContaining({
           code: 'name-clash',
-          message: `src/Card.ucf and src/card.${ext} would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file`,
+          message: `src/Card.front and src/card.${ext} would be written as Card.d.ts and card.d.ts, which macOS and Windows see as one file`,
         }),
       ]);
     });
@@ -249,7 +250,7 @@ describe('mf-build on a type-only JavaScript module, typed by JSDoc', () => {
 
 describe("mf-build on a type-only module with a component's exact name (M6 6.1 build errors)", () => {
   const edits = [
-    {file: 'src/Card.ucf', content: typedCard('./Card.js')},
+    {file: 'src/Card.front', content: typedCard('./Card.js')},
     {file: 'src/Card.ts', content: 'export interface CardTitle {\n  title: string;\n}\n'},
   ];
 
@@ -265,7 +266,7 @@ describe("mf-build on a type-only module with a component's exact name (M6 6.1 b
             file: 'src/Card.ts',
             code: 'name-clash',
             severity: 'error',
-            message: 'src/Card.ts and src/Card.ucf would both be written as Card.d.ts',
+            message: 'src/Card.ts and src/Card.front would both be written as Card.d.ts',
             framework,
           },
         ]);
@@ -288,7 +289,7 @@ describe('mf-build on a Svelte compiler error (spec 8.1: never a position in gen
 `;
 
   // Plugin-svelte names the compiled file in its message: a space in the path once kept that name.
-  it.each(['src/Bad.ucf', 'src/my widgets/Bad.ucf'])(
+  it.each(['src/Bad.front', 'src/my widgets/Bad.front'])(
     'names %s and its line, and no line of the generated .svelte file',
     async (file) => {
       await withEditedLibrary([{file, content: bad}], async (root) => {
@@ -300,8 +301,8 @@ describe('mf-build on a Svelte compiler error (spec 8.1: never a position in gen
         const [finding] = findings;
         const {line, offset} = locate(bad, 'doubled = 3');
         expect(finding).toMatchObject({file, line, column: offset, severity: 'error', block: 'svelte', framework: 'svelte'});
-        // The virtual `Bad.ucf.svelte.svelte` exists only inside the build: an agent cannot open it.
-        expect(finding!.message).not.toMatch(/\.ucf\.svelte\.svelte/);
+        // The virtual `Bad.front.svelte.svelte` exists only inside the build: an agent cannot open it.
+        expect(finding!.message).not.toMatch(/\.front\.svelte\.svelte/);
       });
     }
   );
@@ -309,8 +310,8 @@ describe('mf-build on a Svelte compiler error (spec 8.1: never a position in gen
 
 describe('mf-build when a style preprocessor is not installed (spec 8.1: a missing tool is exit 2)', () => {
   // The repo keeps less uninstalled on purpose (spec 3.8).
-  const {source} = readComponent('invalid/MissingPreprocessor.ucf');
-  const file = 'src/MissingPreprocessor.ucf';
+  const {source} = readComponent('invalid/MissingPreprocessor.front');
+  const file = 'src/MissingPreprocessor.front';
 
   async function expectMissing(root: string, framework: string): Promise<void> {
     for (const format of ['text', 'json']) {

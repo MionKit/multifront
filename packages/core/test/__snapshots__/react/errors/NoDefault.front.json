@@ -1,0 +1,12 @@
+[
+  {
+    "code": "react-no-default-export",
+    "severity": "error",
+    "message": "<react> has no default export; add export default to the component",
+    "filename": "react/errors/NoDefault.front",
+    "start": 51,
+    "end": 69,
+    "line": 7,
+    "column": 0
+  }
+]

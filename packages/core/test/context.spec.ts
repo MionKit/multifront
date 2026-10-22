@@ -17,19 +17,19 @@ async function context(name: string, production = true) {
 
 // By hand from the fixture files: `modules` maps each injection name to the block that keeps it.
 const FIXTURES: Record<string, {hasScoped: boolean; modules: Record<string, number>}> = {
-  'Badge.ucf': {hasScoped: true, modules: {}},
-  'Button.ucf': {hasScoped: true, modules: {classes: 1}},
-  'Card.ucf': {hasScoped: false, modules: {$style: 0}},
-  'ComposesFrom.ucf': {hasScoped: false, modules: {$style: 0}},
-  'ComposesScoped.ucf': {hasScoped: true, modules: {$style: 0}},
-  'Counter.ucf': {hasScoped: true, modules: {$style: 1}},
-  'Hello.ucf': {hasScoped: false, modules: {}},
-  'Note.ucf': {hasScoped: true, modules: {}},
-  'Panel.ucf': {hasScoped: true, modules: {$style: 2}},
-  'PanelItem.ucf': {hasScoped: true, modules: {}},
-  'ReactDefaultSpecifier.ucf': {hasScoped: false, modules: {$style: 0}},
-  'ScopedModuleScss.ucf': {hasScoped: true, modules: {$style: 0}},
-  'TsxEdges.ucf': {hasScoped: true, modules: {}},
+  'Badge.front': {hasScoped: true, modules: {}},
+  'Button.front': {hasScoped: true, modules: {classes: 1}},
+  'Card.front': {hasScoped: false, modules: {$style: 0}},
+  'ComposesFrom.front': {hasScoped: false, modules: {$style: 0}},
+  'ComposesScoped.front': {hasScoped: true, modules: {$style: 0}},
+  'Counter.front': {hasScoped: true, modules: {$style: 1}},
+  'Hello.front': {hasScoped: false, modules: {}},
+  'Note.front': {hasScoped: true, modules: {}},
+  'Panel.front': {hasScoped: true, modules: {$style: 2}},
+  'PanelItem.front': {hasScoped: true, modules: {}},
+  'ReactDefaultSpecifier.front': {hasScoped: false, modules: {$style: 0}},
+  'ScopedModuleScss.front': {hasScoped: true, modules: {$style: 0}},
+  'TsxEdges.front': {hasScoped: true, modules: {}},
 };
 
 describe('createBuildContext on valid fixtures', () => {
@@ -77,30 +77,30 @@ describe('createBuildContext on valid fixtures', () => {
     });
   });
 
-  it('gives Card.ucf a $style class map with a card class, at its class map module id', async () => {
-    const {filename, ctx} = await context('Card.ucf');
-    expect(ctx.modules.$style!.id).toBe(`${filename}?ucf&type=style&index=0&module&lang.js`);
+  it('gives Card.front a $style class map with a card class, at its class map module id', async () => {
+    const {filename, ctx} = await context('Card.front');
+    expect(ctx.modules.$style!.id).toBe(`${filename}?front&type=style&index=0&module&lang.js`);
     expect(ctx.modules.$style!.classes.card).toBe(`card_${ctx.scopeId}_0`);
   });
 
-  it('gives Hello.ucf no styles, no modules and nothing scoped', async () => {
-    const {ctx} = await context('Hello.ucf');
+  it('gives Hello.front no styles, no modules and nothing scoped', async () => {
+    const {ctx} = await context('Hello.front');
     expect(ctx.styles).toEqual([]);
     expect(ctx.modules).toEqual({});
     expect(ctx.hasScoped).toBe(false);
   });
 
   it('passes production: false through to scopeId()', async () => {
-    const {source, ctx} = await context('Card.ucf', false);
+    const {source, ctx} = await context('Card.front', false);
     expect(ctx.production).toBe(false);
-    expect(ctx.scopeId).toBe(scopeId('components/Card.ucf', source, false));
-    expect(ctx.scopeId).not.toBe(scopeId('components/Card.ucf', source, true));
+    expect(ctx.scopeId).toBe(scopeId('components/Card.front', source, false));
+    expect(ctx.scopeId).not.toBe(scopeId('components/Card.front', source, true));
   });
 });
 
 describe('createBuildContext on invalid fixtures', () => {
   it('keeps the class map of a module block that does not compile, empty, and builds no CSS', async () => {
-    const {split, ctx} = await context('invalid/ScssSyntaxError.ucf');
+    const {split, ctx} = await context('invalid/ScssSyntaxError.front');
     expect(ctx.styles[0]!.errors.map(({code}) => code)).toEqual(['style-compile-error']);
     expect(ctx.modules.$style!.classes).toEqual({});
     expect(styleKind.build(split.styles[0]!, ctx)).toEqual({ext: '.css', code: '', map: undefined});
@@ -108,7 +108,7 @@ describe('createBuildContext on invalid fixtures', () => {
 
   // As in plugin-vue, which merges module names block by block.
   it('gives a repeated module name to the last block that injects it', async () => {
-    const {split, ctx} = await context('invalid/DuplicateStyleModule.ucf');
+    const {split, ctx} = await context('invalid/DuplicateStyleModule.front');
     expect(split.styles.map((block) => block.attrs.module)).toEqual([true, 'classes', true, '', '$style']);
     expect(ctx.modules.$style!.index).toBe(4);
     expect(ctx.modules.classes!.index).toBe(1);

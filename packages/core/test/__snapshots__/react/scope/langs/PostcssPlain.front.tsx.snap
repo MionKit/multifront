@@ -1,0 +1,6 @@
+import "<fixtures>/components/langs/PostcssPlain.front?front&type=style&index=0&lang.css";
+import {__frontScopeAttrs, __frontClass} from "virtual:multifront/scope-attrs";
+
+  export default function PostcssPlain(__props: { label: string }) {const { label } = __props;
+    return <em data-v-4378a73f="" {...__frontScopeAttrs(__props)} style={__props.style} ref={__props.ref} className={__frontClass("note", __props.className)}>{label}</em>
+  }

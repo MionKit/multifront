@@ -29,7 +29,7 @@ export const vueKind: BlockKind = {
   build: (_block, ctx) => ({ext: '.vue', ...vueSfcCode(ctx.source, ctx.split.blocks, ctx.filename)}),
 };
 
-// Line breaks stay original characters, so lines and columns (CRLF included) match the .ucf file.
+// Line breaks stay original characters, so lines and columns (CRLF included) match the .front file.
 function blank(text: MagicString, source: string, start: number, end: number): void {
   for (const run of source.slice(start, end).matchAll(/[^\r\n]+/g)) {
     const runStart = start + run.index;
@@ -37,7 +37,7 @@ function blank(text: MagicString, source: string, start: number, end: number): v
   }
 }
 
-/** SFC code as long as the `.ucf` source: `<vue>` content and root `<style>` blocks kept, other targets blanked. */
+/** SFC code as long as the `.front` source: `<vue>` content and root `<style>` blocks kept, other targets blanked. */
 export function vueSfcCode(source: string, blocks: Block[], filename: string): {code: string; map: SourceMap} {
   const text = new MagicString(source);
   const vue = blocks.find((block) => block.type === 'vue');

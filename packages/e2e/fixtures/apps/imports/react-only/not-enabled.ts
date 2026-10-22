@@ -1,3 +1,3 @@
-import Card from '../../../components/Card.ucf' with {framework: 'svelte'};
+import Card from '../../../components/Card.front' with {framework: 'svelte'};
 
 export {Card};

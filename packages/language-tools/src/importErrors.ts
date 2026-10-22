@@ -1,15 +1,15 @@
 import type {Target} from '@multifront/core';
 import type * as ts from 'typescript';
-import {isUcfSpecifier, resolveUcfImport} from './resolve.ts';
-import type {TypeScript, UcfImportOptions, UcfResolution} from './types.ts';
+import {isFrontSpecifier, resolveFrontImport} from './resolve.ts';
+import type {TypeScript, FrontImportOptions, FrontResolution} from './types.ts';
 
-function ucfLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLiteralLike[] {
+function frontLiterals(ts: TypeScript, sourceFile: ts.SourceFile): ts.StringLiteralLike[] {
   const literals: ts.StringLiteralLike[] = [];
   const visit = (node: ts.Node): void => {
     let specifier: ts.Node | undefined;
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) specifier = node.moduleSpecifier;
     else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) specifier = node.arguments[0];
-    if (specifier && ts.isStringLiteralLike(specifier) && isUcfSpecifier(specifier)) literals.push(specifier);
+    if (specifier && ts.isStringLiteralLike(specifier) && isFrontSpecifier(specifier)) literals.push(specifier);
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
@@ -21,11 +21,11 @@ interface ImportError {
   node: ts.Node; // the import statement or `import()` call: TypeScript's own errors there are the same problem
 }
 
-function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImportOptions): ImportError[] {
+function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: FrontImportOptions): ImportError[] {
   const errors: ImportError[] = [];
   const report = (
     literal: ts.StringLiteralLike,
-    {code, message, start = literal.getStart(sourceFile), end = literal.end}: NonNullable<UcfResolution['error']>,
+    {code, message, start = literal.getStart(sourceFile), end = literal.end}: NonNullable<FrontResolution['error']>,
     warning = false
   ): void => {
     const diagnostic: ts.Diagnostic = {
@@ -41,8 +41,8 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
     errors.push({diagnostic, node: literal.parent});
   };
   const targets = new Map<string, Target>();
-  for (const literal of ucfLiterals(ts, sourceFile)) {
-    const {target, error} = resolveUcfImport(ts, literal, sourceFile.fileName, options, sourceFile);
+  for (const literal of frontLiterals(ts, sourceFile)) {
+    const {target, error} = resolveFrontImport(ts, literal, sourceFile.fileName, options, sourceFile);
     if (error) report(literal, error);
     if (!target) continue;
     const first = targets.get(literal.text);
@@ -59,12 +59,12 @@ function importErrors(ts: TypeScript, sourceFile: ts.SourceFile, options: UcfImp
   return errors;
 }
 
-/** Our `.ucf` import errors, as the build reports them, replace TypeScript's own there. */
+/** Our `.front` import errors, as the build reports them, replace TypeScript's own there. */
 export function withImportErrors(
   ts: TypeScript,
   sourceFile: ts.SourceFile,
   diagnostics: readonly ts.Diagnostic[],
-  options: UcfImportOptions
+  options: FrontImportOptions
 ): ts.Diagnostic[] {
   const errors = importErrors(ts, sourceFile, options);
   // "Cannot find module", "no default export": one problem, one error. A warning hides nothing.

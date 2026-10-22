@@ -14,7 +14,7 @@ function check(name: string) {
 // Written by hand from the fixture files.
 const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 'column'>[]}[] = [
   {
-    fixture: 'invalid/DuplicateStyleModule.ucf',
+    fixture: 'invalid/DuplicateStyleModule.front',
     errors: [
       {code: 'duplicate-style-module', line: 13, column: 0},
       {code: 'duplicate-style-module', line: 19, column: 0},
@@ -23,33 +23,33 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   },
   // A block error before a splitter error; the second <react> exports `as "default"`.
   {
-    fixture: 'invalid/MixedErrors.ucf',
+    fixture: 'invalid/MixedErrors.front',
     errors: [
       {code: 'unknown-style-lang', line: 1, column: 0},
       {code: 'duplicate-target', line: 13, column: 0},
     ],
   },
   // Vue's grammar would color the <style> after it as TSX.
-  {fixture: 'invalid/ReactNotLast.ucf', errors: [{code: 'react-not-last', line: 1, column: 0}]},
-  {fixture: 'invalid/ReactNoDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
+  {fixture: 'invalid/ReactNotLast.front', errors: [{code: 'react-not-last', line: 1, column: 0}]},
+  {fixture: 'invalid/ReactNoDefault.front', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
   // `export type` exports no value, so no runtime default.
-  {fixture: 'invalid/ReactTypeOnlyDefault.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
+  {fixture: 'invalid/ReactTypeOnlyDefault.front', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
   // `export {type X as default}`, `export default interface` and type-only names export no value either.
-  {fixture: 'invalid/ReactTypeOnlyDefaultForms.ucf', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
-  {fixture: 'invalid/StyleInSvelte.ucf', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
-  {fixture: 'invalid/StyleInVue.ucf', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
+  {fixture: 'invalid/ReactTypeOnlyDefaultForms.front', errors: [{code: 'react-no-default-export', line: 7, column: 0}]},
+  {fixture: 'invalid/StyleInSvelte.front', errors: [{code: 'style-inside-target', line: 18, column: 2}]},
+  {fixture: 'invalid/StyleInVue.front', errors: [{code: 'style-inside-target', line: 17, column: 2}]},
   // Only a comment: no <template> or <script> for Vue to compile.
-  {fixture: 'vue/Empty.ucf', errors: [{code: 'vue-empty-block', line: 1, column: 0}]},
+  {fixture: 'vue/Empty.front', errors: [{code: 'vue-empty-block', line: 1, column: 0}]},
   // Both rules on one block: the opening tag's error first.
   {
-    fixture: 'vue/StyleOnlyInVue.ucf',
+    fixture: 'vue/StyleOnlyInVue.front',
     errors: [
       {code: 'vue-empty-block', line: 1, column: 0},
       {code: 'style-inside-target', line: 2, column: 2},
     ],
   },
   {
-    fixture: 'invalid/UnknownStyleLang.ucf',
+    fixture: 'invalid/UnknownStyleLang.front',
     errors: [
       {code: 'unknown-style-lang', line: 7, column: 0},
       {code: 'unknown-style-lang', line: 13, column: 0},
@@ -57,7 +57,7 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
   },
   // No lang, a bare `lang`, a wrong lang.
   {
-    fixture: 'invalid/BlockLang.ucf',
+    fixture: 'invalid/BlockLang.front',
     errors: [
       {code: 'block-lang', line: 1, column: 0},
       {code: 'block-lang', line: 7, column: 0},
@@ -67,8 +67,8 @@ const CHECK_CASES: {fixture: string; errors: Pick<Diagnostic, 'code' | 'line' | 
 ];
 const CHECK_FIXTURES = CHECK_CASES.map((row) => row.fixture);
 // <react> blocks TypeScript cannot parse either: the splitter cut one early, the other lacks a brace.
-const SYNTAX_FIXTURES = ['invalid/ReactCloseInString.ucf', 'invalid/ReactSyntaxError.ucf'];
-const VUE_ONLY_STYLE = 'invalid/VueOnlyStyle.ucf';
+const SYNTAX_FIXTURES = ['invalid/ReactCloseInString.front', 'invalid/ReactSyntaxError.front'];
+const VUE_ONLY_STYLE = 'invalid/VueOnlyStyle.front';
 const SPLIT_FIXTURES = listComponents('invalid').filter(
   (name) => ![...CHECK_FIXTURES, ...SYNTAX_FIXTURES, VUE_ONLY_STYLE].includes(name)
 );
@@ -79,7 +79,7 @@ describe('checkBlocks', () => {
   });
 
   it('takes export {Card as default} as the default export', () => {
-    const react = check('ReactDefaultSpecifier.ucf').split.targets.react;
+    const react = check('ReactDefaultSpecifier.front').split.targets.react;
     expect(react?.content).toContain('export { Card as default }');
     expect(react?.content).not.toContain('export default');
   });
@@ -151,7 +151,7 @@ describe('checkBlocks', () => {
     });
 
     it('reports nothing in a file with only a <vue> block', () => {
-      expect(check('vue/VBind.ucf').diagnostics).toEqual([]);
+      expect(check('vue/VBind.front').diagnostics).toEqual([]);
       const onlyVue = source.replace(/<svelte[^]*<\/svelte>/, '').replace(/<react[^]*<\/react>/, '');
       expect(checkBlocks(splitBlocks(onlyVue, filename))).toEqual([]);
     });

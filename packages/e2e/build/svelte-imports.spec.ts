@@ -7,7 +7,7 @@ import {svelte, vitePreprocess} from '@sveltejs/vite-plugin-svelte';
 import {multifront} from '@multifront/vite';
 import {copyApp, removeApp} from '../fixtures/index.ts';
 import {buildApp, expectImportError, rejection, withDevServer, withEditedApp} from './lib/build.ts';
-import {expectNoAttribute, resolutionRecorder, ucfPaths} from './lib/references.ts';
+import {expectNoAttribute, resolutionRecorder, frontPaths} from './lib/references.ts';
 
 const COMPONENTS = '../../../components';
 const SVELTE_MARKERS = ['panel-svelte-marker', 'panel-item-svelte-marker', 'icon-svelte-marker', 'uses-icon-svelte-marker'];
@@ -21,16 +21,16 @@ const OTHER_MARKERS = [
 ];
 // Every component App.svelte reaches, each as its Svelte target.
 const SVELTE_IDS = ['Card', 'Counter', 'Panel', 'PanelItem', 'imports/Icon', 'imports/UsesIcon'].map(
-  (name) => `${name}.ucf.svelte.svelte`
+  (name) => `${name}.front.svelte.svelte`
 );
 // App.svelte's own imports: a bare one, a static and a dynamic one with the attribute, a re-export in `<script module>`.
 const APP_IMPORTS = [
-  `${COMPONENTS}/Panel.ucf`,
-  `${COMPONENTS}/Counter.ucf?framework=svelte`,
-  `${COMPONENTS}/imports/UsesIcon.ucf?framework=svelte`,
-  `${COMPONENTS}/Card.ucf?framework=svelte`,
+  `${COMPONENTS}/Panel.front`,
+  `${COMPONENTS}/Counter.front?framework=svelte`,
+  `${COMPONENTS}/imports/UsesIcon.front?framework=svelte`,
+  `${COMPONENTS}/Card.front?framework=svelte`,
 ];
-const APP_TARGETS = ['Card', 'Counter', 'Panel', 'imports/UsesIcon'].map((name) => `/components/${name}.ucf.svelte.svelte`);
+const APP_TARGETS = ['Card', 'Counter', 'Panel', 'imports/UsesIcon'].map((name) => `/components/${name}.front.svelte.svelte`);
 
 /** `app.ts` mounts App.svelte; `main.ts` mounts the 5.3 components. */
 function buildImporter(root: string, config: InlineConfig = {}) {
@@ -40,7 +40,7 @@ function buildImporter(root: string, config: InlineConfig = {}) {
 /** A copy of its own whose `App.svelte` also imports `specifier` as `name` and renders it. */
 function withImport(name: string, specifier: string, run: (root: string) => Promise<void>) {
   const edits: [string, string][] = [
-    ["  import Panel from '../../../components/Panel.ucf';\n", `  import ${name} from ${specifier};\n`],
+    ["  import Panel from '../../../components/Panel.front';\n", `  import ${name} from ${specifier};\n`],
     ['<Counter start={2} />\n', `<${name} />\n`],
   ];
   return withEditedApp('svelte-vite', join('src', 'App.svelte'), edits, run);
@@ -56,8 +56,8 @@ describe('imports through plugin-svelte in svelte-vite', () => {
     return () => removeApp(root);
   });
 
-  const ucfIds = (chunks: Rolldown.OutputChunk[]) =>
-    chunks.flatMap((chunk) => chunk.moduleIds).filter((id) => id.includes('.ucf') && !id.includes('?'));
+  const frontIds = (chunks: Rolldown.OutputChunk[]) =>
+    chunks.flatMap((chunk) => chunk.moduleIds).filter((id) => id.includes('.front') && !id.includes('?'));
 
   describe('vite build', () => {
     const recorder = resolutionRecorder();
@@ -71,7 +71,7 @@ describe('imports through plugin-svelte in svelte-vite', () => {
       expect(new Set(recorder.from('/src/App.svelte').map(({id}) => id))).toEqual(
         new Set([...APP_IMPORTS, ...APP_IMPORTS.map((id) => id.split('?')[0]!)])
       );
-      expect(ucfIds(chunks).sort()).toEqual(SVELTE_IDS.map((id) => join(components, id)));
+      expect(frontIds(chunks).sort()).toEqual(SVELTE_IDS.map((id) => join(components, id)));
       for (const chunk of chunks) {
         expectNoAttribute(chunk.code);
         expect(chunk.moduleIds.filter((id) => id.includes('framework='))).toEqual([]);
@@ -83,12 +83,12 @@ describe('imports through plugin-svelte in svelte-vite', () => {
       const inBlock = (importer: string) =>
         new Set(
           recorder
-            .from(`/components/${importer}.ucf.svelte.svelte`)
+            .from(`/components/${importer}.front.svelte.svelte`)
             .map(({id}) => id)
-            .filter((id) => !id.includes('?ucf'))
+            .filter((id) => !id.includes('?front'))
         );
-      expect(inBlock('Panel')).toEqual(new Set(['./PanelItem.ucf']));
-      expect(inBlock('imports/UsesIcon')).toEqual(new Set(['./Icon.ucf']));
+      expect(inBlock('Panel')).toEqual(new Set(['./PanelItem.front']));
+      expect(inBlock('imports/UsesIcon')).toEqual(new Set(['./Icon.front']));
       const code = chunks.map((chunk) => chunk.code).join('\n');
       for (const marker of SVELTE_MARKERS) expect(code).toContain(marker);
       for (const marker of OTHER_MARKERS) expect(code).not.toContain(marker);
@@ -97,7 +97,7 @@ describe('imports through plugin-svelte in svelte-vite', () => {
 
   it('builds the same Svelte targets for SSR, with no attribute', async () => {
     const {chunks} = await buildApp(root, {build: {ssr: join(root, 'src', 'entry-server.ts')}});
-    expect(ucfIds(chunks).sort()).toEqual(SVELTE_IDS.map((id) => join(components, id)));
+    expect(frontIds(chunks).sort()).toEqual(SVELTE_IDS.map((id) => join(components, id)));
     for (const chunk of chunks) expectNoAttribute(chunk.code);
     const code = chunks.map((chunk) => chunk.code).join('\n');
     for (const marker of SVELTE_MARKERS) expect(code).toContain(marker);
@@ -123,7 +123,7 @@ describe('imports through plugin-svelte in svelte-vite', () => {
       it(`gives App.svelte's imports their Svelte target, the attribute moved into the id and gone (${environment})`, () => {
         const code = results[environment];
         expectNoAttribute(code);
-        expect(ucfPaths(code).sort()).toEqual(APP_TARGETS);
+        expect(frontPaths(code).sort()).toEqual(APP_TARGETS);
         expect(recorder.from('/src/App.svelte', environment).map(({id}) => id)).toEqual(expect.arrayContaining(APP_IMPORTS));
       });
     }
@@ -143,11 +143,11 @@ describe('import errors through plugin-svelte', () => {
   // An `import()` in markup falls to the post rewrite of the compiled module, at its specifier.
   it.each([
     {name: 'AttrInSvelte', count: 3, at: undefined},
-    {name: 'AttrInSvelteMarkup', count: 0, at: "'../../imports/Icon.ucf'"},
+    {name: 'AttrInSvelteMarkup', count: 0, at: "'../../imports/Icon.front'"},
   ])(
-    'fails each framework attribute in the <svelte> block of $name.ucf at its place, in build and dev',
+    'fails each framework attribute in the <svelte> block of $name.front at its place, in build and dev',
     async ({name, count, at}) => {
-      const path = `svelte/imports/${name}.ucf`;
+      const path = `svelte/imports/${name}.front`;
       await withImport(name, `'${COMPONENTS}/${path}'`, async (root) => {
         const file = componentFile(root, path);
         const source = await readFile(file, 'utf8');
@@ -170,17 +170,18 @@ describe('import errors through plugin-svelte', () => {
   it.each([
     {
       name: 'ReactOnly',
-      path: 'imports/ReactOnly.ucf',
+      path: 'imports/ReactOnly.front',
       // Its own module is App.svelte.
       request: () => '/src/App.svelte',
       message:
-        '../../../components/imports/ReactOnly.ucf has no <svelte> block; App.svelte imports it as svelte (missing-target-block)',
+        '../../../components/imports/ReactOnly.front has no <svelte> block; App.svelte imports it as svelte (missing-target-block)',
     },
     {
       name: 'UsesReactOnly',
-      path: 'svelte/imports/UsesReactOnly.ucf',
+      path: 'svelte/imports/UsesReactOnly.front',
       request: (file: string) => `${file}.svelte.svelte`,
-      message: '../../imports/ReactOnly.ucf has no <svelte> block; UsesReactOnly.ucf imports it as svelte (missing-target-block)',
+      message:
+        '../../imports/ReactOnly.front has no <svelte> block; UsesReactOnly.front imports it as svelte (missing-target-block)',
     },
   ])(
     'fails importing a file with no <svelte> block from $name, naming both files, in build and dev',
@@ -202,17 +203,17 @@ describe('import errors through plugin-svelte', () => {
 });
 
 const PREPROCESSED: InlineConfig = {configFile: false, plugins: [svelte({preprocess: vitePreprocess()}), multifront()]};
-const BAD_IMPORT = `import Bad from '${COMPONENTS}/Card.ucf' with { framework: 'nope' };`;
+const BAD_IMPORT = `import Bad from '${COMPONENTS}/Card.front' with { framework: 'nope' };`;
 
 // `at` starts where the error points, in the importer's own file, as for a `.vue` importer.
 describe('.svelte importer errors', () => {
   it.each([
-    // Its own `<script module>` re-exports Card.ucf too.
+    // Its own `<script module>` re-exports Card.front too.
     {importer: 'App.svelte', code: 'unknown-framework', at: BAD_IMPORT.slice(BAD_IMPORT.indexOf("'"))},
     {
       importer: 'LangLess.svelte',
       code: 'unknown-framework',
-      at: `'${COMPONENTS}/Card.ucf' with`,
+      at: `'${COMPONENTS}/Card.front' with`,
       source: `<script>\n  ${BAD_IMPORT}\n</script>\n\n<Bad title="a" />\n`,
     },
     {
@@ -221,32 +222,32 @@ describe('.svelte importer errors', () => {
       at: 'pick } })',
       source:
         `<script module lang="ts">\n  const pick = 'svelte';\n` +
-        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: pick } });\n</script>\n\n<p>lazy</p>\n`,
+        `  export const lazy = import('${COMPONENTS}/Card.front', { with: { framework: pick } });\n</script>\n\n<p>lazy</p>\n`,
     },
     // The first in the file, whichever script it is.
     {
       importer: 'ScriptFirst.svelte',
       code: 'unknown-framework',
-      at: `'${COMPONENTS}/Card.ucf' with`,
+      at: `'${COMPONENTS}/Card.front' with`,
       source:
         `<script lang="ts">\n  ${BAD_IMPORT}\n</script>\n\n<script module>\n` +
-        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: 'worse' } });\n</script>\n\n<Bad title="a" />\n`,
+        `  export const lazy = import('${COMPONENTS}/Card.front', { with: { framework: 'worse' } });\n</script>\n\n<Bad title="a" />\n`,
     },
     // Svelte reads the lang-less `<script module>` as TypeScript, the language of the first `lang`.
     {
       importer: 'ModuleTs.svelte',
       code: 'unknown-framework',
-      at: `'${COMPONENTS}/Card.ucf', {`,
+      at: `'${COMPONENTS}/Card.front', {`,
       source:
         `<script module>\n  const size: number = 1;\n` +
-        `  export const lazy = import('${COMPONENTS}/Card.ucf', { with: { framework: 'nope' } });\n</script>\n\n` +
+        `  export const lazy = import('${COMPONENTS}/Card.front', { with: { framework: 'nope' } });\n</script>\n\n` +
         '<script lang="ts">\n  let gap = size;\n</script>\n\n<p>{gap}</p>\n',
     },
     // A preprocessor's map names the file relatively.
     {
       importer: 'Preprocessed.svelte',
       code: 'unknown-framework',
-      at: `'${COMPONENTS}/Card.ucf' with`,
+      at: `'${COMPONENTS}/Card.front' with`,
       source: `<script lang="ts">\n  ${BAD_IMPORT}\n</script>\n\n<section><Bad title="a" /></section>\n\n<style lang="scss">\n  $gap: 4px;\n  section {\n    margin: $gap;\n  }\n</style>\n`,
       config: PREPROCESSED,
     },
@@ -268,7 +269,7 @@ describe('.svelte importer errors', () => {
   );
 
   it("leaves a .svelte importer that does not parse to plugin-svelte's own error", async () => {
-    const source = `<script>\n  import Card from '${COMPONENTS}/Card.ucf';\n</script>\n\n{#if}\n`;
+    const source = `<script>\n  import Card from '${COMPONENTS}/Card.front';\n</script>\n\n{#if}\n`;
     await withImport('Broken', "'./Broken.svelte'", async (root) => {
       await writeFile(join(root, 'src', 'Broken.svelte'), source);
       const built = await rejection<Rolldown.BundleError>(buildImporter(root));
@@ -280,7 +281,7 @@ describe('.svelte importer errors', () => {
     });
   });
 
-  it("points a .ucf component's Svelte compiler error into the .ucf file, mapped once in the build and the dev server", async () => {
+  it("points a .front component's Svelte compiler error into the .front file, mapped once in the build and the dev server", async () => {
     const source = `<svelte lang="html">
   <script lang="ts">
     let count = $state(0)
@@ -291,16 +292,16 @@ describe('.svelte importer errors', () => {
   <p>{doubled}</p>
 </svelte>
 `;
-    await withImport('Bad', "'./Bad.ucf'", async (root) => {
-      const file = join(root, 'src', 'Bad.ucf');
+    await withImport('Bad', "'./Bad.front'", async (root) => {
+      const file = join(root, 'src', 'Bad.front');
       await writeFile(file, source);
       const loc = {file, ...locate(source, source.indexOf('doubled = 3'))};
       const built = await rejection<Rolldown.BundleError>(buildImporter(root));
       expect(built.errors?.[0]).toMatchObject({plugin: 'vite-plugin-svelte:compile', loc});
-      expect(built.errors?.[0]?.message).not.toMatch(/\.ucf\.svelte\.svelte/);
+      expect(built.errors?.[0]?.message).not.toMatch(/\.front\.svelte\.svelte/);
       await withDevServer(root, {}, async (server) => {
         const err = await rejection<Rolldown.RollupError>(
-          server.environments.client.transformRequest('/src/Bad.ucf.svelte.svelte')
+          server.environments.client.transformRequest('/src/Bad.front.svelte.svelte')
         );
         expect(err).toMatchObject({plugin: 'vite-plugin-svelte:compile', loc});
       });

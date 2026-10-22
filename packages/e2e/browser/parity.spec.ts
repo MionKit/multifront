@@ -1,4 +1,4 @@
-// The demo renders Counter.ucf as React and as Vue on one page: same scope id, same styles, separate state.
+// The demo renders Counter.front as React and as Vue on one page: same scope id, same styles, separate state.
 import {join} from 'node:path';
 import type {Browser, Page} from 'playwright';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
@@ -27,7 +27,7 @@ afterAll(async () => {
 describe.each([
   ['dev', startDev, false],
   ['preview', buildAndPreview, true],
-] as const)('Counter.ucf as React and as Vue in the demo (%s)', (_mode, serve, production) => {
+] as const)('Counter.front as React and as Vue in the demo (%s)', (_mode, serve, production) => {
   let app: Awaited<ReturnType<typeof serve>> | undefined;
   let page: Page;
   let messages: ReturnType<typeof collectConsole>;
@@ -47,13 +47,13 @@ describe.each([
   });
 
   it('gives both roots the same data-v-*', async () => {
-    const scope = scopeAttribute(ROOT, componentPath('Counter.ucf'), production);
+    const scope = scopeAttribute(ROOT, componentPath('Counter.front'), production);
     expect(await page.locator(COUNTERS.react).getAttribute(scope)).toBe('');
     expect(await page.locator(COUNTERS.vue).getAttribute(scope)).toBe('');
   });
 
   it('computes the same styles on the root, the title and the button', async () => {
-    // Hand-read from Counter.ucf: two unstyled elements would match each other too.
+    // Hand-read from Counter.front: two unstyled elements would match each other too.
     expect(await computed(page.locator(COUNTERS.vue), 'color')).toBe('rgb(120, 40, 160)');
     expect(await computed(page.locator(`${COUNTERS.vue} button`), 'padding')).toBe('4px 12px');
     for (const part of PARTS) {

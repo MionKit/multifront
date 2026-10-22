@@ -1,11 +1,11 @@
 import {loadSvelteCompiler, loadVueCompiler} from '@multifront/core';
 import type * as ts from 'typescript';
-import {createUcfLanguagePlugin} from './languagePlugin.ts';
+import {createFrontLanguagePlugin} from './languagePlugin.ts';
 import {createLanguageServicePlugin, freshDiagnostics} from './languageServicePlugin.ts';
 import {withImportErrors} from './importErrors.ts';
-import {entryOptions, withUcfResolution} from './resolve.ts';
+import {entryOptions, withFrontResolution} from './resolve.ts';
 import {serveTargetScripts} from './targetScripts.ts';
-import type {EditorOptions, UcfImportOptions, UcfVirtualCode} from './types.ts';
+import type {EditorOptions, FrontImportOptions, FrontVirtualCode} from './types.ts';
 import {serveVueRequests} from './vueRequests.ts';
 
 /** `@vue/compiler-sfc` and `svelte` are optional: a React-only app has neither. */
@@ -43,15 +43,15 @@ const createVolarPlugin = ({vueTypesRoot, svelteTypesRoot}: TypeScriptPluginOpti
       getDirectories: host.getDirectories && ((path) => host.getDirectories!(path)),
       useCaseSensitiveFileNames: () => host.useCaseSensitiveFileNames?.() ?? ts.sys.useCaseSensitiveFileNames,
     };
-    let getSplit: UcfImportOptions['getSplit'] = () => undefined;
-    const importOptions = (compilerOptions: ts.CompilerOptions): UcfImportOptions => ({
+    let getSplit: FrontImportOptions['getSplit'] = () => undefined;
+    const importOptions = (compilerOptions: ts.CompilerOptions): FrontImportOptions => ({
       ...entryOptions(compilerOptions),
       compilerOptions,
       host: resolutionHost,
       getSplit,
     });
 
-    // Wrapped before Volar's proxy, so Volar maps these positions into the `.ucf` file.
+    // Wrapped before Volar's proxy, so Volar maps these positions into the `.front` file.
     // Fresh objects: a Volar plugin under ours (Vue's) on our `@volar/typescript` copy cached its transform of each.
     const languageService = info.languageService;
     info.languageService = freshDiagnostics({
@@ -80,17 +80,17 @@ const createVolarPlugin = ({vueTypesRoot, svelteTypesRoot}: TypeScriptPluginOpti
       svelteTypesRoot,
     };
     return {
-      languagePlugins: [createUcfLanguagePlugin(editorOptions)],
+      languagePlugins: [createFrontLanguagePlugin(editorOptions)],
       setup(language) {
         targetScripts.setup(language);
         serveVueRequests(ts, info, language, base);
-        getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as UcfVirtualCode | undefined)?.split;
+        getSplit = (fileName) => (language.scripts.get(fileName)?.generated?.root as FrontVirtualCode | undefined)?.split;
         const resolve = host.resolveModuleNameLiterals?.bind(host);
         if (!resolve) return;
         type Resolve = typeof resolve;
-        const wrapResolve = (inner: Resolve): Resolve => withUcfResolution(ts, inner, importOptions);
-        // Outermost in any order: a later Volar plugin (Vue's) resolves a batch with a `.vue` import itself, `.ucf` too.
-        // The setter wraps ours over its wrapper again; inner copies of ours then see no `.ucf`.
+        const wrapResolve = (inner: Resolve): Resolve => withFrontResolution(ts, inner, importOptions);
+        // Outermost in any order: a later Volar plugin (Vue's) resolves a batch with a `.vue` import itself, `.front` too.
+        // The setter wraps ours over its wrapper again; inner copies of ours then see no `.front`.
         let current = wrapResolve(resolve);
         Object.defineProperty(host, 'resolveModuleNameLiterals', {
           configurable: true,
@@ -138,5 +138,5 @@ export function createTypeScriptPlugin(options: TypeScriptPluginOptions = {}): t
   };
 }
 
-/** tsserver plugin: serves `.ucf` files (hybrid mode) and resolves every `.ucf` import by spec 4.1 and 4.2. */
+/** tsserver plugin: serves `.front` files (hybrid mode) and resolves every `.front` import by spec 4.1 and 4.2. */
 export default /* @__PURE__ */ createTypeScriptPlugin();

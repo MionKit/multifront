@@ -1,7 +1,7 @@
 // Format Document through the real server, with a tsdk as VS Code passes one: exactly what the real mf-fmt writes.
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {findFormatConfig, formatUcf} from '@multifront/language-tools';
+import {findFormatConfig, formatFront} from '@multifront/language-tools';
 import {describe, expect, it} from 'vitest';
 import {edited} from '../../build/lib/library.ts';
 import {copyAppOutside} from '../../fixtures/index.ts';
@@ -53,9 +53,9 @@ describe('Format Document on lint-format/', () => {
   });
 
   it("gives no edits for a file the config's ignorePatterns exclude, as mf-fmt refuses one", async () => {
-    const file = join(state.root, 'Lint.ucf');
-    const source = read(state.root, 'Lint.ucf');
-    expect((await formatUcf(file, source, findFormatConfig(file, state.root))).text).not.toBe(source);
+    const file = join(state.root, 'Lint.front');
+    const source = read(state.root, 'Lint.front');
+    expect((await formatFront(file, source, findFormatConfig(file, state.root))).text).not.toBe(source);
     expect((await format(undefined, file)).edits).toEqual([]);
   });
 
@@ -66,7 +66,7 @@ describe('Format Document on lint-format/', () => {
 
   it('gives no edits and logs nothing for an untitled document', async () => {
     const from = state.server.log.length;
-    const document = await state.server.openUntitledDocument('ucf', ORIGINAL);
+    const document = await state.server.openUntitledDocument('front', ORIGINAL);
     expect((await state.server.sendDocumentFormattingRequest(document.uri, CLIENT_OPTIONS)) ?? []).toEqual([]);
     expect(warnings(from)).toEqual([]);
   });
@@ -78,7 +78,7 @@ describe('Format Document on lint-format/', () => {
   });
 
   it('gives no edits for a range: neither our plugin nor any other service formats a selection', async () => {
-    const {uri} = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');
+    const {uri} = await state.server.openTextDocument(join(state.root, MESSY), 'front');
     await format(ORIGINAL);
     const line = ORIGINAL.split('\n').indexOf('.messy{padding:$gap;  &:hover{opacity:.8}}');
     const range = {start: {line, character: 0}, end: {line: line + 1, character: 0}};
@@ -142,7 +142,7 @@ describe('Format Document with no oxfmt in the project', () => {
     expect((await format(`${ORIGINAL}<react lang="tsx">\n</react>\n`)).edits).toEqual([]);
     expect((await format(ORIGINAL)).edits).toEqual([]);
     expect(warnings()).toEqual([noOxfmt(state.root)]);
-    const document = await state.server.openTextDocument(join(state.root, MESSY), 'ucf');
+    const document = await state.server.openTextDocument(join(state.root, MESSY), 'front');
     expect(await state.server.sendDocumentDiagnosticRequest(document.uri)).toMatchObject({kind: 'full'});
     expect(state.server.process.exitCode).toBeNull();
   });

@@ -1,0 +1,7 @@
+
+  <script lang="ts">
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let count = $state(1)
+let {...__frontRest} = $props();
+  </script>
+  <button {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`shape`, __frontRest.class)} onclick={() => count++}><span class="inner">{count}</span></button>

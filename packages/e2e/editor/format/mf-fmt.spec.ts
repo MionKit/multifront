@@ -28,8 +28,8 @@ import {locate} from '../lib/tsserver.ts';
 
 const HELP = `Usage: mf-fmt [options] [paths...]
 
-Formats each block of .ucf files with oxfmt and the project's .oxfmtrc.json.
-Paths are .ucf files or folders; none formats every .ucf file under the current folder.
+Formats each block of .front files with oxfmt and the project's .oxfmtrc.json.
+Paths are .front files or folders; none formats every .front file under the current folder.
 
 Options:
   --check             write nothing; list the files that are not formatted
@@ -37,7 +37,7 @@ Options:
   -h, --help          show this help
 
 Example:
-  mf-fmt --check src/Card.ucf
+  mf-fmt --check src/Card.front
 
 Exit codes: 0 no errors, 1 errors found, 2 the command could not run (bad usage, config or setup).
 `;
@@ -105,22 +105,22 @@ describe('mf-fmt on the fixture', () => {
 
   it('formats plain CSS and Less blocks as the oxfmt CLI does, leaves Stylus and an empty block as written', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      for (const name of ['Badge.ucf', 'editor/LessModule.ucf', 'langs/StylusPlain.ucf'])
+      for (const name of ['Badge.front', 'editor/LessModule.front', 'langs/StylusPlain.front'])
         cpSync(componentPath(name), join(root, name));
-      editFile(root, 'Badge.ucf', '.badge {\n  display: inline-block;', '.badge{display:inline-block;');
+      editFile(root, 'Badge.front', '.badge {\n  display: inline-block;', '.badge{display:inline-block;');
       editFile(root, MESSY, '</svelte>\n', '</svelte>\n\n<style>\n  \n</style>\n');
       const before = (file: string) => splitBlocks(read(join(FIXTURES_DIR, 'components'), file), file).styles[0]!.content;
       const sources = {
-        css: read(root, 'Badge.ucf'),
-        less: before('editor/LessModule.ucf'),
-        stylus: before('langs/StylusPlain.ucf'),
+        css: read(root, 'Badge.front'),
+        less: before('editor/LessModule.front'),
+        stylus: before('langs/StylusPlain.front'),
       };
       expect(await runMfFmt(root)).toEqual({code: 0, stdout: 'mf-fmt: formatted 4 of 4 files\n', stderr: ''});
       const style = (file: string, index = 0) => splitBlocks(read(root, file), file).styles[index]!.content;
-      const badge = splitBlocks(sources.css, 'Badge.ucf').styles[0]!.content;
-      expect(style('Badge.ucf')).toBe(`\n${oxfmtCli(root, 'Badge.ucf.style.css', badge)}`);
-      expect(style('editor/LessModule.ucf')).toBe(`\n${oxfmtCli(root, 'editor/LessModule.ucf.style.less', sources.less)}`);
-      expect(style('langs/StylusPlain.ucf')).toBe(sources.stylus);
+      const badge = splitBlocks(sources.css, 'Badge.front').styles[0]!.content;
+      expect(style('Badge.front')).toBe(`\n${oxfmtCli(root, 'Badge.front.style.css', badge)}`);
+      expect(style('editor/LessModule.front')).toBe(`\n${oxfmtCli(root, 'editor/LessModule.front.style.less', sources.less)}`);
+      expect(style('langs/StylusPlain.front')).toBe(sources.stylus);
       expect(read(root, MESSY)).toContain('</svelte>\n\n<style></style>\n');
     });
   });
@@ -134,7 +134,7 @@ describe('mf-fmt with other configs', () => {
         expect(formatConfigsAbove(root), 'an oxfmt config above the temp copy changes what both tools find').toEqual([]);
         linkOxfmt(root);
         // mf-lint's fixtures: only `.oxfmtrc.json` keeps them out of the count.
-        for (const file of ['.oxfmtrc.json', 'Lint.ucf', 'Clean.ucf']) rmSync(join(root, file));
+        for (const file of ['.oxfmtrc.json', 'Lint.front', 'Clean.front']) rmSync(join(root, file));
         writeFileSync(
           join(root, '.editorconfig'),
           [
@@ -146,10 +146,10 @@ describe('mf-fmt with other configs', () => {
             'insert_final_newline = false',
             'quote_type = single',
             // oxfmt's reader: a name with no `*` matches only at the top, a leading `/` never, `*` crosses folders.
-            '[Messy.ucf.style.scss]',
+            '[Messy.front.style.scss]',
             'indent_style = space',
             'indent_size = 6',
-            '[/Messy.ucf.react.tsx]',
+            '[/Messy.front.react.tsx]',
             'indent_style = space',
             '[nested*.vue]',
             'max_line_length = 40',
@@ -163,8 +163,8 @@ describe('mf-fmt with other configs', () => {
           stderr: '',
         });
         expectCliOutput(root, MESSY, '\r\n');
-        expectCliOutput(root, 'nested/Messy.ucf', '\r\n');
-        const [own, nested] = [contents(read(root, MESSY)), contents(read(root, 'nested/Messy.ucf'))];
+        expectCliOutput(root, 'nested/Messy.front', '\r\n');
+        const [own, nested] = [contents(read(root, MESSY)), contents(read(root, 'nested/Messy.front'))];
         expect(own.react).toContain("from 'react';\r\n");
         expect(own.react).toContain('\r\n\tconst [count');
         expect(own.style).toContain('\r\n      padding: $gap;');
@@ -181,8 +181,8 @@ describe('mf-fmt with other configs', () => {
       writeFileSync(join(root, 'nested', '.oxfmtrc.jsonc'), '{\n  "printWidth": 40, // narrower than the app\n}\n');
       expect(await runMfFmt(root)).toEqual({code: 0, stdout: 'mf-fmt: formatted 2 of 2 files\n', stderr: ''});
       expectCliOutput(root, MESSY);
-      expectCliOutput(root, 'nested/Messy.ucf');
-      expect(contents(read(root, 'nested/Messy.ucf')).react).not.toBe(contents(read(root, MESSY)).react);
+      expectCliOutput(root, 'nested/Messy.front');
+      expect(contents(read(root, 'nested/Messy.front')).react).not.toBe(contents(read(root, MESSY)).react);
     });
   });
 });
@@ -224,7 +224,7 @@ describe('mf-fmt --check', () => {
       });
       copyInto(root, MESSY, ['nested']);
       const both = await runMfFmt(root, ['--check', '--format', 'json']);
-      const changed = [MESSY, 'nested/Messy.ucf'];
+      const changed = [MESSY, 'nested/Messy.front'];
       expect(report(both.stdout)).toEqual({findings: changed.map(finding), errorCount: 2, warningCount: 0, files: 2, changed});
       expect((await runMfFmt(root, ['--check'])).stdout.split('\n').at(-2)).toBe('mf-fmt: 2 of 2 files not formatted');
       expect(read(root, MESSY)).toBe(ORIGINAL);
@@ -238,9 +238,9 @@ describe('mf-fmt on one file or one folder', () => {
       const source =
         '<vue lang="vue">\n<template><!-- <script>let a = ;</script> --><script-editor  v-model="code"></script-editor></template>\n' +
         '<script lang="coffee">square = (x) -> x * x</script>\n</vue>\n';
-      addFile(root, 'Lookalikes.ucf', source);
-      expect(await runMfFmt(root, ['Lookalikes.ucf'])).toEqual(FORMATTED_ONE);
-      expect(read(root, 'Lookalikes.ucf')).toContain('<script lang="coffee">\nsquare = (x) -> x * x\n</script>');
+      addFile(root, 'Lookalikes.front', source);
+      expect(await runMfFmt(root, ['Lookalikes.front'])).toEqual(FORMATTED_ONE);
+      expect(read(root, 'Lookalikes.front')).toContain('<script lang="coffee">\nsquare = (x) -> x * x\n</script>');
     });
   });
 
@@ -250,17 +250,17 @@ describe('mf-fmt on one file or one folder', () => {
       expect(await runMfFmt(root, ['nested'])).toEqual(FORMATTED_ONE);
       expect(read(root, MESSY)).toBe(ORIGINAL);
       // Under the app's config: the `./`-anchored override stays at the top, the `nested/*.vue` one reaches here.
-      expectCliOutput(root, 'nested/Messy.ucf');
+      expectCliOutput(root, 'nested/Messy.front');
       const json = await runMfFmt(root, [MESSY, '--format', 'json']);
       expect({code: json.code, stderr: json.stderr}).toEqual({code: 0, stderr: ''});
       expect(report(json.stdout)).toEqual({findings: [], errorCount: 0, warningCount: 0, files: 1, changed: [MESSY]});
-      const [own, nested] = [contents(read(root, MESSY)), contents(read(root, 'nested/Messy.ucf'))];
+      const [own, nested] = [contents(read(root, MESSY)), contents(read(root, 'nested/Messy.front'))];
       expect(nested.style).not.toBe(own.style);
       expect(nested.vue).not.toBe(own.vue);
       expect(await runMfFmt(root, [MESSY, MESSY])).toEqual({code: 0, stdout: 'mf-fmt: formatted 0 of 1 files\n', stderr: ''});
       expect(await runMfFmt(root)).toEqual({code: 0, stdout: 'mf-fmt: formatted 0 of 2 files\n', stderr: ''});
-      expect(read(root, '.hidden/Messy.ucf')).toBe(ORIGINAL);
-      expect(read(root, 'old/Messy.ucf')).toBe(ORIGINAL);
+      expect(read(root, '.hidden/Messy.front')).toBe(ORIGINAL);
+      expect(read(root, 'old/Messy.front')).toBe(ORIGINAL);
     });
   });
 });
@@ -289,7 +289,7 @@ describe('mf-fmt on blocks it cannot format', () => {
     block: message.slice(1, message.indexOf('>')) as Finding['block'],
   });
 
-  it("reports a <react> parse error at oxfmt's span in the .ucf file, past text that is not ASCII", async () => {
+  it("reports a <react> parse error at oxfmt's span in the .front file, past text that is not ASCII", async () => {
     const {source, findings} = await formatErrors((root) => {
       editFile(root, MESSY, 'setCount(count+1)', "setCount('é ü'+count+)");
       return MESSY;
@@ -309,10 +309,10 @@ describe('mf-fmt on blocks it cannot format', () => {
     });
     expect(later.findings).toEqual([formatError(MESSY, span(later.source, '</span>', 0), UNEXPECTED_SPAN)]);
     const first = await formatErrors((root) => {
-      addFile(root, 'FirstLine.ucf', '<vue><template><p>é</span></template></vue>\n');
-      return 'FirstLine.ucf';
+      addFile(root, 'FirstLine.front', '<vue><template><p>é</span></template></vue>\n');
+      return 'FirstLine.front';
     });
-    expect(first.findings).toEqual([formatError('FirstLine.ucf', span(first.source, '</span>', 0), UNEXPECTED_SPAN)]);
+    expect(first.findings).toEqual([formatError('FirstLine.front', span(first.source, '</span>', 0), UNEXPECTED_SPAN)]);
   });
 
   it('reports a <vue> <script> that does not parse at its span, past a generic holding `>` and text that is not ASCII', async () => {
@@ -330,60 +330,60 @@ describe('mf-fmt on blocks it cannot format', () => {
     const {source, findings} = await formatErrors((root) => {
       addFile(
         root,
-        'Scripts.ucf',
+        'Scripts.front',
         '<vue lang="vue">\n<script>\nexport default {}\n</script>\n<script setup>\nconst a = 1 +;\n</script>\n</vue>\n'
       );
-      return 'Scripts.ucf';
+      return 'Scripts.front';
     });
-    expect(findings).toEqual([formatError('Scripts.ucf', span(source, '+;', 1, 1), '<vue> does not parse: Unexpected token')]);
+    expect(findings).toEqual([formatError('Scripts.front', span(source, '+;', 1, 1), '<vue> does not parse: Unexpected token')]);
   });
 
   it('reports the config oxfmt rejects before a <vue> <script> that does not parse', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      addFile(root, 'Only.ucf', '<vue lang="vue">\n<script setup lang="ts">let a = ;</script>\n</vue>\n');
+      addFile(root, 'Only.front', '<vue lang="vue">\n<script setup lang="ts">let a = ;</script>\n</vue>\n');
       writeFileSync(join(root, '.oxfmtrc.json'), '{"printWidth": 1000}\n');
-      expect(await runMfFmt(root, ['Only.ucf'])).toEqual(fails(`.oxfmtrc.json: ${INVALID_PRINT_WIDTH}`));
+      expect(await runMfFmt(root, ['Only.front'])).toEqual(fails(`.oxfmtrc.json: ${INVALID_PRINT_WIDTH}`));
     });
   });
 
   it("reports an error with no position at all on the block's opening tag", async () => {
     const {source, findings} = await formatErrors((root) => {
-      addFile(root, 'Unclosed.ucf', '<vue lang="vue">\n<template><p a="1></p></template>\n</vue>\n');
-      return 'Unclosed.ucf';
+      addFile(root, 'Unclosed.front', '<vue lang="vue">\n<template><p a="1></p></template>\n</vue>\n');
+      return 'Unclosed.front';
     });
     const message = "<vue> does not parse: TypeError: Cannot read properties of null (reading 'end')";
-    expect(findings).toEqual([formatError('Unclosed.ucf', span(source, '<vue lang="vue">'), message)]);
+    expect(findings).toEqual([formatError('Unclosed.front', span(source, '<vue lang="vue">'), message)]);
   });
 
   it("reports the splitter's errors and leaves the file as written", async () => {
     await withCopy(LINT_FORMAT, async (root) => {
-      const {source} = readComponent('invalid/DuplicateReact.ucf');
-      const file = join(root, 'DuplicateReact.ucf');
+      const {source} = readComponent('invalid/DuplicateReact.front');
+      const file = join(root, 'DuplicateReact.front');
       writeFileSync(file, source);
       const split = splitBlocks(source, file);
       expect(split.errors.map(({code}) => code)).toEqual(['duplicate-target', 'duplicate-target']);
-      const run = await runMfFmt(root, ['DuplicateReact.ucf', '--format', 'json']);
+      const run = await runMfFmt(root, ['DuplicateReact.front', '--format', 'json']);
       expect({code: run.code, stderr: run.stderr}).toEqual({code: 1, stderr: ''});
       expect(report(run.stdout).findings).toEqual(
-        split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.ucf'}))
+        split.errors.map((error) => ({...findingOf(error, split), file: 'DuplicateReact.front'}))
       );
-      expect(read(root, 'DuplicateReact.ucf')).toBe(source);
+      expect(read(root, 'DuplicateReact.front')).toBe(source);
     });
   });
 });
 
 describe('mf-fmt that cannot run', () => {
-  it('names an unknown option, a file that is not .ucf, a missing path, a folder with nothing to format and an ignored file', async () => {
+  it('names an unknown option, a file that is not .front, a missing path, a folder with nothing to format and an ignored file', async () => {
     await withCopy(LINT_FORMAT, async (root) => {
       copyInto(root, MESSY, ['old']);
       mkdirSync(join(root, 'empty'));
       expect(await runMfFmt(root, ['--nope'])).toEqual(fails("unknown option '--nope'; use --check, --format or --help"));
-      expect(await runMfFmt(root, ['react.ts'])).toEqual(fails('react.ts is not a .ucf file; format it with oxfmt'));
-      expect(await runMfFmt(root, ['nope.ucf'])).toEqual(fails('nope.ucf does not exist'));
-      expect(await runMfFmt(root, ['empty'])).toEqual(fails('empty holds no .ucf file'));
-      expect(await runMfFmt(join(root, 'empty'))).toEqual(fails('. holds no .ucf file'));
-      expect(await runMfFmt(root, ['old'])).toEqual(fails('old holds no .ucf file'));
-      expect(await runMfFmt(root, ['old/Messy.ucf'])).toEqual(fails('old/Messy.ucf is ignored by .oxfmtrc.json'));
+      expect(await runMfFmt(root, ['react.ts'])).toEqual(fails('react.ts is not a .front file; format it with oxfmt'));
+      expect(await runMfFmt(root, ['nope.front'])).toEqual(fails('nope.front does not exist'));
+      expect(await runMfFmt(root, ['empty'])).toEqual(fails('empty holds no .front file'));
+      expect(await runMfFmt(join(root, 'empty'))).toEqual(fails('. holds no .front file'));
+      expect(await runMfFmt(root, ['old'])).toEqual(fails('old holds no .front file'));
+      expect(await runMfFmt(root, ['old/Messy.front'])).toEqual(fails('old/Messy.front is ignored by .oxfmtrc.json'));
     });
   });
 
@@ -462,7 +462,7 @@ describe('blockFile', () => {
       expect(block, `a <${tag}> block in ${MESSY}`).toBeDefined();
       expect(blockFile(MESSY, block!), tag).toBe(`${MESSY}.${tag}${ENDINGS[tag]}`);
     }
-    const styles = {'Badge.ucf': '.css', 'editor/LessModule.ucf': '.less', 'langs/StylusPlain.ucf': '.stylus'};
+    const styles = {'Badge.front': '.css', 'editor/LessModule.front': '.less', 'langs/StylusPlain.front': '.stylus'};
     for (const [name, ending] of Object.entries(styles)) {
       const {filename, source} = readComponent(name);
       const [style] = splitBlocks(source, filename).styles;

@@ -1,9 +1,0 @@
-
-  <script lang="ts">
-import {__ucfWarnFragment} from "virtual:multifront/scope-attrs";
-    let { items = ['one', 'two'], ...__ucfRest }: { items?: string[] } = $props()
-;(() => __ucfWarnFragment(__ucfRest, "EachRoot", "renders an {#each} block as its root"))();
-  </script>
-  {#each items as item}
-    <p class="shape"><span class="inner">{item}</span></p>
-  {/each}

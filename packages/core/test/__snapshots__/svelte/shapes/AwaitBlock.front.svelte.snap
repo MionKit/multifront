@@ -1,0 +1,17 @@
+
+  <script lang="ts">
+import "<fixtures>/components/svelte/shapes/AwaitBlock.front?front&type=style&index=0&lang.css";
+import __frontStyle from "<fixtures>/components/svelte/shapes/AwaitBlock.front?front&type=style&index=0&module&lang.js";
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let {value = Promise.resolve(1), ready = 2, ...__frontRest}: {value?: Promise<number>; ready?: number} = $props()
+  </script>
+  <div data-v-04e49cfc="" {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(__frontStyle.box, __frontRest.class)}>
+    {#await value}
+      <p data-v-04e49cfc="" class={__frontStyle.state}>Pending</p>
+    {:then result}
+      <p data-v-04e49cfc="" class={__frontStyle.state}>{result}</p>
+    {:catch error}
+      <p data-v-04e49cfc="" class={__frontStyle.state}>{String(error)}</p>
+    {/await}
+    {#await ready then result}<span data-v-04e49cfc="" class={__frontStyle.state}>{result}</span>{/await}
+  </div>

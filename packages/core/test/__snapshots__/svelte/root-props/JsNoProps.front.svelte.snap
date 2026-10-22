@@ -1,0 +1,9 @@
+
+  <svelte:options runes />
+  <script>
+import {__frontScopeAttrs, __frontSvelteClass} from "virtual:multifront/scope-attrs";
+    let count = $state(1)
+let {...__frontRest} = $props();
+  </script>
+  <!-- A JS script with no `$props()`: a library build types the line it adds in JSDoc. -->
+  <p {...__frontScopeAttrs(__frontRest, 'style')} class={__frontSvelteClass(`own`, __frontRest.class)}>{count}</p>

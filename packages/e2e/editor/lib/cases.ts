@@ -14,7 +14,7 @@ type Range = Parameters<LanguageServer['sendInlayHintRequest']>[1];
 const SEVERITY = {error: 1, warning: 2} as const;
 
 export const APP_DIR = join(FIXTURES_DIR, 'apps', 'imports');
-export const CARD = readComponent('Card.ucf');
+export const CARD = readComponent('Card.front');
 
 export function readApp(file: string): Component {
   const filename = join(APP_DIR, file);
@@ -77,7 +77,7 @@ export function appTsxCases(getServer: () => Tsserver): void {
       expect(info.displayString.replace(/\s+/g, ' ')).toContain('{ title: string; }');
     });
 
-    it("definition on <Card lands in Card.ucf's <react> block", async () => {
+    it("definition on <Card lands in Card.front's <react> block", async () => {
       const at = locate(APP.source, '<Card', 1);
       const definitions = await getServer().request<TsDefinitions>('definition', {file: APP.filename, ...at});
       expect(definitions).toHaveLength(1);
@@ -150,18 +150,18 @@ async function styleErrors(server: LanguageServer, document: Document, {filename
 
 /** The 2.6 language server cases; the caller's server has `fixtures/components` as its workspace. */
 export function languageServerCases(getServer: () => LanguageServer): void {
-  describe('the language server serves <style> of Panel.ucf', () => {
-    const {filename, source} = readComponent('Panel.ucf');
+  describe('the language server serves <style> of Panel.front', () => {
+    const {filename, source} = readComponent('Panel.front');
     const padding = source.indexOf('padding: $pad');
 
     it('completes a property name', async () => {
-      const document = await getServer().openTextDocument(filename, 'ucf');
+      const document = await getServer().openTextDocument(filename, 'front');
       const list = await getServer().sendCompletionRequest(document.uri, document.positionAt(padding + 2));
       expect(list?.items.map(({label}) => label)).toContain('padding');
     });
 
-    it('hovers a property with its CSS docs, on its range in the .ucf file', async () => {
-      const document = await getServer().openTextDocument(filename, 'ucf');
+    it('hovers a property with its CSS docs, on its range in the .front file', async () => {
+      const document = await getServer().openTextDocument(filename, 'front');
       const hover = await getServer().sendHoverRequest(document.uri, document.positionAt(padding + 2));
       expect(hover?.contents).toMatchObject({kind: 'markdown', value: expect.stringContaining('the padding area')});
       // The CSS service's range is the whole declaration.
@@ -169,7 +169,7 @@ export function languageServerCases(getServer: () => LanguageServer): void {
     });
 
     it('goes from a scss variable to its declaration', async () => {
-      const document = await getServer().openTextDocument(filename, 'ucf');
+      const document = await getServer().openTextDocument(filename, 'front');
       const use = padding + 'padding: '.length;
       const result = await getServer().sendDefinitionRequest(document.uri, document.positionAt(use + 1));
       // The CSS service's target is the whole declaration.
@@ -179,39 +179,39 @@ export function languageServerCases(getServer: () => LanguageServer): void {
     });
   });
 
-  describe('the language server reports checkBlocks on the .ucf file, minus the codes tsserver reports', () => {
+  describe('the language server reports checkBlocks on the .front file, minus the codes tsserver reports', () => {
     it.each(listComponents('invalid'))('%s', async (name) => {
-      const document = await getServer().openTextDocument(componentPath(name), 'ucf');
+      const document = await getServer().openTextDocument(componentPath(name), 'front');
       expect(await multifrontDiagnostics(getServer(), document)).toEqual(expectedDiagnostics(document, name));
     });
 
     it('reports on an unsaved buffer too (an untitled: URI, not a file)', async () => {
-      const name = 'invalid/DuplicateReact.ucf';
-      const document = await getServer().openUntitledDocument('ucf', readComponent(name).source);
+      const name = 'invalid/DuplicateReact.front';
+      const document = await getServer().openUntitledDocument('front', readComponent(name).source);
       const ours = await multifrontDiagnostics(getServer(), document);
       expect(ours.map(({code}) => code)).toContain('duplicate-target');
       expect(ours).toEqual(expectedDiagnostics(document, name));
     });
 
     it('reports nothing of ours on a valid file', async () => {
-      const document = await getServer().openTextDocument(componentPath('Card.ucf'), 'ucf');
+      const document = await getServer().openTextDocument(componentPath('Card.front'), 'front');
       expect(await multifrontDiagnostics(getServer(), document)).toEqual([]);
     });
   });
 
   // M2 goal: "Inside <style>: CSS and SCSS ... errors".
   describe('the language server reports CSS and SCSS errors inside <style>', () => {
-    it('invalid/ScssSyntaxError.ucf: an scss error inside its <style>', async () => {
-      const component = readComponent('invalid/ScssSyntaxError.ucf');
-      const document = await getServer().openTextDocument(component.filename, 'ucf');
+    it('invalid/ScssSyntaxError.front: an scss error inside its <style>', async () => {
+      const component = readComponent('invalid/ScssSyntaxError.front');
+      const document = await getServer().openTextDocument(component.filename, 'front');
       const errors = await styleErrors(getServer(), document, component);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors).toEqual(errors.map(() => ({from: 'scss', inStyle: true})));
     });
 
-    it('editor/CssDeclarationError.ucf as an unsaved buffer: a css error inside its <style>', async () => {
-      const component = readComponent('editor/CssDeclarationError.ucf');
-      const document = await getServer().openUntitledDocument('ucf', component.source);
+    it('editor/CssDeclarationError.front as an unsaved buffer: a css error inside its <style>', async () => {
+      const component = readComponent('editor/CssDeclarationError.front');
+      const document = await getServer().openUntitledDocument('front', component.source);
       const errors = await styleErrors(getServer(), document, component);
       expect(errors.length).toBeGreaterThan(0);
       expect(errors).toEqual(errors.map(() => ({from: 'css', inStyle: true})));

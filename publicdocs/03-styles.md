@@ -1,12 +1,12 @@
 # Styles
 
-The `<style>` blocks of a `.ucf` file style every framework block in it.
+The `<style>` blocks of a `.front` file style every framework block in it.
 
 ## Style Blocks
 
 Each `<style>` block works as in [Vue's `<style>`](https://vuejs.org/api/sfc-spec.html#style), with `scoped`, `module` and `lang`, `:deep()` and `:global()`, the same in every framework. In `<vue>` they work exactly as in a `.vue` file.
 
-`AllBlocks.ucf`
+`AllBlocks.front`
 
 ```vue
 <style module="classes">
@@ -38,7 +38,7 @@ export default function AllBlocks() {
 
 `v-bind()` in CSS and `:slotted()` in a `<style scoped>` work in `<vue>` only. A file with a `<react>` or `<svelte>` block that uses them fails to build for those frameworks ([`vue-only-style`](07-errors.md#component-file-errors)), so no framework renders without them.
 
-Use a CSS variable in place of `v-bind()`, and [`:deep()`](#styling-content-passed-to-a-child) in place of `:slotted()`. `Vars.ucf`:
+Use a CSS variable in place of `v-bind()`, and [`:deep()`](#styling-content-passed-to-a-child) in place of `:slotted()`. `Vars.front`:
 
 ```vue
 <style scoped>
@@ -56,9 +56,9 @@ The Vue, React and Svelte components of one file get the same scoped `data-v-*` 
 
 ## Styling a Child Component
 
-A parent's scoped style reaches the root element of a child `.ucf` component, as in Vue, but not the elements inside it. This works in every framework. Here `.badge` colors the badge's `<span>`, and `.badge-label` misses its `<em>`.
+A parent's scoped style reaches the root element of a child `.front` component, as in Vue, but not the elements inside it. This works in every framework. Here `.badge` colors the badge's `<span>`, and `.badge-label` misses its `<em>`.
 
-`ScopedPanel.ucf`
+`ScopedPanel.front`
 
 ```vue
 <style scoped>
@@ -72,7 +72,7 @@ A parent's scoped style reaches the root element of a child `.ucf` component, as
 </style>
 
 <react lang="tsx">
-import ScopedBadge from './ScopedBadge.ucf'
+import ScopedBadge from './ScopedBadge.front'
 
 export default function ScopedPanel() {
   return (
@@ -85,7 +85,7 @@ export default function ScopedPanel() {
 </react>
 ```
 
-`ScopedBadge.ucf`
+`ScopedBadge.front`
 
 ```vue
 <react lang="tsx">
@@ -103,7 +103,7 @@ What the child renders decides whether its root gets the parent's style:
 | --- | --- |
 | `<react>`: an element, also through `?:`, `&&`, `memo` or `forwardRef` | Yes |
 | `<svelte>`: one element, also one per `{#if}`, `{#key}`, `{#await}` or `<svelte:boundary>` branch | Yes |
-| Another `.ucf` component | Yes, on that component's root |
+| Another `.front` component | Yes, on that component's root |
 | `<react>`: a fragment, `<>...</>` | No, and a warning in the dev console |
 | `<svelte>`: more than one root, an `{#each}` root, or legacy syntax such as `export let` | No, and a warning in the dev console |
 | `<react>`: `null`, text, `children` or a function call | No |
@@ -115,7 +115,7 @@ What the child renders decides whether its root gets the parent's style:
 
 Content a parent passes in, as a Vue slot, React `children` or a Svelte snippet, takes the parent's scoped style. The child's own scoped style misses it in every framework, as in Vue; `:deep()` reaches it.
 
-`Frame.ucf`
+`Frame.front`
 
 ```vue
 <style scoped>

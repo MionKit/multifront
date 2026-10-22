@@ -1,11 +1,11 @@
 {
-  "code": "import Card from '../../../components/Card.ucf?framework=react';\n\nexport {Card};\n",
+  "code": "import Card from '../../../components/Card.front?framework=react';\n\nexport {Card};\n",
   "imports": [
     {
       "kind": "static",
-      "specifier": "../../../components/Card.ucf",
+      "specifier": "../../../components/Card.front",
       "start": 17,
-      "end": 47,
+      "end": 49,
       "framework": "react"
     }
   ],

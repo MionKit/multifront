@@ -1,0 +1,12 @@
+[
+  {
+    "code": "svelte-parse-error",
+    "severity": "error",
+    "message": "<svelte> does not parse: 'return' outside of function",
+    "filename": "svelte/errors/ImportParseError.front",
+    "start": 120,
+    "end": 120,
+    "line": 5,
+    "column": 2
+  }
+]
