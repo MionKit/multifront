@@ -1,6 +1,6 @@
 import {execFile} from 'node:child_process';
 import {readFileSync} from 'node:fs';
-import {cp, mkdir, mkdtemp, writeFile} from 'node:fs/promises';
+import {cp, mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {dirname, join} from 'node:path';
 import {promisify} from 'node:util';
@@ -10,7 +10,15 @@ import {parseSync} from 'oxc-parser';
 import type {ParseResult} from 'oxc-parser';
 import {runBin} from '../../editor/lib/commands.ts';
 import type {BinReport} from '../../editor/lib/commands.ts';
-import {FIXTURES_DIR, LIBRARY_DIR, TMP_DIR, copyLibrary, literalSpecifiers, removeLibrary} from '../../fixtures/index.ts';
+import {
+  FIXTURES_DIR,
+  LIBRARY_DIR,
+  TMP_DIR,
+  copyLibrary,
+  copyLibraryOutside,
+  literalSpecifiers,
+  removeLibrary,
+} from '../../fixtures/index.ts';
 
 // Plain Svelte component, runes module and the `svelte.config.js` preprocessing them.
 export const CHILD = `<script lang="ts">
@@ -58,12 +66,13 @@ export async function buildFixtureLibrary(root = LIBRARY_DIR, options: LibraryOp
   }
 }
 
-/** Each edit is a whole file's content, new or replaced. */
+/** Each edit is a whole file's content, new or replaced; `parent` puts the copy there, packages linked in. */
 export async function withEditedLibrary(
   edits: {file: string; content: string}[],
-  run: (root: string) => Promise<void>
+  run: (root: string) => Promise<void>,
+  parent?: string
 ): Promise<void> {
-  const root = await copyLibrary();
+  const root = parent ? await copyLibraryOutside([], parent) : await copyLibrary();
   try {
     for (const {file, content} of edits) {
       const path = join(root, file);
@@ -72,7 +81,7 @@ export async function withEditedLibrary(
     }
     await run(root);
   } finally {
-    await removeLibrary(root);
+    await (parent ? rm(root, {recursive: true, force: true}) : removeLibrary(root));
   }
 }
 

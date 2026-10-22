@@ -42,7 +42,8 @@ let temp: string;
 let extension: string;
 
 beforeAll(async () => {
-  temp = mkdtempSync(join(tmpdir(), 'multifront-bundle-'));
+  // tsserver lists real paths, and macOS's temp folder is a link (/var to /private/var).
+  temp = realpathSync(mkdtempSync(join(tmpdir(), 'multifront-bundle-')));
   extension = await packVsix(temp);
 }, 120_000);
 
