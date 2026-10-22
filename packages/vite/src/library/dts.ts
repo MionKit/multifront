@@ -240,33 +240,37 @@ async function withStage<Result>(job: LibraryTypesJob, run: (stage: string) => P
   }
 }
 
-/** A type-only module has no chunk: only its `.d.ts` name can clash with a component's. */
+function declarationName(tool: TypesTool, path: string, isComponent: boolean): string {
+  return isComponent ? `${path.slice(0, -tool.ucfExt.length)}.d.ts` : path.replace(/\.([cm]?)[jt]sx?$/, '.d.$1ts');
+}
+
+function clashError(job: LibraryTypesJob, one: {name: string; shown: string}, other: {name: string; shown: string}) {
+  const [first, second] = [one, other].sort((left, right) => (left.shown < right.shown ? -1 : 1));
+  return libraryError(
+    'name-clash',
+    `${job.root}/${first!.shown}`,
+    clashMessage(first!.shown, first!.name, second!.shown, second!.name)
+  );
+}
+
+/** A type-only module has no chunk: only its `.d.ts` name can clash with a component's. `caseOnly`: names one key apart. */
 function checkDeclarationNames(
   job: LibraryTypesJob,
   tool: TypesTool,
-  reached: string[],
+  paths: string[],
   shown: Map<string, string>,
-  components: Set<string>
+  components: Set<string>,
+  caseOnly = false
 ): void {
   const owners = new Map<string, {name: string; shown: string}>();
-  for (const path of reached) {
+  for (const path of paths) {
     if (!shown.has(path)) continue;
-    const name = components.has(path)
-      ? `${path.slice(0, -tool.ucfExt.length)}.d.ts`
-      : path.replace(/\.([cm]?)[jt]sx?$/, '.d.$1ts');
+    const name = declarationName(tool, path, components.has(path));
     if (name === path) continue;
     const declaration = {name, shown: shown.get(path)!};
     const owner = owners.get(fileKey(name));
-    if (!owner) {
-      owners.set(fileKey(name), declaration);
-      continue;
-    }
-    const [first, second] = [owner, declaration].sort((one, other) => (one.shown < other.shown ? -1 : 1));
-    throw libraryError(
-      'name-clash',
-      `${job.root}/${first!.shown}`,
-      clashMessage(first!.shown, first!.name, second!.shown, second!.name)
-    );
+    if (owner && !(caseOnly && owner.name === name)) throw clashError(job, owner, declaration);
+    owners.set(fileKey(name), declaration);
   }
 }
 
@@ -274,6 +278,8 @@ async function emitTypes(job: LibraryTypesJob, tool: TypesTool): Promise<string[
   const bin = toolBin(job, tool);
   return withStage(job, async (stage) => {
     const {shown, roots, components} = await stageSources(job, tool, stage);
+    // On macOS and Windows tsc resolves `./card.js` to Card.tsx and fails on its casing before any check of ours.
+    checkDeclarationNames(job, tool, [...shown.keys()], shown, new Set(components), true);
     await writeTsconfig(job, tool, stage, roots);
     const reached = await reachedRoots(bin, stage, job, shown);
     checkDeclarationNames(job, tool, reached, shown, new Set(components));
