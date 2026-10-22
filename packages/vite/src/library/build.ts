@@ -1,4 +1,4 @@
-import {existsSync} from 'node:fs';
+import {existsSync, realpathSync} from 'node:fs';
 import {readFile, readdir} from 'node:fs/promises';
 import {join, relative, resolve} from 'node:path';
 import {TARGETS, isTarget, splitBlocks} from '@multifront/core';
@@ -184,8 +184,10 @@ async function buildOne(job: TargetJob, options: LibraryOptions): Promise<Librar
 
 /** One `vite build` per framework into `<outDir>/<framework>/`: a file per component (Svelte uncompiled) and plain module. */
 export async function buildLibrary(options: LibraryOptions = {}): Promise<LibraryResult[]> {
-  const root = normalizePath(resolve(options.root ?? process.cwd()));
-  const src = normalizePath(resolve(root, options.src ?? 'src'));
+  // Vite gives real paths, so a root through a link (macOS's /var is /private/var) must be real too.
+  const real = (path: string) => normalizePath(existsSync(path) ? realpathSync(path) : path);
+  const root = real(resolve(options.root ?? process.cwd()));
+  const src = real(resolve(root, options.src ?? 'src'));
   const outDir = normalizePath(resolve(root, options.outDir ?? 'dist'));
   const index = indexEntry(root, src, options.index);
   const components = await scan(src);
