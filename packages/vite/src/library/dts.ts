@@ -253,7 +253,7 @@ function clashError(job: LibraryTypesJob, one: {name: string; shown: string}, ot
   );
 }
 
-/** A type-only module has no chunk: only its `.d.ts` name can clash with a component's. `caseOnly`: names one key apart. */
+/** A type-only module has no chunk: only its `.d.ts` name can clash with a component's. `caseOnly`: case-only clashes. */
 function checkDeclarationNames(
   job: LibraryTypesJob,
   tool: TypesTool,
