@@ -152,8 +152,8 @@ describe('buildLibrary(): .d.ts per target', () => {
 
   it('writes the .d.ts of a plain JavaScript module', async () => {
     const card = edited(CARD, REACT_IMPORTS, `${REACT_IMPORTS}  import { upper } from './utils/upper.js'\n`).replace(
-      '<Icon /> {title}',
-      '<Icon /> {upper(title)}'
+      'className={$style.title}><Icon /> {title}',
+      'className={$style.title}><Icon /> {upper(title)}'
     );
     const upper = 'export function upper(text) {\n  return text.toUpperCase();\n}\n';
     const edits = [
